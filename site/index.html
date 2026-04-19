@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>NewLaw</title>
+    <style>
+        :root {
+            color-scheme: light;
+            --bg-top: #f5efe5;
+            --bg-bottom: #d8e4ef;
+            --panel: rgba(255, 255, 255, 0.78);
+            --text: #1c2630;
+            --muted: #5f6b75;
+            --line: rgba(28, 38, 48, 0.12);
+            --accent: #a45a3a;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: grid;
+            place-items: center;
+            padding: 24px;
+            font-family: Georgia, "Times New Roman", serif;
+            color: var(--text);
+            background:
+                radial-gradient(circle at top left, rgba(164, 90, 58, 0.16), transparent 34%),
+                radial-gradient(circle at bottom right, rgba(75, 112, 148, 0.22), transparent 30%),
+                linear-gradient(160deg, var(--bg-top), var(--bg-bottom));
+        }
+
+        .card {
+            width: min(680px, 100%);
+            padding: 48px 42px;
+            border: 1px solid var(--line);
+            border-radius: 28px;
+            background: var(--panel);
+            backdrop-filter: blur(18px);
+            box-shadow: 0 28px 80px rgba(28, 38, 48, 0.14);
+        }
+
+        .eyebrow {
+            margin: 0 0 16px;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            font-size: 12px;
+            color: var(--accent);
+        }
+
+        h1 {
+            margin: 0;
+            font-size: clamp(42px, 8vw, 72px);
+            line-height: 0.95;
+            font-weight: 700;
+        }
+
+        p {
+            margin: 22px 0 0;
+            max-width: 28ch;
+            font-size: clamp(18px, 2.6vw, 22px);
+            line-height: 1.5;
+            color: var(--muted);
+        }
+
+        .divider {
+            width: 72px;
+            height: 1px;
+            margin: 28px 0 0;
+            background: var(--line);
+        }
+    </style>
+</head>
+<body>
+    <main class="card">
+        <div class="eyebrow">NewLaw</div>
+        <h1>Технические работы</h1>
+        <div class="divider"></div>
+        <p>Сайт временно недоступен. Мы уже работаем над запуском и скоро вернемся.</p>
+    </main>
+</body>
+</html>
