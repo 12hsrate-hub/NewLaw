@@ -6,7 +6,7 @@
 Главный сценарий MVP — создание жалобы в ОГП с итоговой генерацией форумного BBCode.
 
 На текущем этапе репозиторий содержит стартовую документацию проекта, bootstrap-каркас приложения, foundation для `Supabase Auth` и минимального data layer, account-security foundation, базовый защищённый пользовательский контур для работы с персонажами, инфраструктурные заготовки для production и временную maintenance page.
-Прикладная бизнес-логика документов пока не реализована, но регистрация по `login + email + password`, подтверждение email по ссылке, forgot-password, reset-password, вход, защищённый shell, выбор сервера, выбор активного персонажа и ручное управление персонажами уже подготовлены.
+Прикладная бизнес-логика документов пока не реализована, но регистрация по `login + email + password`, подтверждение email по ссылке, forgot-password, reset-password, вход по `email` или `login`, защищённый shell, выбор сервера, выбор активного персонажа и ручное управление персонажами уже подготовлены.
 Production email delivery для auth-писем зафиксирован через `Supabase Custom SMTP`, а не через встроенный email provider Supabase.
 
 ## Зафиксированный стек
@@ -64,7 +64,7 @@ Production email delivery для auth-писем зафиксирован чер
 - [AGENTS.md](./AGENTS.md) — правила ведения репозитория и границы проекта
 - [package.json](./package.json) — базовые зависимости и `pnpm`-scripts
 - [src/app](./src/app) — `App Router`, корневой layout, стартовая страница и `/api/health`
-- [src/app/sign-in](./src/app/sign-in) — публичная страница входа по email
+- [src/app/sign-in](./src/app/sign-in) — публичная страница входа по `email` или `login`
 - [src/app/sign-up](./src/app/sign-up) — публичная страница регистрации по `login`, email и паролю
 - [src/app/sign-up/check-email](./src/app/sign-up/check-email) — экран ожидания подтверждения email
 - [src/app/forgot-password](./src/app/forgot-password) — публичная страница запроса письма для восстановления пароля
@@ -119,7 +119,7 @@ Production email delivery для auth-писем зафиксирован чер
 - forgot-password page с одним полем `identifier`
 - нейтральный recovery flow по `email` или `account login`
 - reset-password page с recovery-cookie и recovery session
-- публичный вход по email и паролю
+- публичный вход по `email` или `login` и паролю
 - защищённая часть `/app`
 - app shell с выбором активного сервера
 - выбор активного персонажа в контексте сервера
@@ -279,6 +279,7 @@ pnpm prisma:generate
 5. Перейти по ссылке из письма и убедиться, что после `/auth/confirm` открывается защищённая часть `/app`.
 6. Открыть `/forgot-password`, указать email или `login` и убедиться, что показывается нейтральный экран проверки почты.
 7. Перейти по recovery-ссылке из письма, открыть `/reset-password`, задать новый пароль и убедиться, что после этого происходит redirect на `/sign-in?status=password-reset-success`.
+8. Проверить `/sign-in` дважды: сначала по email, затем по `login`, и убедиться, что обе ветки приводят к одному и тому же входу в аккаунт.
 
 Запуск тестов в watch-режиме:
 

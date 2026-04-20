@@ -1,84 +1,27 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useActionState } from "react";
 
-import {
-  isSupabaseAuthRuntimeReady,
-  signInWithEmailPassword,
-} from "@/lib/auth/email-auth";
-import { createBrowserSupabaseClient } from "@/lib/supabase/browser";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { signInAction } from "@/server/actions/auth";
 
 type SignInFormProps = {
   nextPath: string;
 };
 
-const publicRuntimeConfig = {
-  NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
-  NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-};
-
 export function SignInForm({ nextPath }: SignInFormProps) {
-  const router = useRouter();
-  const runtimeReady = isSupabaseAuthRuntimeReady(publicRuntimeConfig);
-  const supabase = useMemo(
-    () => (runtimeReady ? createBrowserSupabaseClient() : null),
-    [runtimeReady],
-  );
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [isPending, setIsPending] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setIsPending(true);
-    setErrorMessage(null);
-    setMessage(null);
-
-    try {
-      if (!supabase) {
-        setMessage(
-          "Сейчас подключены placeholder-переменные Supabase. UI доступен, но реальный вход не будет работать, пока не подставлены боевые значения.",
-        );
-        setIsPending(false);
-        return;
-      }
-
-      const result = await signInWithEmailPassword(
-        supabase,
-        {
-          email,
-          password,
-        },
-        publicRuntimeConfig,
-        nextPath,
-      );
-
-      if (result.status === "placeholder") {
-        setMessage(result.message);
-        setIsPending(false);
-        return;
-      }
-
-      if (result.status === "error") {
-        setErrorMessage(result.message);
-        setIsPending(false);
-        return;
-      }
-
-      router.push(result.nextPath);
-      router.refresh();
-    } catch {
-      setErrorMessage("Не удалось обработать вход. Проверь данные и попробуй ещё раз.");
-      setIsPending(false);
-    }
-  }
+  const initialState = {
+    errorMessage: null,
+    fieldErrors: {} as {
+      identifier?: string;
+      password?: string;
+    },
+  };
+  const [state, formAction, isPending] = useActionState(signInAction, initialState);
+  const safeState = state ?? initialState;
 
   return (
     <Card className="w-full max-w-md space-y-5">
@@ -86,25 +29,29 @@ export function SignInForm({ nextPath }: SignInFormProps) {
         <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">Вход</p>
         <h1 className="text-3xl font-semibold">Lawyer5RP</h1>
         <p className="text-sm leading-6 text-[var(--muted)]">
-          Войди по email и паролю. Если email ещё не подтверждён, сначала открой ссылку из письма.
+          Войди по email или login и паролю. Если email ещё не подтверждён, сначала открой ссылку из письма.
         </p>
       </div>
 
-      <form className="space-y-4" onSubmit={handleSubmit}>
+      <form action={formAction} className="space-y-4">
+        <input name="nextPath" type="hidden" value={nextPath} />
+
         <div className="space-y-2">
-          <label className="text-sm font-medium" htmlFor="email">
-            Email аккаунта
+          <label className="text-sm font-medium" htmlFor="identifier">
+            Email или login
           </label>
           <Input
-            autoComplete="email"
-            id="email"
-            name="email"
-            onChange={(event) => setEmail(event.target.value)}
-            placeholder="name@example.com"
+            autoCapitalize="none"
+            autoComplete="username"
+            id="identifier"
+            name="identifier"
+            placeholder="name@example.com или lawyer_user"
             required
-            type="email"
-            value={email}
+            type="text"
           />
+          {safeState.fieldErrors.identifier ? (
+            <p className="text-sm leading-6 text-[#8a2d1d]">{safeState.fieldErrors.identifier}</p>
+          ) : null}
         </div>
 
         <div className="space-y-2">
@@ -115,12 +62,13 @@ export function SignInForm({ nextPath }: SignInFormProps) {
             autoComplete="current-password"
             id="password"
             name="password"
-            onChange={(event) => setPassword(event.target.value)}
             placeholder="Минимум 8 символов"
             required
             type="password"
-            value={password}
           />
+          {safeState.fieldErrors.password ? (
+            <p className="text-sm leading-6 text-[#8a2d1d]">{safeState.fieldErrors.password}</p>
+          ) : null}
         </div>
 
         <Button disabled={isPending} fullWidth type="submit">
@@ -128,8 +76,9 @@ export function SignInForm({ nextPath }: SignInFormProps) {
         </Button>
       </form>
 
-      {message ? <p className="text-sm leading-6 text-[var(--foreground)]">{message}</p> : null}
-      {errorMessage ? <p className="text-sm leading-6 text-[#8a2d1d]">{errorMessage}</p> : null}
+      {safeState.errorMessage ? (
+        <p className="text-sm leading-6 text-[#8a2d1d]">{safeState.errorMessage}</p>
+      ) : null}
 
       <div className="space-y-1 text-sm leading-6 text-[var(--muted)]">
         <p>

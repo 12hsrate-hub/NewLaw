@@ -132,7 +132,7 @@ export function buildStatusPath(pathname: string, status: string, extraParams?: 
   return `${pathname}?${params.toString()}`;
 }
 
-function mapSignInErrorToMessage(error: AuthErrorLike) {
+export function mapSignInErrorToMessage(error: AuthErrorLike) {
   if (
     error.code === "email_not_confirmed" ||
     error.message?.toLowerCase().includes("email not confirmed")
