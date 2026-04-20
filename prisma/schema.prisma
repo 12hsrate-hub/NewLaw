@@ -41,6 +41,36 @@ enum AuditLogStatus {
   failure
 }
 
+enum LawKind {
+  primary
+  supplement
+}
+
+enum LawVersionStatus {
+  imported_draft
+  current
+  superseded
+}
+
+enum LawImportRunStatus {
+  running
+  success
+  failure
+}
+
+enum LawImportRunMode {
+  discovery
+  import_law
+}
+
+enum LawBlockType {
+  section
+  chapter
+  article
+  appendix
+  unstructured
+}
+
 model Account {
   id                      String                 @id @db.Uuid
   email                   String                 @unique
@@ -53,6 +83,7 @@ model Account {
   isSuperAdmin            Boolean                @default(false)
   characters              Character[]
   userServerState         UserServerState[]
+  confirmedLawVersions    LawVersion[]           @relation("LawVersionConfirmer")
   actorAuditLogs          AuditLog[]             @relation("AuditActor")
   targetAuditLogs         AuditLog[]             @relation("AuditTarget")
   createdAt               DateTime               @default(now())
@@ -67,6 +98,9 @@ model Server {
   sortOrder       Int               @default(0)
   characters      Character[]
   userServerState UserServerState[]
+  lawSourceIndexes LawSourceIndex[]
+  laws            Law[]
+  lawImportRuns   LawImportRun[]
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
 }
@@ -146,4 +180,127 @@ model AuditLog {
   @@index([actionKey, createdAt])
   @@index([actorAccountId, createdAt])
   @@index([targetAccountId, createdAt])
+}
+
+model LawSourceIndex {
+  id                  String             @id @default(cuid())
+  serverId            String
+  indexUrl            String
+  isEnabled           Boolean            @default(true)
+  lastDiscoveredAt    DateTime?
+  lastDiscoveryStatus LawImportRunStatus?
+  lastDiscoveryError  String?
+  server              Server             @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  importRuns          LawImportRun[]
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+
+  @@unique([serverId, indexUrl])
+  @@index([serverId, isEnabled])
+}
+
+model Law {
+  id                     String       @id @default(cuid())
+  serverId               String
+  lawKey                 String
+  title                  String
+  topicUrl               String
+  topicExternalId        String
+  lawKind                LawKind
+  relatedPrimaryLawId    String?
+  currentVersionId       String?      @unique
+  isExcluded             Boolean      @default(false)
+  classificationOverride LawKind?
+  internalNote           String?
+  server                 Server       @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  relatedPrimaryLaw      Law?         @relation("LawSupplementRelation", fields: [relatedPrimaryLawId], references: [id], onDelete: SetNull)
+  supplements            Law[]        @relation("LawSupplementRelation")
+  currentVersion         LawVersion?  @relation("CurrentLawVersion", fields: [currentVersionId], references: [id], onDelete: SetNull)
+  versions               LawVersion[] @relation("LawVersions")
+  createdAt              DateTime     @default(now())
+  updatedAt              DateTime     @updatedAt
+
+  @@unique([serverId, lawKey])
+  @@unique([serverId, topicExternalId])
+  @@index([serverId, lawKind, isExcluded])
+}
+
+model LawVersion {
+  id                 String           @id @default(cuid())
+  lawId              String
+  status             LawVersionStatus @default(imported_draft)
+  normalizedFullText String
+  sourceSnapshotHash String
+  normalizedTextHash String
+  importedAt         DateTime         @default(now())
+  confirmedAt        DateTime?
+  confirmedByAccountId String?        @db.Uuid
+  law                Law              @relation("LawVersions", fields: [lawId], references: [id], onDelete: Cascade)
+  confirmedByAccount Account?         @relation("LawVersionConfirmer", fields: [confirmedByAccountId], references: [id], onDelete: SetNull)
+  currentForLaw      Law?             @relation("CurrentLawVersion")
+  sourcePosts        LawSourcePost[]
+  blocks             LawBlock[]
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  @@unique([lawId, normalizedTextHash])
+  @@index([lawId, status, importedAt])
+}
+
+model LawSourcePost {
+  id                     String     @id @default(cuid())
+  lawVersionId           String
+  postExternalId         String
+  postUrl                String
+  postOrder              Int
+  authorName             String?
+  postedAt               DateTime?
+  rawHtml                String
+  rawText                String
+  normalizedTextFragment String
+  lawVersion             LawVersion @relation(fields: [lawVersionId], references: [id], onDelete: Cascade)
+  createdAt              DateTime   @default(now())
+
+  @@unique([lawVersionId, postExternalId])
+  @@unique([lawVersionId, postOrder])
+}
+
+model LawBlock {
+  id                      String       @id @default(cuid())
+  lawVersionId            String
+  blockType               LawBlockType
+  blockOrder              Int
+  blockTitle              String?
+  blockText               String
+  parentBlockId           String?
+  articleNumberNormalized String?
+  lawVersion              LawVersion   @relation(fields: [lawVersionId], references: [id], onDelete: Cascade)
+  parentBlock             LawBlock?    @relation("LawBlockTree", fields: [parentBlockId], references: [id], onDelete: SetNull)
+  childBlocks             LawBlock[]   @relation("LawBlockTree")
+  createdAt               DateTime     @default(now())
+  updatedAt               DateTime     @updatedAt
+
+  @@unique([lawVersionId, blockOrder])
+  @@index([lawVersionId, blockType, blockOrder])
+  @@index([lawVersionId, articleNumberNormalized])
+}
+
+model LawImportRun {
+  id            String             @id @default(cuid())
+  serverId      String
+  sourceIndexId String?
+  mode          LawImportRunMode
+  status        LawImportRunStatus
+  lockKey       String?            @unique
+  startedAt     DateTime           @default(now())
+  finishedAt    DateTime?
+  summary       String?
+  error         String?
+  server        Server             @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  sourceIndex   LawSourceIndex?    @relation(fields: [sourceIndexId], references: [id], onDelete: SetNull)
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  @@index([serverId, status, startedAt])
+  @@index([sourceIndexId, status, startedAt])
 }

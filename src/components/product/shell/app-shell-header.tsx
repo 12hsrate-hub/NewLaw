@@ -90,12 +90,20 @@ export function AppShellHeader({
             Безопасность
           </Link>
           {isSuperAdmin ? (
-            <Link
-              className="inline-flex items-center justify-center rounded-2xl border border-[var(--border)] bg-white/70 px-4 py-2.5 text-sm font-medium text-[var(--foreground)] transition hover:bg-white"
-              href="/app/admin-security"
-            >
-              Admin Security
-            </Link>
+            <>
+              <Link
+                className="inline-flex items-center justify-center rounded-2xl border border-[var(--border)] bg-white/70 px-4 py-2.5 text-sm font-medium text-[var(--foreground)] transition hover:bg-white"
+                href="/app/admin-laws"
+              >
+                Admin Laws
+              </Link>
+              <Link
+                className="inline-flex items-center justify-center rounded-2xl border border-[var(--border)] bg-white/70 px-4 py-2.5 text-sm font-medium text-[var(--foreground)] transition hover:bg-white"
+                href="/app/admin-security"
+              >
+                Admin Security
+              </Link>
+            </>
           ) : null}
           <form action={signOutAction}>
             <Button type="submit" variant="secondary">

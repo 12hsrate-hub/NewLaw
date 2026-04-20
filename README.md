@@ -5,8 +5,8 @@
 `Lawyer5RP MVP` — единое full-stack веб-приложение для подготовки документных сценариев внутри экосистемы GTA5RP.
 Главный сценарий MVP — создание жалобы в ОГП с итоговой генерацией форумного BBCode.
 
-На текущем этапе репозиторий содержит стартовую документацию проекта, bootstrap-каркас приложения, foundation для `Supabase Auth` и минимального data layer, account-security foundation, protected shell foundation для `/app` c выбором активного сервера и персонажа, базовый контур ручного управления персонажами с минимальным слоем ролей и `access flags`, минимальный `super_admin` экран для admin account-security действий, инфраструктурные заготовки для production и временную maintenance page.
-Прикладная бизнес-логика документов пока не реализована, но регистрация по `login + email + password`, подтверждение email по ссылке, forgot-password, reset-password, вход по `email` или `login`, protected shell на `/app` c active server / active character selection, базовый список/создание/редактирование персонажей для текущего сервера вместе с ролями и `access flags` на уровне `character_id`, `/app/security`, self change password, self change email, server-side admin account-security actions и минимальный `super_admin` UI для этих действий уже подготовлены.
+На текущем этапе репозиторий содержит стартовую документацию проекта, bootstrap-каркас приложения, foundation для `Supabase Auth` и минимального data layer, account-security foundation, protected shell foundation для `/app` c выбором активного сервера и персонажа, базовый контур ручного управления персонажами с минимальным слоем ролей и `access flags`, минимальные `super_admin` экраны для admin account-security и law corpus source management, law corpus schema foundation, инфраструктурные заготовки для production и временную maintenance page.
+Прикладная бизнес-логика документов пока не реализована, но регистрация по `login + email + password`, подтверждение email по ссылке, forgot-password, reset-password, вход по `email` или `login`, protected shell на `/app` c active server / active character selection, базовый список/создание/редактирование персонажей для текущего сервера вместе с ролями и `access flags` на уровне `character_id`, `/app/security`, self change password, self change email, server-side admin account-security actions, а также foundation для law corpus и server-scoped источников законодательной базы уже подготовлены.
 Production email delivery для auth-писем зафиксирован через `Supabase Custom SMTP`, а не через встроенный email provider Supabase.
 
 ## Зафиксированный стек
@@ -74,12 +74,14 @@ Production email delivery для auth-писем зафиксирован чер
 - [src/app/(protected)/app](./src/app/%28protected%29/app) — защищённая часть приложения с app shell
 - [src/app/(protected-security)/app/security](./src/app/%28protected-security%29/app/security) — защищённый экран account security
 - [src/app/(protected-admin)/app/admin-security](./src/app/%28protected-admin%29/app/admin-security) — минимальный `super_admin` экран admin account security
+- [src/app/(protected-admin)/app/admin-laws](./src/app/%28protected-admin%29/app/admin-laws) — минимальный `super_admin` экран source management для law corpus
 - [src/components](./src/components) — разделение базовых UI-компонентов и продуктовых компонентов
 - [src/server](./src/server) — серверные действия, технические обработчики и серверные модули
 - [src/server/auth](./src/server/auth) — server-side auth helpers для текущей сессии, пользователя и безопасной проверки авторизации
 - [src/server/auth/admin-security.ts](./src/server/auth/admin-security.ts) — server-side admin account-security use-cases
 - [src/server/actions/admin-security.ts](./src/server/actions/admin-security.ts) — server action-обвязка для `super_admin` UI
 - [src/server/admin-security/account-search.ts](./src/server/admin-security/account-search.ts) — поиск account-level цели по email, login или account id
+- [src/server/law-corpus](./src/server/law-corpus) — foundation services для law corpus, import lock и server-scoped source management
 - [src/server/account-security](./src/server/account-security) — foundation-логика login normalization, reserved logins и runtime backfill
 - [src/server/characters](./src/server/characters) — доменная логика ручного создания и редактирования персонажей с ограничениями аккаунта и сервера
 - [src/server/app-shell](./src/server/app-shell) — SSR логика shell, fallback состояния и server-side selection helper’ы
@@ -89,10 +91,10 @@ Production email delivery для auth-писем зафиксирован чер
 - [src/db/repositories/auth-session.repository.ts](./src/db/repositories/auth-session.repository.ts) — security helper для revoke пользовательских auth-сессий
 - [src/lib/supabase](./src/lib/supabase) — runtime-обвязка `Supabase Auth` для browser/server/middleware
 - [src/lib/supabase/service-role.ts](./src/lib/supabase/service-role.ts) — helper для service-role сценариев account-security
-- [src/schemas](./src/schemas) — `Zod`-схемы
+- [src/schemas](./src/schemas) — `Zod`-схемы, включая law corpus source validation
 - [vitest.config.ts](./vitest.config.ts) — минимальная конфигурация `Vitest`
 - [.github/workflows/ci.yml](./.github/workflows/ci.yml) — baseline CI для lint/typecheck/test/prisma
-- [prisma/schema.prisma](./prisma/schema.prisma) — Prisma-схема foundation для `Account`, `AuditLog`, `Server`, `UserServerState`, `Character`, `CharacterRole`, `CharacterAccessFlag`
+- [prisma/schema.prisma](./prisma/schema.prisma) — Prisma-схема foundation для account-security, shell/characters и law corpus
 - [prisma/migrations](./prisma/migrations) — миграции Prisma
 - [docs/product/overview.md](./docs/product/overview.md) — краткая продуктовая рамка
 - [docs/product/mvp-scope.md](./docs/product/mvp-scope.md) — фиксированный scope MVP
@@ -105,7 +107,8 @@ Production email delivery для auth-писем зафиксирован чер
 - [docs/architecture/git-workflow.md](./docs/architecture/git-workflow.md) — ветвление и релизный поток
 - [docs/architecture/testing-and-debug.md](./docs/architecture/testing-and-debug.md) — baseline проверок, smoke и наблюдаемость
 - [docs/plans/00-master-plan.md](./docs/plans/00-master-plan.md) — общий план реализации
-- [docs/plans/01-bootstrap.md](./docs/plans/01-bootstrap.md) ... [docs/plans/09-deploy-and-release.md](./docs/plans/09-deploy-and-release.md) — поэтапные планы
+- [docs/plans/05-law-corpus-and-server-legal-assistant.md](./docs/plans/05-law-corpus-and-server-legal-assistant.md) — текущий план блока law corpus
+- [docs/plans/01-bootstrap.md](./docs/plans/01-bootstrap.md) и остальные поэтапные планы — исторические и текущие шаги проекта
 - [docs/prod-access.md](./docs/prod-access.md) — текущий доступ к production-серверу
 - [scripts/check-prod-access.ps1](./scripts/check-prod-access.ps1) — быстрая проверка SSH-доступа
 - [scripts/deploy-prod.ps1](./scripts/deploy-prod.ps1) — текущая команда выкладки maintenance page
@@ -158,6 +161,17 @@ Production email delivery для auth-писем зафиксирован чер
 - минимальный `super_admin` экран `/app/admin-security`
 - поиск целевого аккаунта только по `email`, `account login` или `account id`
 - безопасный UI для admin recovery email, admin password reset и admin email change без полноценной админки
+- foundation для law corpus:
+  - `LawSourceIndex`
+  - `Law`
+  - `LawVersion`
+  - `LawSourcePost`
+  - `LawBlock`
+  - `LawImportRun`
+- минимальный `super_admin` экран `/app/admin-laws`
+- server-scoped source management для 1–2 index URL законодательной базы форума на сервер
+- manual override foundation: `isExcluded`, `classificationOverride`, `internalNote`
+- import lock / idempotency foundation через `LawImportRun.lockKey` и dedupe по `normalized_text_hash`
 - SMTP foundation для production auth email delivery через `Supabase Custom SMTP`
 - audit log для `forgot_password_requested` и `password_reset_completed`
 - audit log для `password_changed_self`, `email_change_requested_self` и `email_change_completed`
@@ -174,6 +188,10 @@ Production email delivery для auth-писем зафиксирован чер
 - `Account.email` нельзя менять напрямую вне security/use-case слоя
 - при `mustChangePassword=true` остальные protected-маршруты переводятся на `/app/security`
 - пока `pendingEmail` не подтверждён, sign-in и recovery продолжают опираться на текущий подтверждённый email или на `login`
+- law source management доступен только `super_admin`
+- для одного сервера допускается максимум `2` law source index URL
+- law source index URL допускается только с домена `forum.gta5rp.com`
+- law text не редактируется вручную через internal source management слой
 
 ## Полезные команды
 

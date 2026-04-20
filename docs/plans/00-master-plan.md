@@ -8,13 +8,15 @@
 
 1. `01-bootstrap` — каркас приложения и базовая инженерная настройка.
 2. `02-database-and-auth` — база данных, Prisma, Supabase Auth.
-3. `03-characters-and-roles` — персонажи, активный персонаж, роли и флаги доступа.
-4. `04-trustors` — карточки доверителей и их жизненный цикл.
-5. `05-ogp-complaint-wizard` — основной документный мастер MVP.
-6. `06-bbcode-generation` — генерация, просмотр и копирование BBCode.
-7. `07-admin-panel` — встроенная админка внутри того же приложения.
-8. `08-ai-integration` — серверный AI-сценарий улучшения описания.
-9. `09-deploy-and-release` — production deployment и первый релиз.
+3. `03-auth-shell-and-character-management` — account-security, protected shell и базовое управление персонажами.
+4. `04-characters-and-roles` — active server / active character selection, роли и access flags персонажа.
+5. `05-law-corpus-and-server-legal-assistant` — law corpus, версии законов и foundation для будущего server legal assistant.
+6. `06-trustors` — карточки доверителей и их жизненный цикл.
+7. `07-ogp-complaint-wizard` — основной документный мастер MVP.
+8. `08-bbcode-generation` — генерация, просмотр и копирование BBCode.
+9. `09-admin-panel` — встроенная админка внутри того же приложения.
+10. `10-ai-integration` — серверный AI-сценарий улучшения описания.
+11. `11-deploy-and-release` — production deployment и первый релиз.
 
 ## Сквозные правила
 
@@ -37,15 +39,18 @@
 - Без `01-bootstrap` нельзя начинать прикладную реализацию.
 - Без `02-database-and-auth` нельзя стабильно строить персонажей, доверителей и документы.
 - `03-characters-and-roles` и `04-trustors` нужны до полного сценария жалобы в ОГП.
-- `05-ogp-complaint-wizard` должен быть завершен до `06-bbcode-generation`.
-- `08-ai-integration` зависит от готовности формы жалобы и логирования.
-- `09-deploy-and-release` опирается на все предыдущие этапы.
+- `05-law-corpus-and-server-legal-assistant` должен быть завершен до server legal assistant и до документных сценариев, которые будут опираться на актуальные редакции законов.
+- `07-ogp-complaint-wizard` должен быть завершен до `08-bbcode-generation`.
+- `10-ai-integration` зависит от готовности формы жалобы и логирования.
+- `11-deploy-and-release` опирается на все предыдущие этапы.
 
 ## Критерии готовности MVP
 
 - Пользователь может войти в систему и выбрать сервер.
 - Пользователь может завести персонажей в рамках всех ограничений.
 - Пользователь может выбрать активного персонажа.
+- `super_admin` может завести server-scoped источники законодательной базы.
+- система хранит law corpus по серверам, версиям и логическим блокам.
 - Пользователь может создать и редактировать доверителей.
 - Пользователь может пройти мастер жалобы в ОГП.
 - Документ сохраняет слепок при первом сохранении черновика.

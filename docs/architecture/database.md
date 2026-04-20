@@ -215,6 +215,152 @@ Identity-источник:
 - логирование всех AI-вызовов
 - трассировка единственного AI-сценария MVP
 
+### law_source_indexes
+
+Server-scoped index URL для discovery законодательных тем форума.
+
+Основные поля:
+
+- `id`
+- `server_id`
+- `index_url`
+- `is_enabled`
+- `last_discovered_at`
+- `last_discovery_status`
+- `last_discovery_error`
+- `created_at`
+- `updated_at`
+
+Правила:
+
+- для одного сервера можно хранить максимум `2` index URL
+- URL допускается только с домена `forum.gta5rp.com`
+- index URL используется только для discovery тем, не как источник готового текста закона
+
+### laws
+
+Трекер закона на уровне одной forum topic.
+
+Основные поля:
+
+- `id`
+- `server_id`
+- `law_key`
+- `title`
+- `topic_url`
+- `topic_external_id`
+- `law_kind`
+- `related_primary_law_id`
+- `current_version_id`
+- `is_excluded`
+- `classification_override`
+- `internal_note`
+- `created_at`
+- `updated_at`
+
+Правила:
+
+- один закон соответствует одной теме форума
+- dedupe идёт по `server_id + topic_external_id`
+- `law_key` уникален внутри сервера
+- supplements хранятся отдельным типом и не смешиваются автоматически с основным текстом закона
+
+### law_versions
+
+Immutable snapshot импортированной редакции закона.
+
+Основные поля:
+
+- `id`
+- `law_id`
+- `status`
+- `normalized_full_text`
+- `source_snapshot_hash`
+- `normalized_text_hash`
+- `imported_at`
+- `confirmed_at`
+- `confirmed_by_account_id`
+- `created_at`
+- `updated_at`
+
+Правила:
+
+- новая найденная версия сначала сохраняется как `imported_draft`
+- только после ручного подтверждения версия становится `current`
+- unchanged import не должен плодить лишние версии
+- текст версии не редактируется вручную через внутренний UI
+
+### law_source_posts
+
+Raw source layer для версии закона.
+
+Основные поля:
+
+- `id`
+- `law_version_id`
+- `post_external_id`
+- `post_url`
+- `post_order`
+- `author_name`
+- `posted_at`
+- `raw_html`
+- `raw_text`
+- `normalized_text_fragment`
+- `created_at`
+
+Назначение:
+
+- хранить, из каких именно forum posts собрана версия закона
+- обеспечивать трассируемость import snapshot
+
+### law_blocks
+
+Логические блоки внутри одной версии закона.
+
+Основные поля:
+
+- `id`
+- `law_version_id`
+- `block_type`
+- `block_order`
+- `block_title`
+- `block_text`
+- `parent_block_id`
+- `article_number_normalized`
+- `created_at`
+- `updated_at`
+
+Правила:
+
+- основной рабочий уровень блока — `article`
+- допускаются типы `section`, `chapter`, `article`, `appendix`, `unstructured`
+- `article_number_normalized` строковый и нужен для будущего retrieval
+
+### law_import_runs
+
+Служебный журнал discovery/import запусков.
+
+Основные поля:
+
+- `id`
+- `server_id`
+- `source_index_id`
+- `mode`
+- `status`
+- `lock_key`
+- `started_at`
+- `finished_at`
+- `summary`
+- `error`
+- `created_at`
+- `updated_at`
+
+Назначение:
+
+- foundation для import lock
+- foundation для идемпотентного discovery/import workflow
+- журнал технического результата запуска без полноценного review UI
+
 ## Предлагаемые ограничения и индексы
 
 ### Уникальность персонажа по паспорту
@@ -245,6 +391,17 @@ Identity-источник:
 Для `documents.publication_url` требуется прикладная валидация:
 
 - домен строго `https://forum.gta5rp.com/`
+
+### Law corpus constraints
+
+Нужны прикладные и индексные ограничения:
+
+- `laws(server_id, topic_external_id)` — уникально
+- `laws(server_id, law_key)` — уникально
+- `law_versions(law_id, normalized_text_hash)` — уникально
+- `law_source_posts(law_version_id, post_external_id)` — уникально
+- `law_blocks(law_version_id, block_order)` — уникально
+- `law_import_runs.lock_key` — уникально для active run lock foundation
 
 ## Что хранится как слепок
 
