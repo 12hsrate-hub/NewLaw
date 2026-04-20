@@ -6,6 +6,16 @@ import { isRedirectError } from "next/dist/client/components/redirect-error";
 
 import { requireSuperAdminAccountContext } from "@/server/auth/protected";
 import {
+  confirmImportedDraftPrecedentVersionAsCurrent,
+  PrecedentRollbackInvalidStatusError,
+  PrecedentRollbackTargetMissingError,
+  PrecedentValidityRequiresCurrentVersionError,
+  PrecedentVersionReviewInvalidStatusError,
+  PrecedentVersionReviewTargetMissingError,
+  rollbackPrecedentCurrentVersion,
+  updateReviewedPrecedentValidityStatus,
+} from "@/server/precedent-corpus/current-review";
+import {
   PrecedentImportExcludedError,
   PrecedentImportNoPostsError,
   PrecedentSourceIndexMissingError,
@@ -15,8 +25,11 @@ import {
 } from "@/server/precedent-corpus/discovery-import";
 import { PrecedentImportRunConflictError } from "@/server/precedent-corpus/foundation";
 import {
+  confirmCurrentPrecedentVersionInputSchema,
+  rollbackPrecedentCurrentVersionInputSchema,
   runPrecedentSourceDiscoveryInputSchema,
   runPrecedentSourceTopicImportInputSchema,
+  updatePrecedentValidityStatusInputSchema,
 } from "@/schemas/precedent-corpus";
 
 function getRedirectTarget(formData: FormData) {
@@ -110,5 +123,94 @@ export async function runPrecedentSourceTopicImportAction(formData: FormData) {
     }
 
     redirect(buildStatusRedirect(redirectTo, "precedent-import-error"));
+  }
+}
+
+export async function confirmCurrentPrecedentVersionAction(formData: FormData) {
+  const redirectTo = getRedirectTarget(formData);
+  const protectedContext = await requireSuperAdminAccountContext(redirectTo);
+
+  try {
+    await confirmImportedDraftPrecedentVersionAsCurrent({
+      precedentVersionId: confirmCurrentPrecedentVersionInputSchema.parse({
+        precedentVersionId: String(formData.get("precedentVersionId") ?? ""),
+      }).precedentVersionId,
+      confirmedByAccountId: protectedContext.account.id,
+    });
+
+    revalidatePath("/app/admin-laws");
+    redirect(buildStatusRedirect(redirectTo, "precedent-version-confirmed"));
+  } catch (error) {
+    if (isRedirectError(error)) {
+      throw error;
+    }
+
+    if (error instanceof PrecedentVersionReviewTargetMissingError) {
+      redirect(buildStatusRedirect(redirectTo, "precedent-version-not-found"));
+    }
+
+    if (error instanceof PrecedentVersionReviewInvalidStatusError) {
+      redirect(buildStatusRedirect(redirectTo, "precedent-version-invalid-status"));
+    }
+
+    redirect(buildStatusRedirect(redirectTo, "precedent-version-confirm-error"));
+  }
+}
+
+export async function updatePrecedentValidityStatusAction(formData: FormData) {
+  const redirectTo = getRedirectTarget(formData);
+  await requireSuperAdminAccountContext(redirectTo);
+
+  try {
+    await updateReviewedPrecedentValidityStatus(
+      updatePrecedentValidityStatusInputSchema.parse({
+        precedentId: String(formData.get("precedentId") ?? ""),
+        validityStatus: String(formData.get("validityStatus") ?? ""),
+      }),
+    );
+
+    revalidatePath("/app/admin-laws");
+    redirect(buildStatusRedirect(redirectTo, "precedent-validity-updated"));
+  } catch (error) {
+    if (isRedirectError(error)) {
+      throw error;
+    }
+
+    if (error instanceof PrecedentValidityRequiresCurrentVersionError) {
+      redirect(buildStatusRedirect(redirectTo, "precedent-validity-current-required"));
+    }
+
+    redirect(buildStatusRedirect(redirectTo, "precedent-validity-update-error"));
+  }
+}
+
+export async function rollbackPrecedentCurrentVersionAction(formData: FormData) {
+  const redirectTo = getRedirectTarget(formData);
+  const protectedContext = await requireSuperAdminAccountContext(redirectTo);
+
+  try {
+    await rollbackPrecedentCurrentVersion({
+      precedentVersionId: rollbackPrecedentCurrentVersionInputSchema.parse({
+        precedentVersionId: String(formData.get("precedentVersionId") ?? ""),
+      }).precedentVersionId,
+      confirmedByAccountId: protectedContext.account.id,
+    });
+
+    revalidatePath("/app/admin-laws");
+    redirect(buildStatusRedirect(redirectTo, "precedent-version-rolled-back"));
+  } catch (error) {
+    if (isRedirectError(error)) {
+      throw error;
+    }
+
+    if (error instanceof PrecedentRollbackTargetMissingError) {
+      redirect(buildStatusRedirect(redirectTo, "precedent-rollback-target-not-found"));
+    }
+
+    if (error instanceof PrecedentRollbackInvalidStatusError) {
+      redirect(buildStatusRedirect(redirectTo, "precedent-rollback-invalid-status"));
+    }
+
+    redirect(buildStatusRedirect(redirectTo, "precedent-rollback-error"));
   }
 }

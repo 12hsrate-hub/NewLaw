@@ -12,6 +12,8 @@ import {
 import {
   createPrecedentVersionRecord,
   findPrecedentVersionByNormalizedHash,
+  listPrecedentVersionsByPrecedent,
+  updatePrecedentVersionMutableFields,
 } from "@/db/repositories/precedent-version.repository";
 import { replacePrecedentBlocksForVersion } from "@/db/repositories/precedent-block.repository";
 import { replacePrecedentSourcePostsForVersion } from "@/db/repositories/precedent-source-post.repository";
@@ -33,6 +35,8 @@ type PrecedentFoundationRepository = {
   finishPrecedentImportRunRecord: typeof finishPrecedentImportRunRecord;
   findPrecedentVersionByNormalizedHash: typeof findPrecedentVersionByNormalizedHash;
   createPrecedentVersionRecord: typeof createPrecedentVersionRecord;
+  listPrecedentVersionsByPrecedent: typeof listPrecedentVersionsByPrecedent;
+  updatePrecedentVersionMutableFields: typeof updatePrecedentVersionMutableFields;
   replacePrecedentSourcePostsForVersion: typeof replacePrecedentSourcePostsForVersion;
   replacePrecedentBlocksForVersion: typeof replacePrecedentBlocksForVersion;
 };
@@ -47,6 +51,8 @@ const defaultRepository: PrecedentFoundationRepository = {
   finishPrecedentImportRunRecord,
   findPrecedentVersionByNormalizedHash,
   createPrecedentVersionRecord,
+  listPrecedentVersionsByPrecedent,
+  updatePrecedentVersionMutableFields,
   replacePrecedentSourcePostsForVersion,
   replacePrecedentBlocksForVersion,
 };
@@ -202,6 +208,14 @@ export async function createImportedDraftPrecedentVersion(
 
   if (existingVersion) {
     return existingVersion;
+  }
+
+  const existingVersions = await repository.listPrecedentVersionsByPrecedent(parsed.precedentId);
+
+  for (const existingDraft of existingVersions.filter((version) => version.status === "imported_draft")) {
+    await repository.updatePrecedentVersionMutableFields(existingDraft.id, {
+      status: "superseded",
+    });
   }
 
   return repository.createPrecedentVersionRecord(parsed);

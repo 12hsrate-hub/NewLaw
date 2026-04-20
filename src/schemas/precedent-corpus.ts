@@ -225,6 +225,14 @@ export const runPrecedentSourceTopicImportInputSchema = z.object({
   sourceTopicId: precedentSourceTopicIdSchema,
 });
 
+export const confirmCurrentPrecedentVersionInputSchema = z.object({
+  precedentVersionId: precedentVersionIdSchema,
+});
+
+export const rollbackPrecedentCurrentVersionInputSchema = z.object({
+  precedentVersionId: precedentVersionIdSchema,
+});
+
 export type PrecedentTopicClassificationOverride = z.infer<
   typeof precedentTopicClassificationOverrideSchema
 >;
@@ -259,4 +267,10 @@ export type RunPrecedentSourceDiscoveryInput = z.infer<
 >;
 export type RunPrecedentSourceTopicImportInput = z.infer<
   typeof runPrecedentSourceTopicImportInputSchema
+>;
+export type ConfirmCurrentPrecedentVersionInput = z.infer<
+  typeof confirmCurrentPrecedentVersionInputSchema
+>;
+export type RollbackPrecedentCurrentVersionInput = z.infer<
+  typeof rollbackPrecedentCurrentVersionInputSchema
 >;

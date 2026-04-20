@@ -76,7 +76,7 @@ Production email delivery для auth-писем зафиксирован чер
 - [src/app/(protected)/app](./src/app/%28protected%29/app) — защищённая часть приложения с app shell
 - [src/app/(protected-security)/app/security](./src/app/%28protected-security%29/app/security) — защищённый экран account security
 - [src/app/(protected-admin)/app/admin-security](./src/app/%28protected-admin%29/app/admin-security) — минимальный `super_admin` экран admin account security
-- [src/app/(protected-admin)/app/admin-laws](./src/app/%28protected-admin%29/app/admin-laws) — минимальный `super_admin` экран source management, review и retrieval preview для law corpus, а также foundation-секция для precedents corpus
+- [src/app/(protected-admin)/app/admin-laws](./src/app/%28protected-admin%29/app/admin-laws) — минимальный `super_admin` экран source management, review и retrieval preview для law corpus, а также precedent review-секция с current/validity workflow
 - [src/components](./src/components) — разделение базовых UI-компонентов и продуктовых компонентов
 - [src/server](./src/server) — серверные действия, технические обработчики и серверные модули
 - [src/server/auth](./src/server/auth) — server-side auth helpers для текущей сессии, пользователя и безопасной проверки авторизации
@@ -84,7 +84,7 @@ Production email delivery для auth-писем зафиксирован чер
 - [src/server/actions/admin-security.ts](./src/server/actions/admin-security.ts) — server action-обвязка для `super_admin` UI
 - [src/server/admin-security/account-search.ts](./src/server/admin-security/account-search.ts) — поиск account-level цели по email, login или account id
 - [src/server/law-corpus](./src/server/law-corpus) — foundation services для law corpus, import lock, current-version workflow и server-scoped retrieval
-- [src/server/precedent-corpus](./src/server/precedent-corpus) — separate precedent-pipeline: source topic foundation, discovery/import/split, normalization и block segmentation без current-review и без assistant integration
+- [src/server/precedent-corpus](./src/server/precedent-corpus) — separate precedent-pipeline: source topic foundation, discovery/import/split, manual current-review, validity workflow и rollback foundation без assistant integration
 - [src/server/legal-assistant](./src/server/legal-assistant) — guest access layer, proxy-aware answer pipeline и public assistant services
 - [src/server/account-security](./src/server/account-security) — foundation-логика login normalization, reserved logins и runtime backfill
 - [src/server/characters](./src/server/characters) — доменная логика ручного создания и редактирования персонажей с ограничениями аккаунта и сервера
@@ -113,7 +113,7 @@ Production email delivery для auth-писем зафиксирован чер
 - [docs/architecture/testing-and-debug.md](./docs/architecture/testing-and-debug.md) — baseline проверок, smoke и наблюдаемость
 - [docs/plans/00-master-plan.md](./docs/plans/00-master-plan.md) — общий план реализации
 - [docs/plans/05-law-corpus-and-server-legal-assistant.md](./docs/plans/05-law-corpus-and-server-legal-assistant.md) — текущий план блока law corpus, retrieval foundation и server legal assistant
-- [docs/plans/06-judicial-precedents-corpus.md](./docs/plans/06-judicial-precedents-corpus.md) — план и текущий статус separate precedent-pipeline, review и будущей assistant integration
+- [docs/plans/06-judicial-precedents-corpus.md](./docs/plans/06-judicial-precedents-corpus.md) — план и текущий статус separate precedent-pipeline, current-review/validity workflow и будущей assistant integration
 - [docs/plans/01-bootstrap.md](./docs/plans/01-bootstrap.md) и остальные поэтапные планы — исторические и текущие шаги проекта
 - [docs/prod-access.md](./docs/prod-access.md) — текущий доступ к production-серверу
 - [scripts/check-prod-access.ps1](./scripts/check-prod-access.ps1) — быстрая проверка SSH-доступа
@@ -236,6 +236,11 @@ Production email delivery для auth-писем зафиксирован чер
   - `normalized_full_text`, `source_snapshot_hash`, `normalized_text_hash` для каждого extracted precedent
   - segmentation в `PrecedentBlock` с типами `facts`, `issue`, `holding`, `reasoning`, `resolution`, `unstructured`
   - создание новых precedent versions только как `imported_draft`, без auto-current
+- precedent current-review foundation:
+  - manual `imported_draft -> current` workflow только для `super_admin`
+  - отдельный `validity_status` workflow (`applicable`, `limited`, `obsolete`)
+  - minimal review summary по source topic, source posts, blocks и hashes
+  - rollback foundation на superseded precedent version без поломки version history
 
 Бизнес-ограничения этого слоя уже работают на серверной стороне:
 
@@ -263,6 +268,10 @@ Production email delivery для auth-писем зафиксирован чер
 - source topic precedents могут split-иться в один или несколько extracted precedents
 - если split precedents ненадёжен, pipeline fallback-ится в один precedent на весь topic snapshot
 - imported precedent versions создаются только как `imported_draft` и не переключаются в `current` автоматически
+- precedent current-review и validity workflow доступны только `super_admin`
+- у одного precedent в один момент времени может быть только одна `current` версия
+- rollback возвращает superseded precedent version в `current` без удаления history
+- structurally weak precedent draft даёт warning для review, а не автоматический запрет confirm
 - подтверждение `imported_draft -> current` доступно только `super_admin`
 - retrieval law corpus работает только в контексте выбранного `server_id`
 - в retrieval по умолчанию участвуют только `primary` laws со статусом `current`

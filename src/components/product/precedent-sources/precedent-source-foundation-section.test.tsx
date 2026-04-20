@@ -25,13 +25,13 @@ describe("precedent source foundation section", () => {
       />,
     );
 
-    expect(html).toContain("Precedent Source Topic Foundation");
+    expect(html).toContain("Precedent Corpus Review");
     expect(html).toContain("Blackberry");
     expect(html).toContain("precedent source topics пока не заведены");
     expect(html).toContain("Запустить precedent discovery");
   });
 
-  it("показывает source topic list, manual override и precedent import foundation", () => {
+  it("показывает source topic list, manual override и precedent review controls", () => {
     const html = renderToStaticMarkup(
       <PrecedentSourceFoundationSection
         servers={[
@@ -80,6 +80,20 @@ describe("precedent source foundation section", () => {
                 currentVersionId: null,
                 latestVersionStatus: "imported_draft",
                 versionCount: 1,
+                versions: [
+                  {
+                    id: "version-1",
+                    status: "imported_draft",
+                    importedAt: new Date("2026-04-20T10:00:00.000Z"),
+                    confirmedAt: null,
+                    confirmedByAccountEmail: null,
+                    sourcePostsCount: 2,
+                    blocksCount: 1,
+                    sourceSnapshotHash: "source-hash",
+                    normalizedTextHash: "normalized-hash",
+                    blockTypes: ["unstructured"],
+                  },
+                ],
               },
             ],
           },
@@ -94,6 +108,9 @@ describe("precedent source foundation section", () => {
     expect(html).toContain("Добавить precedent source topic");
     expect(html).toContain("Импортировать source topic");
     expect(html).toContain("Судебный прецедент № 1");
+    expect(html).toContain("Подтвердить как current");
+    expect(html).toContain("Обновить validity");
+    expect(html).toContain("weak-structure warning");
     expect(html).toContain("не смешиваются");
   });
 });

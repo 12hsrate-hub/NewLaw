@@ -4,7 +4,8 @@
 
 `06.1` архитектурный план precedent corpus утверждён.  
 `06.2 precedent schema + source topic foundation` выполнен.  
-`06.3 precedent discovery / import / split foundation` выполнен.
+`06.3 precedent discovery / import / split foundation` выполнен.  
+`06.4 precedents current-review + validity workflow` выполнен.
 
 На текущем шаге блок уже умеет:
 
@@ -27,10 +28,13 @@
 - строить `normalized_full_text`, `source_snapshot_hash`, `normalized_text_hash`
 - сегментировать precedent в `PrecedentBlock`
 - создавать новые precedent versions только как `imported_draft`
+- вручную подтверждать `imported_draft -> current` только через `super_admin`
+- управлять `validity_status` отдельно от version status
+- показывать minimal precedent review section внутри `/app/admin-laws`
+- выполнять rollback на superseded precedent version без поломки version history
 
 Что ещё не входит в блок на этом шаге:
 
-- current review workflow
 - assistant integration
 - embeddings, vector search, reranking
 - documents, `BBCode`, forum publishing, AI document generation
@@ -347,19 +351,99 @@ Validity status:
 
 ## Следующие подшаги блока
 
-### 06.4 — review/current/validity workflow
+## Что сделано в 06.4
 
-Входит:
+### Current-review workflow
 
-- internal review controls для precedents
-- ручной `imported_draft -> current`
-- `superseded` transition
-- управление `validity_status`
+Добавлен ручной review lifecycle для precedents:
 
-Не входит:
+- `imported_draft -> current` доступен только `super_admin`
+- у одного precedent в один момент времени может быть только одна `current` версия
+- при confirm:
+  - новая `imported_draft` версия становится `current`
+  - старая `current`, если была, переводится в `superseded`
+  - `Precedent.currentVersionId` обновляется
+  - `confirmedAt` и `confirmedByAccountId` заполняются
 
-- retrieval assistant
-- public precedent UI
+Автоматического promote по-прежнему нет.
+
+### Validity workflow
+
+`validity_status` управляется отдельно от version lifecycle.
+
+Поддерживаются значения:
+
+- `applicable`
+- `limited`
+- `obsolete`
+
+Зафиксированная safe-policy этого шага:
+
+- `validity_status` обновляется только после выбора `current` версии precedent
+- `obsolete` позже не должен участвовать в assistant retrieval по умолчанию
+- assistant integration на этом шаге по-прежнему не делается
+
+### Minimal internal review UI
+
+В `/app/admin-laws` добавлена minimal precedent review section, где `super_admin` видит:
+
+- precedent source topics
+- extracted precedents
+- versions
+- current version / отсутствие current
+- `validity_status`
+- summary по source posts, blocks, hashes и imported/confirmed timestamps
+
+Доступные действия:
+
+- confirm `imported_draft -> current`
+- update `validity_status`
+- rollback на superseded version
+
+Полноценный visual diff viewer всё ещё не делается, но review уже не идёт вслепую.
+
+### Review summary и warning path
+
+Перед confirm и rollback показывается минимальный review summary:
+
+- какой это precedent
+- из какого source topic он получен
+- сколько source posts
+- сколько blocks
+- `source_snapshot_hash`
+- `normalized_text_hash`
+- краткая сводка относительно текущей current версии
+
+Если draft структурно слабый, например почти весь `unstructured`, это даёт warning path для `super_admin`, но не жёсткий auto-block.
+
+### Rollback foundation
+
+Заложен безопасный rollback foundation:
+
+- superseded version можно вернуть в `current`
+- действующая current-версия при этом уходит в `superseded`
+- version history не ломается и не переписывается
+
+### Ограничения draft workflow
+
+Для одного precedent сохраняется только один активный `imported_draft`.
+
+Если import приносит новый draft, старый активный draft переводится в `superseded`, а не остаётся бесконтрольно висеть рядом.
+
+## Acceptance для 06.4
+
+- imported_draft precedent можно подтвердить как current только для `super_admin`
+- после confirm старая current становится `superseded`
+- `Precedent.currentVersionId` обновляется корректно
+- `confirmedAt` и `confirmedByAccountId` сохраняются
+- `validity_status` сохраняется и обновляется отдельно от version status
+- rollback возвращает superseded precedent version в `current`
+- только один активный draft остаётся на precedent
+- structurally weak draft даёт warning path, а не auto-block
+- `/app/admin-laws` precedent review controls недоступны `non-super-admin`
+- precedents после `06.4` всё ещё не участвуют в assistant автоматически
+
+## Следующие подшаги блока
 
 ### 06.5 — assistant precedents integration
 

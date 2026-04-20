@@ -43,6 +43,68 @@ export async function listPrecedentSourceTopics(db: PrismaLike = prisma) {
   });
 }
 
+export async function listPrecedentSourceTopicsForAdminReview(db: PrismaLike = prisma) {
+  return db.precedentSourceTopic.findMany({
+    include: {
+      server: true,
+      sourceIndex: true,
+      importRuns: {
+        orderBy: [{ startedAt: "desc" }],
+        take: 1,
+      },
+      precedents: {
+        include: {
+          currentVersion: {
+            include: {
+              confirmedByAccount: true,
+              blocks: {
+                select: {
+                  blockType: true,
+                },
+              },
+              _count: {
+                select: {
+                  sourcePosts: true,
+                  blocks: true,
+                },
+              },
+            },
+          },
+          versions: {
+            include: {
+              confirmedByAccount: true,
+              blocks: {
+                select: {
+                  blockType: true,
+                },
+              },
+              _count: {
+                select: {
+                  sourcePosts: true,
+                  blocks: true,
+                },
+              },
+            },
+            orderBy: [{ importedAt: "desc" }],
+          },
+          _count: {
+            select: {
+              versions: true,
+            },
+          },
+        },
+        orderBy: [{ displayTitle: "asc" }],
+      },
+      _count: {
+        select: {
+          precedents: true,
+        },
+      },
+    },
+    orderBy: [{ server: { sortOrder: "asc" } }, { createdAt: "asc" }],
+  });
+}
+
 export async function listPrecedentSourceTopicsByServer(serverId: string, db: PrismaLike = prisma) {
   return db.precedentSourceTopic.findMany({
     where: {

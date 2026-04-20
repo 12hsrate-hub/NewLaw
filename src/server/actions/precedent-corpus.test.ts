@@ -34,15 +34,34 @@ vi.mock("@/server/precedent-corpus/discovery-import", () => ({
   runPrecedentSourceTopicImport: vi.fn(),
 }));
 
+vi.mock("@/server/precedent-corpus/current-review", () => ({
+  PrecedentVersionReviewTargetMissingError: class PrecedentVersionReviewTargetMissingError extends Error {},
+  PrecedentVersionReviewInvalidStatusError: class PrecedentVersionReviewInvalidStatusError extends Error {},
+  PrecedentValidityRequiresCurrentVersionError: class PrecedentValidityRequiresCurrentVersionError extends Error {},
+  PrecedentRollbackTargetMissingError: class PrecedentRollbackTargetMissingError extends Error {},
+  PrecedentRollbackInvalidStatusError: class PrecedentRollbackInvalidStatusError extends Error {},
+  confirmImportedDraftPrecedentVersionAsCurrent: vi.fn(),
+  updateReviewedPrecedentValidityStatus: vi.fn(),
+  rollbackPrecedentCurrentVersion: vi.fn(),
+}));
+
 vi.mock("@/server/precedent-corpus/foundation", () => ({
   PrecedentImportRunConflictError: class PrecedentImportRunConflictError extends Error {},
 }));
 
 import {
+  confirmCurrentPrecedentVersionAction,
+  rollbackPrecedentCurrentVersionAction,
   runPrecedentSourceDiscoveryAction,
   runPrecedentSourceTopicImportAction,
+  updatePrecedentValidityStatusAction,
 } from "@/server/actions/precedent-corpus";
 import { requireSuperAdminAccountContext } from "@/server/auth/protected";
+import {
+  confirmImportedDraftPrecedentVersionAsCurrent,
+  rollbackPrecedentCurrentVersion,
+  updateReviewedPrecedentValidityStatus,
+} from "@/server/precedent-corpus/current-review";
 import {
   PrecedentImportExcludedError,
   PrecedentImportNoPostsError,
@@ -134,5 +153,66 @@ describe("precedent corpus actions", () => {
       runPrecedentSourceTopicImportAction(excludedFormData),
       "/app/admin-laws?status=precedent-import-excluded",
     );
+  });
+
+  it("подтверждает imported_draft precedent version как current только через super_admin guard", async () => {
+    const formData = new FormData();
+    formData.set("precedentVersionId", "precedent-version-draft");
+
+    vi.mocked(confirmImportedDraftPrecedentVersionAsCurrent).mockResolvedValue({
+      precedentVersionId: "precedent-version-draft",
+      status: "current",
+    } as never);
+
+    await expectRedirect(
+      confirmCurrentPrecedentVersionAction(formData),
+      "/app/admin-laws?status=precedent-version-confirmed",
+    );
+
+    expect(confirmImportedDraftPrecedentVersionAsCurrent).toHaveBeenCalledWith({
+      precedentVersionId: "precedent-version-draft",
+      confirmedByAccountId: "account-1",
+    });
+  });
+
+  it("обновляет precedent validity status только через super_admin guard", async () => {
+    const formData = new FormData();
+    formData.set("precedentId", "precedent-1");
+    formData.set("validityStatus", "limited");
+
+    vi.mocked(updateReviewedPrecedentValidityStatus).mockResolvedValue({
+      id: "precedent-1",
+      validityStatus: "limited",
+    } as never);
+
+    await expectRedirect(
+      updatePrecedentValidityStatusAction(formData),
+      "/app/admin-laws?status=precedent-validity-updated",
+    );
+
+    expect(updateReviewedPrecedentValidityStatus).toHaveBeenCalledWith({
+      precedentId: "precedent-1",
+      validityStatus: "limited",
+    });
+  });
+
+  it("выполняет precedent rollback только через super_admin guard", async () => {
+    const formData = new FormData();
+    formData.set("precedentVersionId", "precedent-version-old-current");
+
+    vi.mocked(rollbackPrecedentCurrentVersion).mockResolvedValue({
+      precedentVersionId: "precedent-version-old-current",
+      status: "current",
+    } as never);
+
+    await expectRedirect(
+      rollbackPrecedentCurrentVersionAction(formData),
+      "/app/admin-laws?status=precedent-version-rolled-back",
+    );
+
+    expect(rollbackPrecedentCurrentVersion).toHaveBeenCalledWith({
+      precedentVersionId: "precedent-version-old-current",
+      confirmedByAccountId: "account-1",
+    });
   });
 });

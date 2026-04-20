@@ -14,7 +14,7 @@ vi.mock("@/db/repositories/law.repository", () => ({
 }));
 
 vi.mock("@/db/repositories/precedent-source-topic.repository", () => ({
-  listPrecedentSourceTopics: vi.fn(),
+  listPrecedentSourceTopicsForAdminReview: vi.fn(),
 }));
 
 vi.mock("@/server/law-corpus/retrieval", () => ({
@@ -24,7 +24,7 @@ vi.mock("@/server/law-corpus/retrieval", () => ({
 import AdminLawsPage from "@/app/(protected-admin)/app/admin-laws/page";
 import { listLawSourceIndexes } from "@/db/repositories/law-source-index.repository";
 import { listLawsForAdminReview } from "@/db/repositories/law.repository";
-import { listPrecedentSourceTopics } from "@/db/repositories/precedent-source-topic.repository";
+import { listPrecedentSourceTopicsForAdminReview } from "@/db/repositories/precedent-source-topic.repository";
 import { getAppShellContext } from "@/server/app-shell/context";
 import { searchCurrentLawCorpus } from "@/server/law-corpus/retrieval";
 
@@ -94,7 +94,7 @@ describe("/app/admin-laws", () => {
         },
       },
     ] as never);
-    vi.mocked(listPrecedentSourceTopics).mockResolvedValue([
+    vi.mocked(listPrecedentSourceTopicsForAdminReview).mockResolvedValue([
       {
         id: "precedent-topic-1",
         serverId: "server-1",
@@ -129,12 +129,20 @@ describe("/app/admin-laws", () => {
             precedentLocatorKey: "precedent_1",
             validityStatus: "applicable",
             currentVersionId: null,
-            currentVersion: null,
             versions: [
               {
                 id: "precedent-version-1",
                 status: "imported_draft",
                 importedAt: new Date("2026-04-20T10:00:00.000Z"),
+                confirmedAt: null,
+                sourceSnapshotHash: "precedent-source-hash",
+                normalizedTextHash: "precedent-normalized-hash",
+                confirmedByAccount: null,
+                blocks: [{ blockType: "unstructured" }],
+                _count: {
+                  sourcePosts: 2,
+                  blocks: 1,
+                },
               },
             ],
             _count: {
@@ -205,9 +213,11 @@ describe("/app/admin-laws", () => {
     expect(html).toContain("Подтвердить как current");
     expect(html).toContain("corpus_bootstrap_incomplete");
     expect(html).toContain("Current Primary Law Retrieval");
-    expect(html).toContain("Precedent Source Topic Foundation");
+    expect(html).toContain("Precedent Corpus Review");
     expect(html).toContain("Решение Верховного суда");
     expect(html).toContain("Импортировать source topic");
     expect(html).toContain("Судебный прецедент № 1");
+    expect(html).toContain("Подтвердить как current");
+    expect(html).toContain("weak-structure warning");
   });
 });

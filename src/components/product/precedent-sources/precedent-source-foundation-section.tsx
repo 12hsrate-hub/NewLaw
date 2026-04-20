@@ -1,14 +1,18 @@
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  confirmCurrentPrecedentVersionAction,
+  rollbackPrecedentCurrentVersionAction,
+  runPrecedentSourceDiscoveryAction,
+  runPrecedentSourceTopicImportAction,
+  updatePrecedentValidityStatusAction,
+} from "@/server/actions/precedent-corpus";
 import {
   createPrecedentSourceTopicAction,
   updatePrecedentSourceTopicAction,
 } from "@/server/actions/precedent-sources";
-import {
-  runPrecedentSourceDiscoveryAction,
-  runPrecedentSourceTopicImportAction,
-} from "@/server/actions/precedent-corpus";
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
+import { isStructurallyWeakPrecedentVersion } from "@/server/precedent-corpus/current-review";
 
 type ServerItem = {
   id: string;
@@ -20,6 +24,19 @@ type LawSourceIndexItem = {
   serverId: string;
   indexUrl: string;
   isEnabled: boolean;
+};
+
+type PrecedentVersionItem = {
+  id: string;
+  status: "imported_draft" | "current" | "superseded";
+  importedAt: Date;
+  confirmedAt: Date | null;
+  confirmedByAccountEmail: string | null;
+  sourcePostsCount: number;
+  blocksCount: number;
+  sourceSnapshotHash: string;
+  normalizedTextHash: string;
+  blockTypes: Array<"facts" | "issue" | "holding" | "reasoning" | "resolution" | "unstructured">;
 };
 
 type PrecedentSourceTopicItem = {
@@ -54,6 +71,7 @@ type PrecedentSourceTopicItem = {
     currentVersionId: string | null;
     latestVersionStatus: "imported_draft" | "current" | "superseded" | null;
     versionCount: number;
+    versions: PrecedentVersionItem[];
   }>;
 };
 
@@ -81,7 +99,7 @@ function resolveStatusMessage(status?: string) {
     case "precedent-source-update-error":
       return "Не удалось обновить manual override поля precedent source topic.";
     case "precedent-discovery-success":
-      return "Precedent discovery завершён. Source topics обновлены без current-review и без assistant integration.";
+      return "Precedent discovery завершён. Source topics обновлены через отдельный precedent pipeline.";
     case "precedent-discovery-running":
       return "Precedent discovery уже выполняется для этого index URL.";
     case "precedent-discovery-error":
@@ -100,6 +118,28 @@ function resolveStatusMessage(status?: string) {
       return "Этот precedent source topic помечен как excluded и не должен импортироваться через обычный workflow.";
     case "precedent-import-error":
       return "Precedent import завершился с ошибкой.";
+    case "precedent-version-confirmed":
+      return "Imported draft precedent version подтверждена как current.";
+    case "precedent-version-not-found":
+      return "Версия прецедента для review не найдена.";
+    case "precedent-version-invalid-status":
+      return "Подтвердить как current можно только imported_draft версию прецедента.";
+    case "precedent-version-confirm-error":
+      return "Не удалось подтвердить precedent version как current.";
+    case "precedent-validity-updated":
+      return "Validity status прецедента обновлён.";
+    case "precedent-validity-current-required":
+      return "Сначала нужно выбрать current версию прецедента, а уже потом менять validity status.";
+    case "precedent-validity-update-error":
+      return "Не удалось обновить validity status прецедента.";
+    case "precedent-version-rolled-back":
+      return "Rollback precedent version выполнен: superseded версия восстановлена как current.";
+    case "precedent-rollback-target-not-found":
+      return "Версия прецедента для rollback не найдена.";
+    case "precedent-rollback-invalid-status":
+      return "Rollback доступен только для superseded precedent version.";
+    case "precedent-rollback-error":
+      return "Не удалось выполнить rollback precedent version.";
     default:
       return null;
   }
@@ -114,6 +154,25 @@ function formatDateTime(value: Date | null) {
     dateStyle: "short",
     timeStyle: "short",
   });
+}
+
+function getVersionDiffSummary(
+  version: PrecedentVersionItem,
+  currentVersion: PrecedentVersionItem | null,
+) {
+  if (!currentVersion) {
+    return "Current version ещё не выбрана, поэтому confirm идёт как первый подтверждённый snapshot.";
+  }
+
+  if (currentVersion.id === version.id) {
+    return "Это текущая подтверждённая версия precedent.";
+  }
+
+  if (currentVersion.normalizedTextHash === version.normalizedTextHash) {
+    return "normalized_text_hash совпадает с current версией. Review нужен только на случай ручного rollback.";
+  }
+
+  return "normalized_text_hash отличается от current версии. Перед confirm или rollback проверь summary, hashes и block structure.";
 }
 
 export function PrecedentSourceFoundationSection({
@@ -131,19 +190,18 @@ export function PrecedentSourceFoundationSection({
           <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">
             Judicial Precedents
           </p>
-          <h2 className="text-2xl font-semibold">Precedent Source Topic Foundation</h2>
+          <h2 className="text-2xl font-semibold">Precedent Corpus Review</h2>
           <p className="text-sm leading-6 text-[var(--muted)]">
-            На этом шаге доступны только foundation-данные precedents corpus: отдельные source
-            topics, manual override поля и признак включения или исключения. Discovery, import,
-            split topic на несколько precedents, current review и assistant integration сюда пока
-            не входят.
+            На этом шаге доступны separate precedent pipeline, manual current-review, отдельный
+            validity workflow и минимальный rollback foundation. Assistant integration и unified
+            law + precedent retrieval сюда по-прежнему не входят.
           </p>
         </div>
 
         <div className="rounded-2xl border border-[#d7c4b6] bg-[#fff5eb] px-4 py-3 text-sm leading-6 text-[#7a3f1d]">
           Precedents остаются отдельным corpus. Они не сохраняются как `law_kind`, не смешиваются
-          с `supplement` и не попадают в текущий assistant автоматически. Текст precedent вручную
-          на сайте не редактируется.
+          с `supplement` и не попадают в текущий assistant автоматически. Review идёт только через
+          `super_admin`, а текст precedent по-прежнему не редактируется руками.
         </div>
 
         {statusMessage ? (
@@ -163,10 +221,9 @@ export function PrecedentSourceFoundationSection({
               <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">Server</p>
               <h3 className="text-2xl font-semibold">{server.name}</h3>
               <p className="text-sm leading-6 text-[var(--muted)]">
-                Source topic precedents привязываются к уже существующим `LawSourceIndex`, но
-                остаются отдельной доменной сущностью. На этом шаге доступны manual precedent
-                discovery, import source topic snapshot и split foundation без current-review и без
-                assistant integration.
+                Здесь собраны source topic foundation, import summary, extracted precedents,
+                imported_draft review, current workflow, validity status и безопасный rollback на
+                superseded snapshots.
               </p>
             </div>
 
@@ -207,7 +264,7 @@ export function PrecedentSourceFoundationSection({
                 </div>
 
                 <h4 className="text-sm font-medium text-[var(--foreground)]">
-                  Precedent source topics
+                  Precedent source topics и review
                 </h4>
 
                 {serverSourceTopics.length === 0 ? (
@@ -325,46 +382,160 @@ export function PrecedentSourceFoundationSection({
                         </form>
                       </div>
 
-                      <div className="space-y-2">
+                      <div className="space-y-3">
                         <p className="text-sm font-medium text-[var(--foreground)]">
                           Извлечённые precedents
                         </p>
+
                         {sourceTopic.precedents.length === 0 ? (
                           <div className="rounded-2xl border border-dashed border-[var(--border)] bg-white/75 px-4 py-3 text-sm leading-6 text-[var(--muted)]">
-                            После import здесь появятся extracted precedents и их imported_draft
-                            версии.
+                            После import здесь появятся extracted precedents и их review summary.
                           </div>
                         ) : (
-                          <div className="space-y-3">
-                            {sourceTopic.precedents.map((precedent) => (
+                          sourceTopic.precedents.map((precedent) => {
+                            const currentVersion =
+                              precedent.versions.find((version) => version.id === precedent.currentVersionId) ??
+                              null;
+
+                            return (
                               <div
-                                className="rounded-2xl border border-[var(--border)] bg-white/85 px-4 py-3"
+                                className="space-y-4 rounded-2xl border border-[var(--border)] bg-white/85 px-4 py-4"
                                 key={precedent.id}
                               >
-                                <div className="flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.18em] text-[var(--accent)]">
-                                  <span>{precedent.validityStatus}</span>
-                                  <span>·</span>
-                                  <span>{precedent.precedentKey}</span>
-                                  <span>·</span>
-                                  <span>locator: {precedent.precedentLocatorKey}</span>
-                                  <span>·</span>
-                                  <span>versions: {precedent.versionCount}</span>
-                                  {precedent.latestVersionStatus ? (
-                                    <>
+                                <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto]">
+                                  <div className="space-y-2">
+                                    <div className="flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.18em] text-[var(--accent)]">
+                                      <span>{precedent.validityStatus}</span>
                                       <span>·</span>
-                                      <span>latest: {precedent.latestVersionStatus}</span>
-                                    </>
-                                  ) : null}
+                                      <span>{precedent.precedentKey}</span>
+                                      <span>·</span>
+                                      <span>locator: {precedent.precedentLocatorKey}</span>
+                                      <span>·</span>
+                                      <span>versions: {precedent.versionCount}</span>
+                                      {precedent.latestVersionStatus ? (
+                                        <>
+                                          <span>·</span>
+                                          <span>latest: {precedent.latestVersionStatus}</span>
+                                        </>
+                                      ) : null}
+                                    </div>
+                                    <p className="text-sm font-medium text-[var(--foreground)]">
+                                      {precedent.displayTitle}
+                                    </p>
+                                    <p className="text-xs leading-5 text-[var(--muted)]">
+                                      source topic: {sourceTopic.title}
+                                    </p>
+                                    <p className="text-xs leading-5 text-[var(--muted)]">
+                                      current: {precedent.currentVersionId ?? "не выбрана"}
+                                    </p>
+                                  </div>
+
+                                  <form action={updatePrecedentValidityStatusAction} className="space-y-2">
+                                    <input name="redirectTo" type="hidden" value="/app/admin-laws" />
+                                    <input name="precedentId" type="hidden" value={precedent.id} />
+                                    <label className="space-y-2">
+                                      <span className="text-sm font-medium text-[var(--foreground)]">
+                                        validity status
+                                      </span>
+                                      <select
+                                        className="w-full min-w-52 rounded-2xl border border-[var(--border)] bg-white/80 px-4 py-2.5 text-sm text-[var(--foreground)] outline-none transition focus:border-[var(--accent)] focus:bg-white"
+                                        defaultValue={precedent.validityStatus}
+                                        name="validityStatus"
+                                      >
+                                        <option value="applicable">applicable</option>
+                                        <option value="limited">limited</option>
+                                        <option value="obsolete">obsolete</option>
+                                      </select>
+                                    </label>
+                                    <Button type="submit" variant="secondary">
+                                      Обновить validity
+                                    </Button>
+                                  </form>
                                 </div>
-                                <p className="mt-2 text-sm font-medium text-[var(--foreground)]">
-                                  {precedent.displayTitle}
-                                </p>
-                                <p className="text-xs leading-5 text-[var(--muted)]">
-                                  current: {precedent.currentVersionId ?? "не выбрана"}
-                                </p>
+
+                                <div className="space-y-3">
+                                  {precedent.versions.map((version) => {
+                                    const structurallyWeak = isStructurallyWeakPrecedentVersion({
+                                      status: version.status,
+                                      blocks: version.blockTypes.map((blockType) => ({ blockType })),
+                                    });
+
+                                    return (
+                                      <div
+                                        className="space-y-3 rounded-2xl border border-[var(--border)] bg-white/95 px-4 py-4"
+                                        key={version.id}
+                                      >
+                                        <div className="flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.18em] text-[var(--accent)]">
+                                          <span>{version.status}</span>
+                                          <span>·</span>
+                                          <span>posts: {version.sourcePostsCount}</span>
+                                          <span>·</span>
+                                          <span>blocks: {version.blocksCount}</span>
+                                          {precedent.currentVersionId === version.id ? (
+                                            <>
+                                              <span>·</span>
+                                              <span>current</span>
+                                            </>
+                                          ) : null}
+                                          {structurallyWeak ? (
+                                            <>
+                                              <span>·</span>
+                                              <span>weak-structure warning</span>
+                                            </>
+                                          ) : null}
+                                        </div>
+
+                                        <div className="grid gap-2 text-xs leading-5 text-[var(--muted)]">
+                                          <p>imported_at: {formatDateTime(version.importedAt)}</p>
+                                          <p>confirmed_at: {formatDateTime(version.confirmedAt)}</p>
+                                          <p>
+                                            confirmed_by: {version.confirmedByAccountEmail ?? "—"}
+                                          </p>
+                                          <p className="break-all">
+                                            source_snapshot_hash: {version.sourceSnapshotHash}
+                                          </p>
+                                          <p className="break-all">
+                                            normalized_text_hash: {version.normalizedTextHash}
+                                          </p>
+                                          <p>block types: {version.blockTypes.join(", ") || "—"}</p>
+                                          <p>{getVersionDiffSummary(version, currentVersion)}</p>
+                                          {structurallyWeak ? (
+                                            <p className="text-[#9f3d22]">
+                                              Структура precedent draft выглядит слабой: blocks либо
+                                              отсутствуют, либо почти полностью `unstructured`.
+                                              Это warning для review, а не автоматический запрет.
+                                            </p>
+                                          ) : null}
+                                        </div>
+
+                                        <div className="flex flex-wrap gap-3">
+                                          {version.status === "imported_draft" ? (
+                                            <form action={confirmCurrentPrecedentVersionAction}>
+                                              <input name="redirectTo" type="hidden" value="/app/admin-laws" />
+                                              <input name="precedentVersionId" type="hidden" value={version.id} />
+                                              <Button type="submit" variant="secondary">
+                                                Подтвердить как current
+                                              </Button>
+                                            </form>
+                                          ) : null}
+
+                                          {version.status === "superseded" ? (
+                                            <form action={rollbackPrecedentCurrentVersionAction}>
+                                              <input name="redirectTo" type="hidden" value="/app/admin-laws" />
+                                              <input name="precedentVersionId" type="hidden" value={version.id} />
+                                              <Button type="submit" variant="secondary">
+                                                Rollback на эту версию
+                                              </Button>
+                                            </form>
+                                          ) : null}
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
                               </div>
-                            ))}
-                          </div>
+                            );
+                          })
                         )}
                       </div>
                     </div>

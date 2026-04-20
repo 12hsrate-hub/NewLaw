@@ -43,6 +43,32 @@ export async function getPrecedentVersionById(
   });
 }
 
+export async function getPrecedentVersionByIdForReview(
+  precedentVersionId: string,
+  db: PrismaLike = prisma,
+) {
+  return db.precedentVersion.findUnique({
+    where: {
+      id: precedentVersionIdSchema.parse(precedentVersionId),
+    },
+    include: {
+      precedent: true,
+      confirmedByAccount: true,
+      blocks: {
+        select: {
+          blockType: true,
+        },
+      },
+      _count: {
+        select: {
+          sourcePosts: true,
+          blocks: true,
+        },
+      },
+    },
+  });
+}
+
 export async function findPrecedentVersionByNormalizedHash(
   input: {
     precedentId: string;
@@ -116,6 +142,20 @@ export async function listPrecedentVersionsByPrecedent(
   return db.precedentVersion.findMany({
     where: {
       precedentId: createPrecedentVersionInputSchema.shape.precedentId.parse(precedentId),
+    },
+    include: {
+      confirmedByAccount: true,
+      blocks: {
+        select: {
+          blockType: true,
+        },
+      },
+      _count: {
+        select: {
+          sourcePosts: true,
+          blocks: true,
+        },
+      },
     },
     orderBy: [{ importedAt: "desc" }],
   });

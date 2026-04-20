@@ -39,6 +39,52 @@ export async function getPrecedentById(precedentId: string, db: PrismaLike = pri
   });
 }
 
+export async function getPrecedentByIdForReview(
+  precedentId: string,
+  db: PrismaLike = prisma,
+) {
+  return db.precedent.findUnique({
+    where: {
+      id: precedentIdSchema.parse(precedentId),
+    },
+    include: {
+      currentVersion: {
+        include: {
+          confirmedByAccount: true,
+          blocks: {
+            select: {
+              blockType: true,
+            },
+          },
+          _count: {
+            select: {
+              sourcePosts: true,
+              blocks: true,
+            },
+          },
+        },
+      },
+      versions: {
+        include: {
+          confirmedByAccount: true,
+          blocks: {
+            select: {
+              blockType: true,
+            },
+          },
+          _count: {
+            select: {
+              sourcePosts: true,
+              blocks: true,
+            },
+          },
+        },
+        orderBy: [{ importedAt: "desc" }],
+      },
+    },
+  });
+}
+
 export async function getPrecedentBySourceTopicAndLocator(
   input: {
     precedentSourceTopicId: string;

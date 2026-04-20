@@ -6,7 +6,7 @@ import { AppShellHeader } from "@/components/product/shell/app-shell-header";
 import { PageContainer } from "@/components/ui/page-container";
 import { listLawSourceIndexes } from "@/db/repositories/law-source-index.repository";
 import { listLawsForAdminReview } from "@/db/repositories/law.repository";
-import { listPrecedentSourceTopics } from "@/db/repositories/precedent-source-topic.repository";
+import { listPrecedentSourceTopicsForAdminReview } from "@/db/repositories/precedent-source-topic.repository";
 import { getAppShellContext } from "@/server/app-shell/context";
 import { buildAdminAccessDeniedRedirectPath } from "@/server/auth/protected";
 import { buildLawCorpusBootstrapHealth } from "@/server/law-corpus/bootstrap-status";
@@ -31,7 +31,7 @@ export default async function AdminLawsPage({ searchParams }: AdminLawsPageProps
     searchParams,
     listLawSourceIndexes(),
     listLawsForAdminReview(),
-    listPrecedentSourceTopics(),
+    listPrecedentSourceTopicsForAdminReview(),
   ]);
   const previewServerId =
     resolvedSearchParams?.previewServerId ??
@@ -198,6 +198,18 @@ export default async function AdminLawsPage({ searchParams }: AdminLawsPageProps
                 currentVersionId: precedent.currentVersionId,
                 latestVersionStatus: precedent.versions[0]?.status ?? null,
                 versionCount: precedent._count.versions,
+                versions: precedent.versions.map((version) => ({
+                  id: version.id,
+                  status: version.status,
+                  importedAt: version.importedAt,
+                  confirmedAt: version.confirmedAt,
+                  confirmedByAccountEmail: version.confirmedByAccount?.email ?? null,
+                  sourcePostsCount: version._count.sourcePosts,
+                  blocksCount: version._count.blocks,
+                  sourceSnapshotHash: version.sourceSnapshotHash,
+                  normalizedTextHash: version.normalizedTextHash,
+                  blockTypes: version.blocks.map((block) => block.blockType),
+                })),
               })),
             }))}
             status={resolvedSearchParams?.status}
