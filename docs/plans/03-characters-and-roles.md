@@ -82,19 +82,32 @@
 
 ### 04.4 character roles and access flags
 
-Что должно войти:
+Что входит:
 
 - минимальный UX для ролей
 - минимальный UX для `access_flags`
 - сохранение только на уровне `character_id`
 - без сложной матрицы прав и без полноценной админки
 
+Что не входит:
+
+- delete / soft delete персонажей
+- document-related блокировки
+- отдельный permission-center
+- `super_admin` и platform-level права через персонажа
+- документы
+- доверители
+- `BBCode`
+- форум
+- `AI`
+- полноценная админка
+
 ## Статус
 
 - `04.1 protected shell foundation` выполнен
 - `04.2 active server and character selection` выполнен
 - `04.3 manual character management` выполнен
-- `04.4 character roles and access flags` не начат
+- `04.4 character roles and access flags` выполнен
 
 ## Что вошло в 04.1 по факту
 
@@ -219,7 +232,7 @@
   - максимум `3` персонажа на сервер для одного аккаунта
   - запрет одинакового паспорта в рамках `account + server`
   - запрет редактировать чужого или отсутствующего персонажа
-- при редактировании уже существующие роли и `access_flags` не затираются, даже несмотря на то что UI этого шага их не показывает
+- на момент `04.3` уже существующие роли и `access_flags` не затирались, даже несмотря на то что UI этого шага их ещё не показывал
 
 ## Что сознательно не вошло в 04.3
 
@@ -266,6 +279,57 @@
 - безопасный отказ при попытке редактировать чужого персонажа
 - empty state блока управления персонажами
 - консистентность create/edit действий относительно shell и active selection
+
+## Что вошло в 04.4 по факту
+
+- в существующий create/edit flow персонажа встроен минимальный блок ролей и `access flags`
+- роли и `access flags` редактируются только на уровне `character_id`
+- для create персонажа роли и `access flags` могут оставаться пустыми
+- для edit существующие значения корректно подгружаются в форму
+- при сохранении разрешены только machine keys из зафиксированного набора
+- не добавлена новая permission-система и не смешаны `super_admin` / platform-level права с персонажем
+- create/edit продолжает работать внутри уже готового shell и selection-контура без побочных мутаций
+
+## Что сознательно не вошло в 04.4
+
+- delete / soft delete персонажей
+- document-related блокировки
+- отдельная permission-админка
+- `super_admin` и platform-level роли через персонажа
+- документы
+- доверители
+- `BBCode`
+- форум
+- `AI`
+- полноценная админка
+
+## Acceptance criteria для 04.4
+
+- роли и `access flags` сохраняются только для своего персонажа
+- create персонажа с пустыми roles / `access_flags` остаётся рабочим
+- edit персонажа корректно подгружает и сохраняет существующие значения
+- через форму и action нельзя записать неразрешённые role / flag значения
+- нельзя изменить roles / `access_flags` чужого персонажа
+- shell и selection после save не ломаются
+- `/app/security` и `/app/admin-security` не ломаются
+
+## Основные файлы 04.4
+
+- `src/components/product/characters/character-form-card.tsx`
+- `src/components/product/characters/character-management-section.tsx`
+- `src/server/actions/characters.ts`
+- `src/server/characters/manual-character.ts`
+- `src/schemas/character.ts`
+
+## Проверки 04.4
+
+Для этого подшага добавлены проверки на:
+
+- сохранение roles и `access_flags` для своего персонажа
+- create персонажа с пустыми roles и `access_flags`
+- безопасный отказ при попытке записать мусорные значения через форму
+- корректное чтение существующих roles и `access_flags` в edit-форме
+- сохранение shell-консистентности после save
 
 ## Acceptance criteria для 04.1
 

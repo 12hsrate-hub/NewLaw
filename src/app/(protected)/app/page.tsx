@@ -37,10 +37,16 @@ export default async function ProtectedAppPage({
         activeServerId={shellContext.activeServer?.id ?? null}
         activeServerName={shellContext.activeServer?.name ?? null}
         characters={shellContext.characters.map((character) => ({
+          accessFlags: character.accessFlags.map((flag) => ({
+            flagKey: flag.flagKey,
+          })),
           id: character.id,
           fullName: character.fullName,
           nickname: character.nickname,
           passportNumber: character.passportNumber,
+          roles: character.roles.map((role) => ({
+            roleKey: role.roleKey,
+          })),
         }))}
         status={resolvedSearchParams?.status}
       />

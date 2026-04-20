@@ -3,10 +3,16 @@ import { Card } from "@/components/ui/card";
 import { CharacterFormCard } from "@/components/product/characters/character-form-card";
 
 type CharacterItem = {
+  accessFlags: Array<{
+    flagKey: string;
+  }>;
   id: string;
   fullName: string;
   nickname: string;
   passportNumber: string;
+  roles: Array<{
+    roleKey: string;
+  }>;
 };
 
 type CharacterManagementSectionProps = {
@@ -28,6 +34,18 @@ const statusLabels: Record<string, string> = {
   "character-selection-error": "Не удалось выбрать активного персонажа.",
   "server-not-found": "Выбранный сервер не найден.",
   "server-selection-error": "Не удалось выбрать сервер.",
+};
+
+const roleLabels: Record<string, string> = {
+  citizen: "Гражданин",
+  lawyer: "Адвокат",
+};
+
+const accessFlagLabels: Record<string, string> = {
+  advocate: "Адвокатский доступ",
+  server_editor: "Редактор сервера",
+  server_admin: "Администратор сервера",
+  tester: "Тестовый доступ",
 };
 
 export function CharacterManagementSection({
@@ -106,6 +124,26 @@ export function CharacterManagementSection({
                         Ник:{" "}
                         <span className="font-medium text-[var(--foreground)]">{character.nickname}</span>
                       </p>
+                      <p className="text-sm leading-6 text-[var(--muted)]">
+                        Роли:{" "}
+                        <span className="font-medium text-[var(--foreground)]">
+                          {character.roles.length
+                            ? character.roles
+                                .map((role) => roleLabels[role.roleKey] ?? role.roleKey)
+                                .join(", ")
+                            : "не заданы"}
+                        </span>
+                      </p>
+                      <p className="text-sm leading-6 text-[var(--muted)]">
+                        Access flags:{" "}
+                        <span className="font-medium text-[var(--foreground)]">
+                          {character.accessFlags.length
+                            ? character.accessFlags
+                                .map((flag) => accessFlagLabels[flag.flagKey] ?? flag.flagKey)
+                                .join(", ")
+                            : "не заданы"}
+                        </span>
+                      </p>
                     </div>
                   </div>
 
@@ -116,9 +154,11 @@ export function CharacterManagementSection({
                     <div className="mt-4">
                       <CharacterFormCard
                         defaultValues={{
+                          accessFlags: character.accessFlags.map((flag) => flag.flagKey),
                           characterId: character.id,
                           fullName: character.fullName,
                           passportNumber: character.passportNumber,
+                          roleKeys: character.roles.map((role) => role.roleKey),
                         }}
                         mode="edit"
                         serverId={activeServerId}

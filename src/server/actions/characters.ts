@@ -5,9 +5,14 @@ import { redirect } from "next/navigation";
 import { isRedirectError } from "next/dist/client/components/redirect-error";
 
 import {
+  type CharacterAccessFlagKey,
+  characterAccessFlagKeySchema,
+  characterAccessFlagSelectionSchema,
   characterFormSchema,
+  type CharacterRoleKey,
+  characterRoleKeySchema,
+  characterRoleSelectionSchema,
 } from "@/schemas/character";
-import { getCharacterByIdForAccount } from "@/db/repositories/character.repository";
 import {
   CharacterLimitExceededError,
   CharacterNotFoundError,
@@ -49,6 +54,26 @@ function readCharacterFormFields(formData: FormData) {
   });
 }
 
+function readRoleKeys(formData: FormData): CharacterRoleKey[] {
+  return characterRoleSelectionSchema.parse(
+    formData
+      .getAll("roleKeys")
+      .map((value) => String(value))
+      .filter(Boolean)
+      .map((value) => characterRoleKeySchema.parse(value)),
+  );
+}
+
+function readAccessFlags(formData: FormData): CharacterAccessFlagKey[] {
+  return characterAccessFlagSelectionSchema.parse(
+    formData
+      .getAll("accessFlags")
+      .map((value) => String(value))
+      .filter(Boolean)
+      .map((value) => characterAccessFlagKeySchema.parse(value)),
+  );
+}
+
 export async function createCharacterAction(formData: FormData) {
   const redirectTo = getRedirectTarget(formData);
   const { account } = await requireProtectedAccountContext(redirectTo);
@@ -61,8 +86,8 @@ export async function createCharacterAction(formData: FormData) {
       serverId,
       fullName: characterFormFields.fullName,
       passportNumber: characterFormFields.passportNumber,
-      roleKeys: ["citizen"],
-      accessFlags: [],
+      roleKeys: readRoleKeys(formData),
+      accessFlags: readAccessFlags(formData),
     });
 
     await setActiveServerSelection(account.id, {
@@ -100,10 +125,6 @@ export async function updateCharacterAction(formData: FormData) {
     const serverId = String(formData.get("serverId") ?? "");
     const characterId = String(formData.get("characterId") ?? "");
     const characterFormFields = readCharacterFormFields(formData);
-    const existingCharacter = await getCharacterByIdForAccount({
-      accountId: account.id,
-      characterId,
-    });
 
     await updateCharacterManually({
       accountId: account.id,
@@ -111,8 +132,8 @@ export async function updateCharacterAction(formData: FormData) {
       characterId,
       fullName: characterFormFields.fullName,
       passportNumber: characterFormFields.passportNumber,
-      roleKeys: existingCharacter?.roles.map((role) => role.roleKey) ?? ["citizen"],
-      accessFlags: existingCharacter?.accessFlags.map((flag) => flag.flagKey) ?? [],
+      roleKeys: readRoleKeys(formData),
+      accessFlags: readAccessFlags(formData),
     });
 
     revalidatePath("/app");

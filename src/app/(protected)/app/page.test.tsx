@@ -26,10 +26,12 @@ describe("/app protected shell page", () => {
       },
       characters: [
         {
+          accessFlags: [{ flagKey: "advocate" }],
           id: "character-1",
           fullName: "Alice Stone",
           nickname: "Alice Stone",
           passportNumber: "A-001",
+          roles: [{ roleKey: "lawyer" }],
         },
       ],
       servers: [
@@ -48,5 +50,6 @@ describe("/app protected shell page", () => {
     expect(html).toContain("Downtown");
     expect(html).toContain("Управление персонажами");
     expect(html).toContain("Редактировать персонажа");
+    expect(html).toContain("Адвокатский доступ");
   });
 });

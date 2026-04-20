@@ -1,12 +1,30 @@
 import { createCharacterAction, updateCharacterAction } from "@/server/actions/characters";
+import {
+  characterAccessFlagKeys,
+  characterRoleKeys,
+} from "@/schemas/character";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 
+const roleLabels: Record<(typeof characterRoleKeys)[number], string> = {
+  citizen: "Гражданин",
+  lawyer: "Адвокат",
+};
+
+const accessFlagLabels: Record<(typeof characterAccessFlagKeys)[number], string> = {
+  advocate: "Адвокатский доступ",
+  server_editor: "Редактор сервера",
+  server_admin: "Администратор сервера",
+  tester: "Тестовый доступ",
+};
+
 type CharacterFormValues = {
+  accessFlags?: string[];
   characterId?: string;
   fullName: string;
   passportNumber: string;
+  roleKeys?: string[];
 };
 
 type CharacterFormCardProps = {
@@ -25,8 +43,10 @@ export function CharacterFormCard({
   const title = mode === "create" ? "Новый персонаж" : "Редактирование персонажа";
   const description =
     mode === "create"
-      ? "Персонаж создаётся вручную. Минимально обязательны ФИО и паспорт."
-      : "Обновление карточки персонажа в текущем серверном контексте.";
+      ? "Персонаж создаётся вручную. Минимально обязательны ФИО и паспорт, а роли и access flags можно оставить пустыми."
+      : "Обновление карточки персонажа в текущем серверном контексте без выхода в отдельный permission-центр.";
+  const selectedRoleKeys = new Set(defaultValues?.roleKeys ?? []);
+  const selectedAccessFlags = new Set(defaultValues?.accessFlags ?? []);
 
   return (
     <Card className="space-y-5">
@@ -67,6 +87,55 @@ export function CharacterFormCard({
             required
           />
         </div>
+
+        <fieldset className="space-y-3">
+          <legend className="text-sm font-medium">Роли персонажа</legend>
+          <p className="text-xs leading-5 text-[var(--muted)]">
+            Это только роли текущего персонажа. Они не связаны с `super_admin` и платформенными
+            правами аккаунта.
+          </p>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {characterRoleKeys.map((roleKey) => (
+              <label
+                key={roleKey}
+                className="flex items-center gap-3 rounded-2xl border border-[var(--border)] bg-white/60 px-4 py-3 text-sm"
+              >
+                <input
+                  defaultChecked={selectedRoleKeys.has(roleKey)}
+                  name="roleKeys"
+                  type="checkbox"
+                  value={roleKey}
+                />
+                <span>{roleLabels[roleKey]}</span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+
+        <fieldset className="space-y-3">
+          <legend className="text-sm font-medium">Access flags</legend>
+          <p className="text-xs leading-5 text-[var(--muted)]">
+            Флаги тоже живут на уровне `character_id` и сохраняются только для этой карточки.
+          </p>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {characterAccessFlagKeys.map((flagKey) => (
+              <label
+                key={flagKey}
+                className="flex items-center gap-3 rounded-2xl border border-[var(--border)] bg-white/60 px-4 py-3 text-sm"
+              >
+                <input
+                  defaultChecked={selectedAccessFlags.has(flagKey)}
+                  name="accessFlags"
+                  type="checkbox"
+                  value={flagKey}
+                />
+                <span>
+                  {accessFlagLabels[flagKey]} <span className="text-[var(--muted)]">({flagKey})</span>
+                </span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
 
         <Button type="submit">{submitLabel}</Button>
       </form>

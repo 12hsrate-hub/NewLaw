@@ -24,10 +24,6 @@ vi.mock("@/server/auth/protected", () => ({
   requireProtectedAccountContext: vi.fn(),
 }));
 
-vi.mock("@/db/repositories/character.repository", () => ({
-  getCharacterByIdForAccount: vi.fn(),
-}));
-
 vi.mock("@/server/characters/manual-character", () => ({
   CharacterLimitExceededError: class CharacterLimitExceededError extends Error {},
   CharacterNotFoundError: class CharacterNotFoundError extends Error {},
@@ -45,7 +41,6 @@ import {
   createCharacterAction,
   updateCharacterAction,
 } from "@/server/actions/characters";
-import { getCharacterByIdForAccount } from "@/db/repositories/character.repository";
 import {
   CharacterLimitExceededError,
   CharacterNotFoundError,
@@ -85,6 +80,9 @@ describe("character actions", () => {
     formData.set("serverId", "server-1");
     formData.set("fullName", "Alice Stone");
     formData.set("passportNumber", "A-001");
+    formData.append("roleKeys", "lawyer");
+    formData.append("accessFlags", "advocate");
+    formData.append("accessFlags", "tester");
     formData.set("redirectTo", "/app");
 
     await expectRedirect(createCharacterAction(formData), "/app?status=character-created");
@@ -94,8 +92,8 @@ describe("character actions", () => {
       serverId: "server-1",
       fullName: "Alice Stone",
       passportNumber: "A-001",
-      roleKeys: ["citizen"],
-      accessFlags: [],
+      roleKeys: ["lawyer"],
+      accessFlags: ["advocate", "tester"],
     });
     expect(setActiveServerSelection).toHaveBeenCalledWith(
       "21631886-7b4d-4be2-b6e9-95322d0dca41",
@@ -136,12 +134,32 @@ describe("character actions", () => {
     await expectRedirect(createCharacterAction(formData), "/app?status=passport-conflict");
   });
 
-  it("не позволяет редактированием затереть существующие роли и access flags", async () => {
-    vi.mocked(getCharacterByIdForAccount).mockResolvedValue({
-      id: "character-1",
-      roles: [{ roleKey: "lawyer" }],
-      accessFlags: [{ flagKey: "advocate" }, { flagKey: "tester" }],
+  it("создает персонажа с пустыми roles и access flags, если они не выбраны", async () => {
+    vi.mocked(createCharacterManually).mockResolvedValue({
+      id: "character-2",
     } as never);
+    vi.mocked(setActiveServerSelection).mockResolvedValue({} as never);
+    vi.mocked(setActiveCharacterSelection).mockResolvedValue({} as never);
+
+    const formData = new FormData();
+    formData.set("serverId", "server-1");
+    formData.set("fullName", "Bob Stone");
+    formData.set("passportNumber", "B-001");
+    formData.set("redirectTo", "/app");
+
+    await expectRedirect(createCharacterAction(formData), "/app?status=character-created");
+
+    expect(createCharacterManually).toHaveBeenCalledWith({
+      accountId: "21631886-7b4d-4be2-b6e9-95322d0dca41",
+      serverId: "server-1",
+      fullName: "Bob Stone",
+      passportNumber: "B-001",
+      roleKeys: [],
+      accessFlags: [],
+    });
+  });
+
+  it("сохраняет выбранные roles и access flags при редактировании своего персонажа", async () => {
     vi.mocked(updateCharacterManually).mockResolvedValue({
       id: "character-1",
     } as never);
@@ -151,6 +169,9 @@ describe("character actions", () => {
     formData.set("characterId", "character-1");
     formData.set("fullName", "Alice Stone");
     formData.set("passportNumber", "A-777");
+    formData.append("roleKeys", "lawyer");
+    formData.append("accessFlags", "advocate");
+    formData.append("accessFlags", "tester");
     formData.set("redirectTo", "/app");
 
     await expectRedirect(updateCharacterAction(formData), "/app?status=character-updated");
@@ -169,7 +190,6 @@ describe("character actions", () => {
   });
 
   it("безопасно отклоняет попытку редактировать чужого или отсутствующего персонажа", async () => {
-    vi.mocked(getCharacterByIdForAccount).mockResolvedValue(null);
     vi.mocked(updateCharacterManually).mockRejectedValue(new CharacterNotFoundError());
 
     const formData = new FormData();
@@ -180,5 +200,18 @@ describe("character actions", () => {
     formData.set("redirectTo", "/app");
 
     await expectRedirect(updateCharacterAction(formData), "/app?status=character-not-found");
+  });
+
+  it("безопасно отклоняет мусорные role/access значения из формы", async () => {
+    const formData = new FormData();
+    formData.set("serverId", "server-1");
+    formData.set("fullName", "Alice Stone");
+    formData.set("passportNumber", "A-001");
+    formData.append("roleKeys", "root");
+    formData.append("accessFlags", "god_mode");
+    formData.set("redirectTo", "/app");
+
+    await expectRedirect(createCharacterAction(formData), "/app?status=character-create-error");
+    expect(createCharacterManually).not.toHaveBeenCalled();
   });
 });

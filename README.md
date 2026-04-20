@@ -5,8 +5,8 @@
 `Lawyer5RP MVP` — единое full-stack веб-приложение для подготовки документных сценариев внутри экосистемы GTA5RP.
 Главный сценарий MVP — создание жалобы в ОГП с итоговой генерацией форумного BBCode.
 
-На текущем этапе репозиторий содержит стартовую документацию проекта, bootstrap-каркас приложения, foundation для `Supabase Auth` и минимального data layer, account-security foundation, protected shell foundation для `/app` c выбором активного сервера и персонажа, базовый контур ручного управления персонажами без ролей и `access flags`, минимальный `super_admin` экран для admin account-security действий, инфраструктурные заготовки для production и временную maintenance page.
-Прикладная бизнес-логика документов пока не реализована, но регистрация по `login + email + password`, подтверждение email по ссылке, forgot-password, reset-password, вход по `email` или `login`, protected shell на `/app` c active server / active character selection, базовый список/создание/редактирование персонажей для текущего сервера, `/app/security`, self change password, self change email, server-side admin account-security actions и минимальный `super_admin` UI для этих действий уже подготовлены.
+На текущем этапе репозиторий содержит стартовую документацию проекта, bootstrap-каркас приложения, foundation для `Supabase Auth` и минимального data layer, account-security foundation, protected shell foundation для `/app` c выбором активного сервера и персонажа, базовый контур ручного управления персонажами с минимальным слоем ролей и `access flags`, минимальный `super_admin` экран для admin account-security действий, инфраструктурные заготовки для production и временную maintenance page.
+Прикладная бизнес-логика документов пока не реализована, но регистрация по `login + email + password`, подтверждение email по ссылке, forgot-password, reset-password, вход по `email` или `login`, protected shell на `/app` c active server / active character selection, базовый список/создание/редактирование персонажей для текущего сервера вместе с ролями и `access flags` на уровне `character_id`, `/app/security`, self change password, self change email, server-side admin account-security actions и минимальный `super_admin` UI для этих действий уже подготовлены.
 Production email delivery для auth-писем зафиксирован через `Supabase Custom SMTP`, а не через встроенный email provider Supabase.
 
 ## Зафиксированный стек
@@ -84,7 +84,7 @@ Production email delivery для auth-писем зафиксирован чер
 - [src/server/characters](./src/server/characters) — доменная логика ручного создания и редактирования персонажей с ограничениями аккаунта и сервера
 - [src/server/app-shell](./src/server/app-shell) — SSR логика shell, fallback состояния и server-side selection helper’ы
 - [src/components/product/shell/protected-shell-overview-section.tsx](./src/components/product/shell/protected-shell-overview-section.tsx) — обзорный экран shell для `/app`
-- [src/components/product/characters](./src/components/product/characters) — базовый UI-контур списка, создания и редактирования персонажей без ролей и `access flags`
+- [src/components/product/characters](./src/components/product/characters) — UI-контур списка, создания и редактирования персонажей с минимальным слоем ролей и `access flags`
 - [src/db](./src/db) — Prisma client, seed-структура и репозитории
 - [src/db/repositories/auth-session.repository.ts](./src/db/repositories/auth-session.repository.ts) — security helper для revoke пользовательских auth-сессий
 - [src/lib/supabase](./src/lib/supabase) — runtime-обвязка `Supabase Auth` для browser/server/middleware
@@ -119,7 +119,7 @@ Production email delivery для auth-писем зафиксирован чер
 
 ## Текущий пользовательский контур
 
-В приложении уже собран минимальный рабочий контур шагов `03`, `04.1`, `04.2`, `04.3`, а также `03.1 account-security foundation`:
+В приложении уже собран минимальный рабочий контур шагов `03`, `04.1`, `04.2`, `04.3`, `04.4`, а также `03.1 account-security foundation`:
 
 - регистрация по `login + email + password` через `Supabase Auth`
 - экран “проверьте почту” после регистрации
@@ -141,6 +141,7 @@ Production email delivery для auth-писем зафиксирован чер
 - список персонажей пользователя по текущему active server
 - ручное создание персонажа с обязательными полями `fullName` и `passportNumber`
 - базовое редактирование существующего персонажа текущего аккаунта
+- минимальное редактирование ролей и `access flags` на уровне `character_id`
 - автоподстановка нового персонажа в active character после первого успешного создания на сервере
 - foundation для `Account.login`, `pendingEmail`, `mustChangePassword` и `AuditLog`
 - reconciliation-слой `Supabase user -> Prisma Account`
@@ -336,4 +337,4 @@ powershell -ExecutionPolicy Bypass -File .\scripts\deploy-prod.ps1
 
 ## Что дальше
 
-Следующий подшаг после текущего `04.3` добавит минимальные роли и `access flags` на уровне персонажа. Полноценная админка, документы, форумный контур и аудит-экран в этот блок по-прежнему не входят.
+Следующий шаг уже должен выходить за пределы текущего базового character-layer: в этот блок по-прежнему не входят delete/soft-delete персонажей, полноценная permission-админка, документы, форумный контур и аудит-экран.

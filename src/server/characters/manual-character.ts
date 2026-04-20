@@ -67,7 +67,7 @@ function normalizePassportNumber(passportNumber: string) {
 }
 
 function uniqueRoleKeys(roleKeys: CharacterRoleKey[]) {
-  return [...new Set<CharacterRoleKey>(roleKeys.length ? roleKeys : ["citizen"])];
+  return [...new Set<CharacterRoleKey>(roleKeys)];
 }
 
 function uniqueAccessFlags(accessFlags: CharacterAccessFlagKey[]) {

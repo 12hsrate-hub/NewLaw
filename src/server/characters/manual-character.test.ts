@@ -98,6 +98,41 @@ describe("createCharacterManually", () => {
       accessFlags: ["tester"],
     });
   });
+
+  it("разрешает создание персонажа с пустыми roles и access flags", async () => {
+    const repository = createRepositoryMock();
+
+    repository.countCharactersByServer.mockResolvedValue(0);
+    repository.findCharacterByPassport.mockResolvedValue(null);
+    repository.createCharacterRecord.mockResolvedValue({
+      id: "character-empty",
+      fullName: "Ivan Ivanov",
+      nickname: "Ivan Ivanov",
+      passportNumber: "PASS-77",
+    });
+
+    await createCharacterManually(
+      {
+        accountId: "21631886-7b4d-4be2-b6e9-95322d0dca41",
+        serverId: "server-1",
+        fullName: "ivan ivanov",
+        passportNumber: "pass-77",
+        roleKeys: [],
+        accessFlags: [],
+      },
+      repository,
+    );
+
+    expect(repository.createCharacterRecord).toHaveBeenCalledWith({
+      accountId: "21631886-7b4d-4be2-b6e9-95322d0dca41",
+      serverId: "server-1",
+      fullName: "Ivan Ivanov",
+      nickname: "Ivan Ivanov",
+      passportNumber: "PASS-77",
+      roleKeys: [],
+      accessFlags: [],
+    });
+  });
 });
 
 describe("updateCharacterManually", () => {

@@ -19,7 +19,7 @@ describe("character management section", () => {
     expect(html).toContain("Создать персонажа");
   });
 
-  it("рендерит список и базовое редактирование без ролей и access flags", () => {
+  it("рендерит список и базовое редактирование вместе с roles и access flags персонажа", () => {
     const html = renderToStaticMarkup(
       <CharacterManagementSection
         activeCharacterId="character-1"
@@ -27,10 +27,12 @@ describe("character management section", () => {
         activeServerName="Downtown"
         characters={[
           {
+            accessFlags: [{ flagKey: "advocate" }],
             id: "character-1",
             fullName: "Alice Stone",
             nickname: "Alice Stone",
             passportNumber: "A-001",
+            roles: [{ roleKey: "lawyer" }],
           },
         ]}
         status="character-updated"
@@ -40,7 +42,7 @@ describe("character management section", () => {
     expect(html).toContain("Управление персонажами");
     expect(html).toContain("Alice Stone");
     expect(html).toContain("Редактировать персонажа");
-    expect(html).not.toContain("Access flags");
-    expect(html).not.toContain("Адвокатский доступ");
+    expect(html).toContain("Адвокат");
+    expect(html).toContain("Адвокатский доступ");
   });
 });

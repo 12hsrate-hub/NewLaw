@@ -11,6 +11,10 @@ export const characterAccessFlagKeys = [
 export const characterIdSchema = z.string().min(1);
 export const characterRoleKeySchema = z.enum(characterRoleKeys);
 export const characterAccessFlagKeySchema = z.enum(characterAccessFlagKeys);
+export const characterRoleSelectionSchema = z.array(characterRoleKeySchema).default([]);
+export const characterAccessFlagSelectionSchema = z
+  .array(characterAccessFlagKeySchema)
+  .default([]);
 
 export const characterFormSchema = z.object({
   fullName: z.string().trim().min(3).max(120),
@@ -18,8 +22,8 @@ export const characterFormSchema = z.object({
 });
 
 const characterDetailsSchema = characterFormSchema.extend({
-  roleKeys: z.array(characterRoleKeySchema).default(["citizen"]),
-  accessFlags: z.array(characterAccessFlagKeySchema).default([]),
+  roleKeys: characterRoleSelectionSchema,
+  accessFlags: characterAccessFlagSelectionSchema,
 });
 
 export const createCharacterInputSchema = characterDetailsSchema.extend({

@@ -47,8 +47,8 @@ export function ProtectedShellOverviewSection({
         <h2 className="text-2xl font-semibold">Read-only контур `/app`</h2>
         <p className="text-sm leading-6 text-[var(--muted)]">
           Overview-экран остаётся read-only, но в header уже доступны выбор активного сервера и
-          выбор активного персонажа. Ниже в этом же shell теперь доступно базовое ручное создание
-          и редактирование карточек без ролей и access flags.
+          выбор активного персонажа. Ниже в этом же shell теперь доступно базовое ручное создание,
+          редактирование карточек и минимальный слой ролей и access flags.
         </p>
         {status && statusLabels[status] ? (
           <p className="rounded-2xl border border-[var(--border)] bg-white/60 px-4 py-3 text-sm text-[var(--foreground)]">

@@ -216,8 +216,8 @@ export function AppShellHeader({
             <span className="font-medium text-[var(--foreground)]">
               {activeCharacterName ?? "без выбранного профиля"}
             </span>
-            . Ниже доступен базовый контур создания и редактирования персонажей без ролей и access
-            flags.
+            . Ниже доступен базовый контур создания и редактирования персонажей с минимальными
+            ролями и access flags.
           </p>
         )}
       </div>
