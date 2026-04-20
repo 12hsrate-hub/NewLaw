@@ -17,7 +17,14 @@ type ProtectedShellOverviewSectionProps = {
   activeCharacterName: string | null;
   activeServerName: string | null;
   characters: CharacterItem[];
+  status?: string;
   servers: ServerItem[];
+};
+
+const statusLabels: Record<string, string> = {
+  "server-not-found": "Выбранный сервер не найден или больше недоступен.",
+  "server-selection-error": "Не удалось сменить активный сервер.",
+  "character-selection-error": "Не удалось сменить активного персонажа.",
 };
 
 export function ProtectedShellOverviewSection({
@@ -25,6 +32,7 @@ export function ProtectedShellOverviewSection({
   activeCharacterName,
   activeServerName,
   characters,
+  status,
   servers,
 }: ProtectedShellOverviewSectionProps) {
   const hasServers = servers.length > 0;
@@ -38,10 +46,15 @@ export function ProtectedShellOverviewSection({
         </p>
         <h2 className="text-2xl font-semibold">Read-only контур `/app`</h2>
         <p className="text-sm leading-6 text-[var(--muted)]">
-          На этом шаге shell только показывает текущее состояние аккаунта, сервера и персонажа.
-          Выбор сервера, выбор персонажа и ручное управление карточками появятся отдельными
-          подшагами.
+          Overview-экран остаётся read-only, но в header уже доступны выбор активного сервера и
+          выбор активного персонажа. Формы создания и редактирования карточек появятся отдельным
+          подшагом.
         </p>
+        {status && statusLabels[status] ? (
+          <p className="rounded-2xl border border-[var(--border)] bg-white/60 px-4 py-3 text-sm text-[var(--foreground)]">
+            {statusLabels[status]}
+          </p>
+        ) : null}
       </Card>
 
       {!hasServers ? (
@@ -91,8 +104,8 @@ export function ProtectedShellOverviewSection({
                 <span className="font-medium text-[var(--foreground)]">
                   {activeServerName ?? "без выбранного названия"}
                 </span>{" "}
-                ещё нет персонажей. На следующем подшаге на этом экране появится ручное создание
-                персонажа и выбор активного профиля.
+                ещё нет персонажей. Выбор активного сервера уже работает, а на следующем подшаге на
+                этом экране появится ручное создание персонажа и редактирование карточек.
               </p>
               <div className="rounded-2xl border border-dashed border-[var(--border)] bg-white/55 px-4 py-3 text-sm font-medium text-[var(--foreground)]">
                 Следующий шаг: добавить выбор и создание персонажа
@@ -137,7 +150,8 @@ export function ProtectedShellOverviewSection({
                 <span className="font-medium text-[var(--foreground)]">
                   {activeCharacterName ?? "пока не определён"}
                 </span>
-                . Переключение и редактирование будут вынесены в следующий подшаг.
+                . Переключение уже доступно в header, а редактирование будет вынесено в следующий
+                подшаг.
               </div>
             </Card>
           )}

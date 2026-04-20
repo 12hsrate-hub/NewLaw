@@ -37,12 +37,23 @@
 
 ### 04.2 active server and character selection
 
-Что должно войти:
+Текущий подшаг.
+
+Что входит:
 
 - `Server Actions` выбора активного сервера
 - `Server Actions` выбора активного персонажа
 - синхронизация `UserServerState` между `SSR`, actions и UI
+- минимальный UI в header для выбора сервера и персонажа
 - устойчивый redirect/status flow после смены выбора
+
+Что не входит:
+
+- создание персонажа
+- редактирование персонажа
+- роли и `access_flags`
+- soft delete cleanup
+- document flow
 
 ### 04.3 manual character management
 
@@ -69,7 +80,7 @@
 ## Статус
 
 - `04.1 protected shell foundation` выполнен
-- `04.2 active server and character selection` не начат
+- `04.2 active server and character selection` выполнен
 - `04.3 manual character management` не начат
 - `04.4 character roles and access flags` не начат
 
@@ -114,6 +125,70 @@
 - форум
 - `AI`
 - полноценная админка
+
+## Что вошло в 04.2 по факту
+
+- в `AppShellHeader` добавлен минимальный UI для выбора активного сервера
+- рядом добавлен минимальный UI для выбора активного персонажа
+- выбор сервера идёт через отдельный `Server Action`
+- выбор персонажа идёт через отдельный `Server Action`
+- после выбора сервера состояние сохраняется в `UserServerState`
+- после выбора персонажа состояние сохраняется в `UserServerState`
+- shell переживает reload и показывает то же активное состояние, которое записано в БД
+- если выбран новый сервер без персонажей, shell корректно показывает `activeCharacter = null`
+- character selection дополнительно защищён от подмены `serverId` в форме:
+  - выбрать можно только персонажа текущего active server
+  - нельзя выбрать персонажа другого сервера
+  - нельзя выбрать персонажа, которого нет у текущего аккаунта на выбранном сервере
+- `/app/security` и `/app/admin-security` продолжают использовать тот же shell context и не ломаются
+
+## Что сознательно не вошло в 04.2
+
+- создание персонажа
+- редактирование персонажа
+- роли и `access_flags`
+- soft delete и расширенный edge-case cleanup
+- document-lock на переключение персонажа
+- документы
+- доверители
+- `BBCode`
+- форум
+- `AI`
+- полноценная админка
+
+## Acceptance criteria для 04.2
+
+- пользователь может сменить active server в header
+- после reload выбранный сервер сохраняется
+- пользователь может сменить active character только внутри текущего active server
+- нельзя выбрать персонажа другого сервера
+- нельзя выбрать чужого персонажа
+- битый `UserServerState` по-прежнему не ломает shell
+- empty state без серверов остаётся рабочим
+- empty state для сервера без персонажей остаётся рабочим
+- `/app/security` и `/app/admin-security` не ломаются от selection-слоя
+
+## Основные файлы 04.2
+
+- `src/components/product/shell/app-shell-header.tsx`
+- `src/server/actions/shell.ts`
+- `src/server/app-shell/selection.ts`
+- `src/server/app-shell/state.ts`
+- `src/db/repositories/user-server-state.repository.ts`
+- `src/db/repositories/server.repository.ts`
+- `src/app/(protected)/app/page.tsx`
+- `src/components/product/shell/protected-shell-overview-section.tsx`
+
+## Проверки 04.2
+
+Для этого подшага добавлены проверки на:
+
+- смену active server через action
+- сохранение active server в state
+- смену active character внутри выбранного сервера
+- блокировку выбора персонажа другого сервера
+- блокировку выбора чужого персонажа
+- безопасный redirect при подмене `serverId` в character selection action
 
 ## Acceptance criteria для 04.1
 

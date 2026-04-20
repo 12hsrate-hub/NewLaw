@@ -16,9 +16,10 @@ export async function getServers(db: PrismaLike = prisma) {
 }
 
 export async function getServerById(serverId: string, db: PrismaLike = prisma) {
-  return db.server.findUnique({
+  return db.server.findFirst({
     where: {
       id: serverIdSchema.parse(serverId),
+      isActive: true,
     },
   });
 }

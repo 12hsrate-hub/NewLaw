@@ -9,7 +9,7 @@ import ProtectedAppPage from "@/app/(protected)/app/page";
 import { getAppShellContext } from "@/server/app-shell/context";
 
 describe("/app protected shell page", () => {
-  it("рендерит read-only shell для авторизованного пользователя", async () => {
+  it("рендерит protected shell overview для авторизованного пользователя", async () => {
     vi.mocked(getAppShellContext).mockResolvedValue({
       account: {
         id: "1b8b1ea8-a6fd-4b6e-9447-fac7da607925",
@@ -39,7 +39,7 @@ describe("/app protected shell page", () => {
       ],
     } as never);
 
-    const html = renderToStaticMarkup(await ProtectedAppPage());
+    const html = renderToStaticMarkup(await ProtectedAppPage({}));
 
     expect(getAppShellContext).toHaveBeenCalledWith("/app");
     expect(html).toContain("Read-only контур `/app`");

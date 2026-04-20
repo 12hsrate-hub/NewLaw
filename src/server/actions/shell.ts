@@ -2,7 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { isRedirectError } from "next/dist/client/components/redirect-error";
 
+import { getAppShellContext } from "@/server/app-shell/context";
 import {
   type ActiveServerSelectionInput,
   activeServerSelectionSchema,
@@ -50,9 +52,14 @@ export async function selectActiveServerAction(formData: FormData) {
     };
 
     await setActiveServerSelection(account.id, activeServerSelectionSchema.parse(input));
+    revalidatePath(redirectTo);
     revalidatePath("/app");
     redirect(redirectTo);
   } catch (error) {
+    if (isRedirectError(error)) {
+      throw error;
+    }
+
     if (error instanceof ActiveServerNotFoundError) {
       redirect(buildStatusRedirect(redirectTo, "server-not-found"));
     }
@@ -63,18 +70,34 @@ export async function selectActiveServerAction(formData: FormData) {
 
 export async function selectActiveCharacterAction(formData: FormData) {
   const redirectTo = getRedirectTarget(formData);
-  const { account } = await requireProtectedAccountContext(redirectTo);
+  const shellContext = await getAppShellContext(redirectTo);
 
   try {
+    const submittedServerId = String(formData.get("serverId") ?? "");
     const input: CharacterSelectionInput = {
-      serverId: String(formData.get("serverId") ?? ""),
+      serverId: submittedServerId,
       characterId: String(formData.get("characterId") ?? ""),
     };
 
-    await setActiveCharacterSelection(account.id, characterSelectionSchema.parse(input));
+    if (!shellContext.activeServer?.id || submittedServerId !== shellContext.activeServer.id) {
+      redirect(buildStatusRedirect(redirectTo, "character-selection-error"));
+    }
+
+    await setActiveCharacterSelection(
+      shellContext.account.id,
+      characterSelectionSchema.parse({
+        serverId: shellContext.activeServer.id,
+        characterId: input.characterId,
+      }),
+    );
+    revalidatePath(redirectTo);
     revalidatePath("/app");
     redirect(redirectTo);
   } catch (error) {
+    if (isRedirectError(error)) {
+      throw error;
+    }
+
     if (error instanceof ActiveCharacterSelectionError) {
       redirect(buildStatusRedirect(redirectTo, "character-selection-error"));
     }

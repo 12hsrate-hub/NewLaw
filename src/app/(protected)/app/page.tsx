@@ -1,8 +1,17 @@
 import { ProtectedShellOverviewSection } from "@/components/product/shell/protected-shell-overview-section";
 import { getAppShellContext } from "@/server/app-shell/context";
 
-export default async function ProtectedAppPage() {
+type ProtectedAppPageProps = {
+  searchParams?: Promise<{
+    status?: string;
+  }>;
+};
+
+export default async function ProtectedAppPage({
+  searchParams,
+}: ProtectedAppPageProps) {
   const shellContext = await getAppShellContext("/app");
+  const resolvedSearchParams = await searchParams;
 
   return (
     <ProtectedShellOverviewSection
@@ -14,6 +23,7 @@ export default async function ProtectedAppPage() {
         fullName: character.fullName,
         passportNumber: character.passportNumber,
       }))}
+      status={resolvedSearchParams?.status}
       servers={shellContext.servers.map((server) => ({
         id: server.id,
         name: server.name,

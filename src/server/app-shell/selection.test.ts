@@ -103,4 +103,27 @@ describe("app shell selection helpers", () => {
       ),
     ).rejects.toBeInstanceOf(ActiveCharacterSelectionError);
   });
+
+  it("блокирует выбор чужого персонажа, если его нет в списке аккаунта на сервере", async () => {
+    const repository = {
+      getCharactersByServer: vi.fn().mockResolvedValue([
+        {
+          id: "character-1",
+          serverId: "server-1",
+        },
+      ]),
+      selectActiveCharacter: vi.fn(),
+    };
+
+    await expect(
+      setActiveCharacterSelection(
+        "21631886-7b4d-4be2-b6e9-95322d0dca41",
+        {
+          serverId: "server-1",
+          characterId: "foreign-character",
+        },
+        repository,
+      ),
+    ).rejects.toBeInstanceOf(ActiveCharacterSelectionError);
+  });
 });
