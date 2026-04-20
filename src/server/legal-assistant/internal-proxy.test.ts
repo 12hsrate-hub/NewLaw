@@ -80,7 +80,7 @@ describe("assistant internal proxy", () => {
     expect(result.status).toBe(200);
   });
 
-  it("нормализует metadata в flat string map перед отправкой upstream", async () => {
+  it("не пересылает internal metadata upstream в OpenAI", async () => {
     const fetchSpy = vi.fn().mockResolvedValue({
       status: 200,
       json: async () => ({
@@ -135,11 +135,6 @@ describe("assistant internal proxy", () => {
               content: "system",
             },
           ],
-          metadata: {
-            featureKey: "server_legal_assistant",
-            corpusSnapshot: "{\"currentVersionIds\":[\"v1\",\"v2\"]}",
-            retrievalResultsCount: "4",
-          },
         }),
       }),
     );

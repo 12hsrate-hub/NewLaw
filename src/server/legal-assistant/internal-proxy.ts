@@ -20,46 +20,6 @@ const defaultDependencies: AssistantInternalProxyDependencies = {
   getEnv: getAssistantInternalProxyEnv,
 };
 
-const OPENAI_METADATA_MAX_LENGTH = 500;
-
-function truncateAssistantProxyMetadataValue(value: string) {
-  return value.length > OPENAI_METADATA_MAX_LENGTH
-    ? value.slice(0, OPENAI_METADATA_MAX_LENGTH)
-    : value;
-}
-
-function normalizeAssistantProxyMetadata(
-  metadata: Record<string, unknown> | null | undefined,
-): Record<string, string> | undefined {
-  if (!metadata || typeof metadata !== "object") {
-    return undefined;
-  }
-
-  const entries = Object.entries(metadata)
-    .map(([key, value]) => {
-      if (value == null) {
-        return null;
-      }
-
-      if (typeof value === "string") {
-        return [key, truncateAssistantProxyMetadataValue(value)] as const;
-      }
-
-      if (typeof value === "number" || typeof value === "boolean") {
-        return [key, truncateAssistantProxyMetadataValue(String(value))] as const;
-      }
-
-      return [key, truncateAssistantProxyMetadataValue(JSON.stringify(value))] as const;
-    })
-    .filter((entry): entry is readonly [string, string] => Boolean(entry));
-
-  if (entries.length === 0) {
-    return undefined;
-  }
-
-  return Object.fromEntries(entries);
-}
-
 export async function executeAssistantInternalProxyRequest(
   input: {
     bearerToken: string;
@@ -114,7 +74,6 @@ export async function executeAssistantInternalProxyRequest(
       model: input.payload.model,
       temperature: input.payload.temperature ?? 0.1,
       messages: input.payload.messages,
-      metadata: normalizeAssistantProxyMetadata(input.payload.metadata),
     }),
     cache: "no-store",
   });
