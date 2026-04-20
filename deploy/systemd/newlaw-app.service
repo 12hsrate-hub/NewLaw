@@ -1,0 +1,18 @@
+[Unit]
+Description=Lawyer5RP Next.js Application
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/srv/newlaw/app/current
+Environment=NODE_ENV=production
+Environment=HOSTNAME=127.0.0.1
+Environment=PORT=3000
+EnvironmentFile=/srv/newlaw/app/current/.env.production
+ExecStart=/srv/newlaw/app/current/node_modules/.bin/next start -H 127.0.0.1 -p 3000
+Restart=always
+RestartSec=5
+User=root
+
+[Install]
+WantedBy=multi-user.target
