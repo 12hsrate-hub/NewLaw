@@ -103,6 +103,17 @@ enum PrecedentBlockType {
   unstructured
 }
 
+enum PrecedentImportRunStatus {
+  running
+  success
+  failure
+}
+
+enum PrecedentImportRunMode {
+  discovery
+  import_source_topic
+}
+
 enum AIRequestStatus {
   success
   failure
@@ -148,6 +159,7 @@ model Server {
   lawImportRuns   LawImportRun[]
   precedentSourceTopics PrecedentSourceTopic[]
   precedents      Precedent[]
+  precedentImportRuns PrecedentImportRun[]
   assistantGuestSessions AssistantGuestSession[]
   aiRequests      AIRequest[]
   createdAt       DateTime          @default(now())
@@ -242,6 +254,7 @@ model LawSourceIndex {
   server              Server             @relation(fields: [serverId], references: [id], onDelete: Cascade)
   importRuns          LawImportRun[]
   precedentSourceTopics PrecedentSourceTopic[]
+  precedentImportRuns PrecedentImportRun[]
   createdAt           DateTime           @default(now())
   updatedAt           DateTime           @updatedAt
 
@@ -371,6 +384,7 @@ model PrecedentSourceTopic {
   server                Server                               @relation(fields: [serverId], references: [id], onDelete: Cascade)
   sourceIndex           LawSourceIndex                       @relation(fields: [sourceIndexId], references: [id], onDelete: Cascade)
   precedents            Precedent[]
+  importRuns            PrecedentImportRun[]
   createdAt             DateTime                             @default(now())
   updatedAt             DateTime                             @updatedAt
 
@@ -456,6 +470,29 @@ model PrecedentBlock {
 
   @@unique([precedentVersionId, blockOrder])
   @@index([precedentVersionId, blockType, blockOrder])
+}
+
+model PrecedentImportRun {
+  id            String                  @id @default(cuid())
+  serverId      String
+  sourceIndexId String?
+  sourceTopicId String?
+  mode          PrecedentImportRunMode
+  status        PrecedentImportRunStatus
+  lockKey       String?                 @unique
+  startedAt     DateTime                @default(now())
+  finishedAt    DateTime?
+  summary       String?
+  error         String?
+  server        Server                  @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  sourceIndex   LawSourceIndex?         @relation(fields: [sourceIndexId], references: [id], onDelete: SetNull)
+  sourceTopic   PrecedentSourceTopic?   @relation(fields: [sourceTopicId], references: [id], onDelete: SetNull)
+  createdAt     DateTime                @default(now())
+  updatedAt     DateTime                @updatedAt
+
+  @@index([serverId, status, startedAt])
+  @@index([sourceIndexId, status, startedAt])
+  @@index([sourceTopicId, status, startedAt])
 }
 
 model AssistantGuestSession {

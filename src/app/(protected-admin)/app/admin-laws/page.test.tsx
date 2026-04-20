@@ -112,8 +112,38 @@ describe("/app/admin-laws", () => {
           id: "source-1",
           indexUrl: "https://forum.gta5rp.com/forums/laws",
         },
+        importRuns: [
+          {
+            id: "precedent-run-1",
+            status: "success",
+            startedAt: new Date("2026-04-20T10:00:00.000Z"),
+            summary: "Извлечено precedents: 1.",
+            error: null,
+          },
+        ],
+        precedents: [
+          {
+            id: "precedent-1",
+            displayTitle: "Судебный прецедент № 1",
+            precedentKey: "sudebnyi_precedent_1",
+            precedentLocatorKey: "precedent_1",
+            validityStatus: "applicable",
+            currentVersionId: null,
+            currentVersion: null,
+            versions: [
+              {
+                id: "precedent-version-1",
+                status: "imported_draft",
+                importedAt: new Date("2026-04-20T10:00:00.000Z"),
+              },
+            ],
+            _count: {
+              versions: 1,
+            },
+          },
+        ],
         _count: {
-          precedents: 0,
+          precedents: 1,
         },
       },
     ] as never);
@@ -176,5 +206,7 @@ describe("/app/admin-laws", () => {
     expect(html).toContain("Current Primary Law Retrieval");
     expect(html).toContain("Precedent Source Topic Foundation");
     expect(html).toContain("Решение Верховного суда");
+    expect(html).toContain("Импортировать source topic");
+    expect(html).toContain("Судебный прецедент № 1");
   });
 });

@@ -2,6 +2,10 @@ import {
   createPrecedentSourceTopicAction,
   updatePrecedentSourceTopicAction,
 } from "@/server/actions/precedent-sources";
+import {
+  runPrecedentSourceDiscoveryAction,
+  runPrecedentSourceTopicImportAction,
+} from "@/server/actions/precedent-corpus";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -33,6 +37,24 @@ type PrecedentSourceTopicItem = {
   lastDiscoveryError: string | null;
   sourceIndexUrl: string;
   precedentsCount: number;
+  latestImportRun:
+    | {
+        status: "running" | "success" | "failure";
+        startedAt: Date;
+        summary: string | null;
+        error: string | null;
+      }
+    | null;
+  precedents: Array<{
+    id: string;
+    displayTitle: string;
+    precedentKey: string;
+    precedentLocatorKey: string;
+    validityStatus: "applicable" | "limited" | "obsolete";
+    currentVersionId: string | null;
+    latestVersionStatus: "imported_draft" | "current" | "superseded" | null;
+    versionCount: number;
+  }>;
 };
 
 type PrecedentSourceFoundationSectionProps = {
@@ -58,6 +80,26 @@ function resolveStatusMessage(status?: string) {
       return "Не удалось добавить precedent source topic. Проверь topic URL и попробуй ещё раз.";
     case "precedent-source-update-error":
       return "Не удалось обновить manual override поля precedent source topic.";
+    case "precedent-discovery-success":
+      return "Precedent discovery завершён. Source topics обновлены без current-review и без assistant integration.";
+    case "precedent-discovery-running":
+      return "Precedent discovery уже выполняется для этого index URL.";
+    case "precedent-discovery-error":
+      return "Precedent discovery завершился с ошибкой.";
+    case "precedent-import-created":
+      return "Precedent import завершён. Созданы новые imported_draft версии.";
+    case "precedent-import-unchanged":
+      return "Precedent import завершён без новых версий: normalized text не изменился.";
+    case "precedent-import-running":
+      return "Precedent import уже выполняется для этого source topic.";
+    case "precedent-source-topic-not-found":
+      return "Precedent source topic для import не найден.";
+    case "precedent-import-no-posts":
+      return "Не удалось собрать topic snapshot для precedent import.";
+    case "precedent-import-excluded":
+      return "Этот precedent source topic помечен как excluded и не должен импортироваться через обычный workflow.";
+    case "precedent-import-error":
+      return "Precedent import завершился с ошибкой.";
     default:
       return null;
   }
@@ -122,13 +164,48 @@ export function PrecedentSourceFoundationSection({
               <h3 className="text-2xl font-semibold">{server.name}</h3>
               <p className="text-sm leading-6 text-[var(--muted)]">
                 Source topic precedents привязываются к уже существующим `LawSourceIndex`, но
-                остаются отдельной доменной сущностью. На этом шаге их можно завести вручную и
-                подготовить manual override foundation для будущего precedent discovery/import.
+                остаются отдельной доменной сущностью. На этом шаге доступны manual precedent
+                discovery, import source topic snapshot и split foundation без current-review и без
+                assistant integration.
               </p>
             </div>
 
             <div className="grid gap-4 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
               <div className="space-y-3">
+                <div className="space-y-3">
+                  <h4 className="text-sm font-medium text-[var(--foreground)]">
+                    Precedent discovery по source indexes
+                  </h4>
+
+                  {serverSourceIndexes.length === 0 ? (
+                    <div className="rounded-2xl border border-dashed border-[var(--border)] bg-white/70 px-4 py-3 text-sm leading-6 text-[var(--muted)]">
+                      Для этого сервера нет доступных `LawSourceIndex`, через которые можно
+                      запустить отдельный precedent discovery pipeline.
+                    </div>
+                  ) : (
+                    serverSourceIndexes.map((sourceIndex) => (
+                      <div
+                        className="space-y-3 rounded-2xl border border-[var(--border)] bg-white/70 px-4 py-4"
+                        key={sourceIndex.id}
+                      >
+                        <p className="break-all text-sm font-medium text-[var(--foreground)]">
+                          {sourceIndex.indexUrl}
+                        </p>
+                        <p className="text-xs leading-5 text-[var(--muted)]">
+                          Статус source index: {sourceIndex.isEnabled ? "enabled" : "disabled"}
+                        </p>
+                        <form action={runPrecedentSourceDiscoveryAction}>
+                          <input name="redirectTo" type="hidden" value="/app/admin-laws" />
+                          <input name="sourceIndexId" type="hidden" value={sourceIndex.id} />
+                          <Button disabled={!sourceIndex.isEnabled} type="submit" variant="secondary">
+                            Запустить precedent discovery
+                          </Button>
+                        </form>
+                      </div>
+                    ))
+                  )}
+                </div>
+
                 <h4 className="text-sm font-medium text-[var(--foreground)]">
                   Precedent source topics
                 </h4>
@@ -163,6 +240,22 @@ export function PrecedentSourceFoundationSection({
                           last discovery: {sourceTopic.lastDiscoveryStatus ?? "—"} ·{" "}
                           {formatDateTime(sourceTopic.lastDiscoveredAt)}
                         </p>
+                        {sourceTopic.latestImportRun ? (
+                          <p className="text-xs leading-5 text-[var(--muted)]">
+                            last import: {sourceTopic.latestImportRun.status} ·{" "}
+                            {formatDateTime(sourceTopic.latestImportRun.startedAt)}
+                          </p>
+                        ) : null}
+                        {sourceTopic.latestImportRun?.summary ? (
+                          <p className="text-xs leading-5 text-[var(--muted)]">
+                            import summary: {sourceTopic.latestImportRun.summary}
+                          </p>
+                        ) : null}
+                        {sourceTopic.latestImportRun?.error ? (
+                          <p className="text-xs leading-5 text-[#9f3d22]">
+                            Последняя ошибка import: {sourceTopic.latestImportRun.error}
+                          </p>
+                        ) : null}
                         {sourceTopic.lastDiscoveryError ? (
                           <p className="text-xs leading-5 text-[#9f3d22]">
                             Последняя ошибка discovery: {sourceTopic.lastDiscoveryError}
@@ -221,6 +314,59 @@ export function PrecedentSourceFoundationSection({
                           Сохранить manual override
                         </Button>
                       </form>
+
+                      <div className="flex flex-wrap gap-3">
+                        <form action={runPrecedentSourceTopicImportAction}>
+                          <input name="redirectTo" type="hidden" value="/app/admin-laws" />
+                          <input name="sourceTopicId" type="hidden" value={sourceTopic.id} />
+                          <Button disabled={sourceTopic.isExcluded} type="submit" variant="secondary">
+                            Импортировать source topic
+                          </Button>
+                        </form>
+                      </div>
+
+                      <div className="space-y-2">
+                        <p className="text-sm font-medium text-[var(--foreground)]">
+                          Извлечённые precedents
+                        </p>
+                        {sourceTopic.precedents.length === 0 ? (
+                          <div className="rounded-2xl border border-dashed border-[var(--border)] bg-white/75 px-4 py-3 text-sm leading-6 text-[var(--muted)]">
+                            После import здесь появятся extracted precedents и их imported_draft
+                            версии.
+                          </div>
+                        ) : (
+                          <div className="space-y-3">
+                            {sourceTopic.precedents.map((precedent) => (
+                              <div
+                                className="rounded-2xl border border-[var(--border)] bg-white/85 px-4 py-3"
+                                key={precedent.id}
+                              >
+                                <div className="flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.18em] text-[var(--accent)]">
+                                  <span>{precedent.validityStatus}</span>
+                                  <span>·</span>
+                                  <span>{precedent.precedentKey}</span>
+                                  <span>·</span>
+                                  <span>locator: {precedent.precedentLocatorKey}</span>
+                                  <span>·</span>
+                                  <span>versions: {precedent.versionCount}</span>
+                                  {precedent.latestVersionStatus ? (
+                                    <>
+                                      <span>·</span>
+                                      <span>latest: {precedent.latestVersionStatus}</span>
+                                    </>
+                                  ) : null}
+                                </div>
+                                <p className="mt-2 text-sm font-medium text-[var(--foreground)]">
+                                  {precedent.displayTitle}
+                                </p>
+                                <p className="text-xs leading-5 text-[var(--muted)]">
+                                  current: {precedent.currentVersionId ?? "не выбрана"}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   ))
                 )}

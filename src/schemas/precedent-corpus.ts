@@ -12,6 +12,9 @@ const precedentBlockTypes = [
   "unstructured",
 ] as const;
 const precedentDiscoveryStatuses = ["running", "success", "failure"] as const;
+const precedentImportRunStatuses = ["running", "success", "failure"] as const;
+const precedentImportRunModes = ["discovery", "import_source_topic"] as const;
+const precedentTopicClassifications = ["precedent_candidate", "ignored"] as const;
 
 export const precedentTopicClassificationOverrideSchema = z.enum(
   precedentTopicClassificationOverrides,
@@ -20,11 +23,15 @@ export const precedentVersionStatusSchema = z.enum(precedentVersionStatuses);
 export const precedentValidityStatusSchema = z.enum(precedentValidityStatuses);
 export const precedentBlockTypeSchema = z.enum(precedentBlockTypes);
 export const precedentDiscoveryStatusSchema = z.enum(precedentDiscoveryStatuses);
+export const precedentImportRunStatusSchema = z.enum(precedentImportRunStatuses);
+export const precedentImportRunModeSchema = z.enum(precedentImportRunModes);
+export const precedentTopicClassificationSchema = z.enum(precedentTopicClassifications);
 
 export const precedentSourceTopicIdSchema = z.string().min(1);
 export const precedentIdSchema = z.string().min(1);
 export const precedentVersionIdSchema = z.string().min(1);
 export const precedentBlockIdSchema = z.string().min(1);
+export const precedentImportRunIdSchema = z.string().min(1);
 
 function normalizeForumUrl(input: string) {
   const url = new URL(input.trim());
@@ -196,6 +203,28 @@ export const createPrecedentBlockInputSchema = z.object({
   parentBlockId: precedentBlockIdSchema.nullish(),
 });
 
+export const createPrecedentImportRunInputSchema = z.object({
+  serverId: z.string().min(1),
+  sourceIndexId: z.string().min(1).nullish(),
+  sourceTopicId: precedentSourceTopicIdSchema.nullish(),
+  mode: precedentImportRunModeSchema,
+});
+
+export const finishPrecedentImportRunInputSchema = z.object({
+  runId: precedentImportRunIdSchema,
+  status: precedentImportRunStatusSchema,
+  summary: z.string().trim().max(5000).nullish(),
+  error: z.string().trim().max(5000).nullish(),
+});
+
+export const runPrecedentSourceDiscoveryInputSchema = z.object({
+  sourceIndexId: z.string().min(1),
+});
+
+export const runPrecedentSourceTopicImportInputSchema = z.object({
+  sourceTopicId: precedentSourceTopicIdSchema,
+});
+
 export type PrecedentTopicClassificationOverride = z.infer<
   typeof precedentTopicClassificationOverrideSchema
 >;
@@ -203,6 +232,9 @@ export type PrecedentVersionStatus = z.infer<typeof precedentVersionStatusSchema
 export type PrecedentValidityStatus = z.infer<typeof precedentValidityStatusSchema>;
 export type PrecedentBlockType = z.infer<typeof precedentBlockTypeSchema>;
 export type PrecedentDiscoveryStatus = z.infer<typeof precedentDiscoveryStatusSchema>;
+export type PrecedentImportRunStatus = z.infer<typeof precedentImportRunStatusSchema>;
+export type PrecedentImportRunMode = z.infer<typeof precedentImportRunModeSchema>;
+export type PrecedentTopicClassification = z.infer<typeof precedentTopicClassificationSchema>;
 export type CreatePrecedentSourceTopicInput = z.infer<typeof createPrecedentSourceTopicInputSchema>;
 export type CreatePrecedentSourceTopicRecordInput = z.infer<
   typeof createPrecedentSourceTopicRecordInputSchema
@@ -220,3 +252,11 @@ export type UpdatePrecedentVersionStatusInput = z.infer<
 >;
 export type CreatePrecedentSourcePostInput = z.infer<typeof createPrecedentSourcePostInputSchema>;
 export type CreatePrecedentBlockInput = z.infer<typeof createPrecedentBlockInputSchema>;
+export type CreatePrecedentImportRunInput = z.infer<typeof createPrecedentImportRunInputSchema>;
+export type FinishPrecedentImportRunInput = z.infer<typeof finishPrecedentImportRunInputSchema>;
+export type RunPrecedentSourceDiscoveryInput = z.infer<
+  typeof runPrecedentSourceDiscoveryInputSchema
+>;
+export type RunPrecedentSourceTopicImportInput = z.infer<
+  typeof runPrecedentSourceTopicImportInputSchema
+>;

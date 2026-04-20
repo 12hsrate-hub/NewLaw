@@ -13,7 +13,14 @@ describe("precedent source foundation section", () => {
             name: "Blackberry",
           },
         ]}
-        sourceIndexes={[]}
+        sourceIndexes={[
+          {
+            id: "source-1",
+            serverId: "server-1",
+            indexUrl: "https://forum.gta5rp.com/forums/zakonodatelnaja-baza.262/",
+            isEnabled: true,
+          },
+        ]}
         sourceTopics={[]}
       />,
     );
@@ -21,9 +28,10 @@ describe("precedent source foundation section", () => {
     expect(html).toContain("Precedent Source Topic Foundation");
     expect(html).toContain("Blackberry");
     expect(html).toContain("precedent source topics пока не заведены");
+    expect(html).toContain("Запустить precedent discovery");
   });
 
-  it("показывает source topic list и manual override form", () => {
+  it("показывает source topic list, manual override и precedent import foundation", () => {
     const html = renderToStaticMarkup(
       <PrecedentSourceFoundationSection
         servers={[
@@ -56,16 +64,36 @@ describe("precedent source foundation section", () => {
             lastDiscoveryError: null,
             sourceIndexUrl: "https://forum.gta5rp.com/forums/zakonodatelnaja-baza.262/",
             precedentsCount: 0,
+            latestImportRun: {
+              status: "success",
+              startedAt: new Date("2026-04-20T10:00:00.000Z"),
+              summary: "Извлечено precedents: 1.",
+              error: null,
+            },
+            precedents: [
+              {
+                id: "precedent-1",
+                displayTitle: "Судебный прецедент № 1",
+                precedentKey: "sudebnyi_precedent_1",
+                precedentLocatorKey: "precedent_1",
+                validityStatus: "applicable",
+                currentVersionId: null,
+                latestVersionStatus: "imported_draft",
+                versionCount: 1,
+              },
+            ],
           },
         ]}
-        status="precedent-source-created"
+        status="precedent-import-created"
       />,
     );
 
-    expect(html).toContain("Precedent source topic добавлен.");
+    expect(html).toContain("Precedent import завершён. Созданы новые imported_draft версии.");
     expect(html).toContain("Решение Верховного суда");
     expect(html).toContain("Сохранить manual override");
     expect(html).toContain("Добавить precedent source topic");
+    expect(html).toContain("Импортировать source topic");
+    expect(html).toContain("Судебный прецедент № 1");
     expect(html).toContain("не смешиваются");
   });
 });

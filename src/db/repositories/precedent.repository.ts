@@ -117,6 +117,23 @@ export async function updatePrecedentValidityStatus(
   });
 }
 
+export async function updatePrecedentDisplayTitle(
+  input: {
+    precedentId: string;
+    displayTitle: string;
+  },
+  db: PrismaLike = prisma,
+) {
+  return db.precedent.update({
+    where: {
+      id: precedentIdSchema.parse(input.precedentId),
+    },
+    data: {
+      displayTitle: createPrecedentInputSchema.shape.displayTitle.parse(input.displayTitle),
+    },
+  });
+}
+
 export async function setCurrentPrecedentVersion(
   input: {
     precedentId: string;

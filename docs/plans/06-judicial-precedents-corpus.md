@@ -3,7 +3,8 @@
 ## Статус блока
 
 `06.1` архитектурный план precedent corpus утверждён.  
-`06.2 precedent schema + source topic foundation` выполнен.
+`06.2 precedent schema + source topic foundation` выполнен.  
+`06.3 precedent discovery / import / split foundation` выполнен.
 
 На текущем шаге блок уже умеет:
 
@@ -18,12 +19,17 @@
 - вести manual override foundation для source topics precedents
 - показывать foundation-секцию precedents внутри `/app/admin-laws`
 - ограничивать управление precedent foundation только `super_admin`
+- запускать отдельный precedent discovery через существующие `LawSourceIndex`
+- создавать и обновлять `PrecedentSourceTopic` по `server_id + topic_external_id`
+- импортировать forum topic как полный precedent source snapshot
+- split-ить один `PrecedentSourceTopic` в один или несколько extracted precedents
+- поддерживать multi-post precedents
+- строить `normalized_full_text`, `source_snapshot_hash`, `normalized_text_hash`
+- сегментировать precedent в `PrecedentBlock`
+- создавать новые precedent versions только как `imported_draft`
 
 Что ещё не входит в блок на этом шаге:
 
-- precedent discovery parser
-- import topic -> precedents
-- split одной topic на несколько precedents
 - current review workflow
 - assistant integration
 - embeddings, vector search, reranking
@@ -217,24 +223,118 @@ Validity status:
 - precedents не смешиваются с `Law`, `LawVersion`, `LawBlock`
 - `/app/admin-laws` остаётся единой внутренней точкой law/precedent source foundation без превращения в полноценную админку
 
+## Что сделано в 06.3
+
+### Separate precedent discovery pipeline
+
+Добавлен отдельный precedent discovery pipeline, который:
+
+- использует существующие `LawSourceIndex`
+- не является расширением law discovery
+- создаёт или обновляет `PrecedentSourceTopic`
+- классифицирует темы только в:
+  - `precedent_candidate`
+  - `ignored`
+
+Ключевые правила:
+
+- темы, уже импортированные как `law` или `supplement`, не становятся precedents автоматически
+- manual override через `classificationOverride` и `isExcluded` по-прежнему учитывается
+- discovery/status fields обновляются на уровне `PrecedentSourceTopic`, без смешения с `Law`, `LawVersion`, `LawBlock`
+
+### Source topic snapshot import
+
+Добавлен foundation-импорт forum topic как целостного source snapshot:
+
+- topic скачивается как ordered set posts
+- используется полный topic snapshot, а не law-правило про непрерывную нормативную цепочку сверху темы
+- raw source layer сохраняется на уровне `PrecedentSourcePost` для конкретной version extracted precedent
+- source of truth остаётся: forum topic + imported snapshot
+
+### Split одного source topic
+
+Добавлен split pipeline:
+
+- один `PrecedentSourceTopic` может породить один или несколько `Precedent`
+- если новый precedent начинается с отдельного post или с явного heading marker внутри snapshot, создаётся отдельный extracted precedent
+- если continuation одного precedent уходит в следующий post, этот post включается в тот же extracted precedent
+- если split ненадёжен, применяется честный fallback в один precedent на весь topic
+
+Для каждого extracted precedent формируется:
+
+- `precedent_locator_key`
+- `display_title`
+- `normalized_full_text`
+- собственный source snapshot hash и normalized text hash
+
+### Normalization и dedupe
+
+На уровне каждого extracted precedent теперь работают:
+
+- `normalized_full_text`
+- `source_snapshot_hash`
+- `normalized_text_hash`
+
+Правило dedupe:
+
+- если `normalized_text_hash` совпадает с последней уже известной version этого precedent, новая `PrecedentVersion` не создаётся
+
+### PrecedentBlock foundation
+
+Добавлена базовая segmentation-логика в `PrecedentBlock`:
+
+- `facts`
+- `issue`
+- `holding`
+- `reasoning`
+- `resolution`
+- `unstructured`
+
+Правило:
+
+- если структура precedent не распознана надёжно, pipeline сохраняет `unstructured`, а не выдумывает ложные `holding/reasoning`
+
+### Version creation
+
+В `06.3` precedents при изменении текста создают только:
+
+- `PrecedentVersion.status = imported_draft`
+
+Что сознательно не делается:
+
+- auto-current
+- current review
+- editing `validity_status` как часть import decision
+
+### Internal super_admin flow
+
+`/app/admin-laws` теперь умеет минимальный precedent workflow:
+
+- запуск precedent discovery по `LawSourceIndex`
+- запуск import конкретного `PrecedentSourceTopic`
+- показ последнего статуса discovery/import
+- показ extracted precedents для source topic на минимальном уровне
+
+При этом всё ещё не делаются:
+
+- current review controls
+- validity editing UI
+- assistant preview по precedents
+
+## Acceptance для 06.3
+
+- precedent discovery идёт отдельным pipeline от law discovery
+- discovery создаёт/обновляет `PrecedentSourceTopic`
+- law/supplement topics не становятся precedents автоматически без override
+- один source topic может породить несколько precedents
+- multi-post precedent корректно собирается
+- fallback в один precedent работает, если split ненадёжен
+- raw source layer сохраняется консистентно
+- normalized text dedupe не плодит лишние версии
+- imported precedents получают `imported_draft`, а не `current`
+- `super_admin` guard на precedent discovery/import работает
+
 ## Следующие подшаги блока
-
-### 06.3 — discovery/import/splitting foundation
-
-Входит:
-
-- precedent discovery через существующие `LawSourceIndex`
-- precedent topic classification
-- raw snapshot import темы
-- split одной topic на один или несколько precedents
-- multi-post handling
-- normalization и precedent blocks
-- создание `imported_draft`
-
-Не входит:
-
-- current confirm
-- assistant integration
 
 ### 06.4 — review/current/validity workflow
 

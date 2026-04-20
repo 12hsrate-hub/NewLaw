@@ -156,6 +156,24 @@ export default async function AdminLawsPage({ searchParams }: AdminLawsPageProps
               lastDiscoveryError: sourceTopic.lastDiscoveryError,
               sourceIndexUrl: sourceTopic.sourceIndex.indexUrl,
               precedentsCount: sourceTopic._count.precedents,
+              latestImportRun: sourceTopic.importRuns[0]
+                ? {
+                    status: sourceTopic.importRuns[0].status,
+                    startedAt: sourceTopic.importRuns[0].startedAt,
+                    summary: sourceTopic.importRuns[0].summary,
+                    error: sourceTopic.importRuns[0].error,
+                  }
+                : null,
+              precedents: sourceTopic.precedents.map((precedent) => ({
+                id: precedent.id,
+                displayTitle: precedent.displayTitle,
+                precedentKey: precedent.precedentKey,
+                precedentLocatorKey: precedent.precedentLocatorKey,
+                validityStatus: precedent.validityStatus,
+                currentVersionId: precedent.currentVersionId,
+                latestVersionStatus: precedent.versions[0]?.status ?? null,
+                versionCount: precedent._count.versions,
+              })),
             }))}
             status={resolvedSearchParams?.status}
           />

@@ -14,6 +14,25 @@ export async function listPrecedentSourceTopics(db: PrismaLike = prisma) {
     include: {
       server: true,
       sourceIndex: true,
+      importRuns: {
+        orderBy: [{ startedAt: "desc" }],
+        take: 1,
+      },
+      precedents: {
+        include: {
+          currentVersion: true,
+          versions: {
+            orderBy: [{ importedAt: "desc" }],
+            take: 1,
+          },
+          _count: {
+            select: {
+              versions: true,
+            },
+          },
+        },
+        orderBy: [{ displayTitle: "asc" }],
+      },
       _count: {
         select: {
           precedents: true,
@@ -31,6 +50,25 @@ export async function listPrecedentSourceTopicsByServer(serverId: string, db: Pr
     },
     include: {
       sourceIndex: true,
+      importRuns: {
+        orderBy: [{ startedAt: "desc" }],
+        take: 1,
+      },
+      precedents: {
+        include: {
+          currentVersion: true,
+          versions: {
+            orderBy: [{ importedAt: "desc" }],
+            take: 1,
+          },
+          _count: {
+            select: {
+              versions: true,
+            },
+          },
+        },
+        orderBy: [{ displayTitle: "asc" }],
+      },
       _count: {
         select: {
           precedents: true,
@@ -38,6 +76,35 @@ export async function listPrecedentSourceTopicsByServer(serverId: string, db: Pr
       },
     },
     orderBy: [{ createdAt: "asc" }],
+  });
+}
+
+export async function syncPrecedentSourceTopicFromDiscovery(
+  input: {
+    sourceTopicId: string;
+    sourceIndexId: string;
+    topicUrl: string;
+    title: string;
+    lastDiscoveredAt: Date | null;
+    lastDiscoveryStatus: "running" | "success" | "failure" | null;
+    lastDiscoveryError: string | null;
+  },
+  db: PrismaLike = prisma,
+) {
+  return db.precedentSourceTopic.update({
+    where: {
+      id: precedentSourceTopicIdSchema.parse(input.sourceTopicId),
+    },
+    data: {
+      sourceIndexId: createPrecedentSourceTopicRecordInputSchema.shape.sourceIndexId.parse(
+        input.sourceIndexId,
+      ),
+      topicUrl: createPrecedentSourceTopicRecordInputSchema.shape.topicUrl.parse(input.topicUrl),
+      title: createPrecedentSourceTopicRecordInputSchema.shape.title.parse(input.title),
+      lastDiscoveredAt: input.lastDiscoveredAt,
+      lastDiscoveryStatus: input.lastDiscoveryStatus,
+      lastDiscoveryError: input.lastDiscoveryError,
+    },
   });
 }
 
@@ -51,6 +118,24 @@ export async function getPrecedentSourceTopicById(
     },
     include: {
       sourceIndex: true,
+      importRuns: {
+        orderBy: [{ startedAt: "desc" }],
+        take: 1,
+      },
+      precedents: {
+        include: {
+          currentVersion: true,
+          versions: {
+            orderBy: [{ importedAt: "desc" }],
+            take: 1,
+          },
+          _count: {
+            select: {
+              versions: true,
+            },
+          },
+        },
+      },
     },
   });
 }
