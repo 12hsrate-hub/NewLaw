@@ -7,16 +7,22 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
-  initialResetPasswordActionState,
   resetPasswordAction,
 } from "@/server/actions/public-auth";
 
 export function ResetPasswordForm() {
+  const initialState = {
+    errorMessage: null,
+    fieldErrors: {} as {
+      confirmNewPassword?: string;
+      newPassword?: string;
+    },
+  };
   const [state, formAction, isPending] = useActionState(
     resetPasswordAction,
-    initialResetPasswordActionState,
+    initialState,
   );
-  const safeState = state ?? initialResetPasswordActionState;
+  const safeState = state ?? initialState;
 
   return (
     <Card className="w-full max-w-md space-y-5">

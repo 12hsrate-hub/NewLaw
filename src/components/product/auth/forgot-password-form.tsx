@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
-  initialForgotPasswordActionState,
   requestPasswordRecoveryAction,
 } from "@/server/actions/public-auth";
 
@@ -16,11 +15,17 @@ type ForgotPasswordFormProps = {
 };
 
 export function ForgotPasswordForm({ nextPath }: ForgotPasswordFormProps) {
+  const initialState = {
+    errorMessage: null,
+    fieldErrors: {} as {
+      identifier?: string;
+    },
+  };
   const [state, formAction, isPending] = useActionState(
     requestPasswordRecoveryAction,
-    initialForgotPasswordActionState,
+    initialState,
   );
-  const safeState = state ?? initialForgotPasswordActionState;
+  const safeState = state ?? initialState;
 
   return (
     <Card className="w-full max-w-md space-y-5">
