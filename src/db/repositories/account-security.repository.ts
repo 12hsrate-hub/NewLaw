@@ -159,16 +159,24 @@ export async function updateMustChangePasswordState(
   db: AccountWriteDb = prisma,
 ) {
   const parsed = mustChangePasswordStateSchema.parse(input);
+  const updateData: {
+    mustChangePassword: boolean;
+    mustChangePasswordReason: AccountSecurityReason | null;
+    passwordChangedAt?: Date | null;
+  } = {
+    mustChangePassword: parsed.mustChangePassword,
+    mustChangePasswordReason: parsed.mustChangePassword ? parsed.reason : null,
+  };
+
+  if ("changedAt" in input) {
+    updateData.passwordChangedAt = parsed.changedAt ?? null;
+  }
 
   return db.account.update({
     where: {
       id: parsed.accountId,
     },
-    data: {
-      mustChangePassword: parsed.mustChangePassword,
-      mustChangePasswordReason: parsed.mustChangePassword ? parsed.reason : null,
-      passwordChangedAt: parsed.changedAt ?? undefined,
-    },
+    data: updateData,
   });
 }
 

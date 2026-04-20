@@ -87,9 +87,14 @@ export const adminSecurityInputBaseSchema = z.object({
   comment: z.string().trim().min(3, "Комментарий должен содержать минимум 3 символа.").max(500),
 });
 
+export const adminChangeEmailInputSchema = adminSecurityInputBaseSchema.extend({
+  newEmail: z.string().trim().toLowerCase().email("Укажи корректный email."),
+});
+
 export type AccountLogin = z.infer<typeof accountLoginSchema>;
 export type ForgotPasswordIdentifier = z.infer<typeof accountIdentifierSchema>;
 export type ResetPasswordInput = z.infer<typeof resetPasswordInputSchema>;
 export type ChangePasswordInput = z.infer<typeof changePasswordInputSchema>;
 export type ChangeEmailInput = z.infer<typeof changeEmailInputSchema>;
 export type AdminSecurityInputBase = z.infer<typeof adminSecurityInputBaseSchema>;
+export type AdminChangeEmailInput = z.infer<typeof adminChangeEmailInputSchema>;

@@ -6,7 +6,7 @@
 Главный сценарий MVP — создание жалобы в ОГП с итоговой генерацией форумного BBCode.
 
 На текущем этапе репозиторий содержит стартовую документацию проекта, bootstrap-каркас приложения, foundation для `Supabase Auth` и минимального data layer, account-security foundation, базовый защищённый пользовательский контур для работы с персонажами, инфраструктурные заготовки для production и временную maintenance page.
-Прикладная бизнес-логика документов пока не реализована, но регистрация по `login + email + password`, подтверждение email по ссылке, forgot-password, reset-password, вход по `email` или `login`, защищённый shell, `/app/security`, self change password, self change email, выбор сервера, выбор активного персонажа и ручное управление персонажами уже подготовлены.
+Прикладная бизнес-логика документов пока не реализована, но регистрация по `login + email + password`, подтверждение email по ссылке, forgot-password, reset-password, вход по `email` или `login`, защищённый shell, `/app/security`, self change password, self change email, server-side admin account-security actions, выбор сервера, выбор активного персонажа и ручное управление персонажами уже подготовлены.
 Production email delivery для auth-писем зафиксирован через `Supabase Custom SMTP`, а не через встроенный email provider Supabase.
 
 ## Зафиксированный стек
@@ -76,12 +76,14 @@ Production email delivery для auth-писем зафиксирован чер
 - [src/components](./src/components) — разделение базовых UI-компонентов и продуктовых компонентов
 - [src/server](./src/server) — серверные действия, технические обработчики и серверные модули
 - [src/server/auth](./src/server/auth) — server-side auth helpers для текущей сессии, пользователя и безопасной проверки авторизации
+- [src/server/auth/admin-security.ts](./src/server/auth/admin-security.ts) — server-side admin account-security use-cases без UI-админки
 - [src/server/account-security](./src/server/account-security) — foundation-логика login normalization, reserved logins и runtime backfill
 - [src/server/characters](./src/server/characters) — минимальная серверная логика ручного создания персонажа с бизнес-ограничениями
 - [src/server/app-shell](./src/server/app-shell) — серверная логика активного сервера и активного персонажа
 - [src/db](./src/db) — Prisma client, seed-структура и репозитории
+- [src/db/repositories/auth-session.repository.ts](./src/db/repositories/auth-session.repository.ts) — security helper для revoke пользовательских auth-сессий
 - [src/lib/supabase](./src/lib/supabase) — runtime-обвязка `Supabase Auth` для browser/server/middleware
-- [src/lib/supabase/service-role.ts](./src/lib/supabase/service-role.ts) — foundation helper для service-role сценариев account-security
+- [src/lib/supabase/service-role.ts](./src/lib/supabase/service-role.ts) — helper для service-role сценариев account-security
 - [src/schemas](./src/schemas) — `Zod`-схемы
 - [vitest.config.ts](./vitest.config.ts) — минимальная конфигурация `Vitest`
 - [.github/workflows/ci.yml](./.github/workflows/ci.yml) — baseline CI для lint/typecheck/test/prisma
@@ -132,10 +134,17 @@ Production email delivery для auth-писем зафиксирован чер
 - self-service смена пароля с обязательным текущим паролем
 - self-service смена email через `pendingEmail` и confirm flow
 - protected guard для `mustChangePassword`, который ограничивает остальные `/app` маршруты до смены пароля
-- service-role helper для будущих admin security use-cases
+- server-side admin security use-cases:
+  - `sendRecoveryEmail`
+  - `resetPasswordWithTempPassword`
+  - `changeEmailAsAdmin`
+- super_admin-only guard для admin security действий
+- audit log для admin security действий без утечки temp password
+- revoke пользовательских сессий после admin reset password и admin change email
 - SMTP foundation для production auth email delivery через `Supabase Custom SMTP`
 - audit log для `forgot_password_requested` и `password_reset_completed`
 - audit log для `password_changed_self`, `email_change_requested_self` и `email_change_completed`
+- audit log для `recovery_email_sent_admin`, `password_reset_admin_temp` и `email_changed_admin`
 
 Бизнес-ограничения этого слоя уже работают на серверной стороне:
 
@@ -172,7 +181,7 @@ pnpm dev
 
 - `NEXT_PUBLIC_SUPABASE_URL` и `NEXT_PUBLIC_SUPABASE_ANON_KEY` обязательны для реального `signup/signin/confirm` flow.
 - `APP_URL` обязателен для server-side redirect URL в security-сценариях.
-- `SUPABASE_SERVICE_ROLE_KEY` нужен для foundation service-role helper и будущих admin security actions.
+- `SUPABASE_SERVICE_ROLE_KEY` нужен для service-role helper и уже реализованных server-side admin security actions.
 - placeholder-значения из `.env.*.example` позволяют открыть UI и безопасно посмотреть auth-экраны, но не дают рабочую регистрацию, письмо подтверждения и вход.
 - production-ready auth email delivery требует не только боевых `Supabase` env, но и вручную настроенного `Supabase Custom SMTP`.
 - встроенный email provider Supabase не считается production-ready для проекта Lawyer5RP MVP.
@@ -186,7 +195,7 @@ pnpm dev
 3. В `Redirect URLs` добавлен callback подтверждения email.
 4. В `Authentication -> Email Templates -> Confirm signup` используется SSR-friendly ссылка с `token_hash`.
 5. Recovery flow тоже должен быть направлен в `/auth/confirm`, чтобы route handler мог выставить recovery-cookie и перевести пользователя на `/reset-password`.
-6. Для foundation account-security уже должны быть готовы `APP_URL` и `SUPABASE_SERVICE_ROLE_KEY`, даже если admin flows ещё не включены в UI.
+6. Для account-security уже должны быть готовы `APP_URL` и `SUPABASE_SERVICE_ROLE_KEY`, даже если admin flows ещё не имеют отдельного UI.
 7. Для production и staging auth email delivery включён `Supabase Custom SMTP`.
 
 Сценарии, которые зависят от корректного SMTP-контура:
@@ -311,4 +320,4 @@ powershell -ExecutionPolicy Bypass -File .\scripts\deploy-prod.ps1
 
 ## Что дальше
 
-Следующий шаг после текущего protected account-security foundation — не admin security actions, а уже следующий согласованный доменный слой из `docs/plans`.
+Server-side admin account-security logic уже готова, но отдельный `super_admin` UI и полноценная админка в текущий этап не входят.

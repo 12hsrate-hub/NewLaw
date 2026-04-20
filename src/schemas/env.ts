@@ -35,6 +35,31 @@ export function getSupabaseServiceRoleEnv() {
   });
 }
 
+export function hasLiveSupabaseServiceRoleEnv(
+  env: Partial<z.infer<typeof supabaseServiceRoleEnvSchema>>,
+) {
+  const url = env.NEXT_PUBLIC_SUPABASE_URL?.trim() ?? "";
+  const serviceRoleKey = env.SUPABASE_SERVICE_ROLE_KEY?.trim() ?? "";
+  const appUrl = env.APP_URL?.trim() ?? "";
+
+  if (!url || !serviceRoleKey || !appUrl) {
+    return false;
+  }
+
+  if (
+    url.includes("your-") ||
+    url.includes("example.supabase.co") ||
+    serviceRoleKey.includes("your-") ||
+    serviceRoleKey.includes("placeholder") ||
+    appUrl.includes("your-") ||
+    appUrl.includes("example.com")
+  ) {
+    return false;
+  }
+
+  return true;
+}
+
 export function hasLiveSupabaseRuntimeEnv(
   env: Partial<z.infer<typeof supabaseRuntimeEnvSchema>>,
 ) {
