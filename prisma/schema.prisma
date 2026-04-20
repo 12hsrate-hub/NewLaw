@@ -8,5 +8,94 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
-// Базовый bootstrap схемы.
-// Прикладные модели будут добавляться по этапам из docs/plans.
+enum CharacterRoleKey {
+  citizen
+  lawyer
+}
+
+enum CharacterAccessFlagKey {
+  advocate
+  server_editor
+  server_admin
+  tester
+}
+
+model Account {
+  id              String            @id @db.Uuid
+  email           String            @unique
+  isSuperAdmin    Boolean           @default(false)
+  characters      Character[]
+  userServerState UserServerState[]
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+}
+
+model Server {
+  id              String            @id @default(cuid())
+  code            String            @unique
+  name            String
+  isActive        Boolean           @default(true)
+  sortOrder       Int               @default(0)
+  characters      Character[]
+  userServerState UserServerState[]
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+}
+
+model UserServerState {
+  id                String     @id @default(cuid())
+  accountId         String     @db.Uuid
+  serverId          String
+  activeCharacterId String?
+  lastSelectedAt    DateTime?
+  account           Account    @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  server            Server     @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  activeCharacter   Character? @relation("ActiveCharacter", fields: [activeCharacterId], references: [id], onDelete: SetNull)
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+
+  @@unique([accountId, serverId])
+  @@index([serverId])
+}
+
+model Character {
+  id                String                @id @default(cuid())
+  accountId         String                @db.Uuid
+  serverId          String
+  fullName          String
+  nickname          String
+  passportNumber    String
+  isProfileComplete Boolean               @default(false)
+  profileDataJson   Json?
+  deletedAt         DateTime?
+  account           Account               @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  server            Server                @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  roles             CharacterRole[]
+  accessFlags       CharacterAccessFlag[]
+  activeInStates    UserServerState[]     @relation("ActiveCharacter")
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+
+  @@index([accountId, serverId, deletedAt])
+  @@index([accountId, serverId, passportNumber])
+}
+
+model CharacterRole {
+  id         String           @id @default(cuid())
+  characterId String
+  roleKey    CharacterRoleKey
+  character  Character        @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  createdAt  DateTime         @default(now())
+
+  @@unique([characterId, roleKey])
+}
+
+model CharacterAccessFlag {
+  id          String                   @id @default(cuid())
+  characterId String
+  flagKey     CharacterAccessFlagKey
+  character   Character                @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  createdAt   DateTime                 @default(now())
+
+  @@unique([characterId, flagKey])
+}

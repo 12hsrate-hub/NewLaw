@@ -7,7 +7,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint .",
+    "lint": "eslint . --ignore-pattern .next --ignore-pattern next-env.d.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:ci": "vitest run --reporter=default",
@@ -21,6 +21,8 @@
   },
   "dependencies": {
     "@prisma/client": "^6.6.0",
+    "@supabase/ssr": "^0.10.2",
+    "@supabase/supabase-js": "^2.103.3",
     "clsx": "^2.1.1",
     "next": "^15.3.1",
     "react": "^19.0.0",

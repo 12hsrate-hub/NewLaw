@@ -1,10 +1,13 @@
-import { ProjectOverview } from "@/components/product/home/project-overview";
-import { PageContainer } from "@/components/ui/page-container";
+import { redirect } from "next/navigation";
 
-export default function HomePage() {
-  return (
-    <PageContainer>
-      <ProjectOverview />
-    </PageContainer>
-  );
+import { getCurrentUser } from "@/server/auth/helpers";
+
+export default async function HomePage() {
+  const user = await getCurrentUser();
+
+  if (user) {
+    redirect("/app");
+  }
+
+  redirect("/sign-in");
 }
