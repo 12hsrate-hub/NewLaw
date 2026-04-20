@@ -20,14 +20,43 @@ enum CharacterAccessFlagKey {
   tester
 }
 
+enum AccountSecurityReason {
+  admin_reset
+  security_policy
+}
+
+enum AuditActionKey {
+  forgot_password_requested
+  password_reset_completed
+  password_changed_self
+  password_reset_admin_temp
+  email_change_requested_self
+  email_change_completed
+  email_changed_admin
+  recovery_email_sent_admin
+}
+
+enum AuditLogStatus {
+  success
+  failure
+}
+
 model Account {
-  id              String            @id @db.Uuid
-  email           String            @unique
-  isSuperAdmin    Boolean           @default(false)
-  characters      Character[]
-  userServerState UserServerState[]
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
+  id                      String                 @id @db.Uuid
+  email                   String                 @unique
+  login                   String                 @unique
+  pendingEmail            String?
+  pendingEmailRequestedAt DateTime?
+  mustChangePassword      Boolean                @default(false)
+  mustChangePasswordReason AccountSecurityReason?
+  passwordChangedAt       DateTime?
+  isSuperAdmin            Boolean                @default(false)
+  characters              Character[]
+  userServerState         UserServerState[]
+  actorAuditLogs          AuditLog[]             @relation("AuditActor")
+  targetAuditLogs         AuditLog[]             @relation("AuditTarget")
+  createdAt               DateTime               @default(now())
+  updatedAt               DateTime               @updatedAt
 }
 
 model Server {
@@ -98,4 +127,23 @@ model CharacterAccessFlag {
   createdAt   DateTime                 @default(now())
 
   @@unique([characterId, flagKey])
+}
+
+model AuditLog {
+  id              String         @id @default(cuid())
+  actionKey       AuditActionKey
+  status          AuditLogStatus
+  actorAccountId  String?        @db.Uuid
+  targetAccountId String?        @db.Uuid
+  comment         String?
+  metadataJson    Json?
+  ipAddress       String?
+  userAgent       String?
+  actorAccount    Account?       @relation("AuditActor", fields: [actorAccountId], references: [id], onDelete: SetNull)
+  targetAccount   Account?       @relation("AuditTarget", fields: [targetAccountId], references: [id], onDelete: SetNull)
+  createdAt       DateTime       @default(now())
+
+  @@index([actionKey, createdAt])
+  @@index([actorAccountId, createdAt])
+  @@index([targetAccountId, createdAt])
 }

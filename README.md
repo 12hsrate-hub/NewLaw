@@ -5,8 +5,9 @@
 `Lawyer5RP MVP` — единое full-stack веб-приложение для подготовки документных сценариев внутри экосистемы GTA5RP.
 Главный сценарий MVP — создание жалобы в ОГП с итоговой генерацией форумного BBCode.
 
-На текущем этапе репозиторий содержит стартовую документацию проекта, bootstrap-каркас приложения, foundation для `Supabase Auth` и минимального data layer, базовый защищённый пользовательский контур для работы с персонажами, инфраструктурные заготовки для production и временную maintenance page.
-Прикладная бизнес-логика документов пока не реализована, но вход, защищённый shell, выбор сервера, выбор активного персонажа и ручное управление персонажами уже подготовлены.
+На текущем этапе репозиторий содержит стартовую документацию проекта, bootstrap-каркас приложения, foundation для `Supabase Auth` и минимального data layer, account-security foundation, базовый защищённый пользовательский контур для работы с персонажами, инфраструктурные заготовки для production и временную maintenance page.
+Прикладная бизнес-логика документов пока не реализована, но регистрация по `login + email + password`, подтверждение email по ссылке, forgot-password, reset-password, вход, защищённый shell, выбор сервера, выбор активного персонажа и ручное управление персонажами уже подготовлены.
+Production email delivery для auth-писем зафиксирован через `Supabase Custom SMTP`, а не через встроенный email provider Supabase.
 
 ## Зафиксированный стек
 
@@ -64,19 +65,26 @@
 - [package.json](./package.json) — базовые зависимости и `pnpm`-scripts
 - [src/app](./src/app) — `App Router`, корневой layout, стартовая страница и `/api/health`
 - [src/app/sign-in](./src/app/sign-in) — публичная страница входа по email
+- [src/app/sign-up](./src/app/sign-up) — публичная страница регистрации по `login`, email и паролю
+- [src/app/sign-up/check-email](./src/app/sign-up/check-email) — экран ожидания подтверждения email
+- [src/app/forgot-password](./src/app/forgot-password) — публичная страница запроса письма для восстановления пароля
+- [src/app/forgot-password/check-email](./src/app/forgot-password/check-email) — нейтральный экран проверки почты для recovery flow
+- [src/app/reset-password](./src/app/reset-password) — публичная страница установки нового пароля после recovery-ссылки
 - [src/app/auth/confirm](./src/app/auth/confirm) — callback-обработчик подтверждения входа
 - [src/app/(protected)/app](./src/app/%28protected%29/app) — защищённая часть приложения с app shell
 - [src/components](./src/components) — разделение базовых UI-компонентов и продуктовых компонентов
 - [src/server](./src/server) — серверные действия, технические обработчики и серверные модули
 - [src/server/auth](./src/server/auth) — server-side auth helpers для текущей сессии, пользователя и безопасной проверки авторизации
+- [src/server/account-security](./src/server/account-security) — foundation-логика login normalization, reserved logins и runtime backfill
 - [src/server/characters](./src/server/characters) — минимальная серверная логика ручного создания персонажа с бизнес-ограничениями
 - [src/server/app-shell](./src/server/app-shell) — серверная логика активного сервера и активного персонажа
 - [src/db](./src/db) — Prisma client, seed-структура и репозитории
 - [src/lib/supabase](./src/lib/supabase) — runtime-обвязка `Supabase Auth` для browser/server/middleware
+- [src/lib/supabase/service-role.ts](./src/lib/supabase/service-role.ts) — foundation helper для service-role сценариев account-security
 - [src/schemas](./src/schemas) — `Zod`-схемы
 - [vitest.config.ts](./vitest.config.ts) — минимальная конфигурация `Vitest`
 - [.github/workflows/ci.yml](./.github/workflows/ci.yml) — baseline CI для lint/typecheck/test/prisma
-- [prisma/schema.prisma](./prisma/schema.prisma) — Prisma-схема foundation для `Account`, `Server`, `UserServerState`, `Character`, `CharacterRole`, `CharacterAccessFlag`
+- [prisma/schema.prisma](./prisma/schema.prisma) — Prisma-схема foundation для `Account`, `AuditLog`, `Server`, `UserServerState`, `Character`, `CharacterRole`, `CharacterAccessFlag`
 - [prisma/migrations](./prisma/migrations) — миграции Prisma
 - [docs/product/overview.md](./docs/product/overview.md) — краткая продуктовая рамка
 - [docs/product/mvp-scope.md](./docs/product/mvp-scope.md) — фиксированный scope MVP
@@ -103,14 +111,25 @@
 
 ## Текущий пользовательский контур
 
-В приложении уже собран минимальный рабочий контур шага `03`:
+В приложении уже собран минимальный рабочий контур шага `03`, а также `03.1 account-security foundation`:
 
-- публичный вход по email через `Supabase Auth`
+- регистрация по `login + email + password` через `Supabase Auth`
+- экран “проверьте почту” после регистрации
+- подтверждение email по ссылке через `/auth/confirm`
+- forgot-password page с одним полем `identifier`
+- нейтральный recovery flow по `email` или `account login`
+- reset-password page с recovery-cookie и recovery session
+- публичный вход по email и паролю
 - защищённая часть `/app`
 - app shell с выбором активного сервера
 - выбор активного персонажа в контексте сервера
 - список персонажей по выбранному серверу
 - ручное создание и редактирование персонажей
+- foundation для `Account.login`, `pendingEmail`, `mustChangePassword` и `AuditLog`
+- reconciliation-слой `Supabase user -> Prisma Account`
+- service-role helper для будущих admin security use-cases
+- SMTP foundation для production auth email delivery через `Supabase Custom SMTP`
+- audit log для `forgot_password_requested` и `password_reset_completed`
 
 Бизнес-ограничения этого слоя уже работают на серверной стороне:
 
@@ -118,6 +137,9 @@
 - запрет одинакового паспорта в рамках `account + server`
 - `nickname = fullName`
 - роли и `access_flags` привязаны к `character_id`
+- `Account.login` обязателен для новых регистраций, хранится в lowercase и в MVP не меняется
+- reserved logins запрещены
+- `Account.email` нельзя менять напрямую вне security/use-case слоя
 
 ## Полезные команды
 
@@ -131,11 +153,92 @@ pnpm dev
 
 Для локального auth/db foundation также нужны переменные окружения из `.env.local.example`:
 
+- `APP_URL`
 - `DATABASE_URL`
 - `DIRECT_URL`
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
+
+Важно:
+
+- `NEXT_PUBLIC_SUPABASE_URL` и `NEXT_PUBLIC_SUPABASE_ANON_KEY` обязательны для реального `signup/signin/confirm` flow.
+- `APP_URL` обязателен для server-side redirect URL в security-сценариях.
+- `SUPABASE_SERVICE_ROLE_KEY` нужен для foundation service-role helper и будущих admin security actions.
+- placeholder-значения из `.env.*.example` позволяют открыть UI и безопасно посмотреть auth-экраны, но не дают рабочую регистрацию, письмо подтверждения и вход.
+- production-ready auth email delivery требует не только боевых `Supabase` env, но и вручную настроенного `Supabase Custom SMTP`.
+- встроенный email provider Supabase не считается production-ready для проекта Lawyer5RP MVP.
+
+## Ручная настройка Supabase Auth
+
+Для рабочего auth flow в каждом отдельном `Supabase` project нужно вручную проверить следующее:
+
+1. Включён `Confirm email`.
+2. В `Authentication -> URL Configuration` настроен корректный `Site URL`.
+3. В `Redirect URLs` добавлен callback подтверждения email.
+4. В `Authentication -> Email Templates -> Confirm signup` используется SSR-friendly ссылка с `token_hash`.
+5. Recovery flow тоже должен быть направлен в `/auth/confirm`, чтобы route handler мог выставить recovery-cookie и перевести пользователя на `/reset-password`.
+6. Для foundation account-security уже должны быть готовы `APP_URL` и `SUPABASE_SERVICE_ROLE_KEY`, даже если admin flows ещё не включены в UI.
+7. Для production и staging auth email delivery включён `Supabase Custom SMTP`.
+
+Сценарии, которые зависят от корректного SMTP-контура:
+
+- `signup confirm`
+- `forgot password`
+- `reset password`
+- `change email confirm`
+
+### Supabase Custom SMTP для Mail.ru
+
+В проекте зафиксирован такой SMTP foundation:
+
+- `host`: `smtp.mail.ru`
+- официальный подтверждённый порт Mail.ru из справки: `465`
+- шифрование: `SSL/TLS`
+- `sender email` / `smtp user`: `lawyer5rp@inbox.ru`
+
+Отдельная operational note:
+
+- порт должен оставаться конфигурируемым и не должен быть жёстко зашит как `2525`
+- порт `2525` можно отдельно проверять как альтернативный, но он не считается официальным documented default
+- для Mail.ru нужен именно пароль внешнего приложения, а не обычный пароль почты
+- SMTP credentials не хранятся в `git`, tracked env-файлах, README, docs, тестах и коде
+- SMTP настраивается вручную в `Supabase Dashboard -> Authentication -> Email -> SMTP Settings` или через project config/API
+- приложение `Next.js` не читает SMTP-секреты напрямую и пока не содержит app-side mailer
+
+Минимальные поля в `Supabase Custom SMTP`:
+
+- `Sender email`: `lawyer5rp@inbox.ru`
+- `Host`: `smtp.mail.ru`
+- `Port`: `465` по официальной справке Mail.ru
+- `Username`: `lawyer5rp@inbox.ru`
+- `Password`: пароль внешнего приложения Mail.ru
+- `Encryption`: `SSL/TLS`
+
+Минимальные точные значения для local:
+
+- `Site URL`: `http://localhost:3000`
+- `Redirect URL`: `http://localhost:3000/auth/confirm`
+
+Минимальные точные значения для production:
+
+- `Site URL`: `https://lawyer5rp.ru`
+- `Redirect URL`: `https://lawyer5rp.ru/auth/confirm`
+
+Шаблон письма подтверждения signup должен быть таким:
+
+```text
+{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email
+```
+
+Для recovery и будущего `email change confirm` публичный callback тоже должен приходить в:
+
+```text
+{{ .SiteURL }}/auth/confirm
+```
+
+В текущем коде `emailRedirectTo` дополнительно передаёт `next`, поэтому после подтверждения пользователь уходит в нужный внутренний маршрут, по умолчанию в `/app`.
+Но сам факт настроенного `emailRedirectTo` ещё не делает почтовый контур production-ready без `Supabase Custom SMTP`.
 
 Базовые проверки:
 
@@ -167,6 +270,16 @@ pnpm prisma:validate
 pnpm prisma:generate
 ```
 
+Для ручной проверки auth flow:
+
+1. Подставить реальные `Supabase` env в `.env.local`.
+2. Убедиться, что в `Supabase Dashboard` настроены `Confirm email`, `Site URL`, `Redirect URL`, email template и `Custom SMTP`.
+3. Запустить `pnpm dev`.
+4. Открыть `/sign-up`, зарегистрировать аккаунт с `login`, email и паролем, затем проверить экран “проверьте почту”.
+5. Перейти по ссылке из письма и убедиться, что после `/auth/confirm` открывается защищённая часть `/app`.
+6. Открыть `/forgot-password`, указать email или `login` и убедиться, что показывается нейтральный экран проверки почты.
+7. Перейти по recovery-ссылке из письма, открыть `/reset-password`, задать новый пароль и убедиться, что после этого происходит redirect на `/sign-in?status=password-reset-success`.
+
 Запуск тестов в watch-режиме:
 
 ```powershell
@@ -187,4 +300,4 @@ powershell -ExecutionPolicy Bypass -File .\scripts\deploy-prod.ps1
 
 ## Что дальше
 
-Следующий шаг после auth shell и управления персонажами — развивать документные сценарии поверх уже подготовленного пользовательского контура по этапам из `docs/plans`.
+Следующий шаг после текущего public recovery foundation — отдельно довести protected security flows, `/app/security` и только потом двигаться дальше по этапам из `docs/plans`.

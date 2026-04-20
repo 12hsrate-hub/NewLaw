@@ -1,27 +1,27 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { getAppRuntimeEnv } from "@/schemas/env";
+import { confirmEmailFromUrl } from "@/server/auth/confirm";
+import { setRecoveryAccessCookie } from "@/server/auth/recovery";
 
 export async function GET(request: NextRequest) {
+  const { APP_URL } = getAppRuntimeEnv();
+
   try {
-    const requestUrl = new URL(request.url);
-    const code = requestUrl.searchParams.get("code");
-    const nextPath = requestUrl.searchParams.get("next");
-    const redirectPath = nextPath && nextPath.startsWith("/") ? nextPath : "/app";
+    const result = await confirmEmailFromUrl(
+      await createServerSupabaseClient(),
+      new URL(request.url),
+    );
 
-    if (!code) {
-      return NextResponse.redirect(new URL("/sign-in?status=missing-code", request.url));
+    const response = NextResponse.redirect(new URL(result.redirectPath, APP_URL));
+
+    if (result.setRecoveryAccessCookie) {
+      setRecoveryAccessCookie(response);
     }
 
-    const supabase = await createServerSupabaseClient();
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
-
-    if (error) {
-      return NextResponse.redirect(new URL("/sign-in?status=auth-error", request.url));
-    }
-
-    return NextResponse.redirect(new URL(redirectPath, request.url));
+    return response;
   } catch {
-    return NextResponse.redirect(new URL("/sign-in?status=auth-error", request.url));
+    return NextResponse.redirect(new URL("/sign-in?status=auth-error", APP_URL));
   }
 }

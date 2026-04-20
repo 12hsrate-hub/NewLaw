@@ -1,0 +1,164 @@
+import { describe, expect, it, vi } from "vitest";
+
+import {
+  buildEmailConfirmationRedirectUrl,
+  signInWithEmailPassword,
+  signUpWithEmailPassword,
+} from "@/lib/auth/email-auth";
+
+function createAuthClientMock() {
+  return {
+    auth: {
+      signInWithPassword: vi.fn(),
+      signOut: vi.fn(),
+      signUp: vi.fn(),
+      verifyOtp: vi.fn(),
+    },
+  };
+}
+
+const liveRuntimeConfig = {
+  NEXT_PUBLIC_SUPABASE_URL: "https://project.supabase.co",
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: "sb_publishable_live_value",
+};
+
+describe("email auth helpers", () => {
+  it("строит redirect URL подтверждения email", () => {
+    expect(
+      buildEmailConfirmationRedirectUrl("https://lawyer5rp.ru", "/app"),
+    ).toBe("https://lawyer5rp.ru/auth/confirm?next=%2Fapp");
+  });
+
+  it("возвращает placeholder-результат для signup без боевых env", async () => {
+    const client = createAuthClientMock();
+
+    const result = await signUpWithEmailPassword(
+      client,
+      {
+        login: "lawyer_user",
+        email: "user@example.com",
+        password: "password123",
+      },
+      {
+        NEXT_PUBLIC_SUPABASE_URL: "https://example.supabase.co",
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: "public-anon-key-placeholder",
+      },
+      "https://lawyer5rp.ru",
+      "/app",
+    );
+
+    expect(result.status).toBe("placeholder");
+  });
+
+  it("возвращает путь на экран проверки почты после успешного signup", async () => {
+    const client = createAuthClientMock();
+
+    client.auth.signUp.mockResolvedValue({
+      data: {
+        session: null,
+      },
+      error: null,
+    });
+
+    const result = await signUpWithEmailPassword(
+      client,
+      {
+        login: "lawyer_user",
+        email: "user@example.com",
+        password: "password123",
+      },
+      liveRuntimeConfig,
+      "https://lawyer5rp.ru",
+      "/app",
+    );
+
+    expect(result).toEqual({
+      status: "confirmation-required",
+      checkEmailPath: "/sign-up/check-email?status=signup-sent&next=%2Fapp",
+    });
+    expect(client.auth.signUp).toHaveBeenCalledWith({
+      email: "user@example.com",
+      password: "password123",
+      options: {
+        emailRedirectTo: "https://lawyer5rp.ru/auth/confirm?next=%2Fapp",
+        data: {
+          login: "lawyer_user",
+        },
+      },
+    });
+  });
+
+  it("приводит signup-ошибку к публичному сообщению", async () => {
+    const client = createAuthClientMock();
+
+    client.auth.signUp.mockResolvedValue({
+      data: {
+        session: null,
+      },
+      error: {
+        code: "user_already_exists",
+        message: "User already registered",
+      },
+    });
+
+    const result = await signUpWithEmailPassword(
+      client,
+      {
+        login: "lawyer_user",
+        email: "user@example.com",
+        password: "password123",
+      },
+      liveRuntimeConfig,
+      "https://lawyer5rp.ru",
+      "/app",
+    );
+
+    expect(result.status).toBe("error");
+    if (result.status === "error") {
+      expect(result.message).toContain("Не удалось создать аккаунт");
+    }
+  });
+
+  it("валидирует signup-пароль до обращения к Supabase", async () => {
+    const client = createAuthClientMock();
+
+    await expect(
+      signUpWithEmailPassword(
+        client,
+        {
+          login: "lawyer_user",
+          email: "user@example.com",
+          password: "123",
+        },
+        liveRuntimeConfig,
+        "https://lawyer5rp.ru",
+        "/app",
+      ),
+    ).rejects.toThrow();
+
+    expect(client.auth.signUp).not.toHaveBeenCalled();
+  });
+
+  it("возвращает success для sign-in с email и паролем", async () => {
+    const client = createAuthClientMock();
+
+    client.auth.signInWithPassword.mockResolvedValue({
+      error: null,
+    });
+
+    const result = await signInWithEmailPassword(
+      client,
+      {
+        email: "user@example.com",
+        password: "password123",
+      },
+      liveRuntimeConfig,
+      "/app",
+    );
+
+    expect(result).toEqual({
+      status: "success",
+      nextPath: "/app",
+    });
+  });
+});

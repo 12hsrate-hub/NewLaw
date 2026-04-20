@@ -1,11 +1,13 @@
-import type { PrismaClient } from "@prisma/client";
-
 import { prisma } from "@/db/prisma";
-import { accountIdentitySchema, type AccountIdentityInput } from "@/schemas/account";
 
-type PrismaLike = PrismaClient;
+type AccountReadDb = {
+  account: {
+    findUnique: typeof prisma.account.findUnique;
+    findFirst: typeof prisma.account.findFirst;
+  };
+};
 
-export async function getAccountById(accountId: string, db: PrismaLike = prisma) {
+export async function getAccountById(accountId: string, db: AccountReadDb = prisma) {
   return db.account.findUnique({
     where: {
       id: accountId,
@@ -13,19 +15,18 @@ export async function getAccountById(accountId: string, db: PrismaLike = prisma)
   });
 }
 
-export async function upsertAccountFromAuthUser(input: AccountIdentityInput, db: PrismaLike = prisma) {
-  const parsed = accountIdentitySchema.parse(input);
-
-  return db.account.upsert({
+export async function getAccountByEmail(email: string, db: AccountReadDb = prisma) {
+  return db.account.findUnique({
     where: {
-      id: parsed.id,
+      email: email.trim().toLowerCase(),
     },
-    update: {
-      email: parsed.email,
-    },
-    create: {
-      id: parsed.id,
-      email: parsed.email,
+  });
+}
+
+export async function getAccountByLogin(login: string, db: AccountReadDb = prisma) {
+  return db.account.findFirst({
+    where: {
+      login: login.trim().toLowerCase(),
     },
   });
 }

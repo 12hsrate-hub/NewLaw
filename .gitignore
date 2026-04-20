@@ -27,4 +27,4 @@ test-results/
 # misc
 .DS_Store
 Thumbs.db
-tsconfig.tsbuildinfo
+*.tsbuildinfo
