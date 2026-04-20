@@ -5,8 +5,8 @@
 `Lawyer5RP MVP` — единое full-stack веб-приложение для подготовки документных сценариев внутри экосистемы GTA5RP.
 Главный сценарий MVP — создание жалобы в ОГП с итоговой генерацией форумного BBCode.
 
-На текущем этапе репозиторий содержит стартовую документацию проекта, bootstrap-каркас приложения, foundation для `Supabase Auth` и минимального data layer, account-security foundation, protected shell foundation для `/app` c выбором активного сервера и персонажа, базовый контур ручного управления персонажами с минимальным слоем ролей и `access flags`, минимальные `super_admin` экраны для admin account-security и law corpus source management, law corpus schema foundation, ручной discovery/import pipeline для law corpus с normalizing и segmentation, manual current-version workflow и retrieval foundation для current primary laws, а также инфраструктурные заготовки для production и временную maintenance page.
-Прикладная бизнес-логика документов пока не реализована, но регистрация по `login + email + password`, подтверждение email по ссылке, forgot-password, reset-password, вход по `email` или `login`, protected shell на `/app` c active server / active character selection, базовый список/создание/редактирование персонажей для текущего сервера вместе с ролями и `access flags` на уровне `character_id`, `/app/security`, self change password, self change email, server-side admin account-security actions, а также foundation для law corpus, server-scoped источников законодательной базы, ручного discovery/import pipeline, ручного confirm imported draft версий и server-scoped retrieval foundation уже подготовлены.
+На текущем этапе репозиторий содержит стартовую документацию проекта, bootstrap-каркас приложения, foundation для `Supabase Auth` и минимального data layer, account-security foundation, protected shell foundation для `/app` c выбором активного сервера и персонажа, базовый контур ручного управления персонажами с минимальным слоем ролей и `access flags`, минимальные `super_admin` экраны для admin account-security и law corpus source management, law corpus schema foundation, ручной discovery/import pipeline для law corpus с normalizing и segmentation, manual current-version workflow, retrieval foundation для current primary laws и отдельный public `server legal assistant` модуль вне `/app`, а также инфраструктурные заготовки для production и временную maintenance page.
+Прикладная бизнес-логика документов пока не реализована, но регистрация по `login + email + password`, подтверждение email по ссылке, forgot-password, reset-password, вход по `email` или `login`, protected shell на `/app` c active server / active character selection, базовый список/создание/редактирование персонажей для текущего сервера вместе с ролями и `access flags` на уровне `character_id`, `/app/security`, self change password, self change email, server-side admin account-security actions, а также foundation для law corpus, server-scoped источников законодательной базы, ручного discovery/import pipeline, ручного confirm imported draft версий, server-scoped retrieval foundation и public assistant по current primary laws уже подготовлены.
 Production email delivery для auth-писем зафиксирован через `Supabase Custom SMTP`, а не через встроенный email provider Supabase.
 
 ## Зафиксированный стек
@@ -71,6 +71,8 @@ Production email delivery для auth-писем зафиксирован чер
 - [src/app/forgot-password/check-email](./src/app/forgot-password/check-email) — нейтральный экран проверки почты для recovery flow
 - [src/app/reset-password](./src/app/reset-password) — публичная страница установки нового пароля после recovery-ссылки
 - [src/app/auth/confirm](./src/app/auth/confirm) — callback-обработчик подтверждения входа
+- [src/app/assistant](./src/app/assistant) — публичная входная страница `server legal assistant` с явным выбором сервера
+- [src/app/assistant/[serverSlug]](./src/app/assistant/%5BserverSlug%5D) — публичная страница вопроса-ответа по law corpus конкретного сервера
 - [src/app/(protected)/app](./src/app/%28protected%29/app) — защищённая часть приложения с app shell
 - [src/app/(protected-security)/app/security](./src/app/%28protected-security%29/app/security) — защищённый экран account security
 - [src/app/(protected-admin)/app/admin-security](./src/app/%28protected-admin%29/app/admin-security) — минимальный `super_admin` экран admin account security
@@ -82,6 +84,7 @@ Production email delivery для auth-писем зафиксирован чер
 - [src/server/actions/admin-security.ts](./src/server/actions/admin-security.ts) — server action-обвязка для `super_admin` UI
 - [src/server/admin-security/account-search.ts](./src/server/admin-security/account-search.ts) — поиск account-level цели по email, login или account id
 - [src/server/law-corpus](./src/server/law-corpus) — foundation services для law corpus, import lock, current-version workflow и server-scoped retrieval
+- [src/server/legal-assistant](./src/server/legal-assistant) — guest access layer, proxy-aware answer pipeline и public assistant services
 - [src/server/account-security](./src/server/account-security) — foundation-логика login normalization, reserved logins и runtime backfill
 - [src/server/characters](./src/server/characters) — доменная логика ручного создания и редактирования персонажей с ограничениями аккаунта и сервера
 - [src/server/app-shell](./src/server/app-shell) — SSR логика shell, fallback состояния и server-side selection helper’ы
@@ -92,9 +95,10 @@ Production email delivery для auth-писем зафиксирован чер
 - [src/lib/supabase](./src/lib/supabase) — runtime-обвязка `Supabase Auth` для browser/server/middleware
 - [src/lib/supabase/service-role.ts](./src/lib/supabase/service-role.ts) — helper для service-role сценариев account-security
 - [src/schemas](./src/schemas) — `Zod`-схемы, включая law corpus source validation, review и retrieval input validation
+- [src/schemas/legal-assistant.ts](./src/schemas/legal-assistant.ts) — схема вопроса, `serverSlug` и proxy-config foundation для assistant
 - [vitest.config.ts](./vitest.config.ts) — минимальная конфигурация `Vitest`
 - [.github/workflows/ci.yml](./.github/workflows/ci.yml) — baseline CI для lint/typecheck/test/prisma
-- [prisma/schema.prisma](./prisma/schema.prisma) — Prisma-схема foundation для account-security, shell/characters и law corpus
+- [prisma/schema.prisma](./prisma/schema.prisma) — Prisma-схема foundation для account-security, shell/characters, law corpus и guest/AI assistant storage
 - [prisma/migrations](./prisma/migrations) — миграции Prisma
 - [docs/product/overview.md](./docs/product/overview.md) — краткая продуктовая рамка
 - [docs/product/mvp-scope.md](./docs/product/mvp-scope.md) — фиксированный scope MVP
@@ -107,7 +111,7 @@ Production email delivery для auth-писем зафиксирован чер
 - [docs/architecture/git-workflow.md](./docs/architecture/git-workflow.md) — ветвление и релизный поток
 - [docs/architecture/testing-and-debug.md](./docs/architecture/testing-and-debug.md) — baseline проверок, smoke и наблюдаемость
 - [docs/plans/00-master-plan.md](./docs/plans/00-master-plan.md) — общий план реализации
-- [docs/plans/05-law-corpus-and-server-legal-assistant.md](./docs/plans/05-law-corpus-and-server-legal-assistant.md) — текущий план блока law corpus и retrieval foundation
+- [docs/plans/05-law-corpus-and-server-legal-assistant.md](./docs/plans/05-law-corpus-and-server-legal-assistant.md) — текущий план блока law corpus, retrieval foundation и server legal assistant
 - [docs/plans/01-bootstrap.md](./docs/plans/01-bootstrap.md) и остальные поэтапные планы — исторические и текущие шаги проекта
 - [docs/prod-access.md](./docs/prod-access.md) — текущий доступ к production-серверу
 - [scripts/check-prod-access.ps1](./scripts/check-prod-access.ps1) — быстрая проверка SSH-доступа
@@ -184,10 +188,24 @@ Production email delivery для auth-писем зафиксирован чер
 - internal retrieval preview по `current primary laws` выбранного сервера
 - retrieval foundation только по `current` версиям `primary` laws, без `supplement`, `imported_draft` и `superseded`
 - retrieval metadata с grounded references на `law`, `version`, `block` и source topic/source posts
+- public `server legal assistant` вне `/app`
+- маршруты `/assistant` и `/assistant/[serverSlug]`
+- явный выбор server context через route param, а не через `/app` shell
+- 1 тестовый guest question с сохранением одного Q/A pair
+- proxy-only AI layer для assistant без прямых client-side и direct OpenAI calls
 - SMTP foundation для production auth email delivery через `Supabase Custom SMTP`
 - audit log для `forgot_password_requested` и `password_reset_completed`
 - audit log для `password_changed_self`, `email_change_requested_self` и `email_change_completed`
 - audit log для `recovery_email_sent_admin`, `password_reset_admin_temp` и `email_changed_admin`
+- public assistant:
+  - `/assistant` для выбора сервера
+  - `/assistant/[serverSlug]` для вопроса-ответа по law corpus
+  - guest access с лимитом `1` вопрос
+  - сохранение одного guest Q/A pair и corpus snapshot metadata
+  - server-side answer pipeline только по `current primary laws`
+  - разделение ответа на `Краткий вывод`, `Что прямо следует из норм`, `Вывод / интерпретация`
+  - grounded references на law/version/block/source
+  - proxy-aware AI layer с поддержкой нескольких proxy entries
 
 Бизнес-ограничения этого слоя уже работают на серверной стороне:
 
@@ -213,6 +231,13 @@ Production email delivery для auth-писем зафиксирован чер
 - в retrieval по умолчанию участвуют только `primary` laws со статусом `current`
 - `supplement`, `imported_draft` и `superseded` в retrieval не попадают
 - основной retrieval unit — `LawBlock` уровня `article`, с аккуратным fallback на другие block types только если article-блоки не дали результата
+- assistant живёт вне `/app` и не зависит от active server, active character, character roles/access flags и account-security screens
+- assistant отвечает только по current `primary` laws выбранного `serverSlug`
+- assistant не отвечает вне подтвержденного корпуса и не делает вид, что норма найдена, если retrieval её не нашёл
+- guest учитывается по `anonymous session cookie + IP + user-agent`
+- после первого guest вопроса старый ответ остаётся доступным, а новый вопрос требует вход или регистрацию
+- после входа или регистрации guest лимит больше не блокирует пользователя
+- все AI-вызовы assistant идут только через proxy-layer
 
 ## Полезные команды
 
@@ -238,9 +263,12 @@ pnpm dev
 - `NEXT_PUBLIC_SUPABASE_URL` и `NEXT_PUBLIC_SUPABASE_ANON_KEY` обязательны для реального `signup/signin/confirm` flow.
 - `APP_URL` обязателен для server-side redirect URL в security-сценариях.
 - `SUPABASE_SERVICE_ROLE_KEY` нужен для service-role helper и уже реализованных server-side admin security actions.
+- `AI_PROXY_ACTIVE_KEY` и `AI_PROXY_CONFIGS_JSON` нужны для public `server legal assistant`.
 - placeholder-значения из `.env.*.example` позволяют открыть UI и безопасно посмотреть auth-экраны, но не дают рабочую регистрацию, письмо подтверждения и вход.
+- placeholder-значения `AI_PROXY_*` позволяют собрать assistant UI, но не дают реальную генерацию ответа через proxy.
 - production-ready auth email delivery требует не только боевых `Supabase` env, но и вручную настроенного `Supabase Custom SMTP`.
 - встроенный email provider Supabase не считается production-ready для проекта Lawyer5RP MVP.
+- public assistant 05.5 не делает прямых вызовов к `OpenAI API`; он работает только через server-side proxy abstraction.
 
 ## Ручная настройка Supabase Auth
 

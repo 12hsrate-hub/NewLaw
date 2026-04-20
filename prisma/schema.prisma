@@ -71,6 +71,17 @@ enum LawBlockType {
   unstructured
 }
 
+enum AIRequestStatus {
+  success
+  failure
+  unavailable
+}
+
+enum AssistantGuestAnswerStatus {
+  answered
+  no_norms
+}
+
 model Account {
   id                      String                 @id @db.Uuid
   email                   String                 @unique
@@ -86,6 +97,7 @@ model Account {
   confirmedLawVersions    LawVersion[]           @relation("LawVersionConfirmer")
   actorAuditLogs          AuditLog[]             @relation("AuditActor")
   targetAuditLogs         AuditLog[]             @relation("AuditTarget")
+  aiRequests              AIRequest[]
   createdAt               DateTime               @default(now())
   updatedAt               DateTime               @updatedAt
 }
@@ -101,6 +113,8 @@ model Server {
   lawSourceIndexes LawSourceIndex[]
   laws            Law[]
   lawImportRuns   LawImportRun[]
+  assistantGuestSessions AssistantGuestSession[]
+  aiRequests      AIRequest[]
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
 }
@@ -303,4 +317,49 @@ model LawImportRun {
 
   @@index([serverId, status, startedAt])
   @@index([sourceIndexId, status, startedAt])
+}
+
+model AssistantGuestSession {
+  id                String                     @id @default(cuid())
+  guestToken        String                     @unique
+  ipHash            String
+  userAgentHash     String
+  usedFreeQuestionAt DateTime?
+  lastServerId      String?
+  questionText      String?
+  answerMarkdown    String?
+  answerMetadataJson Json?
+  answerStatus      AssistantGuestAnswerStatus?
+  lastAnsweredAt    DateTime?
+  lastServer        Server?                    @relation(fields: [lastServerId], references: [id], onDelete: SetNull)
+  aiRequests        AIRequest[]
+  createdAt         DateTime                   @default(now())
+  updatedAt         DateTime                   @updatedAt
+
+  @@index([ipHash, userAgentHash, usedFreeQuestionAt])
+  @@index([lastServerId, usedFreeQuestionAt])
+}
+
+model AIRequest {
+  id                  String          @id @default(cuid())
+  accountId           String?         @db.Uuid
+  serverId            String?
+  guestSessionId      String?
+  featureKey          String
+  providerKey         String?
+  proxyKey            String?
+  model               String?
+  requestPayloadJson  Json?
+  responsePayloadJson Json?
+  status              AIRequestStatus
+  errorMessage        String?
+  account             Account?        @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  server              Server?         @relation(fields: [serverId], references: [id], onDelete: SetNull)
+  guestSession        AssistantGuestSession? @relation(fields: [guestSessionId], references: [id], onDelete: SetNull)
+  createdAt           DateTime        @default(now())
+
+  @@index([featureKey, createdAt])
+  @@index([accountId, createdAt])
+  @@index([serverId, createdAt])
+  @@index([guestSessionId, createdAt])
 }

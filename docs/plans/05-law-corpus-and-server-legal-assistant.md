@@ -6,6 +6,7 @@
 `05.2 corpus schema + internal source management foundation` выполнен.  
 `05.3 discovery + import + normalization + segmentation` выполнен.
 `05.4 current-version workflow + retrieval foundation` выполнен.
+`05.5 server legal assistant MVP` выполнен.
 
 На текущем шаге блок уже умеет:
 
@@ -22,10 +23,13 @@
 - internal review controls по версиям закона
 - server-scoped retrieval foundation только по `current primary laws`
 - internal retrieval preview для `super_admin`
+- public assistant routes `/assistant` и `/assistant/[serverSlug]`
+- guest usage foundation с лимитом `1` тестовый вопрос
+- proxy-only server-side AI answer pipeline
+- grounded ответ с разделением `норма` и `интерпретация`
 
 Что ещё не входит в блок на этом шаге:
 
-- legal assistant UI
 - embeddings, vector store, reranking
 - документы, `BBCode`, публикация на форум, AI-генерация документов
 - судебные прецеденты
@@ -51,6 +55,13 @@
 - retrieval работает только по `current primary laws` выбранного сервера
 - `supplement`, `imported_draft` и `superseded` по умолчанию не участвуют в retrieval
 - основной retrieval unit — `LawBlock`, прежде всего `article`
+- server legal assistant живёт отдельно от `/app`
+- server context для assistant берётся только из явного выбора пользователя и `serverSlug`
+- guest может задать только `1` тестовый вопрос
+- после guest вопроса старый ответ остаётся доступным, но новый вопрос требует вход или регистрацию
+- после входа или регистрации guest-лимит больше не блокирует пользователя
+- все AI-вызовы assistant идут только через proxy-layer
+- assistant не отвечает вне подтвержденного корпуса
 
 ## Что сделано в 05.2
 
@@ -293,6 +304,112 @@
 - retrieval metadata содержит grounded references
 - retrieval preview остаётся внутренним инструментом и не превращается в public assistant
 
+## Что сделано в 05.5
+
+### Public assistant routes
+
+Добавлены отдельные public routes:
+
+- `/assistant`
+- `/assistant/[serverSlug]`
+
+Зафиксировано:
+
+- assistant не живёт внутри `/app`
+- assistant не зависит от active server из shell
+- assistant не зависит от active character, ролей персонажа и экранов account security
+- `serverSlug` является единственным источником server context для ответа
+
+### Access model
+
+Реализована модель доступа:
+
+- гость может открыть assistant без регистрации
+- гость может задать только `1` тестовый вопрос
+- после первого guest вопроса старый вопрос и ответ остаются доступными для просмотра
+- новый guest вопрос после этого не отправляется в answer pipeline
+- показывается CTA на вход или регистрацию
+- зарегистрированный пользователь использует assistant без этого guest-ограничения
+
+### Guest usage foundation
+
+Добавлен минимальный server-side guest usage layer:
+
+- anonymous session cookie
+- `IP`
+- `user-agent`
+
+Для гостя сохраняются только:
+
+- guest session identifier
+- факт использования одного тестового вопроса
+- один сохранённый вопрос
+- один сохранённый ответ
+- answer metadata
+
+При этом не добавлялись:
+
+- история чата
+- memory assistant
+- многосессионный state
+
+### Answer pipeline
+
+Реализован server-side answer pipeline:
+
+- route берёт `serverSlug`
+- retrieval идёт только по `current primary laws`
+- `supplement`, `imported_draft`, `superseded` и судебные прецеденты не используются
+- при отсутствии нормы assistant честно возвращает grounded fallback
+- при отсутствии current corpus assistant честно показывает unavailable state
+- при недоступности или ошибке AI proxy assistant не делает вид, что ответ сгенерирован
+
+### Proxy-only AI integration
+
+Реализован минимальный proxy-aware AI layer:
+
+- assistant не делает прямых вызовов в `OpenAI API`
+- все AI-вызовы идут только через server-side proxy abstraction
+- конфиг допускает несколько proxy entries
+- на старте можно использовать один активный proxy entry
+- proxy config живёт только на серверной стороне
+- UI не знает о конкретном proxy endpoint
+
+### Формат ответа
+
+Ответ assistant по умолчанию подробный и структурированный:
+
+- `Краткий вывод`
+- `Что прямо следует из норм`
+- `Вывод / интерпретация`
+- `Использованные нормы / источники`
+
+Зафиксировано:
+
+- assistant явно разделяет прямое содержание нормы и интерпретацию
+- ответы вне подтверждённого корпуса запрещены
+- grounded metadata включает law/version/block/source и corpus snapshot
+
+## Acceptance для 05.5
+
+- `/assistant` и `/assistant/[serverSlug]` работают как отдельный модуль вне `/app`
+- assistant не зависит от active server из `/app` shell
+- неавторизованный пользователь может задать только `1` вопрос
+- после `1` вопроса гость видит старый ответ, но не может задать новый
+- CTA на вход или регистрацию показывается корректно
+- после входа или регистрации guest limit больше не блокирует пользователя
+- assistant берёт server context из `serverSlug`
+- answer pipeline ограничен `current primary laws` выбранного сервера
+- `supplement` не попадают в answer pipeline по умолчанию
+- `imported_draft` и `superseded` не попадают в answer pipeline
+- если нормы не найдены, assistant честно возвращает grounded fallback
+- если AI proxy не настроен или недоступен, assistant возвращает безопасный unavailable state
+- ответ явно разделяет `норма` и `интерпретация`
+- ответ содержит grounded references и corpus snapshot metadata
+- assistant использует proxy-layer, а не direct OpenAI call
+- конфиг поддерживает несколько proxy entries
+- существующие `/sign-in`, `/app`, `/app/security`, `/app/admin-laws` не ломаются
+
 ## Первый реальный сервер и smoke-подход
 
 Зафиксировано:
@@ -305,8 +422,8 @@
 
 ## Следующий подшаг блока
 
-Следующий шаг уже не должен расширять 05.4 в public assistant и OpenAI-контур без отдельного согласования.
-Внутри текущего блока следующим логическим уровнем может быть только отдельный шаг над retrieval foundation, а не смешивание law corpus с документами, `BBCode`, forum publishing или post-MVP template documents module.
+Следующий шаг уже не должен смешивать готовый assistant с document flows, `BBCode`, forum publishing, post-MVP template documents module, supplements retrieval или судебными прецедентами без отдельного согласования.
+Любое расширение assistant дальше должно идти отдельным блоком поверх уже готовых guest access, current corpus retrieval и proxy-only answer pipeline.
 
 ## Acceptance для 05.3
 
