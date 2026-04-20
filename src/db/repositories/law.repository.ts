@@ -109,12 +109,35 @@ export async function listCurrentLawBlocksByServer(
         },
       },
     },
-    include: {
+    select: {
+      id: true,
+      blockType: true,
+      blockOrder: true,
+      blockTitle: true,
+      blockText: true,
+      articleNumberNormalized: true,
       lawVersion: {
-        include: {
-          currentForLaw: true,
+        select: {
+          id: true,
+          status: true,
+          lawId: true,
+          sourceSnapshotHash: true,
+          normalizedTextHash: true,
+          currentForLaw: {
+            select: {
+              id: true,
+              lawKey: true,
+              title: true,
+              topicUrl: true,
+            },
+          },
           sourcePosts: {
             orderBy: [{ postOrder: "asc" }],
+            select: {
+              postExternalId: true,
+              postUrl: true,
+              postOrder: true,
+            },
           },
         },
       },
