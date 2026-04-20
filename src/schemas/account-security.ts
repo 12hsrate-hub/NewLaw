@@ -51,6 +51,20 @@ export const accountIdentifierSchema = z
     return z.string().email().safeParse(normalizedValue).success || accountLoginCandidateSchema.safeParse(normalizedValue).success;
   }, "Укажи email или login в корректном формате.");
 
+export const adminAccountSearchIdentifierSchema = z
+  .string()
+  .trim()
+  .min(1, "Укажи email, login или account id.")
+  .refine((value) => {
+    const normalizedValue = value.toLowerCase();
+
+    return (
+      z.string().email().safeParse(normalizedValue).success ||
+      z.string().uuid().safeParse(value).success ||
+      accountLoginCandidateSchema.safeParse(normalizedValue).success
+    );
+  }, "Укажи корректный email, login или account id.");
+
 const passwordResetBaseSchema = z.object({
   newPassword: z
     .string()
@@ -87,14 +101,26 @@ export const adminSecurityInputBaseSchema = z.object({
   comment: z.string().trim().min(3, "Комментарий должен содержать минимум 3 символа.").max(500),
 });
 
+export const adminSecurityUiInputBaseSchema = z.object({
+  targetAccountId: z.string().uuid(),
+  comment: z.string().trim().min(3, "Комментарий должен содержать минимум 3 символа.").max(500),
+});
+
 export const adminChangeEmailInputSchema = adminSecurityInputBaseSchema.extend({
+  newEmail: z.string().trim().toLowerCase().email("Укажи корректный email."),
+});
+
+export const adminChangeEmailUiInputSchema = adminSecurityUiInputBaseSchema.extend({
   newEmail: z.string().trim().toLowerCase().email("Укажи корректный email."),
 });
 
 export type AccountLogin = z.infer<typeof accountLoginSchema>;
 export type ForgotPasswordIdentifier = z.infer<typeof accountIdentifierSchema>;
+export type AdminAccountSearchIdentifier = z.infer<typeof adminAccountSearchIdentifierSchema>;
 export type ResetPasswordInput = z.infer<typeof resetPasswordInputSchema>;
 export type ChangePasswordInput = z.infer<typeof changePasswordInputSchema>;
 export type ChangeEmailInput = z.infer<typeof changeEmailInputSchema>;
 export type AdminSecurityInputBase = z.infer<typeof adminSecurityInputBaseSchema>;
 export type AdminChangeEmailInput = z.infer<typeof adminChangeEmailInputSchema>;
+export type AdminSecurityUiInputBase = z.infer<typeof adminSecurityUiInputBaseSchema>;
+export type AdminChangeEmailUiInput = z.infer<typeof adminChangeEmailUiInputSchema>;

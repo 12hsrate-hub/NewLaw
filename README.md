@@ -5,8 +5,8 @@
 `Lawyer5RP MVP` — единое full-stack веб-приложение для подготовки документных сценариев внутри экосистемы GTA5RP.
 Главный сценарий MVP — создание жалобы в ОГП с итоговой генерацией форумного BBCode.
 
-На текущем этапе репозиторий содержит стартовую документацию проекта, bootstrap-каркас приложения, foundation для `Supabase Auth` и минимального data layer, account-security foundation, базовый защищённый пользовательский контур для работы с персонажами, инфраструктурные заготовки для production и временную maintenance page.
-Прикладная бизнес-логика документов пока не реализована, но регистрация по `login + email + password`, подтверждение email по ссылке, forgot-password, reset-password, вход по `email` или `login`, защищённый shell, `/app/security`, self change password, self change email, server-side admin account-security actions, выбор сервера, выбор активного персонажа и ручное управление персонажами уже подготовлены.
+На текущем этапе репозиторий содержит стартовую документацию проекта, bootstrap-каркас приложения, foundation для `Supabase Auth` и минимального data layer, account-security foundation, базовый защищённый пользовательский контур для работы с персонажами, минимальный `super_admin` экран для admin account-security действий, инфраструктурные заготовки для production и временную maintenance page.
+Прикладная бизнес-логика документов пока не реализована, но регистрация по `login + email + password`, подтверждение email по ссылке, forgot-password, reset-password, вход по `email` или `login`, защищённый shell, `/app/security`, self change password, self change email, server-side admin account-security actions, минимальный `super_admin` UI для этих действий, выбор сервера, выбор активного персонажа и ручное управление персонажами уже подготовлены.
 Production email delivery для auth-писем зафиксирован через `Supabase Custom SMTP`, а не через встроенный email provider Supabase.
 
 ## Зафиксированный стек
@@ -73,10 +73,13 @@ Production email delivery для auth-писем зафиксирован чер
 - [src/app/auth/confirm](./src/app/auth/confirm) — callback-обработчик подтверждения входа
 - [src/app/(protected)/app](./src/app/%28protected%29/app) — защищённая часть приложения с app shell
 - [src/app/(protected-security)/app/security](./src/app/%28protected-security%29/app/security) — защищённый экран account security
+- [src/app/(protected-admin)/app/admin-security](./src/app/%28protected-admin%29/app/admin-security) — минимальный `super_admin` экран admin account security
 - [src/components](./src/components) — разделение базовых UI-компонентов и продуктовых компонентов
 - [src/server](./src/server) — серверные действия, технические обработчики и серверные модули
 - [src/server/auth](./src/server/auth) — server-side auth helpers для текущей сессии, пользователя и безопасной проверки авторизации
-- [src/server/auth/admin-security.ts](./src/server/auth/admin-security.ts) — server-side admin account-security use-cases без UI-админки
+- [src/server/auth/admin-security.ts](./src/server/auth/admin-security.ts) — server-side admin account-security use-cases
+- [src/server/actions/admin-security.ts](./src/server/actions/admin-security.ts) — server action-обвязка для `super_admin` UI
+- [src/server/admin-security/account-search.ts](./src/server/admin-security/account-search.ts) — поиск account-level цели по email, login или account id
 - [src/server/account-security](./src/server/account-security) — foundation-логика login normalization, reserved logins и runtime backfill
 - [src/server/characters](./src/server/characters) — минимальная серверная логика ручного создания персонажа с бизнес-ограничениями
 - [src/server/app-shell](./src/server/app-shell) — серверная логика активного сервера и активного персонажа
@@ -141,6 +144,9 @@ Production email delivery для auth-писем зафиксирован чер
 - super_admin-only guard для admin security действий
 - audit log для admin security действий без утечки temp password
 - revoke пользовательских сессий после admin reset password и admin change email
+- минимальный `super_admin` экран `/app/admin-security`
+- поиск целевого аккаунта только по `email`, `account login` или `account id`
+- безопасный UI для admin recovery email, admin password reset и admin email change без полноценной админки
 - SMTP foundation для production auth email delivery через `Supabase Custom SMTP`
 - audit log для `forgot_password_requested` и `password_reset_completed`
 - audit log для `password_changed_self`, `email_change_requested_self` и `email_change_completed`
@@ -195,7 +201,7 @@ pnpm dev
 3. В `Redirect URLs` добавлен callback подтверждения email.
 4. В `Authentication -> Email Templates -> Confirm signup` используется SSR-friendly ссылка с `token_hash`.
 5. Recovery flow тоже должен быть направлен в `/auth/confirm`, чтобы route handler мог выставить recovery-cookie и перевести пользователя на `/reset-password`.
-6. Для account-security уже должны быть готовы `APP_URL` и `SUPABASE_SERVICE_ROLE_KEY`, даже если admin flows ещё не имеют отдельного UI.
+6. Для account-security уже должны быть готовы `APP_URL` и `SUPABASE_SERVICE_ROLE_KEY`, потому что server-side admin flows и минимальный `super_admin` UI используют service-role сценарии.
 7. Для production и staging auth email delivery включён `Supabase Custom SMTP`.
 
 Сценарии, которые зависят от корректного SMTP-контура:
@@ -320,4 +326,4 @@ powershell -ExecutionPolicy Bypass -File .\scripts\deploy-prod.ps1
 
 ## Что дальше
 
-Server-side admin account-security logic уже готова, но отдельный `super_admin` UI и полноценная админка в текущий этап не входят.
+Server-side admin account-security logic уже готова и доступна через минимальный `super_admin` UI. Полноценная админка, навигация и аудит-экран в текущий этап по-прежнему не входят.

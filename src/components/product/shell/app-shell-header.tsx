@@ -29,6 +29,7 @@ type AppShellHeaderProps = {
   activeServerName: string | null;
   characters: CharacterOption[];
   currentPath: string;
+  isSuperAdmin?: boolean;
   mustChangePassword: boolean;
   servers: ServerOption[];
 };
@@ -42,6 +43,7 @@ export function AppShellHeader({
   activeServerName,
   characters,
   currentPath,
+  isSuperAdmin = false,
   mustChangePassword,
   servers,
 }: AppShellHeaderProps) {
@@ -78,6 +80,14 @@ export function AppShellHeader({
           >
             Безопасность
           </Link>
+          {isSuperAdmin ? (
+            <Link
+              className="inline-flex items-center justify-center rounded-2xl border border-[var(--border)] bg-white/70 px-4 py-2.5 text-sm font-medium text-[var(--foreground)] transition hover:bg-white"
+              href="/app/admin-security"
+            >
+              Admin Security
+            </Link>
+          ) : null}
           <form action={signOutAction}>
             <Button type="submit" variant="secondary">
               Выйти

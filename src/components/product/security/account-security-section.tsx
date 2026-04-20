@@ -11,6 +11,8 @@ type AccountSecuritySectionProps = {
 };
 
 const statusMessages: Record<string, string> = {
+  "admin-access-denied":
+    "Доступ к admin security screen разрешён только super_admin. Текущий аккаунт может управлять только собственной безопасностью.",
   "email-change-confirmed":
     "Новый email подтверждён. Аккаунт уже синхронизирован с Supabase Auth и будет использовать обновлённый адрес.",
   "email-change-requested":

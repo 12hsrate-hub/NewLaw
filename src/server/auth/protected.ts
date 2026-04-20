@@ -33,6 +33,10 @@ export function buildMustChangePasswordRedirectPath() {
   return buildStatusPath("/app/security", "must-change-password");
 }
 
+export function buildAdminAccessDeniedRedirectPath() {
+  return buildStatusPath("/app/security", "admin-access-denied");
+}
+
 type ProtectedAccessOptions = {
   allowMustChangePassword?: boolean;
 };
@@ -62,4 +66,22 @@ export async function requireProtectedAccountContext(
     user,
     account,
   };
+}
+
+export async function requireSuperAdminAccountContext(
+  nextPath: string,
+  dependencies: ProtectedAccessDependencies = defaultDependencies,
+  options: ProtectedAccessOptions = {},
+) {
+  const protectedContext = await requireProtectedAccountContext(
+    nextPath,
+    dependencies,
+    options,
+  );
+
+  if (!protectedContext.account.isSuperAdmin) {
+    return dependencies.redirect(buildAdminAccessDeniedRedirectPath());
+  }
+
+  return protectedContext;
 }

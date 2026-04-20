@@ -1,9 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  buildAdminAccessDeniedRedirectPath,
   buildSignInRedirectPath,
   buildMustChangePasswordRedirectPath,
   requireProtectedAccountContext,
+  requireSuperAdminAccountContext,
 } from "@/server/auth/protected";
 
 describe("protected auth helpers", () => {
@@ -104,5 +106,29 @@ describe("protected auth helpers", () => {
     );
 
     expect(result.account.mustChangePassword).toBe(true);
+  });
+
+  it("переводит не-super_admin на безопасный flow при попытке открыть admin screen", async () => {
+    const redirectMock = vi.fn((path: string) => {
+      throw new Error(`redirect:${path}`);
+    });
+
+    await expect(
+      requireSuperAdminAccountContext("/app/admin-security", {
+        getCurrentUser: vi.fn().mockResolvedValue({
+          id: "21631886-7b4d-4be2-b6e9-95322d0dca41",
+          email: "user@example.com",
+        }),
+        syncAccountFromSupabaseUser: vi.fn().mockResolvedValue({
+          id: "21631886-7b4d-4be2-b6e9-95322d0dca41",
+          email: "user@example.com",
+          isSuperAdmin: false,
+          mustChangePassword: false,
+        }),
+        redirect: redirectMock,
+      }),
+    ).rejects.toThrowError(`redirect:${buildAdminAccessDeniedRedirectPath()}`);
+
+    expect(redirectMock).toHaveBeenCalledWith(buildAdminAccessDeniedRedirectPath());
   });
 });

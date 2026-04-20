@@ -34,6 +34,7 @@ export default async function ProtectedAppLayout({
               name: server.name,
             }))}
             currentPath={shellContext.currentPath}
+            isSuperAdmin={shellContext.account.isSuperAdmin}
             mustChangePassword={shellContext.account.mustChangePassword}
           />
           {children}
