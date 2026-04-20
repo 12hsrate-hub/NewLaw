@@ -62,6 +62,22 @@ function buildPrecedentKeySuffix(sourceTopicId: string, locatorKey: string) {
   return normalizePrecedentKeyCandidate(`${sourceTopicId}_${locatorKey}`).slice(-24) || "precedent";
 }
 
+function buildValidPrecedentKeyBase(displayTitle: string, locatorKey: string) {
+  const titleCandidate = normalizePrecedentKeyCandidate(displayTitle).slice(0, 64);
+
+  if (titleCandidate.length >= 2 && /[a-z]/.test(titleCandidate)) {
+    return titleCandidate;
+  }
+
+  const locatorCandidate = normalizePrecedentKeyCandidate(`precedent_${locatorKey}`).slice(0, 64);
+
+  if (locatorCandidate.length >= 2 && /[a-z]/.test(locatorCandidate)) {
+    return locatorCandidate;
+  }
+
+  return "precedent";
+}
+
 export async function registerPrecedentStub(
   input: {
     serverId: string;
@@ -87,7 +103,7 @@ export async function registerPrecedentStub(
     return existing;
   }
 
-  const basePrecedentKey = normalizePrecedentKeyCandidate(input.displayTitle).slice(0, 64);
+  const basePrecedentKey = buildValidPrecedentKeyBase(input.displayTitle, input.precedentLocatorKey);
   const suffix = buildPrecedentKeySuffix(input.precedentSourceTopicId, input.precedentLocatorKey);
   let precedentKey = basePrecedentKey;
   let attempt = 0;
