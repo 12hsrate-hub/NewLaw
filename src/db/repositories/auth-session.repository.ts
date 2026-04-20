@@ -10,12 +10,12 @@ export async function revokeAccountSessions(
 ) {
   const revokedSessions = await db.$executeRaw`
     DELETE FROM auth.sessions
-    WHERE user_id = ${accountId}::uuid
+    WHERE user_id = ${accountId}
   `;
 
   const revokedRefreshTokens = await db.$executeRaw`
     DELETE FROM auth.refresh_tokens
-    WHERE user_id = ${accountId}::uuid
+    WHERE user_id = ${accountId}
   `;
 
   return {
