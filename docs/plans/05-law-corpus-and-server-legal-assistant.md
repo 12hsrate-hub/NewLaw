@@ -56,7 +56,10 @@
 - `supplement`, `imported_draft` и `superseded` по умолчанию не участвуют в retrieval
 - основной retrieval unit — `LawBlock`, прежде всего `article`
 - server legal assistant живёт отдельно от `/app`
+- server legal assistant живёт отдельно и от account zone
 - server context для assistant берётся только из явного выбора пользователя и `serverSlug`
+- assistant не зависит от `/app` shell, active character и account zone
+- route-zone assistant должна оставаться отдельной: `/assistant` и `/assistant/[serverSlug]`
 - guest может задать только `1` тестовый вопрос
 - после guest вопроса старый ответ остаётся доступным, но новый вопрос требует вход или регистрацию
 - после входа или регистрации guest-лимит больше не блокирует пользователя
@@ -316,9 +319,11 @@
 Зафиксировано:
 
 - assistant не живёт внутри `/app`
+- assistant не является частью личного кабинета
 - assistant не зависит от active server из shell
 - assistant не зависит от active character, ролей персонажа и экранов account security
 - `serverSlug` является единственным источником server context для ответа
+- `last-used` server state может использоваться только как UX-default при переходе, но не как реальный source of truth
 
 ### Access model
 
