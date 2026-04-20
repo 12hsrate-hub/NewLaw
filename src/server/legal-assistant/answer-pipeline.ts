@@ -22,6 +22,7 @@ export type AssistantAnswerSections = {
   summary: string;
   normativeAnalysis: string;
   interpretation: string;
+  sources?: string;
 };
 
 function normalizeSectionText(input: string) {
@@ -38,13 +39,19 @@ export function composeAssistantAnswerMarkdown(sections: AssistantAnswerSections
     "",
     "## Вывод / интерпретация",
     normalizeSectionText(sections.interpretation),
+    "",
+    "## Использованные нормы / источники",
+    normalizeSectionText(
+      sections.sources ??
+        "Подтверждённые нормы и источники перечислены в grounded metadata ответа.",
+    ),
   ].join("\n");
 }
 
 export function parseAssistantAnswerSections(content: string): AssistantAnswerSections {
   const normalizedContent = content.trim();
   const sectionPattern =
-    /##\s*(Краткий вывод|Что прямо следует из норм|Вывод \/ интерпретация)\s*([\s\S]*?)(?=##\s*(?:Краткий вывод|Что прямо следует из норм|Вывод \/ интерпретация)|$)/g;
+    /##\s*(Краткий вывод|Что прямо следует из норм|Вывод \/ интерпретация|Использованные нормы \/ источники)\s*([\s\S]*?)(?=##\s*(?:Краткий вывод|Что прямо следует из норм|Вывод \/ интерпретация|Использованные нормы \/ источники)|$)/g;
   const sectionMap = new Map<string, string>();
 
   for (const match of normalizedContent.matchAll(sectionPattern)) {
@@ -56,6 +63,7 @@ export function parseAssistantAnswerSections(content: string): AssistantAnswerSe
       summary: normalizedContent,
       normativeAnalysis: "Модель не вернула отдельную нормативную секцию в ожидаемом формате.",
       interpretation: "Модель не выделила интерпретацию отдельно. Нужна ручная перепроверка по использованным нормам.",
+      sources: "Использованные нормы и источники нужно брать только из grounded metadata ответа.",
     };
   }
 
@@ -67,8 +75,15 @@ export function parseAssistantAnswerSections(content: string): AssistantAnswerSe
     interpretation:
       sectionMap.get("Вывод / интерпретация") ??
       "Модель не вернула отдельную секцию интерпретации.",
+    sources:
+      sectionMap.get("Использованные нормы / источники") ??
+      "Использованные нормы и источники нужно брать только из grounded metadata ответа.",
   };
 }
+
+const MAX_PROMPT_BLOCKS = 4;
+const MAX_PROMPT_BLOCK_TEXT_LENGTH = 1200;
+const MAX_REFERENCE_SNIPPET_LENGTH = 280;
 
 function buildGroundedReferences(retrieval: RetrievalResult) {
   return retrieval.results.map((result) => ({
@@ -82,7 +97,7 @@ function buildGroundedReferences(retrieval: RetrievalResult) {
     blockType: result.blockType,
     blockOrder: result.blockOrder,
     articleNumberNormalized: result.articleNumberNormalized,
-    snippet: result.snippet,
+    snippet: result.snippet.slice(0, MAX_REFERENCE_SNIPPET_LENGTH),
     sourceTopicUrl: result.sourceTopicUrl,
     sourcePosts: result.sourcePosts,
   }));
@@ -119,14 +134,48 @@ function buildLawsUsed(retrieval: RetrievalResult) {
   });
 }
 
+function selectPromptContextResults(retrieval: RetrievalResult) {
+  return [...retrieval.results]
+    .sort((left, right) => {
+      if (left.blockType === "article" && right.blockType !== "article") {
+        return -1;
+      }
+
+      if (left.blockType !== "article" && right.blockType === "article") {
+        return 1;
+      }
+
+      return left.blockOrder - right.blockOrder;
+    })
+    .slice(0, MAX_PROMPT_BLOCKS);
+}
+
+function buildSourcesSectionText(retrieval: RetrievalResult) {
+  const lawsUsed = buildLawsUsed(retrieval);
+
+  if (lawsUsed.length === 0) {
+    return "Подтверждённые нормы и прямые ссылки на источники в этом ответе не использовались.";
+  }
+
+  return lawsUsed
+    .map((law, index) => {
+      const articleLabel =
+        law.articleNumbers.length > 0 ? `статьи: ${law.articleNumbers.join(", ")}` : "без номера статьи";
+
+      return `${index + 1}. ${law.lawTitle} (${law.lawKey}) — ${articleLabel}; тема: ${law.sourceTopicUrl}`;
+    })
+    .join("\n");
+}
+
 function buildAssistantSystemPrompt() {
   return [
-    "Ты — юридический помощник Lawyer5RP по подтвержденной законодательной базе выбранного сервера.",
-    "Отвечай только по переданному корпусу current primary laws выбранного сервера.",
-    "Не используй supplements, судебные прецеденты, общие знания или догадки вне корпуса.",
-    "Если из нормы что-то не следует прямо, вынеси это только в секцию интерпретации.",
-    "Никогда не выдавай интерпретацию как будто она прямо написана в законе.",
-    "Верни ответ строго на русском языке и строго с тремя секциями markdown второго уровня:",
+    "Ты — server legal assistant Lawyer5RP.",
+    "Отвечай только по переданному confirmed corpus current primary laws выбранного сервера.",
+    "Не используй supplements, precedents, общие знания, догадки или ответы вне корпуса.",
+    "Если надёжной нормы нет, не выдумывай ответ.",
+    "Если что-то следует не прямо из нормы, вынеси это только в секцию интерпретации.",
+    "Не выдавай интерпретацию как будто она прямо написана в законе.",
+    "Верни ответ строго на русском языке и строго с markdown-секциями второго уровня:",
     "## Краткий вывод",
     "## Что прямо следует из норм",
     "## Вывод / интерпретация",
@@ -138,24 +187,18 @@ function buildAssistantUserPrompt(input: {
   question: string;
   retrieval: RetrievalResult;
 }) {
-  const groundedContext = input.retrieval.results
+  const groundedContext = selectPromptContextResults(input.retrieval)
     .map((result, index) => {
-      const sourcePosts = result.sourcePosts
-        .map((sourcePost) => `post#${sourcePost.postOrder} ${sourcePost.postUrl}`)
-        .join("; ");
-
       return [
-        `Источник ${index + 1}:`,
+        `Источник ${index + 1}`,
         `- law_key: ${result.lawKey}`,
-        `- law_title: ${result.lawTitle}`,
-        `- law_version_id: ${result.lawVersionId}`,
-        `- law_block_id: ${result.lawBlockId}`,
+        `- title: ${result.lawTitle}`,
+        `- version_id: ${result.lawVersionId}`,
+        `- block_id: ${result.lawBlockId}`,
         `- block_type: ${result.blockType}`,
         `- article_number_normalized: ${result.articleNumberNormalized ?? "n/a"}`,
         `- source_topic_url: ${result.sourceTopicUrl}`,
-        `- source_posts: ${sourcePosts || "n/a"}`,
-        `- block_text:`,
-        result.blockText,
+        `- text: ${normalizeSectionText(result.blockText).slice(0, MAX_PROMPT_BLOCK_TEXT_LENGTH)}`,
       ].join("\n");
     })
     .join("\n\n");
@@ -164,9 +207,9 @@ function buildAssistantUserPrompt(input: {
     `Сервер: ${input.serverName}`,
     `Вопрос пользователя: ${input.question}`,
     `Corpus snapshot hash: ${input.retrieval.corpusSnapshot.corpusSnapshotHash}`,
-    "Используй только эти подтвержденные нормы:",
+    "Используй только этот компактный grounded context:",
     groundedContext,
-    "Отдельно и явно разделяй прямое содержание норм и собственную интерпретацию.",
+    "Если прямой нормы недостаточно, честно скажи об ограничении в секции интерпретации.",
   ].join("\n\n");
 }
 
@@ -216,6 +259,25 @@ export async function generateServerLegalAssistantAnswer(
   };
 
   if (retrieval.corpusSnapshot.currentVersionIds.length === 0) {
+    await dependencies.createAIRequest({
+      accountId: input.accountId ?? null,
+      guestSessionId: input.guestSessionId ?? null,
+      serverId: input.serverId,
+      featureKey: "server_legal_assistant",
+      status: "unavailable",
+      requestPayloadJson: {
+        branch: "no_corpus",
+        serverId: input.serverId,
+        serverCode: input.serverCode,
+        question: input.question,
+      },
+      responsePayloadJson: {
+        branch: "no_corpus",
+        corpusSnapshot: retrieval.corpusSnapshot,
+      },
+      errorMessage: "Для выбранного сервера нет confirmed current corpus.",
+    });
+
     return {
       status: "no_corpus" as const,
       message: "Для выбранного сервера пока нет подтвержденного корпуса актуальных законов.",
@@ -226,10 +288,36 @@ export async function generateServerLegalAssistantAnswer(
   if (retrieval.resultCount === 0) {
     const fallbackAnswer = buildNoNormsAnswer();
 
+    await dependencies.createAIRequest({
+      accountId: input.accountId ?? null,
+      guestSessionId: input.guestSessionId ?? null,
+      serverId: input.serverId,
+      featureKey: "server_legal_assistant",
+      status: "success",
+      requestPayloadJson: {
+        branch: "no_norms",
+        serverId: input.serverId,
+        serverCode: input.serverCode,
+        question: input.question,
+      },
+      responsePayloadJson: {
+        branch: "no_norms",
+        corpusSnapshot: retrieval.corpusSnapshot,
+        resultCount: retrieval.resultCount,
+      },
+      errorMessage: null,
+    });
+
     return {
       status: "no_norms" as const,
-      answerMarkdown: fallbackAnswer.answerMarkdown,
-      sections: fallbackAnswer.sections,
+      answerMarkdown: composeAssistantAnswerMarkdown({
+        ...fallbackAnswer.sections,
+        sources: buildSourcesSectionText(retrieval),
+      }),
+      sections: {
+        ...fallbackAnswer.sections,
+        sources: buildSourcesSectionText(retrieval),
+      },
       metadata: metadataBase,
     };
   }
@@ -256,7 +344,10 @@ export async function generateServerLegalAssistantAnswer(
       question: input.question,
       retrieval,
     }),
-    requestMetadata: proxyRequestPayload,
+    requestMetadata: {
+      ...proxyRequestPayload,
+      retrievalResultsCount: proxyRequestPayload.retrievalResults.length,
+    },
   });
 
   await dependencies.createAIRequest({
@@ -287,7 +378,10 @@ export async function generateServerLegalAssistantAnswer(
     };
   }
 
-  const sections = parseAssistantAnswerSections(proxyResponse.content);
+  const sections = {
+    ...parseAssistantAnswerSections(proxyResponse.content),
+    sources: buildSourcesSectionText(retrieval),
+  };
   const answerMarkdown = composeAssistantAnswerMarkdown(sections);
 
   return {

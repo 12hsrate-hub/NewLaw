@@ -19,6 +19,11 @@ const aiProxyRuntimeEnvSchema = z.object({
   AI_PROXY_CONFIGS_JSON: z.string().trim().min(1),
 });
 
+const assistantInternalProxyEnvSchema = z.object({
+  OPENAI_API_KEY: z.string().trim().min(1),
+  AI_PROXY_INTERNAL_TOKEN: z.string().trim().min(1),
+});
+
 export function getAppRuntimeEnv() {
   return appRuntimeEnvSchema.parse({
     APP_URL: process.env.APP_URL,
@@ -44,6 +49,13 @@ export function getAIProxyRuntimeEnv() {
   return aiProxyRuntimeEnvSchema.parse({
     AI_PROXY_ACTIVE_KEY: process.env.AI_PROXY_ACTIVE_KEY,
     AI_PROXY_CONFIGS_JSON: process.env.AI_PROXY_CONFIGS_JSON,
+  });
+}
+
+export function getAssistantInternalProxyEnv() {
+  return assistantInternalProxyEnvSchema.parse({
+    OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+    AI_PROXY_INTERNAL_TOKEN: process.env.AI_PROXY_INTERNAL_TOKEN,
   });
 }
 
@@ -107,6 +119,28 @@ export function hasLiveAIProxyRuntimeEnv(
     configsJson.includes("your-") ||
     configsJson.includes("example.com") ||
     configsJson.includes("placeholder")
+  ) {
+    return false;
+  }
+
+  return true;
+}
+
+export function hasLiveAssistantInternalProxyEnv(
+  env: Partial<z.infer<typeof assistantInternalProxyEnvSchema>>,
+) {
+  const openAIKey = env.OPENAI_API_KEY?.trim() ?? "";
+  const internalToken = env.AI_PROXY_INTERNAL_TOKEN?.trim() ?? "";
+
+  if (!openAIKey || !internalToken) {
+    return false;
+  }
+
+  if (
+    openAIKey.includes("your-") ||
+    openAIKey.includes("placeholder") ||
+    internalToken.includes("your-") ||
+    internalToken.includes("placeholder")
   ) {
     return false;
   }

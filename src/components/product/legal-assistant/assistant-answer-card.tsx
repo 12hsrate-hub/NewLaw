@@ -10,6 +10,7 @@ type AssistantAnswerCardProps = {
       summary: string;
       normativeAnalysis: string;
       interpretation: string;
+      sources?: string;
     };
     metadata: Record<string, unknown> | null;
     status?: "answered" | "no_norms";

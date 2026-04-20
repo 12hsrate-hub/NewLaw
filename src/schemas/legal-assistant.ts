@@ -11,7 +11,7 @@ export const assistantQuestionSchema = z
   .string()
   .trim()
   .min(6, "Сформулируй вопрос чуть подробнее.")
-  .max(3000, "Вопрос слишком длинный для MVP-формата.");
+  .max(1500, "Вопрос слишком длинный для assistant MVP.");
 
 export const assistantQuestionInputSchema = z.object({
   serverSlug: assistantServerSlugSchema,
@@ -23,14 +23,16 @@ export const assistantGuestTokenSchema = z.string().trim().min(16).max(128);
 export const aiProxyProviderSchema = z.enum(["openai_compatible"]);
 
 export const aiProxyConfigEntrySchema = z.object({
-  key: z.string().trim().min(1).max(64),
-  provider: aiProxyProviderSchema.default("openai_compatible"),
+  proxyKey: z.string().trim().min(1).max(64),
+  providerKey: aiProxyProviderSchema.default("openai_compatible"),
   endpointUrl: z.string().url(),
-  apiKey: z.string().trim().min(1),
+  secretEnvKeyName: z.string().trim().min(1).max(128),
   model: z.string().trim().min(1),
   isEnabled: z.boolean().default(true),
+  priority: z.number().int().min(0).max(1000).default(100),
+  weight: z.number().int().min(1).max(1000).default(1),
   timeoutMs: z.number().int().positive().max(120000).optional(),
-  extraHeaders: z.record(z.string(), z.string()).optional(),
+  capabilities: z.array(z.string().trim().min(1).max(64)).max(20).default([]),
 });
 
 export const aiProxyConfigListSchema = z.array(aiProxyConfigEntrySchema).max(10);

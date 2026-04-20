@@ -301,12 +301,14 @@ pnpm dev
 - `NEXT_PUBLIC_SUPABASE_URL` и `NEXT_PUBLIC_SUPABASE_ANON_KEY` обязательны для реального `signup/signin/confirm` flow.
 - `APP_URL` обязателен для server-side redirect URL в security-сценариях.
 - `SUPABASE_SERVICE_ROLE_KEY` нужен для service-role helper и уже реализованных server-side admin security actions.
-- `AI_PROXY_ACTIVE_KEY` и `AI_PROXY_CONFIGS_JSON` нужны для public `server legal assistant`.
+- `AI_PROXY_ACTIVE_KEY`, `AI_PROXY_CONFIGS_JSON`, `AI_PROXY_INTERNAL_TOKEN` и `OPENAI_API_KEY` нужны для public `server legal assistant`.
 - placeholder-значения из `.env.*.example` позволяют открыть UI и безопасно посмотреть auth-экраны, но не дают рабочую регистрацию, письмо подтверждения и вход.
 - placeholder-значения `AI_PROXY_*` позволяют собрать assistant UI, но не дают реальную генерацию ответа через proxy.
+- в `AI_PROXY_CONFIGS_JSON` нельзя хранить секреты: там лежит только metadata proxy entry и имя env-переменной с секретом.
 - production-ready auth email delivery требует не только боевых `Supabase` env, но и вручную настроенного `Supabase Custom SMTP`.
 - встроенный email provider Supabase не считается production-ready для проекта Lawyer5RP MVP.
 - public assistant 05.5 не делает прямых вызовов к `OpenAI API`; он работает только через server-side proxy abstraction.
+- `OPENAI_API_KEY` и `AI_PROXY_INTERNAL_TOKEN` должны существовать только на серверной стороне и не должны попадать в UI, тестовые fixtures, tracked JSON-конфиги и логи.
 
 ## Ручная настройка Supabase Auth
 

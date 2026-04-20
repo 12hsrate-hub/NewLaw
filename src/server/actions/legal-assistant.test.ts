@@ -24,6 +24,7 @@ describe("submit assistant question action", () => {
           summary: "Ответ.",
           normativeAnalysis: "Норма.",
           interpretation: "Интерпретация.",
+          sources: "Источник 1.",
         },
         metadata: {
           serverId: "server-1",
@@ -80,6 +81,7 @@ describe("submit assistant question action", () => {
           summary: "Ответ.",
           normativeAnalysis: "Норма.",
           interpretation: "Интерпретация.",
+          sources: "Источник 1.",
         },
         metadata: null,
         status: "answered",

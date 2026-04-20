@@ -392,6 +392,20 @@
 - на старте можно использовать один активный proxy entry
 - proxy config живёт только на серверной стороне
 - UI не знает о конкретном proxy endpoint
+- секреты не кладутся в `AI_PROXY_CONFIGS_JSON`
+- JSON-конфиг proxy хранит только metadata entry и ссылку на env-ключ секрета
+- active proxy и failover выбираются только server-side
+
+### Proxy secret handling и prompt optimization
+
+На текущем уровне foundation дополнительно зафиксировано:
+
+- `OPENAI_API_KEY` и proxy tokens читаются только из `env`
+- assistant не логирует API keys, bearer headers и полные секреты
+- prompt builder использует компактный grounded context без raw HTML
+- в модель уходит только top relevant blocks ограниченного размера
+- `no_norms` и `no_corpus` ветки не вызывают модель лишний раз
+- structured answer contract нормализуется server-side даже если модель вернула неполную структуру
 
 ### Формат ответа
 
