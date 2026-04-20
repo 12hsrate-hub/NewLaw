@@ -105,6 +105,7 @@ function createDependencies() {
       status: "imported_draft",
     }),
     findLawVersionByNormalizedHash: vi.fn().mockResolvedValue(null),
+    getLawVersionByIdForReview: vi.fn().mockResolvedValue(null),
     replaceImportedLawSourcePosts: vi.fn(),
     replaceImportedLawBlocks: vi.fn(),
     fetchHtml: vi.fn(),
@@ -219,5 +220,30 @@ describe("law discovery/import pipeline", () => {
     expect(result.createdNewVersion).toBe(false);
     expect(dependencies.createImportedDraftLawVersion).not.toHaveBeenCalled();
     expect(dependencies.replaceImportedLawSourcePosts).not.toHaveBeenCalled();
+  });
+
+  it("восстанавливает битую существующую версию без создания новой", async () => {
+    const dependencies = createDependencies();
+    dependencies.fetchHtml.mockResolvedValue(importThreadHtml);
+    dependencies.findLawVersionByNormalizedHash.mockResolvedValue({
+      id: "version-existing",
+      status: "imported_draft",
+    });
+    dependencies.getLawVersionByIdForReview.mockResolvedValue({
+      id: "version-existing",
+      status: "imported_draft",
+      _count: {
+        sourcePosts: 2,
+        blocks: 0,
+      },
+    });
+
+    const result = await runLawTopicImport("law-1", dependencies as never);
+
+    expect(result.createdNewVersion).toBe(false);
+    expect(result.repairedExistingVersion).toBe(true);
+    expect(dependencies.createImportedDraftLawVersion).not.toHaveBeenCalled();
+    expect(dependencies.replaceImportedLawSourcePosts).toHaveBeenCalled();
+    expect(dependencies.replaceImportedLawBlocks).toHaveBeenCalled();
   });
 });

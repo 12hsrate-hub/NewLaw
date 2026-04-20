@@ -7,6 +7,14 @@ type SegmentationContext = {
   lines: string[];
 };
 
+function normalizeBlockTitle(input: string | null) {
+  if (!input) {
+    return null;
+  }
+
+  return input.trim().slice(0, 500) || null;
+}
+
 function isSectionHeading(line: string) {
   return /^раздел\s+[ivxlcdm0-9]+(?:[.\s-]|$)/iu.test(line);
 }
@@ -41,7 +49,7 @@ function buildBlockInput(context: SegmentationContext, blockOrder: number): Crea
   return {
     blockType: context.blockType,
     blockOrder,
-    blockTitle: context.blockTitle,
+    blockTitle: normalizeBlockTitle(context.blockTitle),
     blockText,
     parentBlockId: null,
     articleNumberNormalized: context.articleNumberNormalized,

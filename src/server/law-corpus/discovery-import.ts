@@ -8,6 +8,7 @@ import {
   updateLawSourceIndexDiscoveryState,
 } from "@/db/repositories/law-source-index.repository";
 import { findLawVersionByNormalizedHash } from "@/db/repositories/law-version.repository";
+import { getLawVersionByIdForReview } from "@/db/repositories/law-version.repository";
 import { classifyLawTopicTitle } from "@/server/law-corpus/classification";
 import {
   createImportedDraftLawVersion,
@@ -39,6 +40,7 @@ type DiscoveryImportDependencies = {
   finishLawImportRun: typeof finishLawImportRun;
   createImportedDraftLawVersion: typeof createImportedDraftLawVersion;
   findLawVersionByNormalizedHash: typeof findLawVersionByNormalizedHash;
+  getLawVersionByIdForReview: typeof getLawVersionByIdForReview;
   replaceImportedLawSourcePosts: typeof replaceImportedLawSourcePosts;
   replaceImportedLawBlocks: typeof replaceImportedLawBlocks;
   fetchHtml: (url: string) => Promise<string>;
@@ -55,6 +57,7 @@ const defaultDependencies: DiscoveryImportDependencies = {
   finishLawImportRun,
   createImportedDraftLawVersion,
   findLawVersionByNormalizedHash,
+  getLawVersionByIdForReview,
   replaceImportedLawSourcePosts,
   replaceImportedLawBlocks,
   async fetchHtml(url: string) {
@@ -386,12 +389,57 @@ export async function runLawTopicImport(
 
     const sourceSnapshotHash = buildSourceSnapshotHash(includedPosts);
     const normalizedTextHash = buildNormalizedTextHash(normalizedFullText);
+    const blocks = segmentLawTextIntoBlocks(normalizedFullText);
     const existingVersion = await dependencies.findLawVersionByNormalizedHash({
       lawId: law.id,
       normalizedTextHash,
     });
 
     if (existingVersion) {
+      const existingVersionForReview = await dependencies.getLawVersionByIdForReview(existingVersion.id);
+      const requiresRepair =
+        existingVersionForReview &&
+        (existingVersionForReview._count.sourcePosts === 0 || existingVersionForReview._count.blocks === 0);
+
+      if (requiresRepair) {
+        await dependencies.replaceImportedLawSourcePosts({
+          lawVersionId: existingVersion.id,
+          posts: includedPosts.map((post) => ({
+            postExternalId: post.postExternalId,
+            postUrl: post.postUrl,
+            postOrder: post.postOrder,
+            authorName: post.authorName,
+            postedAt: post.postedAt,
+            rawHtml: post.rawHtml,
+            rawText: post.rawText,
+            normalizedTextFragment: post.normalizedTextFragment,
+          })),
+        });
+
+        await dependencies.replaceImportedLawBlocks({
+          lawVersionId: existingVersion.id,
+          blocks,
+        });
+
+        const summary = `Изменений нет. Существующая версия закона ${law.lawKey} восстановлена из ${includedPosts.length} постов и ${blocks.length} блоков.`;
+
+        await dependencies.finishLawImportRun({
+          runId: run.id,
+          status: "success",
+          summary,
+        });
+
+        return {
+          law,
+          version: existingVersion,
+          createdNewVersion: false,
+          repairedExistingVersion: true,
+          includedPostsCount: includedPosts.length,
+          blockCount: blocks.length,
+          summary,
+        };
+      }
+
       const summary = `Изменений нет. Актуальный imported snapshot уже существует для закона ${law.lawKey}.`;
 
       await dependencies.finishLawImportRun({
@@ -404,6 +452,7 @@ export async function runLawTopicImport(
         law,
         version: existingVersion,
         createdNewVersion: false,
+        repairedExistingVersion: false,
         includedPostsCount: includedPosts.length,
         summary,
       };
@@ -415,7 +464,6 @@ export async function runLawTopicImport(
       sourceSnapshotHash,
       normalizedTextHash,
     });
-    const blocks = segmentLawTextIntoBlocks(normalizedFullText);
 
     await dependencies.replaceImportedLawSourcePosts({
       lawVersionId: createdVersion.id,
