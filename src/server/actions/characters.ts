@@ -2,13 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { isRedirectError } from "next/dist/client/components/redirect-error";
 
 import {
-  type CharacterAccessFlagKey,
-  characterAccessFlagKeySchema,
-  type CharacterRoleKey,
-  characterRoleKeySchema,
+  characterFormSchema,
 } from "@/schemas/character";
+import { getCharacterByIdForAccount } from "@/db/repositories/character.repository";
 import {
   CharacterLimitExceededError,
   CharacterNotFoundError,
@@ -43,22 +42,11 @@ function buildStatusRedirect(path: string, status: string) {
   return nextQuery ? `${pathname}?${nextQuery}` : pathname;
 }
 
-function readRoleKeys(formData: FormData) {
-  const roleKeys = formData
-    .getAll("roleKeys")
-    .map((value) => String(value))
-    .filter(Boolean)
-    .map((value) => characterRoleKeySchema.parse(value));
-
-  return (roleKeys.length ? roleKeys : ["citizen"]) as CharacterRoleKey[];
-}
-
-function readAccessFlags(formData: FormData) {
-  return formData
-    .getAll("accessFlags")
-    .map((value) => String(value))
-    .filter(Boolean)
-    .map((value) => characterAccessFlagKeySchema.parse(value)) as CharacterAccessFlagKey[];
+function readCharacterFormFields(formData: FormData) {
+  return characterFormSchema.parse({
+    fullName: String(formData.get("fullName") ?? ""),
+    passportNumber: String(formData.get("passportNumber") ?? ""),
+  });
 }
 
 export async function createCharacterAction(formData: FormData) {
@@ -67,13 +55,14 @@ export async function createCharacterAction(formData: FormData) {
 
   try {
     const serverId = String(formData.get("serverId") ?? "");
+    const characterFormFields = readCharacterFormFields(formData);
     const createdCharacter = await createCharacterManually({
       accountId: account.id,
       serverId,
-      fullName: String(formData.get("fullName") ?? ""),
-      passportNumber: String(formData.get("passportNumber") ?? ""),
-      roleKeys: readRoleKeys(formData),
-      accessFlags: readAccessFlags(formData),
+      fullName: characterFormFields.fullName,
+      passportNumber: characterFormFields.passportNumber,
+      roleKeys: ["citizen"],
+      accessFlags: [],
     });
 
     await setActiveServerSelection(account.id, {
@@ -87,6 +76,10 @@ export async function createCharacterAction(formData: FormData) {
     revalidatePath("/app");
     redirect(buildStatusRedirect(redirectTo, "character-created"));
   } catch (error) {
+    if (isRedirectError(error)) {
+      throw error;
+    }
+
     if (error instanceof CharacterLimitExceededError) {
       redirect(buildStatusRedirect(redirectTo, "character-limit"));
     }
@@ -106,20 +99,29 @@ export async function updateCharacterAction(formData: FormData) {
   try {
     const serverId = String(formData.get("serverId") ?? "");
     const characterId = String(formData.get("characterId") ?? "");
+    const characterFormFields = readCharacterFormFields(formData);
+    const existingCharacter = await getCharacterByIdForAccount({
+      accountId: account.id,
+      characterId,
+    });
 
     await updateCharacterManually({
       accountId: account.id,
       serverId,
       characterId,
-      fullName: String(formData.get("fullName") ?? ""),
-      passportNumber: String(formData.get("passportNumber") ?? ""),
-      roleKeys: readRoleKeys(formData),
-      accessFlags: readAccessFlags(formData),
+      fullName: characterFormFields.fullName,
+      passportNumber: characterFormFields.passportNumber,
+      roleKeys: existingCharacter?.roles.map((role) => role.roleKey) ?? ["citizen"],
+      accessFlags: existingCharacter?.accessFlags.map((flag) => flag.flagKey) ?? [],
     });
 
     revalidatePath("/app");
     redirect(buildStatusRedirect(redirectTo, "character-updated"));
   } catch (error) {
+    if (isRedirectError(error)) {
+      throw error;
+    }
+
     if (error instanceof CharacterNotFoundError) {
       redirect(buildStatusRedirect(redirectTo, "character-not-found"));
     }

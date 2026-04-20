@@ -7,12 +7,6 @@ type CharacterItem = {
   fullName: string;
   nickname: string;
   passportNumber: string;
-  roles: Array<{
-    roleKey: string;
-  }>;
-  accessFlags: Array<{
-    flagKey: string;
-  }>;
 };
 
 type CharacterManagementSectionProps = {
@@ -23,24 +17,13 @@ type CharacterManagementSectionProps = {
   status: string | undefined;
 };
 
-const roleLabels: Record<string, string> = {
-  citizen: "Гражданин",
-  lawyer: "Адвокат",
-};
-
-const accessFlagLabels: Record<string, string> = {
-  advocate: "Адвокатский доступ",
-  server_editor: "Редактор сервера",
-  server_admin: "Администратор сервера",
-  tester: "Тестовый доступ",
-};
-
 const statusLabels: Record<string, string> = {
   "character-created": "Персонаж создан и выбран активным.",
   "character-updated": "Изменения персонажа сохранены.",
   "character-limit": "На одном сервере нельзя иметь больше трёх персонажей.",
   "passport-conflict": "Паспорт уже используется в рамках этого аккаунта и сервера.",
   "character-create-error": "Не удалось создать персонажа. Проверь данные и попробуй ещё раз.",
+  "character-update-error": "Не удалось сохранить изменения персонажа. Попробуй ещё раз.",
   "character-not-found": "Персонаж для редактирования не найден.",
   "character-selection-error": "Не удалось выбрать активного персонажа.",
   "server-not-found": "Выбранный сервер не найден.",
@@ -93,7 +76,9 @@ export function CharacterManagementSection({
               <Card className="space-y-3">
                 <h3 className="text-xl font-semibold">Персонажей пока нет</h3>
                 <p className="text-sm leading-6 text-[var(--muted)]">
-                  На этом сервере ещё нет ни одного персонажа. Создай первую карточку вручную через форму слева.
+                  На этом сервере ещё нет ни одного персонажа. Создай первую карточку вручную через
+                  форму слева. После создания она сразу станет активным персонажем для текущего
+                  сервера.
                 </p>
                 <a
                   className="inline-flex rounded-2xl bg-[var(--accent)] px-4 py-2.5 text-sm font-medium text-white"
@@ -122,19 +107,6 @@ export function CharacterManagementSection({
                         <span className="font-medium text-[var(--foreground)]">{character.nickname}</span>
                       </p>
                     </div>
-                    <div className="text-sm leading-6 text-[var(--muted)]">
-                      <p>
-                        Роли:{" "}
-                        {character.roles.map((role) => roleLabels[role.roleKey] ?? role.roleKey).join(", ") ||
-                          "не заданы"}
-                      </p>
-                      <p>
-                        Access flags:{" "}
-                        {character.accessFlags
-                          .map((flag) => accessFlagLabels[flag.flagKey] ?? flag.flagKey)
-                          .join(", ") || "не заданы"}
-                      </p>
-                    </div>
                   </div>
 
                   <details className="rounded-2xl border border-[var(--border)] bg-white/50 p-4">
@@ -147,8 +119,6 @@ export function CharacterManagementSection({
                           characterId: character.id,
                           fullName: character.fullName,
                           passportNumber: character.passportNumber,
-                          roleKeys: character.roles.map((role) => role.roleKey),
-                          accessFlags: character.accessFlags.map((flag) => flag.flagKey),
                         }}
                         mode="edit"
                         serverId={activeServerId}

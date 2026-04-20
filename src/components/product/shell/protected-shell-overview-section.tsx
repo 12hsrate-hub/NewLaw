@@ -47,8 +47,8 @@ export function ProtectedShellOverviewSection({
         <h2 className="text-2xl font-semibold">Read-only контур `/app`</h2>
         <p className="text-sm leading-6 text-[var(--muted)]">
           Overview-экран остаётся read-only, но в header уже доступны выбор активного сервера и
-          выбор активного персонажа. Формы создания и редактирования карточек появятся отдельным
-          подшагом.
+          выбор активного персонажа. Ниже в этом же shell теперь доступно базовое ручное создание
+          и редактирование карточек без ролей и access flags.
         </p>
         {status && statusLabels[status] ? (
           <p className="rounded-2xl border border-[var(--border)] bg-white/60 px-4 py-3 text-sm text-[var(--foreground)]">
@@ -104,11 +104,11 @@ export function ProtectedShellOverviewSection({
                 <span className="font-medium text-[var(--foreground)]">
                   {activeServerName ?? "без выбранного названия"}
                 </span>{" "}
-                ещё нет персонажей. Выбор активного сервера уже работает, а на следующем подшаге на
-                этом экране появится ручное создание персонажа и редактирование карточек.
+                ещё нет персонажей. Выбор активного сервера уже работает, а форма создания доступна
+                ниже в блоке управления персонажами.
               </p>
               <div className="rounded-2xl border border-dashed border-[var(--border)] bg-white/55 px-4 py-3 text-sm font-medium text-[var(--foreground)]">
-                Следующий шаг: добавить выбор и создание персонажа
+                Следующий шаг после этого блока: роли и access flags
               </div>
             </Card>
           ) : (
@@ -150,8 +150,8 @@ export function ProtectedShellOverviewSection({
                 <span className="font-medium text-[var(--foreground)]">
                   {activeCharacterName ?? "пока не определён"}
                 </span>
-                . Переключение уже доступно в header, а редактирование будет вынесено в следующий
-                подшаг.
+                . Переключение уже доступно в header, а базовое редактирование карточек вынесено в
+                отдельный блок ниже.
               </div>
             </Card>
           )}

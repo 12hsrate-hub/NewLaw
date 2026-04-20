@@ -12,9 +12,12 @@ export const characterIdSchema = z.string().min(1);
 export const characterRoleKeySchema = z.enum(characterRoleKeys);
 export const characterAccessFlagKeySchema = z.enum(characterAccessFlagKeys);
 
-const characterDetailsSchema = z.object({
+export const characterFormSchema = z.object({
   fullName: z.string().trim().min(3).max(120),
   passportNumber: z.string().trim().min(1).max(64),
+});
+
+const characterDetailsSchema = characterFormSchema.extend({
   roleKeys: z.array(characterRoleKeySchema).default(["citizen"]),
   accessFlags: z.array(characterAccessFlagKeySchema).default([]),
 });

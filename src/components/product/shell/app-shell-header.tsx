@@ -205,8 +205,8 @@ export function AppShellHeader({
         ) : !hasCharactersOnActiveServer ? (
           <p>
             Для сервера <span className="font-medium text-[var(--foreground)]">{activeServerName}</span>{" "}
-            персонажи пока не найдены. На следующем подшаге здесь появятся выбор и создание
-            персонажей.
+            персонажи пока не найдены. Ниже уже доступен базовый блок ручного создания первой
+            карточки для этого сервера.
           </p>
         ) : (
           <p>
@@ -216,7 +216,8 @@ export function AppShellHeader({
             <span className="font-medium text-[var(--foreground)]">
               {activeCharacterName ?? "без выбранного профиля"}
             </span>
-            . Создание и редактирование персонажей будут добавлены отдельным подшагом.
+            . Ниже доступен базовый контур создания и редактирования персонажей без ролей и access
+            flags.
           </p>
         )}
       </div>

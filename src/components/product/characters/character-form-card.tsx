@@ -1,30 +1,12 @@
 import { createCharacterAction, updateCharacterAction } from "@/server/actions/characters";
-import {
-  characterAccessFlagKeys,
-  characterRoleKeys,
-} from "@/schemas/character";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 
-const roleLabels: Record<(typeof characterRoleKeys)[number], string> = {
-  citizen: "Гражданин",
-  lawyer: "Адвокат",
-};
-
-const accessFlagLabels: Record<(typeof characterAccessFlagKeys)[number], string> = {
-  advocate: "Адвокатский доступ (advocate)",
-  server_editor: "Редактор сервера (server_editor)",
-  server_admin: "Администратор сервера (server_admin)",
-  tester: "Тестовый доступ (tester)",
-};
-
 type CharacterFormValues = {
-  accessFlags: string[];
   characterId?: string;
   fullName: string;
   passportNumber: string;
-  roleKeys: string[];
 };
 
 type CharacterFormCardProps = {
@@ -45,8 +27,6 @@ export function CharacterFormCard({
     mode === "create"
       ? "Персонаж создаётся вручную. Минимально обязательны ФИО и паспорт."
       : "Обновление карточки персонажа в текущем серверном контексте.";
-  const selectedRoles = new Set(defaultValues?.roleKeys ?? ["citizen"]);
-  const selectedAccessFlags = new Set(defaultValues?.accessFlags ?? []);
 
   return (
     <Card className="space-y-5">
@@ -87,46 +67,6 @@ export function CharacterFormCard({
             required
           />
         </div>
-
-        <fieldset className="space-y-3">
-          <legend className="text-sm font-medium">Роли</legend>
-          <div className="grid gap-2 sm:grid-cols-2">
-            {characterRoleKeys.map((roleKey) => (
-              <label
-                key={roleKey}
-                className="flex items-center gap-3 rounded-2xl border border-[var(--border)] bg-white/60 px-4 py-3 text-sm"
-              >
-                <input
-                  defaultChecked={selectedRoles.has(roleKey)}
-                  name="roleKeys"
-                  type="checkbox"
-                  value={roleKey}
-                />
-                <span>{roleLabels[roleKey]}</span>
-              </label>
-            ))}
-          </div>
-        </fieldset>
-
-        <fieldset className="space-y-3">
-          <legend className="text-sm font-medium">Access flags</legend>
-          <div className="grid gap-2 sm:grid-cols-2">
-            {characterAccessFlagKeys.map((flagKey) => (
-              <label
-                key={flagKey}
-                className="flex items-center gap-3 rounded-2xl border border-[var(--border)] bg-white/60 px-4 py-3 text-sm"
-              >
-                <input
-                  defaultChecked={selectedAccessFlags.has(flagKey)}
-                  name="accessFlags"
-                  type="checkbox"
-                  value={flagKey}
-                />
-                <span>{accessFlagLabels[flagKey]}</span>
-              </label>
-            ))}
-          </div>
-        </fieldset>
 
         <Button type="submit">{submitLabel}</Button>
       </form>

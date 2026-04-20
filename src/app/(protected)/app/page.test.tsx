@@ -28,6 +28,7 @@ describe("/app protected shell page", () => {
         {
           id: "character-1",
           fullName: "Alice Stone",
+          nickname: "Alice Stone",
           passportNumber: "A-001",
         },
       ],
@@ -45,5 +46,7 @@ describe("/app protected shell page", () => {
     expect(html).toContain("Read-only контур `/app`");
     expect(html).toContain("Alice Stone");
     expect(html).toContain("Downtown");
+    expect(html).toContain("Управление персонажами");
+    expect(html).toContain("Редактировать персонажа");
   });
 });

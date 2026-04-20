@@ -30,6 +30,7 @@ describe("protected shell overview section", () => {
     );
 
     expect(html).toContain("Персонажей на сервере пока нет");
-    expect(html).toContain("Следующий шаг: добавить выбор и создание персонажа");
+    expect(html).toContain("форма создания доступна ниже");
+    expect(html).toContain("Следующий шаг после этого блока: роли и access flags");
   });
 });

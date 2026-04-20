@@ -1,0 +1,184 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const { redirectMock, revalidatePathMock } = vi.hoisted(() => ({
+  redirectMock: vi.fn((path: string) => {
+    throw new Error(`NEXT_REDIRECT:${path}`);
+  }),
+  revalidatePathMock: vi.fn(),
+}));
+
+vi.mock("next/navigation", () => ({
+  redirect: redirectMock,
+}));
+
+vi.mock("next/dist/client/components/redirect-error", () => ({
+  isRedirectError: (error: unknown) =>
+    error instanceof Error && error.message.startsWith("NEXT_REDIRECT:"),
+}));
+
+vi.mock("next/cache", () => ({
+  revalidatePath: revalidatePathMock,
+}));
+
+vi.mock("@/server/auth/protected", () => ({
+  requireProtectedAccountContext: vi.fn(),
+}));
+
+vi.mock("@/db/repositories/character.repository", () => ({
+  getCharacterByIdForAccount: vi.fn(),
+}));
+
+vi.mock("@/server/characters/manual-character", () => ({
+  CharacterLimitExceededError: class CharacterLimitExceededError extends Error {},
+  CharacterNotFoundError: class CharacterNotFoundError extends Error {},
+  CharacterPassportConflictError: class CharacterPassportConflictError extends Error {},
+  createCharacterManually: vi.fn(),
+  updateCharacterManually: vi.fn(),
+}));
+
+vi.mock("@/server/app-shell/selection", () => ({
+  setActiveServerSelection: vi.fn(),
+  setActiveCharacterSelection: vi.fn(),
+}));
+
+import {
+  createCharacterAction,
+  updateCharacterAction,
+} from "@/server/actions/characters";
+import { getCharacterByIdForAccount } from "@/db/repositories/character.repository";
+import {
+  CharacterLimitExceededError,
+  CharacterNotFoundError,
+  CharacterPassportConflictError,
+  createCharacterManually,
+  updateCharacterManually,
+} from "@/server/characters/manual-character";
+import {
+  setActiveCharacterSelection,
+  setActiveServerSelection,
+} from "@/server/app-shell/selection";
+import { requireProtectedAccountContext } from "@/server/auth/protected";
+
+function expectRedirect(promise: Promise<unknown>, path: string) {
+  return expect(promise).rejects.toThrow(`NEXT_REDIRECT:${path}`);
+}
+
+describe("character actions", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+
+    vi.mocked(requireProtectedAccountContext).mockResolvedValue({
+      account: {
+        id: "21631886-7b4d-4be2-b6e9-95322d0dca41",
+      },
+    } as never);
+  });
+
+  it("создает персонажа вручную и делает его активным для текущего сервера", async () => {
+    vi.mocked(createCharacterManually).mockResolvedValue({
+      id: "character-1",
+    } as never);
+    vi.mocked(setActiveServerSelection).mockResolvedValue({} as never);
+    vi.mocked(setActiveCharacterSelection).mockResolvedValue({} as never);
+
+    const formData = new FormData();
+    formData.set("serverId", "server-1");
+    formData.set("fullName", "Alice Stone");
+    formData.set("passportNumber", "A-001");
+    formData.set("redirectTo", "/app");
+
+    await expectRedirect(createCharacterAction(formData), "/app?status=character-created");
+
+    expect(createCharacterManually).toHaveBeenCalledWith({
+      accountId: "21631886-7b4d-4be2-b6e9-95322d0dca41",
+      serverId: "server-1",
+      fullName: "Alice Stone",
+      passportNumber: "A-001",
+      roleKeys: ["citizen"],
+      accessFlags: [],
+    });
+    expect(setActiveServerSelection).toHaveBeenCalledWith(
+      "21631886-7b4d-4be2-b6e9-95322d0dca41",
+      {
+        serverId: "server-1",
+      },
+    );
+    expect(setActiveCharacterSelection).toHaveBeenCalledWith(
+      "21631886-7b4d-4be2-b6e9-95322d0dca41",
+      {
+        serverId: "server-1",
+        characterId: "character-1",
+      },
+    );
+  });
+
+  it("корректно показывает лимит персонажей", async () => {
+    vi.mocked(createCharacterManually).mockRejectedValue(new CharacterLimitExceededError());
+
+    const formData = new FormData();
+    formData.set("serverId", "server-1");
+    formData.set("fullName", "Alice Stone");
+    formData.set("passportNumber", "A-001");
+    formData.set("redirectTo", "/app");
+
+    await expectRedirect(createCharacterAction(formData), "/app?status=character-limit");
+  });
+
+  it("корректно показывает конфликт паспорта при создании", async () => {
+    vi.mocked(createCharacterManually).mockRejectedValue(new CharacterPassportConflictError());
+
+    const formData = new FormData();
+    formData.set("serverId", "server-1");
+    formData.set("fullName", "Alice Stone");
+    formData.set("passportNumber", "A-001");
+    formData.set("redirectTo", "/app");
+
+    await expectRedirect(createCharacterAction(formData), "/app?status=passport-conflict");
+  });
+
+  it("не позволяет редактированием затереть существующие роли и access flags", async () => {
+    vi.mocked(getCharacterByIdForAccount).mockResolvedValue({
+      id: "character-1",
+      roles: [{ roleKey: "lawyer" }],
+      accessFlags: [{ flagKey: "advocate" }, { flagKey: "tester" }],
+    } as never);
+    vi.mocked(updateCharacterManually).mockResolvedValue({
+      id: "character-1",
+    } as never);
+
+    const formData = new FormData();
+    formData.set("serverId", "server-1");
+    formData.set("characterId", "character-1");
+    formData.set("fullName", "Alice Stone");
+    formData.set("passportNumber", "A-777");
+    formData.set("redirectTo", "/app");
+
+    await expectRedirect(updateCharacterAction(formData), "/app?status=character-updated");
+
+    expect(updateCharacterManually).toHaveBeenCalledWith({
+      accountId: "21631886-7b4d-4be2-b6e9-95322d0dca41",
+      serverId: "server-1",
+      characterId: "character-1",
+      fullName: "Alice Stone",
+      passportNumber: "A-777",
+      roleKeys: ["lawyer"],
+      accessFlags: ["advocate", "tester"],
+    });
+    expect(setActiveServerSelection).not.toHaveBeenCalled();
+    expect(setActiveCharacterSelection).not.toHaveBeenCalled();
+  });
+
+  it("безопасно отклоняет попытку редактировать чужого или отсутствующего персонажа", async () => {
+    vi.mocked(getCharacterByIdForAccount).mockResolvedValue(null);
+    vi.mocked(updateCharacterManually).mockRejectedValue(new CharacterNotFoundError());
+
+    const formData = new FormData();
+    formData.set("serverId", "server-1");
+    formData.set("characterId", "character-404");
+    formData.set("fullName", "Alice Stone");
+    formData.set("passportNumber", "A-777");
+    formData.set("redirectTo", "/app");
+
+    await expectRedirect(updateCharacterAction(formData), "/app?status=character-not-found");
+  });
+});
