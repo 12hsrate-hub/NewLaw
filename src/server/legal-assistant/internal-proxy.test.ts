@@ -79,4 +79,69 @@ describe("assistant internal proxy", () => {
     );
     expect(result.status).toBe(200);
   });
+
+  it("нормализует metadata в flat string map перед отправкой upstream", async () => {
+    const fetchSpy = vi.fn().mockResolvedValue({
+      status: 200,
+      json: async () => ({
+        choices: [
+          {
+            message: {
+              content: "ok",
+            },
+          },
+        ],
+      }),
+    });
+
+    await executeAssistantInternalProxyRequest(
+      {
+        bearerToken: "correct-token",
+        payload: {
+          model: "gpt-5.4",
+          messages: [
+            {
+              role: "system",
+              content: "system",
+            },
+          ],
+          metadata: {
+            featureKey: "server_legal_assistant",
+            corpusSnapshot: {
+              currentVersionIds: ["v1", "v2"],
+            },
+            retrievalResultsCount: 4,
+          },
+        },
+      },
+      {
+        fetch: fetchSpy as typeof fetch,
+        getEnv: () => ({
+          OPENAI_API_KEY: "secret-openai-key",
+          AI_PROXY_INTERNAL_TOKEN: "correct-token",
+        }),
+      },
+    );
+
+    expect(fetchSpy).toHaveBeenCalledWith(
+      "https://api.openai.com/v1/chat/completions",
+      expect.objectContaining({
+        body: JSON.stringify({
+          model: "gpt-5.4",
+          temperature: 0.1,
+          messages: [
+            {
+              role: "system",
+              content: "system",
+            },
+          ],
+          metadata: {
+            featureKey: "server_legal_assistant",
+            corpusSnapshot: "{\"currentVersionIds\":[\"v1\",\"v2\"]}",
+            retrievalResultsCount: "4",
+          },
+        }),
+      }),
+    );
+  });
 });

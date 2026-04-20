@@ -20,6 +20,38 @@ const defaultDependencies: AssistantInternalProxyDependencies = {
   getEnv: getAssistantInternalProxyEnv,
 };
 
+function normalizeAssistantProxyMetadata(
+  metadata: Record<string, unknown> | null | undefined,
+): Record<string, string> | undefined {
+  if (!metadata || typeof metadata !== "object") {
+    return undefined;
+  }
+
+  const entries = Object.entries(metadata)
+    .map(([key, value]) => {
+      if (value == null) {
+        return null;
+      }
+
+      if (typeof value === "string") {
+        return [key, value] as const;
+      }
+
+      if (typeof value === "number" || typeof value === "boolean") {
+        return [key, String(value)] as const;
+      }
+
+      return [key, JSON.stringify(value)] as const;
+    })
+    .filter((entry): entry is readonly [string, string] => Boolean(entry));
+
+  if (entries.length === 0) {
+    return undefined;
+  }
+
+  return Object.fromEntries(entries);
+}
+
 export async function executeAssistantInternalProxyRequest(
   input: {
     bearerToken: string;
@@ -74,7 +106,7 @@ export async function executeAssistantInternalProxyRequest(
       model: input.payload.model,
       temperature: input.payload.temperature ?? 0.1,
       messages: input.payload.messages,
-      metadata: input.payload.metadata ?? null,
+      metadata: normalizeAssistantProxyMetadata(input.payload.metadata),
     }),
     cache: "no-store",
   });
