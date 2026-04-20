@@ -21,6 +21,26 @@ const discoveryHtml = `
   </div>
 `;
 
+const paginatedDiscoveryHtml = `
+  <div class="structItem-title">
+    <a href="/threads/sudebnye-precedenty-verhovnogo-suda.1002/" data-tp-primary="on">
+      Судебные прецеденты Верховного суда
+    </a>
+  </div>
+  <nav class="pageNavWrapper pageNavWrapper--mixed">
+    <a class="pageNav-page" href="/forums/precedents/page-2">2</a>
+    <a class="pageNav-jump pageNav-jump--next" href="/forums/precedents/page-2">Next</a>
+  </nav>
+`;
+
+const paginatedDiscoveryHtmlPage2 = `
+  <div class="structItem-title">
+    <a href="/threads/sudebnye-precedenty-apelljacionnogo-suda.1004/" data-tp-primary="on">
+      Судебные прецеденты Апелляционного суда
+    </a>
+  </div>
+`;
+
 const splitThreadHtml = `
   <article class="message message--post js-post js-inlineModContainer is-first" data-author="Court Reporter" data-content="post-9101">
     <a href="/threads/sudebnye-precedenty-verhovnogo-suda.1002/post-9101">#1</a>
@@ -213,6 +233,29 @@ describe("precedent discovery/import pipeline", () => {
         }),
       ],
     });
+  });
+
+  it("precedent discovery обходит pagination links отдельным pipeline", async () => {
+    const dependencies = createDependencies();
+    dependencies.fetchHtml.mockImplementation(async (url: string) => {
+      if (url.includes("page-2")) {
+        return paginatedDiscoveryHtmlPage2;
+      }
+
+      return paginatedDiscoveryHtml;
+    });
+    dependencies.getLawByServerAndTopicExternalId = vi.fn().mockResolvedValue(null);
+    dependencies.findPrecedentSourceTopicByServerAndTopicExternalId = vi.fn().mockResolvedValue(null);
+
+    const result = await runPrecedentSourceDiscovery("source-1", dependencies as never);
+
+    expect(result.pageCount).toBe(2);
+    expect(result.candidateCount).toBe(2);
+    expect(dependencies.createPrecedentSourceTopicRecord).toHaveBeenCalledWith(
+      expect.objectContaining({
+        topicExternalId: "1004",
+      }),
+    );
   });
 
   it("не плодит лишние версии, если normalized text не изменился", async () => {

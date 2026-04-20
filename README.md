@@ -5,8 +5,8 @@
 `Lawyer5RP MVP` — единое full-stack веб-приложение для подготовки документных сценариев внутри экосистемы GTA5RP.
 Главный сценарий MVP — создание жалобы в ОГП с итоговой генерацией форумного BBCode.
 
-На текущем этапе репозиторий содержит стартовую документацию проекта, bootstrap-каркас приложения, foundation для `Supabase Auth` и минимального data layer, account-security foundation, protected shell foundation для `/app` c выбором активного сервера и персонажа, базовый контур ручного управления персонажами с минимальным слоем ролей и `access flags`, минимальные `super_admin` экраны для admin account-security и law corpus source management, law corpus schema foundation, ручной discovery/import pipeline для law corpus с normalizing и segmentation, manual current-version workflow, retrieval foundation для current primary laws, отдельный public `server legal assistant` модуль вне `/app`, а также schema foundation и discovery/import/split foundation для отдельного corpus судебных прецедентов и временную maintenance page.
-Прикладная бизнес-логика документов пока не реализована, но регистрация по `login + email + password`, подтверждение email по ссылке, forgot-password, reset-password, вход по `email` или `login`, protected shell на `/app` c active server / active character selection, базовый список/создание/редактирование персонажей для текущего сервера вместе с ролями и `access flags` на уровне `character_id`, `/app/security`, self change password, self change email, server-side admin account-security actions, а также foundation для law corpus, server-scoped источников законодательной базы, ручного discovery/import pipeline, ручного confirm imported draft версий, server-scoped retrieval foundation, public assistant по current primary laws и отдельный precedent-pipeline без assistant integration уже подготовлены.
+На текущем этапе репозиторий содержит стартовую документацию проекта, bootstrap-каркас приложения, foundation для `Supabase Auth` и минимального data layer, account-security foundation, protected shell foundation для `/app` c выбором активного сервера и персонажа, базовый контур ручного управления персонажами с минимальным слоем ролей и `access flags`, минимальные `super_admin` экраны для admin account-security и law corpus source management, law corpus schema foundation, ручной discovery/import pipeline для law corpus с normalizing и segmentation, hardening discovery coverage для forum index layout/pagination cases, manual current-version workflow, retrieval foundation для current primary laws, отдельный public `server legal assistant` модуль вне `/app`, а также schema foundation и discovery/import/split foundation для отдельного corpus судебных прецедентов и временную maintenance page.
+Прикладная бизнес-логика документов пока не реализована, но регистрация по `login + email + password`, подтверждение email по ссылке, forgot-password, reset-password, вход по `email` или `login`, protected shell на `/app` c active server / active character selection, базовый список/создание/редактирование персонажей для текущего сервера вместе с ролями и `access flags` на уровне `character_id`, `/app/security`, self change password, self change email, server-side admin account-security actions, а также foundation для law corpus, server-scoped источников законодательной базы, ручного discovery/import pipeline, bootstrap-health проверки полноты current corpus по серверу, ручного confirm imported draft версий, server-scoped retrieval foundation, public assistant по current primary laws и отдельный precedent-pipeline без assistant integration уже подготовлены.
 Production email delivery для auth-писем зафиксирован через `Supabase Custom SMTP`, а не через встроенный email provider Supabase.
 
 ## Зафиксированный стек
@@ -185,6 +185,10 @@ Production email delivery для auth-писем зафиксирован чер
 - manual override foundation: `isExcluded`, `classificationOverride`, `internalNote`
 - import lock / idempotency foundation через `LawImportRun.lockKey` и dedupe по `normalized_text_hash`
 - ручной discovery по `LawSourceIndex` внутри `/app/admin-laws`
+- hardening discovery coverage:
+  - более устойчивый парсинг topic links в forum index
+  - обход pagination links форума с дедупликацией topics
+  - retry для временных forum `5xx` ответов без автоматической порчи старого corpus
 - классификация topics в `primary`, `supplement`, `ignored`
 - import конкретной forum topic в raw source layer
 - сбор непрерывной нормативной цепочки постов сверху темы
@@ -193,6 +197,10 @@ Production email delivery для auth-писем зафиксирован чер
 - создание новой версии закона только как `imported_draft`, без auto-current workflow
 - ручное подтверждение `imported_draft -> current` только через `super_admin`
 - автоматический перевод предыдущей `current` версии в `superseded`
+- internal bootstrap-health summary по серверу:
+  - `corpus_bootstrap_incomplete`
+  - `usable_with_gaps`
+  - `current_corpus_ready`
 - internal retrieval preview по `current primary laws` выбранного сервера
 - retrieval foundation только по `current` версиям `primary` laws, без `supplement`, `imported_draft` и `superseded`
 - retrieval metadata с grounded references на `law`, `version`, `block` и source topic/source posts

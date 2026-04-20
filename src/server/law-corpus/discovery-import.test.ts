@@ -19,6 +19,24 @@ const discoveryHtml = `
   </div>
 `;
 
+const paginatedDiscoveryHtml = `
+  <div class="structItem-title">
+    <a href="/threads/ugolovnyi-kodeks.1001/" data-tp-primary="on">Уголовный кодекс</a>
+  </div>
+  <nav class="pageNavWrapper pageNavWrapper--mixed">
+    <a class="pageNav-page" href="/forums/laws/page-2">2</a>
+    <a class="pageNav-jump pageNav-jump--next" href="/forums/laws/page-2">Next</a>
+  </nav>
+`;
+
+const paginatedDiscoveryHtmlPage2 = `
+  <div class="structItem-title">
+    <a href="/threads/zakon-o-zdravoohranenii.1004/" data-tp-primary="on">
+      Закон "О здравоохранении"
+    </a>
+  </div>
+`;
+
 const importThreadHtml = `
   <article class="message message--post js-post js-inlineModContainer is-first" data-author="Mike Hanssen" data-content="post-9001">
     <a href="/threads/ugolovnyi-kodeks.1001/post-9001">#1</a>
@@ -134,6 +152,30 @@ describe("law discovery/import pipeline", () => {
       expect.objectContaining({
         lawId: "law-existing",
         lawKind: "supplement",
+      }),
+    );
+  });
+
+  it("discovery обходит pagination links и не пропускает законы со второй страницы", async () => {
+    const dependencies = createDependencies();
+    dependencies.fetchHtml.mockImplementation(async (url: string) => {
+      if (url.includes("page-2")) {
+        return paginatedDiscoveryHtmlPage2;
+      }
+
+      return paginatedDiscoveryHtml;
+    });
+
+    dependencies.getLawByServerAndTopicExternalId = vi.fn().mockResolvedValue(null);
+
+    const result = await runLawSourceDiscovery("source-1", dependencies as never);
+
+    expect(result.pageCount).toBe(2);
+    expect(result.candidateCount).toBe(2);
+    expect(dependencies.registerLawStub).toHaveBeenCalledWith(
+      expect.objectContaining({
+        topicExternalId: "1004",
+        lawKind: "primary",
       }),
     );
   });

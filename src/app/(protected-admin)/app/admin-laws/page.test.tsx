@@ -203,6 +203,7 @@ describe("/app/admin-laws", () => {
     expect(html).toContain("Запустить discovery");
     expect(html).toContain("Импортировать тему");
     expect(html).toContain("Подтвердить как current");
+    expect(html).toContain("corpus_bootstrap_incomplete");
     expect(html).toContain("Current Primary Law Retrieval");
     expect(html).toContain("Precedent Source Topic Foundation");
     expect(html).toContain("Решение Верховного суда");

@@ -9,6 +9,7 @@ import { listLawsForAdminReview } from "@/db/repositories/law.repository";
 import { listPrecedentSourceTopics } from "@/db/repositories/precedent-source-topic.repository";
 import { getAppShellContext } from "@/server/app-shell/context";
 import { buildAdminAccessDeniedRedirectPath } from "@/server/auth/protected";
+import { buildLawCorpusBootstrapHealth } from "@/server/law-corpus/bootstrap-status";
 import { searchCurrentLawCorpus } from "@/server/law-corpus/retrieval";
 
 type AdminLawsPageProps = {
@@ -75,6 +76,30 @@ export default async function AdminLawsPage({ searchParams }: AdminLawsPageProps
           />
 
           <LawSourceManagementSection
+            bootstrapHealthByServerId={Object.fromEntries(
+              shellContext.servers.map((server) => [
+                server.id,
+                buildLawCorpusBootstrapHealth(
+                  laws
+                    .filter((law) => law.serverId === server.id)
+                    .map((law) => ({
+                      lawKind: law.lawKind,
+                      isExcluded: law.isExcluded,
+                      classificationOverride: law.classificationOverride,
+                      currentVersionId: law.currentVersionId,
+                      versionCount: law._count.versions,
+                    })),
+                  {
+                    hasDiscoveryFailure: sourceIndexes.some(
+                      (sourceIndex) =>
+                        sourceIndex.serverId === server.id &&
+                        sourceIndex.isEnabled &&
+                        sourceIndex.lastDiscoveryStatus === "failure",
+                    ),
+                  },
+                ),
+              ]),
+            )}
             laws={laws.map((law) => ({
               id: law.id,
               serverId: law.serverId,

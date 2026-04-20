@@ -84,10 +84,22 @@ type RetrievalPreview = {
   results: RetrievalPreviewItem[];
 };
 
+type BootstrapHealthItem = {
+  status: "corpus_bootstrap_incomplete" | "usable_with_gaps" | "current_corpus_ready";
+  primaryLawCount: number;
+  supplementCount: number;
+  ignoredCount: number;
+  currentPrimaryCount: number;
+  draftOnlyPrimaryCount: number;
+  missingImportPrimaryCount: number;
+  hasDiscoveryFailure: boolean;
+};
+
 type LawSourceManagementSectionProps = {
   servers: ServerItem[];
   sourceIndexes: LawSourceIndexItem[];
   laws: LawItem[];
+  bootstrapHealthByServerId?: Record<string, BootstrapHealthItem>;
   status?: string;
   selectedPreviewServerId?: string | null;
   previewQuery?: string | null;
@@ -162,6 +174,19 @@ function resolveLawKindLabel(law: LawItem) {
   }
 
   return law.classificationOverride ?? law.lawKind;
+}
+
+function resolveBootstrapStatusLabel(status: BootstrapHealthItem["status"]) {
+  switch (status) {
+    case "corpus_bootstrap_incomplete":
+      return "corpus_bootstrap_incomplete";
+    case "usable_with_gaps":
+      return "usable_with_gaps";
+    case "current_corpus_ready":
+      return "current_corpus_ready";
+    default:
+      return status;
+  }
 }
 
 function CurrentVersionBadge({ version }: { version: LawVersionItem | undefined }) {
@@ -306,6 +331,7 @@ export function LawSourceManagementSection({
   servers,
   sourceIndexes,
   laws,
+  bootstrapHealthByServerId,
   status,
   selectedPreviewServerId,
   previewQuery,
@@ -361,6 +387,7 @@ export function LawSourceManagementSection({
         const serverSourceIndexes = sourceIndexes.filter((sourceIndex) => sourceIndex.serverId === server.id);
         const serverLaws = laws.filter((law) => law.serverId === server.id);
         const sourceLimitReached = serverSourceIndexes.length >= 2;
+        const bootstrapHealth = bootstrapHealthByServerId?.[server.id];
 
         return (
           <Card className="space-y-5" key={server.id}>
@@ -373,6 +400,25 @@ export function LawSourceManagementSection({
                 только вручную и только для imported_draft.
               </p>
             </div>
+
+            {bootstrapHealth ? (
+              <div className="rounded-2xl border border-[var(--border)] bg-white/65 px-4 py-4 text-sm leading-6 text-[var(--muted)]">
+                <div className="flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.18em] text-[var(--accent)]">
+                  <span>Bootstrap Health</span>
+                  <span>·</span>
+                  <span>{resolveBootstrapStatusLabel(bootstrapHealth.status)}</span>
+                </div>
+                <div className="mt-2 grid gap-2 md:grid-cols-2 xl:grid-cols-4">
+                  <p>Primary laws: {bootstrapHealth.primaryLawCount}</p>
+                  <p>Current primary: {bootstrapHealth.currentPrimaryCount}</p>
+                  <p>Draft only: {bootstrapHealth.draftOnlyPrimaryCount}</p>
+                  <p>Missing import: {bootstrapHealth.missingImportPrimaryCount}</p>
+                  <p>Supplements: {bootstrapHealth.supplementCount}</p>
+                  <p>Ignored entries: {bootstrapHealth.ignoredCount}</p>
+                  <p>Discovery failures: {bootstrapHealth.hasDiscoveryFailure ? "есть" : "нет"}</p>
+                </div>
+              </div>
+            ) : null}
 
             <div className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
               <div className="space-y-3">

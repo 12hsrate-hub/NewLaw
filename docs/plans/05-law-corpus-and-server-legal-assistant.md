@@ -11,6 +11,7 @@
 На текущем шаге блок уже умеет:
 
 - ручной `discovery` по `LawSourceIndex`
+- hardening discovery coverage для forum index parsing, pagination и transient `5xx` retry
 - ручной `import` конкретной темы форума
 - классификацию topics в `primary`, `supplement`, `ignored`
 - raw source layer через `LawSourcePost`
@@ -421,6 +422,10 @@
 
 - первый реальный сервер law corpus: `Blackberry`
 - основной source index для него: `https://forum.gta5rp.com/forums/zakonodatelnaja-baza.262/`
+- internal bootstrap-health summary по серверу должен использовать статусы:
+  - `corpus_bootstrap_incomplete`
+  - `usable_with_gaps`
+  - `current_corpus_ready`
 - для smoke и тестов используется отдельный smoke-server dataset
 - production-данные реального сервера и smoke-сценарии не смешиваются
 - production ID серверов не хардкодятся в коде

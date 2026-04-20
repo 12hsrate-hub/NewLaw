@@ -15,6 +15,18 @@ describe("law source management section", () => {
   it("рендерит список source indexes по серверу и форму добавления", () => {
     const html = renderToStaticMarkup(
       <LawSourceManagementSection
+        bootstrapHealthByServerId={{
+          "server-1": {
+            status: "corpus_bootstrap_incomplete",
+            primaryLawCount: 1,
+            supplementCount: 0,
+            ignoredCount: 0,
+            currentPrimaryCount: 0,
+            draftOnlyPrimaryCount: 0,
+            missingImportPrimaryCount: 1,
+            hasDiscoveryFailure: false,
+          },
+        }}
         servers={[
           {
             id: "server-1",
@@ -60,6 +72,7 @@ describe("law source management section", () => {
     expect(html).toContain("Уголовный кодекс");
     expect(html).toContain("Запустить discovery");
     expect(html).toContain("Импортировать тему");
+    expect(html).toContain("corpus_bootstrap_incomplete");
     expect(html).toContain("Current Primary Law Retrieval");
   });
 

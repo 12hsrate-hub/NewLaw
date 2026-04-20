@@ -5,6 +5,7 @@ import {
   buildNormalizedTextHash,
   buildSourceSnapshotHash,
   parseForumIndexCandidates,
+  parseForumIndexPaginationUrls,
   parseForumTopicPosts,
 } from "@/server/law-corpus/forum-html";
 
@@ -20,6 +21,10 @@ const forumIndexHtml = `
   <div class="structItem-title">
     <a href="/threads/sudebnye-precedenty.1003/" data-tp-primary="on">Судебные прецеденты</a>
   </div>
+  <nav class="pageNavWrapper pageNavWrapper--mixed">
+    <a class="pageNav-page" href="/forums/laws/page-2">2</a>
+    <a class="pageNav-jump pageNav-jump--next" href="/forums/laws/page-2">Next</a>
+  </nav>
 `;
 
 const threadHtml = `
@@ -56,6 +61,15 @@ describe("forum html parser", () => {
       topicExternalId: "1001",
       title: "Уголовный кодекс",
     });
+  });
+
+  it("находит pagination links форума и дедуплицирует их", () => {
+    const pageUrls = parseForumIndexPaginationUrls(
+      forumIndexHtml,
+      "https://forum.gta5rp.com/forums/laws",
+    );
+
+    expect(pageUrls).toEqual(["https://forum.gta5rp.com/forums/laws/page-2"]);
   });
 
   it("разбирает ordered set постов темы и строит hashes", () => {

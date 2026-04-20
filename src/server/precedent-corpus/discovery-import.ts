@@ -25,6 +25,7 @@ import {
   buildNormalizedTextHash,
   buildSourceSnapshotHash,
   parseForumIndexCandidates,
+  parseForumIndexPaginationUrls,
   parseForumTopicPosts,
 } from "@/server/law-corpus/forum-html";
 
@@ -64,19 +65,38 @@ const defaultDependencies: DiscoveryImportDependencies = {
   replaceImportedPrecedentSourcePosts,
   replaceImportedPrecedentBlocks,
   async fetchHtml(url: string) {
-    const response = await fetch(url, {
-      headers: {
-        "user-agent": "Lawyer5RP Precedent Corpus Importer/1.0",
-      },
-      cache: "no-store",
-      signal: AbortSignal.timeout(20_000),
-    });
+    const maxAttempts = 3;
 
-    if (!response.ok) {
-      throw new Error(`Форум вернул HTTP ${response.status}.`);
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      try {
+        const response = await fetch(url, {
+          headers: {
+            "user-agent": "Lawyer5RP Precedent Corpus Importer/1.0",
+          },
+          cache: "no-store",
+          signal: AbortSignal.timeout(20_000),
+        });
+
+        if (!response.ok) {
+          if (response.status >= 500 && attempt < maxAttempts) {
+            await new Promise((resolve) => setTimeout(resolve, attempt * 400));
+            continue;
+          }
+
+          throw new Error(`Форум вернул HTTP ${response.status}.`);
+        }
+
+        return response.text();
+      } catch (error) {
+        if (attempt === maxAttempts) {
+          throw error;
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, attempt * 400));
+      }
     }
 
-    return response.text();
+    throw new Error("Не удалось получить HTML форума.");
   },
 };
 
@@ -109,17 +129,55 @@ export class PrecedentImportExcludedError extends Error {
 }
 
 function summarizeDiscovery(result: {
+  pageCount: number;
   candidateCount: number;
   createdCount: number;
   updatedCount: number;
   ignoredCount: number;
 }) {
   return [
+    `Страниц индекса: ${result.pageCount}.`,
     `Кандидатов: ${result.candidateCount}.`,
     `Создано source topics: ${result.createdCount}.`,
     `Обновлено source topics: ${result.updatedCount}.`,
     `Проигнорировано: ${result.ignoredCount}.`,
   ].join(" ");
+}
+
+async function collectIndexCandidates(
+  indexUrl: string,
+  dependencies: Pick<DiscoveryImportDependencies, "fetchHtml">,
+) {
+  const visitedUrls = new Set<string>();
+  const queue = [indexUrl];
+  const candidatesByTopicId = new Map<string, ReturnType<typeof parseForumIndexCandidates>[number]>();
+
+  while (queue.length > 0) {
+    const currentUrl = queue.shift();
+
+    if (!currentUrl || visitedUrls.has(currentUrl)) {
+      continue;
+    }
+
+    visitedUrls.add(currentUrl);
+
+    const indexHtml = await dependencies.fetchHtml(currentUrl);
+
+    for (const candidate of parseForumIndexCandidates(indexHtml)) {
+      candidatesByTopicId.set(candidate.topicExternalId, candidate);
+    }
+
+    for (const paginationUrl of parseForumIndexPaginationUrls(indexHtml, currentUrl)) {
+      if (!visitedUrls.has(paginationUrl) && !queue.includes(paginationUrl)) {
+        queue.push(paginationUrl);
+      }
+    }
+  }
+
+  return {
+    pageCount: visitedUrls.size,
+    candidates: [...candidatesByTopicId.values()],
+  };
 }
 
 export async function runPrecedentSourceDiscovery(
@@ -139,8 +197,7 @@ export async function runPrecedentSourceDiscovery(
   });
 
   try {
-    const indexHtml = await dependencies.fetchHtml(sourceIndex.indexUrl);
-    const candidates = parseForumIndexCandidates(indexHtml);
+    const { pageCount, candidates } = await collectIndexCandidates(sourceIndex.indexUrl, dependencies);
     let createdCount = 0;
     let updatedCount = 0;
     let ignoredCount = 0;
@@ -214,6 +271,7 @@ export async function runPrecedentSourceDiscovery(
     }
 
     const summary = summarizeDiscovery({
+      pageCount,
       candidateCount: candidates.length,
       createdCount,
       updatedCount,
@@ -228,6 +286,7 @@ export async function runPrecedentSourceDiscovery(
 
     return {
       sourceIndex,
+      pageCount,
       candidateCount: candidates.length,
       createdCount,
       updatedCount,

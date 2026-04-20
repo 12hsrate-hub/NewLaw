@@ -22,6 +22,7 @@ import {
   buildNormalizedTextHash,
   buildSourceSnapshotHash,
   parseForumIndexCandidates,
+  parseForumIndexPaginationUrls,
   parseForumTopicPosts,
   type ParsedForumPost,
 } from "@/server/law-corpus/forum-html";
@@ -57,19 +58,38 @@ const defaultDependencies: DiscoveryImportDependencies = {
   replaceImportedLawSourcePosts,
   replaceImportedLawBlocks,
   async fetchHtml(url: string) {
-    const response = await fetch(url, {
-      headers: {
-        "user-agent": "Lawyer5RP Law Corpus Importer/1.0",
-      },
-      cache: "no-store",
-      signal: AbortSignal.timeout(20_000),
-    });
+    const maxAttempts = 3;
 
-    if (!response.ok) {
-      throw new Error(`Форум вернул HTTP ${response.status}.`);
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      try {
+        const response = await fetch(url, {
+          headers: {
+            "user-agent": "Lawyer5RP Law Corpus Importer/1.0",
+          },
+          cache: "no-store",
+          signal: AbortSignal.timeout(20_000),
+        });
+
+        if (!response.ok) {
+          if (response.status >= 500 && attempt < maxAttempts) {
+            await new Promise((resolve) => setTimeout(resolve, attempt * 400));
+            continue;
+          }
+
+          throw new Error(`Форум вернул HTTP ${response.status}.`);
+        }
+
+        return response.text();
+      } catch (error) {
+        if (attempt === maxAttempts) {
+          throw error;
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, attempt * 400));
+      }
     }
 
-    return response.text();
+    throw new Error("Не удалось получить HTML форума.");
   },
 };
 
@@ -151,7 +171,44 @@ async function resolveExistingLawManualOverride(
   });
 }
 
+async function collectIndexCandidates(
+  indexUrl: string,
+  dependencies: Pick<DiscoveryImportDependencies, "fetchHtml">,
+) {
+  const visitedUrls = new Set<string>();
+  const queue = [indexUrl];
+  const candidatesByTopicId = new Map<string, ReturnType<typeof parseForumIndexCandidates>[number]>();
+
+  while (queue.length > 0) {
+    const currentUrl = queue.shift();
+
+    if (!currentUrl || visitedUrls.has(currentUrl)) {
+      continue;
+    }
+
+    visitedUrls.add(currentUrl);
+
+    const indexHtml = await dependencies.fetchHtml(currentUrl);
+
+    for (const candidate of parseForumIndexCandidates(indexHtml)) {
+      candidatesByTopicId.set(candidate.topicExternalId, candidate);
+    }
+
+    for (const paginationUrl of parseForumIndexPaginationUrls(indexHtml, currentUrl)) {
+      if (!visitedUrls.has(paginationUrl) && !queue.includes(paginationUrl)) {
+        queue.push(paginationUrl);
+      }
+    }
+  }
+
+  return {
+    pageCount: visitedUrls.size,
+    candidates: [...candidatesByTopicId.values()],
+  };
+}
+
 function summarizeDiscovery(result: {
+  pageCount: number;
   candidateCount: number;
   createdCount: number;
   updatedCount: number;
@@ -159,6 +216,7 @@ function summarizeDiscovery(result: {
   supplementCount: number;
 }) {
   return [
+    `Страниц индекса: ${result.pageCount}.`,
     `Кандидатов: ${result.candidateCount}.`,
     `Создано новых законов: ${result.createdCount}.`,
     `Обновлено существующих записей: ${result.updatedCount}.`,
@@ -191,8 +249,7 @@ export async function runLawSourceDiscovery(
   });
 
   try {
-    const indexHtml = await dependencies.fetchHtml(sourceIndex.indexUrl);
-    const candidates = parseForumIndexCandidates(indexHtml);
+    const { pageCount, candidates } = await collectIndexCandidates(sourceIndex.indexUrl, dependencies);
     let createdCount = 0;
     let updatedCount = 0;
     let ignoredCount = 0;
@@ -241,6 +298,7 @@ export async function runLawSourceDiscovery(
     }
 
     const summary = summarizeDiscovery({
+      pageCount,
       candidateCount: candidates.length,
       createdCount,
       updatedCount,
@@ -263,6 +321,7 @@ export async function runLawSourceDiscovery(
 
     return {
       sourceIndex,
+      pageCount,
       candidateCount: candidates.length,
       createdCount,
       updatedCount,

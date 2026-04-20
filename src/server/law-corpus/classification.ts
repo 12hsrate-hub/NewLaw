@@ -7,6 +7,7 @@ type ManualOverrideState = {
 
 const supplementTitlePattern =
   /нормативн(?:ый|ые)\s+акт(?:ы)?\s+изменени[яе]\s+законодательн(?:ой|ую)\s+баз/iu;
+const standaloneLawWordPattern = /(?:^|[^\p{L}\p{N}_])закон(?:$|[^\p{L}\p{N}_])/iu;
 const ignoredTitlePatterns = [
   /судебн(?:ые|ый)\s+прецедент/iu,
   /форма\s+обращени/iu,
@@ -14,7 +15,7 @@ const ignoredTitlePatterns = [
   /регламент\s+проведени[яе]\s+заседани/iu,
 ];
 const primaryTitlePatterns = [
-  /\bзакон\b/iu,
+  standaloneLawWordPattern,
   /кодекс/iu,
   /конституци/iu,
   /устав/iu,

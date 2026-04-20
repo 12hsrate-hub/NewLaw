@@ -8,6 +8,12 @@ export type ForumTopicCandidate = {
   title: string;
 };
 
+type ForumAnchorMatch = {
+  attributes: string;
+  href: string;
+  innerHtml: string;
+};
+
 export type ParsedForumPost = {
   postExternalId: string;
   postUrl: string;
@@ -95,6 +101,14 @@ function toAbsoluteForumUrl(input: string) {
   return new URL(input, forumBaseUrl).toString();
 }
 
+function normalizeForumPageUrl(input: string) {
+  const url = new URL(input, forumBaseUrl);
+
+  url.hash = "";
+
+  return url.toString();
+}
+
 export function extractTopicExternalIdFromUrl(topicUrl: string) {
   const match = topicUrl.match(/\.([0-9]+)\/?$/);
 
@@ -103,6 +117,18 @@ export function extractTopicExternalIdFromUrl(topicUrl: string) {
   }
 
   throw new Error("Не удалось извлечь topic_external_id из URL темы.");
+}
+
+function extractForumAnchors(html: string) {
+  const anchorPattern = /<a\b([^>]*)href="([^"]+)"([^>]*)>([\s\S]*?)<\/a>/gi;
+
+  return [...html.matchAll(anchorPattern)].map(
+    (match): ForumAnchorMatch => ({
+      attributes: `${match[1] ?? ""} ${match[3] ?? ""}`.trim(),
+      href: match[2] ?? "",
+      innerHtml: match[4] ?? "",
+    }),
+  );
 }
 
 function findBalancedDivFragment(html: string, startIndex: number) {
@@ -158,13 +184,19 @@ function splitForumArticles(threadHtml: string) {
 }
 
 export function parseForumIndexCandidates(indexHtml: string) {
-  const candidatePattern =
-    /<div class="structItem-title">[\s\S]*?<a href="(\/threads\/[^"]+)"[^>]*data-tp-primary="on"[^>]*>([\s\S]*?)<\/a>/g;
   const candidatesByTopicId = new Map<string, ForumTopicCandidate>();
 
-  for (const match of indexHtml.matchAll(candidatePattern)) {
-    const href = match[1];
-    const rawTitle = match[2];
+  for (const anchor of extractForumAnchors(indexHtml)) {
+    if (!anchor.href.startsWith("/threads/")) {
+      continue;
+    }
+
+    if (!/data-tp-primary="on"/i.test(anchor.attributes)) {
+      continue;
+    }
+
+    const href = anchor.href;
+    const rawTitle = anchor.innerHtml;
 
     if (!href || !rawTitle) {
       continue;
@@ -186,6 +218,38 @@ export function parseForumIndexCandidates(indexHtml: string) {
   }
 
   return [...candidatesByTopicId.values()];
+}
+
+export function parseForumIndexPaginationUrls(indexHtml: string, indexUrl: string) {
+  const rootUrl = new URL(indexUrl, forumBaseUrl);
+  const normalizedRootPath = rootUrl.pathname.replace(/\/+$/, "");
+  const pageUrls = new Set<string>();
+
+  for (const anchor of extractForumAnchors(indexHtml)) {
+    if (
+      !/pageNav-page|pageNav-jump--next|rel="next"/i.test(anchor.attributes) &&
+      !/pageNav-page|pageNav-jump--next/i.test(anchor.innerHtml)
+    ) {
+      continue;
+    }
+
+    const nextUrl = new URL(anchor.href, rootUrl);
+    const normalizedNextPath = nextUrl.pathname.replace(/\/+$/, "");
+
+    if (nextUrl.origin !== rootUrl.origin) {
+      continue;
+    }
+
+    if (!normalizedNextPath.startsWith(normalizedRootPath)) {
+      continue;
+    }
+
+    pageUrls.add(normalizeForumPageUrl(nextUrl.toString()));
+  }
+
+  pageUrls.delete(normalizeForumPageUrl(rootUrl.toString()));
+
+  return [...pageUrls.values()].sort((left, right) => left.localeCompare(right));
 }
 
 export function parseForumTopicPosts(threadHtml: string, topicUrl: string) {
