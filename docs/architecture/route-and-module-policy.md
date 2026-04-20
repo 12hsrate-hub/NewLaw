@@ -9,6 +9,8 @@
 - internal `super_admin` и platform tools жили отдельно от пользовательской зоны
 - текущее transitional состояние на `/app` не воспринималось как долгосрочный default для всех новых блоков
 
+Детальные frozen product decisions, которые опираются на эту route-policy, собраны отдельно в [frozen-product-decisions.md](./frozen-product-decisions.md).
+
 ## Почему `/app` не должен быть универсальным контейнером
 
 `/app` в текущем коде уже используется как transitional protected shell и внутренняя рабочая зона ранних блоков.

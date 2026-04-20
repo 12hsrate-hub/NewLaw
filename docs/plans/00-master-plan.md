@@ -34,6 +34,7 @@
 - Документы живут по модели слепков.
 - BBCode в MVP только для просмотра и копирования.
 - В document flow MVP используются ссылки, а не загрузка файлов.
+- Cross-cutting product decisions зафиксированы отдельно в [../architecture/frozen-product-decisions.md](../architecture/frozen-product-decisions.md).
 
 ## Module placement policy
 
