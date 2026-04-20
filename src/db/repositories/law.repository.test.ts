@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { updateLawManualOverride } from "@/db/repositories/law.repository";
+import { listCurrentLawBlocksByServer, updateLawManualOverride } from "@/db/repositories/law.repository";
 
 describe("law repository", () => {
   it("сохраняет manual override поля для discovery/import foundation", async () => {
@@ -40,5 +40,44 @@ describe("law repository", () => {
         internalNote: "Исключить из обычного discovery.",
       },
     });
+  });
+
+  it("строит retrieval query только по current primary laws выбранного сервера", async () => {
+    const findMany = vi.fn().mockResolvedValue([]);
+
+    await listCurrentLawBlocksByServer(
+      {
+        serverId: "server-1",
+      },
+      {
+        law: {
+          findMany: vi.fn(),
+          findUnique: vi.fn(),
+          findFirst: vi.fn(),
+          create: vi.fn(),
+          update: vi.fn(),
+        },
+        lawBlock: {
+          findMany,
+        },
+      } as never,
+    );
+
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          lawVersion: {
+            status: "current",
+            currentForLaw: {
+              is: {
+                serverId: "server-1",
+                isExcluded: false,
+                lawKind: "primary",
+              },
+            },
+          },
+        },
+      }),
+    );
   });
 });

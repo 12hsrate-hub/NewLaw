@@ -6,6 +6,11 @@ import { isRedirectError } from "next/dist/client/components/redirect-error";
 
 import { requireSuperAdminAccountContext } from "@/server/auth/protected";
 import {
+  confirmImportedDraftLawVersionAsCurrent,
+  LawVersionReviewInvalidStatusError,
+  LawVersionReviewTargetMissingError,
+} from "@/server/law-corpus/current-version";
+import {
   LawImportExcludedError,
   LawImportNoPostsError,
   LawImportTargetMissingError,
@@ -15,6 +20,7 @@ import {
 } from "@/server/law-corpus/discovery-import";
 import { LawImportRunConflictError } from "@/server/law-corpus/foundation";
 import {
+  confirmCurrentLawVersionInputSchema,
   runLawSourceDiscoveryInputSchema,
   runLawTopicImportInputSchema,
 } from "@/schemas/law-corpus";
@@ -110,5 +116,36 @@ export async function runLawTopicImportAction(formData: FormData) {
     }
 
     redirect(buildStatusRedirect(redirectTo, "law-import-error"));
+  }
+}
+
+export async function confirmCurrentLawVersionAction(formData: FormData) {
+  const redirectTo = getRedirectTarget(formData);
+  const protectedContext = await requireSuperAdminAccountContext(redirectTo);
+
+  try {
+    await confirmImportedDraftLawVersionAsCurrent({
+      lawVersionId: confirmCurrentLawVersionInputSchema.parse({
+        lawVersionId: String(formData.get("lawVersionId") ?? ""),
+      }).lawVersionId,
+      confirmedByAccountId: protectedContext.account.id,
+    });
+
+    revalidatePath("/app/admin-laws");
+    redirect(buildStatusRedirect(redirectTo, "law-version-confirmed"));
+  } catch (error) {
+    if (isRedirectError(error)) {
+      throw error;
+    }
+
+    if (error instanceof LawVersionReviewTargetMissingError) {
+      redirect(buildStatusRedirect(redirectTo, "law-version-not-found"));
+    }
+
+    if (error instanceof LawVersionReviewInvalidStatusError) {
+      redirect(buildStatusRedirect(redirectTo, "law-version-invalid-status"));
+    }
+
+    redirect(buildStatusRedirect(redirectTo, "law-version-confirm-error"));
   }
 }

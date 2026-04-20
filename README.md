@@ -5,8 +5,8 @@
 `Lawyer5RP MVP` — единое full-stack веб-приложение для подготовки документных сценариев внутри экосистемы GTA5RP.
 Главный сценарий MVP — создание жалобы в ОГП с итоговой генерацией форумного BBCode.
 
-На текущем этапе репозиторий содержит стартовую документацию проекта, bootstrap-каркас приложения, foundation для `Supabase Auth` и минимального data layer, account-security foundation, protected shell foundation для `/app` c выбором активного сервера и персонажа, базовый контур ручного управления персонажами с минимальным слоем ролей и `access flags`, минимальные `super_admin` экраны для admin account-security и law corpus source management, law corpus schema foundation, ручной discovery/import pipeline для law corpus с normalizing и segmentation, инфраструктурные заготовки для production и временную maintenance page.
-Прикладная бизнес-логика документов пока не реализована, но регистрация по `login + email + password`, подтверждение email по ссылке, forgot-password, reset-password, вход по `email` или `login`, protected shell на `/app` c active server / active character selection, базовый список/создание/редактирование персонажей для текущего сервера вместе с ролями и `access flags` на уровне `character_id`, `/app/security`, self change password, self change email, server-side admin account-security actions, а также foundation для law corpus, server-scoped источников законодательной базы и ручного discovery/import pipeline уже подготовлены.
+На текущем этапе репозиторий содержит стартовую документацию проекта, bootstrap-каркас приложения, foundation для `Supabase Auth` и минимального data layer, account-security foundation, protected shell foundation для `/app` c выбором активного сервера и персонажа, базовый контур ручного управления персонажами с минимальным слоем ролей и `access flags`, минимальные `super_admin` экраны для admin account-security и law corpus source management, law corpus schema foundation, ручной discovery/import pipeline для law corpus с normalizing и segmentation, manual current-version workflow и retrieval foundation для current primary laws, а также инфраструктурные заготовки для production и временную maintenance page.
+Прикладная бизнес-логика документов пока не реализована, но регистрация по `login + email + password`, подтверждение email по ссылке, forgot-password, reset-password, вход по `email` или `login`, protected shell на `/app` c active server / active character selection, базовый список/создание/редактирование персонажей для текущего сервера вместе с ролями и `access flags` на уровне `character_id`, `/app/security`, self change password, self change email, server-side admin account-security actions, а также foundation для law corpus, server-scoped источников законодательной базы, ручного discovery/import pipeline, ручного confirm imported draft версий и server-scoped retrieval foundation уже подготовлены.
 Production email delivery для auth-писем зафиксирован через `Supabase Custom SMTP`, а не через встроенный email provider Supabase.
 
 ## Зафиксированный стек
@@ -74,14 +74,14 @@ Production email delivery для auth-писем зафиксирован чер
 - [src/app/(protected)/app](./src/app/%28protected%29/app) — защищённая часть приложения с app shell
 - [src/app/(protected-security)/app/security](./src/app/%28protected-security%29/app/security) — защищённый экран account security
 - [src/app/(protected-admin)/app/admin-security](./src/app/%28protected-admin%29/app/admin-security) — минимальный `super_admin` экран admin account security
-- [src/app/(protected-admin)/app/admin-laws](./src/app/%28protected-admin%29/app/admin-laws) — минимальный `super_admin` экран source management для law corpus
+- [src/app/(protected-admin)/app/admin-laws](./src/app/%28protected-admin%29/app/admin-laws) — минимальный `super_admin` экран source management, review и retrieval preview для law corpus
 - [src/components](./src/components) — разделение базовых UI-компонентов и продуктовых компонентов
 - [src/server](./src/server) — серверные действия, технические обработчики и серверные модули
 - [src/server/auth](./src/server/auth) — server-side auth helpers для текущей сессии, пользователя и безопасной проверки авторизации
 - [src/server/auth/admin-security.ts](./src/server/auth/admin-security.ts) — server-side admin account-security use-cases
 - [src/server/actions/admin-security.ts](./src/server/actions/admin-security.ts) — server action-обвязка для `super_admin` UI
 - [src/server/admin-security/account-search.ts](./src/server/admin-security/account-search.ts) — поиск account-level цели по email, login или account id
-- [src/server/law-corpus](./src/server/law-corpus) — foundation services для law corpus, import lock и server-scoped source management
+- [src/server/law-corpus](./src/server/law-corpus) — foundation services для law corpus, import lock, current-version workflow и server-scoped retrieval
 - [src/server/account-security](./src/server/account-security) — foundation-логика login normalization, reserved logins и runtime backfill
 - [src/server/characters](./src/server/characters) — доменная логика ручного создания и редактирования персонажей с ограничениями аккаунта и сервера
 - [src/server/app-shell](./src/server/app-shell) — SSR логика shell, fallback состояния и server-side selection helper’ы
@@ -91,7 +91,7 @@ Production email delivery для auth-писем зафиксирован чер
 - [src/db/repositories/auth-session.repository.ts](./src/db/repositories/auth-session.repository.ts) — security helper для revoke пользовательских auth-сессий
 - [src/lib/supabase](./src/lib/supabase) — runtime-обвязка `Supabase Auth` для browser/server/middleware
 - [src/lib/supabase/service-role.ts](./src/lib/supabase/service-role.ts) — helper для service-role сценариев account-security
-- [src/schemas](./src/schemas) — `Zod`-схемы, включая law corpus source validation
+- [src/schemas](./src/schemas) — `Zod`-схемы, включая law corpus source validation, review и retrieval input validation
 - [vitest.config.ts](./vitest.config.ts) — минимальная конфигурация `Vitest`
 - [.github/workflows/ci.yml](./.github/workflows/ci.yml) — baseline CI для lint/typecheck/test/prisma
 - [prisma/schema.prisma](./prisma/schema.prisma) — Prisma-схема foundation для account-security, shell/characters и law corpus
@@ -107,7 +107,7 @@ Production email delivery для auth-писем зафиксирован чер
 - [docs/architecture/git-workflow.md](./docs/architecture/git-workflow.md) — ветвление и релизный поток
 - [docs/architecture/testing-and-debug.md](./docs/architecture/testing-and-debug.md) — baseline проверок, smoke и наблюдаемость
 - [docs/plans/00-master-plan.md](./docs/plans/00-master-plan.md) — общий план реализации
-- [docs/plans/05-law-corpus-and-server-legal-assistant.md](./docs/plans/05-law-corpus-and-server-legal-assistant.md) — текущий план блока law corpus
+- [docs/plans/05-law-corpus-and-server-legal-assistant.md](./docs/plans/05-law-corpus-and-server-legal-assistant.md) — текущий план блока law corpus и retrieval foundation
 - [docs/plans/01-bootstrap.md](./docs/plans/01-bootstrap.md) и остальные поэтапные планы — исторические и текущие шаги проекта
 - [docs/prod-access.md](./docs/prod-access.md) — текущий доступ к production-серверу
 - [scripts/check-prod-access.ps1](./scripts/check-prod-access.ps1) — быстрая проверка SSH-доступа
@@ -179,6 +179,11 @@ Production email delivery для auth-писем зафиксирован чер
 - `normalized_full_text`, `source_snapshot_hash`, `normalized_text_hash`
 - segmentation в `LawBlock` с типами `section`, `chapter`, `article`, `appendix`, `unstructured`
 - создание новой версии закона только как `imported_draft`, без auto-current workflow
+- ручное подтверждение `imported_draft -> current` только через `super_admin`
+- автоматический перевод предыдущей `current` версии в `superseded`
+- internal retrieval preview по `current primary laws` выбранного сервера
+- retrieval foundation только по `current` версиям `primary` laws, без `supplement`, `imported_draft` и `superseded`
+- retrieval metadata с grounded references на `law`, `version`, `block` и source topic/source posts
 - SMTP foundation для production auth email delivery через `Supabase Custom SMTP`
 - audit log для `forgot_password_requested` и `password_reset_completed`
 - audit log для `password_changed_self`, `email_change_requested_self` и `email_change_completed`
@@ -203,6 +208,11 @@ Production email delivery для auth-писем зафиксирован чер
 - один закон трактуется как одна тема форума
 - supplements хранятся отдельно и по умолчанию не смешиваются с `primary` laws
 - судебные прецеденты не импортируются
+- подтверждение `imported_draft -> current` доступно только `super_admin`
+- retrieval law corpus работает только в контексте выбранного `server_id`
+- в retrieval по умолчанию участвуют только `primary` laws со статусом `current`
+- `supplement`, `imported_draft` и `superseded` в retrieval не попадают
+- основной retrieval unit — `LawBlock` уровня `article`, с аккуратным fallback на другие block types только если article-блоки не дали результата
 
 ## Полезные команды
 

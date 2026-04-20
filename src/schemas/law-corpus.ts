@@ -187,6 +187,17 @@ export const runLawTopicImportInputSchema = z.object({
   lawId: lawIdSchema,
 });
 
+export const confirmCurrentLawVersionInputSchema = z.object({
+  lawVersionId: lawVersionIdSchema,
+});
+
+export const searchCurrentLawCorpusInputSchema = z.object({
+  serverId: z.string().min(1),
+  query: z.string().trim().min(2).max(500),
+  limit: z.number().int().min(1).max(20).default(8),
+  includeSupplements: z.boolean().default(false),
+});
+
 export type LawKind = z.infer<typeof lawKindSchema>;
 export type LawTopicClassification = z.infer<typeof lawTopicClassificationSchema>;
 export type LawVersionStatus = z.infer<typeof lawVersionStatusSchema>;
@@ -205,3 +216,5 @@ export type CreateLawImportRunInput = z.infer<typeof createLawImportRunInputSche
 export type FinishLawImportRunInput = z.infer<typeof finishLawImportRunInputSchema>;
 export type RunLawSourceDiscoveryInput = z.infer<typeof runLawSourceDiscoveryInputSchema>;
 export type RunLawTopicImportInput = z.infer<typeof runLawTopicImportInputSchema>;
+export type ConfirmCurrentLawVersionInput = z.infer<typeof confirmCurrentLawVersionInputSchema>;
+export type SearchCurrentLawCorpusInput = z.infer<typeof searchCurrentLawCorpusInputSchema>;

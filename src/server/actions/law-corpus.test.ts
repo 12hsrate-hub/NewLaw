@@ -33,15 +33,23 @@ vi.mock("@/server/law-corpus/discovery-import", () => ({
   runLawTopicImport: vi.fn(),
 }));
 
+vi.mock("@/server/law-corpus/current-version", () => ({
+  LawVersionReviewTargetMissingError: class LawVersionReviewTargetMissingError extends Error {},
+  LawVersionReviewInvalidStatusError: class LawVersionReviewInvalidStatusError extends Error {},
+  confirmImportedDraftLawVersionAsCurrent: vi.fn(),
+}));
+
 vi.mock("@/server/law-corpus/foundation", () => ({
   LawImportRunConflictError: class LawImportRunConflictError extends Error {},
 }));
 
 import {
+  confirmCurrentLawVersionAction,
   runLawSourceDiscoveryAction,
   runLawTopicImportAction,
 } from "@/server/actions/law-corpus";
 import { requireSuperAdminAccountContext } from "@/server/auth/protected";
+import { confirmImportedDraftLawVersionAsCurrent } from "@/server/law-corpus/current-version";
 import {
   runLawSourceDiscovery,
   runLawTopicImport,
@@ -101,5 +109,40 @@ describe("law corpus actions", () => {
       runLawTopicImportAction(formData),
       "/app/admin-laws?status=law-import-unchanged",
     );
+  });
+
+  it("подтверждает imported_draft версию как current только через super_admin guard", async () => {
+    const formData = new FormData();
+    formData.set("lawVersionId", "version-draft");
+
+    vi.mocked(confirmImportedDraftLawVersionAsCurrent).mockResolvedValue({
+      lawVersionId: "version-draft",
+      status: "current",
+    } as never);
+
+    await expectRedirect(
+      confirmCurrentLawVersionAction(formData),
+      "/app/admin-laws?status=law-version-confirmed",
+    );
+
+    expect(confirmImportedDraftLawVersionAsCurrent).toHaveBeenCalledWith({
+      lawVersionId: "version-draft",
+      confirmedByAccountId: "account-1",
+    });
+  });
+
+  it("не даёт non-super-admin подтвердить imported_draft как current", async () => {
+    const formData = new FormData();
+    formData.set("lawVersionId", "version-draft");
+
+    vi.mocked(requireSuperAdminAccountContext).mockRejectedValue(
+      new Error("NEXT_REDIRECT:/app/security?status=admin-access-denied"),
+    );
+
+    await expect(confirmCurrentLawVersionAction(formData)).rejects.toThrow(
+      "NEXT_REDIRECT:/app/security?status=admin-access-denied",
+    );
+
+    expect(confirmImportedDraftLawVersionAsCurrent).not.toHaveBeenCalled();
   });
 });

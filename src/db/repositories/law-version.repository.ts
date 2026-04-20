@@ -40,6 +40,23 @@ export async function getLawVersionById(lawVersionId: string, db: PrismaLike = p
   });
 }
 
+export async function getLawVersionByIdForReview(lawVersionId: string, db: PrismaLike = prisma) {
+  return db.lawVersion.findUnique({
+    where: {
+      id: lawVersionIdSchema.parse(lawVersionId),
+    },
+    include: {
+      law: true,
+      _count: {
+        select: {
+          sourcePosts: true,
+          blocks: true,
+        },
+      },
+    },
+  });
+}
+
 export async function findLawVersionByNormalizedHash(
   input: {
     lawId: string;

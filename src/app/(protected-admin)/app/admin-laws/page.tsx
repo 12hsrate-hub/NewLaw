@@ -4,13 +4,16 @@ import { LawSourceManagementSection } from "@/components/product/law-sources/law
 import { AppShellHeader } from "@/components/product/shell/app-shell-header";
 import { PageContainer } from "@/components/ui/page-container";
 import { listLawSourceIndexes } from "@/db/repositories/law-source-index.repository";
-import { listLaws } from "@/db/repositories/law.repository";
+import { listLawsForAdminReview } from "@/db/repositories/law.repository";
 import { getAppShellContext } from "@/server/app-shell/context";
 import { buildAdminAccessDeniedRedirectPath } from "@/server/auth/protected";
+import { searchCurrentLawCorpus } from "@/server/law-corpus/retrieval";
 
 type AdminLawsPageProps = {
   searchParams?: Promise<{
     status?: string;
+    previewQuery?: string;
+    previewServerId?: string;
   }>;
 };
 
@@ -24,8 +27,24 @@ export default async function AdminLawsPage({ searchParams }: AdminLawsPageProps
   const [resolvedSearchParams, sourceIndexes, laws] = await Promise.all([
     searchParams,
     listLawSourceIndexes(),
-    listLaws(),
+    listLawsForAdminReview(),
   ]);
+  const previewServerId =
+    resolvedSearchParams?.previewServerId ??
+    shellContext.activeServer?.id ??
+    shellContext.servers[0]?.id ??
+    null;
+  const previewQuery = resolvedSearchParams?.previewQuery?.trim() ?? "";
+  const hasPreviewQuery = previewQuery.length >= 2 && previewServerId;
+  const previewServerName =
+    shellContext.servers.find((server) => server.id === previewServerId)?.name ?? null;
+  const retrievalPreview =
+    hasPreviewQuery && previewServerName
+      ? await searchCurrentLawCorpus({
+          serverId: previewServerId,
+          query: previewQuery,
+        })
+      : null;
 
   return (
     <PageContainer>
@@ -65,7 +84,33 @@ export default async function AdminLawsPage({ searchParams }: AdminLawsPageProps
               currentVersionId: law.currentVersionId,
               latestVersionStatus: law.versions[0]?.status ?? null,
               versionCount: law._count.versions,
+              versions: law.versions.map((version) => ({
+                id: version.id,
+                status: version.status,
+                importedAt: version.importedAt,
+                confirmedAt: version.confirmedAt,
+                confirmedByAccountEmail: version.confirmedByAccount?.email ?? null,
+                sourcePostsCount: version._count.sourcePosts,
+                blocksCount: version._count.blocks,
+                sourceSnapshotHash: version.sourceSnapshotHash,
+                normalizedTextHash: version.normalizedTextHash,
+              })),
             }))}
+            previewQuery={previewQuery}
+            retrievalPreview={
+              retrievalPreview && previewServerName
+                ? {
+                    serverName: previewServerName,
+                    query: retrievalPreview.query,
+                    serverId: retrievalPreview.serverId,
+                    resultCount: retrievalPreview.resultCount,
+                    corpusSnapshotHash: retrievalPreview.corpusSnapshot.corpusSnapshotHash,
+                    currentVersionIds: retrievalPreview.corpusSnapshot.currentVersionIds,
+                    results: retrievalPreview.results,
+                  }
+                : null
+            }
+            selectedPreviewServerId={previewServerId}
             servers={shellContext.servers.map((server) => ({
               id: server.id,
               name: server.name,

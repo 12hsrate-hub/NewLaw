@@ -51,6 +51,78 @@ export async function listLaws(db: PrismaLike = prisma) {
   });
 }
 
+export async function listLawsForAdminReview(db: PrismaLike = prisma) {
+  return db.law.findMany({
+    include: {
+      server: true,
+      currentVersion: {
+        include: {
+          _count: {
+            select: {
+              sourcePosts: true,
+              blocks: true,
+            },
+          },
+        },
+      },
+      versions: {
+        include: {
+          confirmedByAccount: true,
+          _count: {
+            select: {
+              sourcePosts: true,
+              blocks: true,
+            },
+          },
+        },
+        orderBy: [{ importedAt: "desc" }],
+      },
+      _count: {
+        select: {
+          versions: true,
+        },
+      },
+    },
+    orderBy: [{ server: { sortOrder: "asc" } }, { title: "asc" }],
+  });
+}
+
+export async function listCurrentLawBlocksByServer(
+  input: {
+    serverId: string;
+    includeSupplements?: boolean;
+  },
+  db: PrismaLike = prisma,
+) {
+  const parsedServerId = registerLawInputSchema.shape.serverId.parse(input.serverId);
+
+  return db.lawBlock.findMany({
+    where: {
+      lawVersion: {
+        status: "current",
+        currentForLaw: {
+          is: {
+            serverId: parsedServerId,
+            isExcluded: false,
+            lawKind: input.includeSupplements ? undefined : "primary",
+          },
+        },
+      },
+    },
+    include: {
+      lawVersion: {
+        include: {
+          currentForLaw: true,
+          sourcePosts: {
+            orderBy: [{ postOrder: "asc" }],
+          },
+        },
+      },
+    },
+    orderBy: [{ blockOrder: "asc" }],
+  });
+}
+
 export async function getLawById(lawId: string, db: PrismaLike = prisma) {
   return db.law.findUnique({
     where: {

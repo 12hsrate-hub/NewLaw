@@ -1,4 +1,5 @@
 import {
+  confirmCurrentLawVersionAction,
   runLawSourceDiscoveryAction,
   runLawTopicImportAction,
 } from "@/server/actions/law-corpus";
@@ -21,6 +22,18 @@ type LawSourceIndexItem = {
   lastDiscoveryError: string | null;
 };
 
+type LawVersionItem = {
+  id: string;
+  status: "imported_draft" | "current" | "superseded";
+  importedAt: Date;
+  confirmedAt: Date | null;
+  confirmedByAccountEmail: string | null;
+  sourcePostsCount: number;
+  blocksCount: number;
+  sourceSnapshotHash: string;
+  normalizedTextHash: string;
+};
+
 type LawItem = {
   id: string;
   serverId: string;
@@ -33,6 +46,42 @@ type LawItem = {
   currentVersionId: string | null;
   latestVersionStatus: "imported_draft" | "current" | "superseded" | null;
   versionCount: number;
+  versions: LawVersionItem[];
+};
+
+type RetrievalPreviewItem = {
+  serverId: string;
+  lawId: string;
+  lawKey: string;
+  lawTitle: string;
+  lawVersionId: string;
+  lawVersionStatus: "imported_draft" | "current" | "superseded";
+  lawBlockId: string;
+  blockType: "section" | "chapter" | "article" | "appendix" | "unstructured";
+  blockOrder: number;
+  articleNumberNormalized: string | null;
+  snippet: string;
+  sourceTopicUrl: string;
+  sourcePosts: Array<{
+    postExternalId: string;
+    postUrl: string;
+    postOrder: number;
+  }>;
+  metadata: {
+    sourceSnapshotHash: string;
+    normalizedTextHash: string;
+    corpusSnapshotHash: string;
+  };
+};
+
+type RetrievalPreview = {
+  serverId: string;
+  serverName: string;
+  query: string;
+  resultCount: number;
+  corpusSnapshotHash: string;
+  currentVersionIds: string[];
+  results: RetrievalPreviewItem[];
 };
 
 type LawSourceManagementSectionProps = {
@@ -40,7 +89,21 @@ type LawSourceManagementSectionProps = {
   sourceIndexes: LawSourceIndexItem[];
   laws: LawItem[];
   status?: string;
+  selectedPreviewServerId?: string | null;
+  previewQuery?: string | null;
+  retrievalPreview?: RetrievalPreview | null;
 };
+
+function formatDateTime(value: Date | null) {
+  if (!value) {
+    return "—";
+  }
+
+  return value.toLocaleString("ru-RU", {
+    dateStyle: "short",
+    timeStyle: "short",
+  });
+}
 
 function resolveStatusMessage(status?: string) {
   switch (status) {
@@ -80,6 +143,14 @@ function resolveStatusMessage(status?: string) {
       return "Этот закон помечен как excluded и не должен импортироваться через обычный workflow.";
     case "law-import-error":
       return "Import завершился с ошибкой.";
+    case "law-version-confirmed":
+      return "Imported draft версия подтверждена и стала current.";
+    case "law-version-not-found":
+      return "Версия закона для подтверждения не найдена.";
+    case "law-version-invalid-status":
+      return "Подтвердить как current можно только imported_draft версию.";
+    case "law-version-confirm-error":
+      return "Не удалось подтвердить imported_draft версию как current.";
     default:
       return null;
   }
@@ -93,11 +164,152 @@ function resolveLawKindLabel(law: LawItem) {
   return law.classificationOverride ?? law.lawKind;
 }
 
+function CurrentVersionBadge({ version }: { version: LawVersionItem | undefined }) {
+  if (!version) {
+    return <span>current: не выбрана</span>;
+  }
+
+  return (
+    <span>
+      current: {version.id.slice(0, 10)} · imported {formatDateTime(version.importedAt)}
+    </span>
+  );
+}
+
+function RetrievalPreviewSection({
+  previewQuery,
+  retrievalPreview,
+  selectedPreviewServerId,
+  servers,
+}: {
+  previewQuery?: string | null;
+  retrievalPreview?: RetrievalPreview | null;
+  selectedPreviewServerId?: string | null;
+  servers: ServerItem[];
+}) {
+  const defaultServerId = selectedPreviewServerId ?? servers[0]?.id ?? "";
+
+  return (
+    <Card className="space-y-5">
+      <div className="space-y-2">
+        <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">Retrieval Preview</p>
+        <h2 className="text-2xl font-semibold">Current Primary Law Retrieval</h2>
+        <p className="text-sm leading-6 text-[var(--muted)]">
+          Это внутренний preview lexical retrieval по `current` primary laws выбранного сервера.
+          Supplements, imported_draft и superseded сюда по умолчанию не попадают.
+        </p>
+      </div>
+
+      <form className="grid gap-3 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.45fr)_auto]">
+        <label className="space-y-2">
+          <span className="text-sm font-medium text-[var(--foreground)]">Сервер</span>
+          <select
+            className="w-full rounded-2xl border border-[var(--border)] bg-white/80 px-4 py-2.5 text-sm text-[var(--foreground)] outline-none transition focus:border-[var(--accent)] focus:bg-white"
+            defaultValue={defaultServerId}
+            name="previewServerId"
+          >
+            {servers.map((server) => (
+              <option key={server.id} value={server.id}>
+                {server.name}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="space-y-2">
+          <span className="text-sm font-medium text-[var(--foreground)]">Запрос</span>
+          <input
+            className="w-full rounded-2xl border border-[var(--border)] bg-white/80 px-4 py-2.5 text-sm text-[var(--foreground)] outline-none transition placeholder:text-[var(--muted)] focus:border-[var(--accent)] focus:bg-white"
+            defaultValue={previewQuery ?? ""}
+            name="previewQuery"
+            placeholder="Например: статья 1 или общие положения"
+          />
+        </label>
+
+        <div className="flex items-end">
+          <Button type="submit" variant="secondary">
+            Проверить retrieval
+          </Button>
+        </div>
+      </form>
+
+      {retrievalPreview ? (
+        <div className="space-y-4 rounded-2xl border border-[var(--border)] bg-white/60 px-4 py-4">
+          <div className="space-y-1 text-sm leading-6 text-[var(--muted)]">
+            <p>
+              Сервер: <span className="font-medium text-[var(--foreground)]">{retrievalPreview.serverName}</span>
+            </p>
+            <p>
+              Query: <span className="font-medium text-[var(--foreground)]">{retrievalPreview.query}</span>
+            </p>
+            <p>
+              Corpus snapshot:{" "}
+              <span className="font-medium text-[var(--foreground)]">
+                {retrievalPreview.corpusSnapshotHash.slice(0, 16)}
+              </span>{" "}
+              · current versions: {retrievalPreview.currentVersionIds.length}
+            </p>
+          </div>
+
+          {retrievalPreview.results.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-[var(--border)] bg-white/70 px-4 py-3 text-sm leading-6 text-[var(--muted)]">
+              По текущему primary corpus подходящих блоков не найдено.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {retrievalPreview.results.map((result) => (
+                <div
+                  className="space-y-2 rounded-2xl border border-[var(--border)] bg-white/80 px-4 py-4"
+                  key={result.lawBlockId}
+                >
+                  <div className="flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.18em] text-[var(--accent)]">
+                    <span>{result.blockType}</span>
+                    {result.articleNumberNormalized ? (
+                      <>
+                        <span>·</span>
+                        <span>article {result.articleNumberNormalized}</span>
+                      </>
+                    ) : null}
+                    <span>·</span>
+                    <span>{result.lawKey}</span>
+                  </div>
+                  <p className="text-sm font-medium text-[var(--foreground)]">{result.lawTitle}</p>
+                  <p className="text-sm leading-6 text-[var(--foreground)]">{result.snippet}</p>
+                  <div className="space-y-1 text-xs leading-5 text-[var(--muted)]">
+                    <p className="break-all">Тема: {result.sourceTopicUrl}</p>
+                    <p className="break-all">
+                      Grounding: version {result.lawVersionId.slice(0, 10)} · block{" "}
+                      {result.lawBlockId.slice(0, 10)} · snapshot{" "}
+                      {result.metadata.corpusSnapshotHash.slice(0, 16)}
+                    </p>
+                    <p>
+                      Source posts:{" "}
+                      {result.sourcePosts.map((sourcePost) => `#${sourcePost.postOrder}`).join(", ")}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="rounded-2xl border border-dashed border-[var(--border)] bg-white/70 px-4 py-3 text-sm leading-6 text-[var(--muted)]">
+          Здесь можно проверить, что retrieval работает только по current primary laws выбранного
+          сервера и возвращает grounded metadata для будущего legal assistant.
+        </div>
+      )}
+    </Card>
+  );
+}
+
 export function LawSourceManagementSection({
   servers,
   sourceIndexes,
   laws,
   status,
+  selectedPreviewServerId,
+  previewQuery,
+  retrievalPreview,
 }: LawSourceManagementSectionProps) {
   const statusMessage = resolveStatusMessage(status);
 
@@ -108,15 +320,15 @@ export function LawSourceManagementSection({
           <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">Law Corpus</p>
           <h1 className="text-3xl font-semibold">Internal Source Management</h1>
           <p className="text-sm leading-6 text-[var(--muted)]">
-            На этом шаге доступны ручные `discovery` и `import` для `super_admin`, raw source layer,
-            нормализация и segmentation в `LawBlock`. Review current-version workflow и retrieval
+            На этом шаге доступны ручные `discovery`, `import`, подтверждение `current` версии и
+            внутренний retrieval preview для `super_admin`. Public assistant UI и OpenAI-вызовы
             пока не входят в scope.
           </p>
         </div>
 
         <div className="rounded-2xl border border-[#d7c4b6] bg-[#fff5eb] px-4 py-3 text-sm leading-6 text-[#7a3f1d]">
-          Источники законов, discovery, import и imported snapshots доступны только `super_admin`.
-          Текст закона вручную на сайте не редактируется.
+          Источники законов, discovery, import, review current-version workflow и retrieval preview
+          доступны только `super_admin`. Текст закона вручную на сайте не редактируется.
         </div>
 
         {statusMessage ? (
@@ -136,6 +348,15 @@ export function LawSourceManagementSection({
         </Card>
       ) : null}
 
+      {servers.length > 0 ? (
+        <RetrievalPreviewSection
+          previewQuery={previewQuery}
+          retrievalPreview={retrievalPreview}
+          selectedPreviewServerId={selectedPreviewServerId}
+          servers={servers}
+        />
+      ) : null}
+
       {servers.map((server) => {
         const serverSourceIndexes = sourceIndexes.filter((sourceIndex) => sourceIndex.serverId === server.id);
         const serverLaws = laws.filter((law) => law.serverId === server.id);
@@ -148,7 +369,8 @@ export function LawSourceManagementSection({
               <h2 className="text-2xl font-semibold">{server.name}</h2>
               <p className="text-sm leading-6 text-[var(--muted)]">
                 Для одного сервера можно хранить максимум 2 index URL с домена `forum.gta5rp.com`.
-                Discovery и import запускаются вручную.
+                Discovery и import запускаются вручную. Current-version promotion выполняется
+                только вручную и только для imported_draft.
               </p>
             </div>
 
@@ -261,44 +483,111 @@ export function LawSourceManagementSection({
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {serverLaws.map((law) => (
-                    <div
-                      className="space-y-3 rounded-2xl border border-[var(--border)] bg-white/70 px-4 py-4"
-                      key={law.id}
-                    >
-                      <div className="space-y-2">
-                        <div className="flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.18em] text-[var(--accent)]">
-                          <span>{resolveLawKindLabel(law)}</span>
-                          <span>·</span>
-                          <span>{law.lawKey}</span>
-                          <span>·</span>
-                          <span>versions: {law.versionCount}</span>
-                          {law.latestVersionStatus ? (
-                            <>
-                              <span>·</span>
-                              <span>latest: {law.latestVersionStatus}</span>
-                            </>
-                          ) : null}
-                        </div>
-                        <p className="text-sm font-medium text-[var(--foreground)]">{law.title}</p>
-                        <p className="break-all text-xs leading-5 text-[var(--muted)]">{law.topicUrl}</p>
-                      </div>
+                  {serverLaws.map((law) => {
+                    const currentVersion = law.versions.find((version) => version.id === law.currentVersionId);
 
-                      <div className="flex flex-wrap gap-3">
-                        <form action={runLawTopicImportAction}>
-                          <input name="redirectTo" type="hidden" value="/app/admin-laws" />
-                          <input name="lawId" type="hidden" value={law.id} />
-                          <Button
-                            disabled={resolveLawKindLabel(law) === "ignored"}
-                            type="submit"
-                            variant="secondary"
-                          >
-                            Импортировать тему
-                          </Button>
-                        </form>
+                    return (
+                      <div
+                        className="space-y-4 rounded-2xl border border-[var(--border)] bg-white/70 px-4 py-4"
+                        key={law.id}
+                      >
+                        <div className="space-y-2">
+                          <div className="flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.18em] text-[var(--accent)]">
+                            <span>{resolveLawKindLabel(law)}</span>
+                            <span>·</span>
+                            <span>{law.lawKey}</span>
+                            <span>·</span>
+                            <span>versions: {law.versionCount}</span>
+                            {law.latestVersionStatus ? (
+                              <>
+                                <span>·</span>
+                                <span>latest: {law.latestVersionStatus}</span>
+                              </>
+                            ) : null}
+                            <span>·</span>
+                            <CurrentVersionBadge version={currentVersion} />
+                          </div>
+                          <p className="text-sm font-medium text-[var(--foreground)]">{law.title}</p>
+                          <p className="break-all text-xs leading-5 text-[var(--muted)]">{law.topicUrl}</p>
+                        </div>
+
+                        <div className="flex flex-wrap gap-3">
+                          <form action={runLawTopicImportAction}>
+                            <input name="redirectTo" type="hidden" value="/app/admin-laws" />
+                            <input name="lawId" type="hidden" value={law.id} />
+                            <Button
+                              disabled={resolveLawKindLabel(law) === "ignored"}
+                              type="submit"
+                              variant="secondary"
+                            >
+                              Импортировать тему
+                            </Button>
+                          </form>
+                        </div>
+
+                        <div className="space-y-3">
+                          <div className="space-y-1">
+                            <h4 className="text-sm font-medium text-[var(--foreground)]">Версии закона</h4>
+                            <p className="text-xs leading-5 text-[var(--muted)]">
+                              Только `imported_draft` версия может быть вручную подтверждена как
+                              `current`. Автоматического promote нет.
+                            </p>
+                          </div>
+
+                          {law.versions.length === 0 ? (
+                            <div className="rounded-2xl border border-dashed border-[var(--border)] bg-white/75 px-4 py-3 text-sm leading-6 text-[var(--muted)]">
+                              У этого закона пока нет импортированных версий.
+                            </div>
+                          ) : (
+                            <div className="space-y-3">
+                              {law.versions.map((version) => (
+                                <div
+                                  className="space-y-3 rounded-2xl border border-[var(--border)] bg-white/85 px-4 py-4"
+                                  key={version.id}
+                                >
+                                  <div className="flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.18em] text-[var(--accent)]">
+                                    <span>{version.status}</span>
+                                    <span>·</span>
+                                    <span>{version.id.slice(0, 12)}</span>
+                                    <span>·</span>
+                                    <span>imported {formatDateTime(version.importedAt)}</span>
+                                  </div>
+
+                                  <div className="grid gap-2 text-sm leading-6 text-[var(--muted)] md:grid-cols-2">
+                                    <p>Source posts: {version.sourcePostsCount}</p>
+                                    <p>Blocks: {version.blocksCount}</p>
+                                    <p className="break-all">
+                                      source_snapshot_hash: {version.sourceSnapshotHash}
+                                    </p>
+                                    <p className="break-all">
+                                      normalized_text_hash: {version.normalizedTextHash}
+                                    </p>
+                                    <p>
+                                      confirmed_at: {formatDateTime(version.confirmedAt)}
+                                    </p>
+                                    <p>
+                                      confirmed_by:{" "}
+                                      <span className="font-medium text-[var(--foreground)]">
+                                        {version.confirmedByAccountEmail ?? "—"}
+                                      </span>
+                                    </p>
+                                  </div>
+
+                                  {version.status === "imported_draft" ? (
+                                    <form action={confirmCurrentLawVersionAction}>
+                                      <input name="redirectTo" type="hidden" value="/app/admin-laws" />
+                                      <input name="lawVersionId" type="hidden" value={version.id} />
+                                      <Button type="submit">Подтвердить как current</Button>
+                                    </form>
+                                  ) : null}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
