@@ -34,16 +34,6 @@ export type ResetPasswordActionState = {
   };
 };
 
-export const initialForgotPasswordActionState: ForgotPasswordActionState = {
-  errorMessage: null,
-  fieldErrors: {},
-};
-
-export const initialResetPasswordActionState: ResetPasswordActionState = {
-  errorMessage: null,
-  fieldErrors: {},
-};
-
 function getFirstIssueMessage(error: {
   issues?: Array<{
     message: string;
