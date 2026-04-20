@@ -20,6 +20,7 @@ export function ForgotPasswordForm({ nextPath }: ForgotPasswordFormProps) {
     requestPasswordRecoveryAction,
     initialForgotPasswordActionState,
   );
+  const safeState = state ?? initialForgotPasswordActionState;
 
   return (
     <Card className="w-full max-w-md space-y-5">
@@ -45,8 +46,8 @@ export function ForgotPasswordForm({ nextPath }: ForgotPasswordFormProps) {
             required
             type="text"
           />
-          {state.fieldErrors.identifier ? (
-            <p className="text-sm leading-6 text-[#8a2d1d]">{state.fieldErrors.identifier}</p>
+          {safeState.fieldErrors.identifier ? (
+            <p className="text-sm leading-6 text-[#8a2d1d]">{safeState.fieldErrors.identifier}</p>
           ) : null}
         </div>
 
@@ -55,8 +56,8 @@ export function ForgotPasswordForm({ nextPath }: ForgotPasswordFormProps) {
         </Button>
       </form>
 
-      {state.errorMessage ? (
-        <p className="text-sm leading-6 text-[#8a2d1d]">{state.errorMessage}</p>
+      {safeState.errorMessage ? (
+        <p className="text-sm leading-6 text-[#8a2d1d]">{safeState.errorMessage}</p>
       ) : null}
 
       <div className="space-y-1 text-sm leading-6 text-[var(--muted)]">

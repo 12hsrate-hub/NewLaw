@@ -16,6 +16,7 @@ export function ResetPasswordForm() {
     resetPasswordAction,
     initialResetPasswordActionState,
   );
+  const safeState = state ?? initialResetPasswordActionState;
 
   return (
     <Card className="w-full max-w-md space-y-5">
@@ -40,8 +41,8 @@ export function ResetPasswordForm() {
             required
             type="password"
           />
-          {state.fieldErrors.newPassword ? (
-            <p className="text-sm leading-6 text-[#8a2d1d]">{state.fieldErrors.newPassword}</p>
+          {safeState.fieldErrors.newPassword ? (
+            <p className="text-sm leading-6 text-[#8a2d1d]">{safeState.fieldErrors.newPassword}</p>
           ) : null}
         </div>
 
@@ -57,9 +58,9 @@ export function ResetPasswordForm() {
             required
             type="password"
           />
-          {state.fieldErrors.confirmNewPassword ? (
+          {safeState.fieldErrors.confirmNewPassword ? (
             <p className="text-sm leading-6 text-[#8a2d1d]">
-              {state.fieldErrors.confirmNewPassword}
+              {safeState.fieldErrors.confirmNewPassword}
             </p>
           ) : null}
         </div>
@@ -69,8 +70,8 @@ export function ResetPasswordForm() {
         </Button>
       </form>
 
-      {state.errorMessage ? (
-        <p className="text-sm leading-6 text-[#8a2d1d]">{state.errorMessage}</p>
+      {safeState.errorMessage ? (
+        <p className="text-sm leading-6 text-[#8a2d1d]">{safeState.errorMessage}</p>
       ) : null}
 
       <p className="text-sm leading-6 text-[var(--muted)]">
