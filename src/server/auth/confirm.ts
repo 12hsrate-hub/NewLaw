@@ -1,6 +1,7 @@
 import type { EmailOtpType } from "@supabase/supabase-js";
 
 import { parseEmailConfirmationInput } from "@/lib/auth/email-auth";
+import { createAuditLog } from "@/db/repositories/audit-log.repository";
 import {
   buildRecoveryExpiredPath,
   buildRecoveryInvalidPath,
@@ -39,10 +40,12 @@ type ConfirmationClientLike = {
 
 type ConfirmDependencies = {
   syncAccountFromSupabaseUser: typeof syncAccountFromSupabaseUser;
+  createAuditLog: typeof createAuditLog;
 };
 
 const defaultDependencies: ConfirmDependencies = {
   syncAccountFromSupabaseUser,
+  createAuditLog,
 };
 
 type AuthConfirmResult = {
@@ -68,7 +71,7 @@ function buildEmailChangeExpiredPath() {
 }
 
 function buildEmailChangeSuccessPath() {
-  return buildStatusPath("/sign-in", "email-change-confirmed");
+  return buildStatusPath("/app/security", "email-change-confirmed");
 }
 
 function mapConfirmErrorToStatus(error: {
@@ -151,6 +154,15 @@ export async function confirmEmailFromUrl(
 
     if (data.user?.id && data.user.email) {
       await dependencies.syncAccountFromSupabaseUser(data.user);
+      await dependencies.createAuditLog({
+        actionKey: "email_change_completed",
+        status: "success",
+        actorAccountId: data.user.id,
+        targetAccountId: data.user.id,
+        metadataJson: {
+          flow: "self_service",
+        },
+      });
     }
 
     return {

@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 
+import { buildStatusPath } from "@/lib/auth/email-auth";
 import { syncAccountFromSupabaseUser } from "@/server/auth/account";
 import { getCurrentUser } from "@/server/auth/helpers";
 
@@ -28,9 +29,18 @@ export function buildSignInRedirectPath(nextPath: string) {
   return `/sign-in?${params.toString()}`;
 }
 
+export function buildMustChangePasswordRedirectPath() {
+  return buildStatusPath("/app/security", "must-change-password");
+}
+
+type ProtectedAccessOptions = {
+  allowMustChangePassword?: boolean;
+};
+
 export async function requireProtectedAccountContext(
   nextPath: string,
   dependencies: ProtectedAccessDependencies = defaultDependencies,
+  options: ProtectedAccessOptions = {},
 ) {
   const user = (await dependencies.getCurrentUser()) as ProtectedUser | null;
 
@@ -43,6 +53,10 @@ export async function requireProtectedAccountContext(
   }
 
   const account = await dependencies.syncAccountFromSupabaseUser(user);
+
+  if (account.mustChangePassword && !options.allowMustChangePassword) {
+    return dependencies.redirect(buildMustChangePasswordRedirectPath());
+  }
 
   return {
     user,

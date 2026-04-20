@@ -11,8 +11,21 @@ import {
   resolveActiveServerId,
 } from "@/server/app-shell/state";
 
-export async function getAppShellContext(nextPath = "/app") {
-  const { user, account } = await requireProtectedAccountContext(nextPath);
+type AppShellContextOptions = {
+  allowMustChangePassword?: boolean;
+};
+
+export async function getAppShellContext(
+  nextPath = "/app",
+  options: AppShellContextOptions = {},
+) {
+  const { user, account } = await requireProtectedAccountContext(
+    nextPath,
+    undefined,
+    {
+      allowMustChangePassword: options.allowMustChangePassword,
+    },
+  );
   const servers = await getServers();
   let serverStates = await getUserServerStates(account.id);
   let activeServerId = resolveActiveServerId(servers, serverStates);
@@ -56,6 +69,7 @@ export async function getAppShellContext(nextPath = "/app") {
   return {
     user,
     account,
+    currentPath: nextPath,
     servers,
     serverStates,
     activeServer,

@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { signOutAction } from "@/server/actions/auth";
 import {
   selectActiveCharacterAction,
@@ -20,21 +22,27 @@ type CharacterOption = {
 
 type AppShellHeaderProps = {
   accountEmail: string;
+  accountLogin: string;
   activeCharacterId: string | null;
   activeCharacterName: string | null;
   activeServerId: string | null;
   activeServerName: string | null;
   characters: CharacterOption[];
+  currentPath: string;
+  mustChangePassword: boolean;
   servers: ServerOption[];
 };
 
 export function AppShellHeader({
   accountEmail,
+  accountLogin,
   activeCharacterId,
   activeCharacterName,
   activeServerId,
   activeServerName,
   characters,
+  currentPath,
+  mustChangePassword,
   servers,
 }: AppShellHeaderProps) {
   return (
@@ -45,6 +53,9 @@ export function AppShellHeader({
           <h1 className="text-3xl font-semibold">Lawyer5RP MVP</h1>
           <p className="text-sm leading-6 text-[var(--muted)]">
             Аккаунт: <span className="font-medium text-[var(--foreground)]">{accountEmail}</span>
+          </p>
+          <p className="text-sm leading-6 text-[var(--muted)]">
+            Login: <span className="font-medium text-[var(--foreground)]">{accountLogin}</span>
           </p>
           <p className="text-sm leading-6 text-[var(--muted)]">
             Активный сервер:{" "}
@@ -60,21 +71,41 @@ export function AppShellHeader({
           </p>
         </div>
 
-        <form action={signOutAction}>
-          <Button type="submit" variant="secondary">
-            Выйти
-          </Button>
-        </form>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            className="inline-flex items-center justify-center rounded-2xl border border-[var(--border)] bg-white/70 px-4 py-2.5 text-sm font-medium text-[var(--foreground)] transition hover:bg-white"
+            href="/app/security"
+          >
+            Безопасность
+          </Link>
+          <form action={signOutAction}>
+            <Button type="submit" variant="secondary">
+              Выйти
+            </Button>
+          </form>
+        </div>
       </div>
+
+      {mustChangePassword ? (
+        <div className="rounded-2xl border border-[#d7c4b6] bg-[#fff5eb] px-4 py-3 text-sm leading-6 text-[#7a3f1d]">
+          Для продолжения работы сначала обнови пароль аккаунта. Пока пароль не изменён, остальные действия внутри защищённой части временно заблокированы.
+        </div>
+      ) : null}
 
       <div className="grid gap-4 lg:grid-cols-2">
         <form action={selectActiveServerAction} className="space-y-3">
-          <input name="redirectTo" type="hidden" value="/app" />
+          <input name="redirectTo" type="hidden" value={currentPath} />
           <div className="space-y-2">
             <label className="text-sm font-medium" htmlFor="serverId">
               Активный сервер
             </label>
-            <Select defaultValue={activeServerId ?? ""} id="serverId" name="serverId" required>
+            <Select
+              defaultValue={activeServerId ?? ""}
+              disabled={mustChangePassword}
+              id="serverId"
+              name="serverId"
+              required
+            >
               {servers.map((server) => (
                 <option key={server.id} value={server.id}>
                   {server.name}
@@ -82,13 +113,13 @@ export function AppShellHeader({
               ))}
             </Select>
           </div>
-          <Button type="submit" variant="secondary">
+          <Button disabled={mustChangePassword} type="submit" variant="secondary">
             Выбрать сервер
           </Button>
         </form>
 
         <form action={selectActiveCharacterAction} className="space-y-3">
-          <input name="redirectTo" type="hidden" value="/app" />
+          <input name="redirectTo" type="hidden" value={currentPath} />
           <input name="serverId" type="hidden" value={activeServerId ?? ""} />
           <div className="space-y-2">
             <label className="text-sm font-medium" htmlFor="characterId">
@@ -96,7 +127,7 @@ export function AppShellHeader({
             </label>
             <Select
               defaultValue={activeCharacterId ?? ""}
-              disabled={!characters.length || !activeServerId}
+              disabled={!characters.length || !activeServerId || mustChangePassword}
               id="characterId"
               name="characterId"
               required
@@ -109,7 +140,11 @@ export function AppShellHeader({
               ))}
             </Select>
           </div>
-          <Button disabled={!characters.length || !activeServerId} type="submit" variant="secondary">
+          <Button
+            disabled={!characters.length || !activeServerId || mustChangePassword}
+            type="submit"
+            variant="secondary"
+          >
             Выбрать персонажа
           </Button>
         </form>

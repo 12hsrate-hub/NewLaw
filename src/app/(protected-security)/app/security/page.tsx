@@ -1,17 +1,21 @@
-import type { ReactNode } from "react";
-
+import { AccountSecuritySection } from "@/components/product/security/account-security-section";
 import { AppShellHeader } from "@/components/product/shell/app-shell-header";
 import { PageContainer } from "@/components/ui/page-container";
 import { getAppShellContext } from "@/server/app-shell/context";
 
-type ProtectedAppLayoutProps = Readonly<{
-  children: ReactNode;
-}>;
+type ProtectedSecurityPageProps = {
+  searchParams?: Promise<{
+    status?: string;
+  }>;
+};
 
-export default async function ProtectedAppLayout({
-  children,
-}: ProtectedAppLayoutProps) {
-  const shellContext = await getAppShellContext("/app");
+export default async function ProtectedSecurityPage({
+  searchParams,
+}: ProtectedSecurityPageProps) {
+  const shellContext = await getAppShellContext("/app/security", {
+    allowMustChangePassword: true,
+  });
+  const resolvedSearchParams = await searchParams;
 
   return (
     <PageContainer>
@@ -29,14 +33,21 @@ export default async function ProtectedAppLayout({
               fullName: character.fullName,
               passportNumber: character.passportNumber,
             }))}
+            currentPath={shellContext.currentPath}
+            mustChangePassword={shellContext.account.mustChangePassword}
             servers={shellContext.servers.map((server) => ({
               id: server.id,
               name: server.name,
             }))}
-            currentPath={shellContext.currentPath}
-            mustChangePassword={shellContext.account.mustChangePassword}
           />
-          {children}
+
+          <AccountSecuritySection
+            accountEmail={shellContext.account.email}
+            accountLogin={shellContext.account.login}
+            mustChangePassword={shellContext.account.mustChangePassword}
+            pendingEmail={shellContext.account.pendingEmail}
+            status={resolvedSearchParams?.status}
+          />
         </div>
       </main>
     </PageContainer>

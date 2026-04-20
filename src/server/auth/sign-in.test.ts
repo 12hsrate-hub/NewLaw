@@ -100,4 +100,32 @@ describe("server sign-in helpers", () => {
     });
     expect(client.auth.signInWithPassword).not.toHaveBeenCalled();
   });
+
+  it("во время pendingEmail вход по login продолжает идти через текущий подтверждённый email", async () => {
+    const getAccountByLogin = vi.fn().mockResolvedValue({
+      id: "86e4a621-4d9f-42ec-9fc1-ae9fe95d4631",
+      email: "confirmed@example.com",
+      pendingEmail: "pending@example.com",
+    });
+
+    const result = await resolveSignInTargetEmail("lawyer_user", {
+      getAccountByLogin,
+    });
+
+    expect(result).toBe("confirmed@example.com");
+  });
+
+  it("после confirm email_change вход по login продолжает работать уже через новый email", async () => {
+    const getAccountByLogin = vi.fn().mockResolvedValue({
+      id: "86e4a621-4d9f-42ec-9fc1-ae9fe95d4631",
+      email: "new@example.com",
+      pendingEmail: null,
+    });
+
+    const result = await resolveSignInTargetEmail("lawyer_user", {
+      getAccountByLogin,
+    });
+
+    expect(result).toBe("new@example.com");
+  });
 });

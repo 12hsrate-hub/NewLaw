@@ -79,6 +79,7 @@ describe("auth confirm helpers", () => {
     const syncAccountFromSupabaseUser = vi.fn().mockResolvedValue({
       id: "f4e09227-1e8f-470d-8c4e-c61ad16d8d58",
     });
+    const createAuditLog = vi.fn().mockResolvedValue(undefined);
 
     client.auth.verifyOtp.mockResolvedValue({
       error: null,
@@ -101,18 +102,28 @@ describe("auth confirm helpers", () => {
       new URL("https://lawyer5rp.ru/auth/confirm?token_hash=abc123&type=email_change"),
       {
         syncAccountFromSupabaseUser,
+        createAuditLog,
       },
     );
 
     expect(result).toEqual({
       status: "success",
-      redirectPath: "/sign-in?status=email-change-confirmed",
+      redirectPath: "/app/security?status=email-change-confirmed",
     });
     expect(syncAccountFromSupabaseUser).toHaveBeenCalledWith({
       id: "f4e09227-1e8f-470d-8c4e-c61ad16d8d58",
       email: "user@example.com",
       user_metadata: {
         login: "lawyer_user",
+      },
+    });
+    expect(createAuditLog).toHaveBeenCalledWith({
+      actionKey: "email_change_completed",
+      status: "success",
+      actorAccountId: "f4e09227-1e8f-470d-8c4e-c61ad16d8d58",
+      targetAccountId: "f4e09227-1e8f-470d-8c4e-c61ad16d8d58",
+      metadataJson: {
+        flow: "self_service",
       },
     });
   });

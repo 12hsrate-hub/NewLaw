@@ -6,7 +6,7 @@
 Главный сценарий MVP — создание жалобы в ОГП с итоговой генерацией форумного BBCode.
 
 На текущем этапе репозиторий содержит стартовую документацию проекта, bootstrap-каркас приложения, foundation для `Supabase Auth` и минимального data layer, account-security foundation, базовый защищённый пользовательский контур для работы с персонажами, инфраструктурные заготовки для production и временную maintenance page.
-Прикладная бизнес-логика документов пока не реализована, но регистрация по `login + email + password`, подтверждение email по ссылке, forgot-password, reset-password, вход по `email` или `login`, защищённый shell, выбор сервера, выбор активного персонажа и ручное управление персонажами уже подготовлены.
+Прикладная бизнес-логика документов пока не реализована, но регистрация по `login + email + password`, подтверждение email по ссылке, forgot-password, reset-password, вход по `email` или `login`, защищённый shell, `/app/security`, self change password, self change email, выбор сервера, выбор активного персонажа и ручное управление персонажами уже подготовлены.
 Production email delivery для auth-писем зафиксирован через `Supabase Custom SMTP`, а не через встроенный email provider Supabase.
 
 ## Зафиксированный стек
@@ -72,6 +72,7 @@ Production email delivery для auth-писем зафиксирован чер
 - [src/app/reset-password](./src/app/reset-password) — публичная страница установки нового пароля после recovery-ссылки
 - [src/app/auth/confirm](./src/app/auth/confirm) — callback-обработчик подтверждения входа
 - [src/app/(protected)/app](./src/app/%28protected%29/app) — защищённая часть приложения с app shell
+- [src/app/(protected-security)/app/security](./src/app/%28protected-security%29/app/security) — защищённый экран account security
 - [src/components](./src/components) — разделение базовых UI-компонентов и продуктовых компонентов
 - [src/server](./src/server) — серверные действия, технические обработчики и серверные модули
 - [src/server/auth](./src/server/auth) — server-side auth helpers для текущей сессии, пользователя и безопасной проверки авторизации
@@ -121,15 +122,20 @@ Production email delivery для auth-писем зафиксирован чер
 - reset-password page с recovery-cookie и recovery session
 - публичный вход по `email` или `login` и паролю
 - защищённая часть `/app`
+- защищённый экран `/app/security`
 - app shell с выбором активного сервера
 - выбор активного персонажа в контексте сервера
 - список персонажей по выбранному серверу
 - ручное создание и редактирование персонажей
 - foundation для `Account.login`, `pendingEmail`, `mustChangePassword` и `AuditLog`
 - reconciliation-слой `Supabase user -> Prisma Account`
+- self-service смена пароля с обязательным текущим паролем
+- self-service смена email через `pendingEmail` и confirm flow
+- protected guard для `mustChangePassword`, который ограничивает остальные `/app` маршруты до смены пароля
 - service-role helper для будущих admin security use-cases
 - SMTP foundation для production auth email delivery через `Supabase Custom SMTP`
 - audit log для `forgot_password_requested` и `password_reset_completed`
+- audit log для `password_changed_self`, `email_change_requested_self` и `email_change_completed`
 
 Бизнес-ограничения этого слоя уже работают на серверной стороне:
 
@@ -140,6 +146,8 @@ Production email delivery для auth-писем зафиксирован чер
 - `Account.login` обязателен для новых регистраций, хранится в lowercase и в MVP не меняется
 - reserved logins запрещены
 - `Account.email` нельзя менять напрямую вне security/use-case слоя
+- при `mustChangePassword=true` остальные protected-маршруты переводятся на `/app/security`
+- пока `pendingEmail` не подтверждён, sign-in и recovery продолжают опираться на текущий подтверждённый email или на `login`
 
 ## Полезные команды
 
@@ -279,7 +287,9 @@ pnpm prisma:generate
 5. Перейти по ссылке из письма и убедиться, что после `/auth/confirm` открывается защищённая часть `/app`.
 6. Открыть `/forgot-password`, указать email или `login` и убедиться, что показывается нейтральный экран проверки почты.
 7. Перейти по recovery-ссылке из письма, открыть `/reset-password`, задать новый пароль и убедиться, что после этого происходит redirect на `/sign-in?status=password-reset-success`.
-8. Проверить `/sign-in` дважды: сначала по email, затем по `login`, и убедиться, что обе ветки приводят к одному и тому же входу в аккаунт.
+8. После входа открыть `/app/security`, сменить пароль и убедиться, что сессия завершается, а sign-in возвращает статус `password-changed-success`.
+9. На `/app/security` запросить смену email, убедиться, что в интерфейсе появляется `pendingEmail`, а после перехода по confirm-ссылке новый email синхронизируется и старый pending state очищается.
+10. Проверить `/sign-in` дважды: сначала по email, затем по `login`, и убедиться, что обе ветки приводят к одному и тому же входу в аккаунт, в том числе после подтверждённой смены email.
 
 Запуск тестов в watch-режиме:
 
@@ -301,4 +311,4 @@ powershell -ExecutionPolicy Bypass -File .\scripts\deploy-prod.ps1
 
 ## Что дальше
 
-Следующий шаг после текущего public recovery foundation — отдельно довести protected security flows, `/app/security` и только потом двигаться дальше по этапам из `docs/plans`.
+Следующий шаг после текущего protected account-security foundation — не admin security actions, а уже следующий согласованный доменный слой из `docs/plans`.

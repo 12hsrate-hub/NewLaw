@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   buildSignInRedirectPath,
+  buildMustChangePasswordRedirectPath,
   requireProtectedAccountContext,
 } from "@/server/auth/protected";
 
@@ -52,5 +53,56 @@ describe("protected auth helpers", () => {
       id: "21631886-7b4d-4be2-b6e9-95322d0dca41",
       email: "user@example.com",
     });
+  });
+
+  it("переводит пользователя на /app/security, если аккаунт требует смены пароля", async () => {
+    const redirectMock = vi.fn((path: string) => {
+      throw new Error(`redirect:${path}`);
+    });
+
+    await expect(
+      requireProtectedAccountContext(
+        "/app",
+        {
+          getCurrentUser: vi.fn().mockResolvedValue({
+            id: "21631886-7b4d-4be2-b6e9-95322d0dca41",
+            email: "user@example.com",
+          }),
+          syncAccountFromSupabaseUser: vi.fn().mockResolvedValue({
+            id: "21631886-7b4d-4be2-b6e9-95322d0dca41",
+            email: "user@example.com",
+            mustChangePassword: true,
+          }),
+          redirect: redirectMock,
+        },
+      ),
+    ).rejects.toThrowError(`redirect:${buildMustChangePasswordRedirectPath()}`);
+
+    expect(redirectMock).toHaveBeenCalledWith(buildMustChangePasswordRedirectPath());
+  });
+
+  it("разрешает доступ к /app/security при mustChangePassword=true", async () => {
+    const result = await requireProtectedAccountContext(
+      "/app/security",
+      {
+        getCurrentUser: vi.fn().mockResolvedValue({
+          id: "21631886-7b4d-4be2-b6e9-95322d0dca41",
+          email: "user@example.com",
+        }),
+        syncAccountFromSupabaseUser: vi.fn().mockResolvedValue({
+          id: "21631886-7b4d-4be2-b6e9-95322d0dca41",
+          email: "user@example.com",
+          mustChangePassword: true,
+        }),
+        redirect: ((path: string) => {
+          throw new Error(`redirect:${path}`);
+        }) as (path: string) => never,
+      },
+      {
+        allowMustChangePassword: true,
+      },
+    );
+
+    expect(result.account.mustChangePassword).toBe(true);
   });
 });
