@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 export const lawKinds = ["primary", "supplement"] as const;
+export const lawTopicClassifications = ["primary", "supplement", "ignored"] as const;
 export const lawVersionStatuses = ["imported_draft", "current", "superseded"] as const;
 export const lawImportRunStatuses = ["running", "success", "failure"] as const;
 export const lawImportRunModes = ["discovery", "import_law"] as const;
@@ -13,6 +14,7 @@ export const lawBlockTypes = [
 ] as const;
 
 export const lawKindSchema = z.enum(lawKinds);
+export const lawTopicClassificationSchema = z.enum(lawTopicClassifications);
 export const lawVersionStatusSchema = z.enum(lawVersionStatuses);
 export const lawImportRunStatusSchema = z.enum(lawImportRunStatuses);
 export const lawImportRunModeSchema = z.enum(lawImportRunModes);
@@ -177,7 +179,16 @@ export const finishLawImportRunInputSchema = z.object({
   error: z.string().trim().max(5000).nullish(),
 });
 
+export const runLawSourceDiscoveryInputSchema = z.object({
+  sourceIndexId: lawSourceIndexIdSchema,
+});
+
+export const runLawTopicImportInputSchema = z.object({
+  lawId: lawIdSchema,
+});
+
 export type LawKind = z.infer<typeof lawKindSchema>;
+export type LawTopicClassification = z.infer<typeof lawTopicClassificationSchema>;
 export type LawVersionStatus = z.infer<typeof lawVersionStatusSchema>;
 export type LawImportRunStatus = z.infer<typeof lawImportRunStatusSchema>;
 export type LawImportRunMode = z.infer<typeof lawImportRunModeSchema>;
@@ -192,3 +203,5 @@ export type CreateLawSourcePostInput = z.infer<typeof createLawSourcePostInputSc
 export type CreateLawBlockInput = z.infer<typeof createLawBlockInputSchema>;
 export type CreateLawImportRunInput = z.infer<typeof createLawImportRunInputSchema>;
 export type FinishLawImportRunInput = z.infer<typeof finishLawImportRunInputSchema>;
+export type RunLawSourceDiscoveryInput = z.infer<typeof runLawSourceDiscoveryInputSchema>;
+export type RunLawTopicImportInput = z.infer<typeof runLawTopicImportInputSchema>;

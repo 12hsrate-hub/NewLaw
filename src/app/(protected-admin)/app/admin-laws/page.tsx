@@ -4,6 +4,7 @@ import { LawSourceManagementSection } from "@/components/product/law-sources/law
 import { AppShellHeader } from "@/components/product/shell/app-shell-header";
 import { PageContainer } from "@/components/ui/page-container";
 import { listLawSourceIndexes } from "@/db/repositories/law-source-index.repository";
+import { listLaws } from "@/db/repositories/law.repository";
 import { getAppShellContext } from "@/server/app-shell/context";
 import { buildAdminAccessDeniedRedirectPath } from "@/server/auth/protected";
 
@@ -20,9 +21,10 @@ export default async function AdminLawsPage({ searchParams }: AdminLawsPageProps
     redirect(buildAdminAccessDeniedRedirectPath());
   }
 
-  const [resolvedSearchParams, sourceIndexes] = await Promise.all([
+  const [resolvedSearchParams, sourceIndexes, laws] = await Promise.all([
     searchParams,
     listLawSourceIndexes(),
+    listLaws(),
   ]);
 
   return (
@@ -51,6 +53,19 @@ export default async function AdminLawsPage({ searchParams }: AdminLawsPageProps
           />
 
           <LawSourceManagementSection
+            laws={laws.map((law) => ({
+              id: law.id,
+              serverId: law.serverId,
+              lawKey: law.lawKey,
+              title: law.title,
+              topicUrl: law.topicUrl,
+              lawKind: law.lawKind,
+              isExcluded: law.isExcluded,
+              classificationOverride: law.classificationOverride,
+              currentVersionId: law.currentVersionId,
+              latestVersionStatus: law.versions[0]?.status ?? null,
+              versionCount: law._count.versions,
+            }))}
             servers={shellContext.servers.map((server) => ({
               id: server.id,
               name: server.name,

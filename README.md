@@ -5,8 +5,8 @@
 `Lawyer5RP MVP` — единое full-stack веб-приложение для подготовки документных сценариев внутри экосистемы GTA5RP.
 Главный сценарий MVP — создание жалобы в ОГП с итоговой генерацией форумного BBCode.
 
-На текущем этапе репозиторий содержит стартовую документацию проекта, bootstrap-каркас приложения, foundation для `Supabase Auth` и минимального data layer, account-security foundation, protected shell foundation для `/app` c выбором активного сервера и персонажа, базовый контур ручного управления персонажами с минимальным слоем ролей и `access flags`, минимальные `super_admin` экраны для admin account-security и law corpus source management, law corpus schema foundation, инфраструктурные заготовки для production и временную maintenance page.
-Прикладная бизнес-логика документов пока не реализована, но регистрация по `login + email + password`, подтверждение email по ссылке, forgot-password, reset-password, вход по `email` или `login`, protected shell на `/app` c active server / active character selection, базовый список/создание/редактирование персонажей для текущего сервера вместе с ролями и `access flags` на уровне `character_id`, `/app/security`, self change password, self change email, server-side admin account-security actions, а также foundation для law corpus и server-scoped источников законодательной базы уже подготовлены.
+На текущем этапе репозиторий содержит стартовую документацию проекта, bootstrap-каркас приложения, foundation для `Supabase Auth` и минимального data layer, account-security foundation, protected shell foundation для `/app` c выбором активного сервера и персонажа, базовый контур ручного управления персонажами с минимальным слоем ролей и `access flags`, минимальные `super_admin` экраны для admin account-security и law corpus source management, law corpus schema foundation, ручной discovery/import pipeline для law corpus с normalizing и segmentation, инфраструктурные заготовки для production и временную maintenance page.
+Прикладная бизнес-логика документов пока не реализована, но регистрация по `login + email + password`, подтверждение email по ссылке, forgot-password, reset-password, вход по `email` или `login`, protected shell на `/app` c active server / active character selection, базовый список/создание/редактирование персонажей для текущего сервера вместе с ролями и `access flags` на уровне `character_id`, `/app/security`, self change password, self change email, server-side admin account-security actions, а также foundation для law corpus, server-scoped источников законодательной базы и ручного discovery/import pipeline уже подготовлены.
 Production email delivery для auth-писем зафиксирован через `Supabase Custom SMTP`, а не через встроенный email provider Supabase.
 
 ## Зафиксированный стек
@@ -172,6 +172,13 @@ Production email delivery для auth-писем зафиксирован чер
 - server-scoped source management для 1–2 index URL законодательной базы форума на сервер
 - manual override foundation: `isExcluded`, `classificationOverride`, `internalNote`
 - import lock / idempotency foundation через `LawImportRun.lockKey` и dedupe по `normalized_text_hash`
+- ручной discovery по `LawSourceIndex` внутри `/app/admin-laws`
+- классификация topics в `primary`, `supplement`, `ignored`
+- import конкретной forum topic в raw source layer
+- сбор непрерывной нормативной цепочки постов сверху темы
+- `normalized_full_text`, `source_snapshot_hash`, `normalized_text_hash`
+- segmentation в `LawBlock` с типами `section`, `chapter`, `article`, `appendix`, `unstructured`
+- создание новой версии закона только как `imported_draft`, без auto-current workflow
 - SMTP foundation для production auth email delivery через `Supabase Custom SMTP`
 - audit log для `forgot_password_requested` и `password_reset_completed`
 - audit log для `password_changed_self`, `email_change_requested_self` и `email_change_completed`
@@ -192,6 +199,10 @@ Production email delivery для auth-писем зафиксирован чер
 - для одного сервера допускается максимум `2` law source index URL
 - law source index URL допускается только с домена `forum.gta5rp.com`
 - law text не редактируется вручную через internal source management слой
+- discovery/import law corpus запускаются только вручную и только `super_admin`
+- один закон трактуется как одна тема форума
+- supplements хранятся отдельно и по умолчанию не смешиваются с `primary` laws
+- судебные прецеденты не импортируются
 
 ## Полезные команды
 

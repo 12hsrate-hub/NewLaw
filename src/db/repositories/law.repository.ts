@@ -16,7 +16,38 @@ export async function listLawsByServer(serverId: string, db: PrismaLike = prisma
     where: {
       serverId: registerLawInputSchema.shape.serverId.parse(serverId),
     },
+    include: {
+      currentVersion: true,
+      versions: {
+        orderBy: [{ importedAt: "desc" }],
+        take: 1,
+      },
+      _count: {
+        select: {
+          versions: true,
+        },
+      },
+    },
     orderBy: [{ createdAt: "asc" }],
+  });
+}
+
+export async function listLaws(db: PrismaLike = prisma) {
+  return db.law.findMany({
+    include: {
+      server: true,
+      currentVersion: true,
+      versions: {
+        orderBy: [{ importedAt: "desc" }],
+        take: 1,
+      },
+      _count: {
+        select: {
+          versions: true,
+        },
+      },
+    },
+    orderBy: [{ server: { sortOrder: "asc" } }, { title: "asc" }],
   });
 }
 
@@ -94,6 +125,41 @@ export async function createLawRecord(
       isExcluded: parsed.isExcluded ?? false,
       classificationOverride: parsed.classificationOverride ?? null,
       internalNote: parsed.internalNote ?? null,
+    },
+  });
+}
+
+export async function syncLawRecordFromDiscovery(
+  input: {
+    lawId: string;
+    title: string;
+    topicUrl: string;
+    lawKind: "primary" | "supplement";
+    relatedPrimaryLawId?: string | null;
+  },
+  db: PrismaLike = prisma,
+) {
+  const parsed = registerLawInputSchema
+    .pick({
+      title: true,
+      topicUrl: true,
+      lawKind: true,
+      relatedPrimaryLawId: true,
+    })
+    .extend({
+      lawId: lawIdSchema,
+    })
+    .parse(input);
+
+  return db.law.update({
+    where: {
+      id: parsed.lawId,
+    },
+    data: {
+      title: parsed.title,
+      topicUrl: parsed.topicUrl,
+      lawKind: parsed.lawKind,
+      relatedPrimaryLawId: parsed.relatedPrimaryLawId ?? null,
     },
   });
 }

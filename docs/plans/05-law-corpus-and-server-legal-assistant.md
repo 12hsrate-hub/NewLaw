@@ -3,23 +3,27 @@
 ## Статус блока
 
 `05.1` архитектурный план law corpus утверждён.  
-`05.2 corpus schema + internal source management foundation` выполнен.
+`05.2 corpus schema + internal source management foundation` выполнен.  
+`05.3 discovery + import + normalization + segmentation` выполнен.
 
-На текущем шаге добавлен только foundation-слой:
+На текущем шаге блок уже умеет:
 
-- Prisma-схема для `LawSourceIndex`, `Law`, `LawVersion`, `LawSourcePost`, `LawBlock`, `LawImportRun`
-- `server-scoped` источники законодательной базы
-- manual override foundation для будущего discovery/import review
-- import lock / idempotency foundation
-- минимальный `super_admin`-only internal экран `/app/admin-laws`
+- ручной `discovery` по `LawSourceIndex`
+- ручной `import` конкретной темы форума
+- классификацию topics в `primary`, `supplement`, `ignored`
+- raw source layer через `LawSourcePost`
+- построение `normalized_full_text`
+- вычисление `source_snapshot_hash` и `normalized_text_hash`
+- segmentation в `LawBlock`
+- создание новой версии только как `imported_draft`
 
 Что ещё не входит в блок на этом шаге:
 
-- discovery parser
-- import темы форума
-- normalization / segmentation pipeline
+- ручной review и подтверждение `current` версии
+- promote `imported_draft -> current`
 - retrieval service
 - legal assistant UI
+- embeddings, vector store, reranking
 - документы, `BBCode`, публикация на форум, AI-генерация документов
 - судебные прецеденты
 - полноценная админка законов
@@ -31,9 +35,15 @@
 - текст закона на сайте вручную не редактируется
 - source of truth: forum topic + imported snapshot
 - один закон = одна тема форума
+- текст закона может состоять из нескольких постов внутри темы
+- нормативная цепочка всегда начинается сверху темы
+- первый пост обязателен
+- если следующий пост является прямым продолжением закона, он тоже включается
+- как только встречен разрыв нормативной цепочки, import основной версии останавливается
 - supplements хранятся отдельным типом и по умолчанию не участвуют в retrieval MVP
-- для одного сервера допускается максимум `2` `LawSourceIndex`
-- source index URL принимаются только с домена `https://forum.gta5rp.com/`
+- судебные прецеденты сейчас не импортируются
+- новая версия закона всегда создаётся как `imported_draft`
+- current version автоматически не переключается
 
 ## Что сделано в 05.2
 
@@ -56,93 +66,157 @@
 - `LawImportRunMode`
 - `LawBlockType`
 
-Зафиксированы ключевые ограничения:
+### Internal foundation
 
-- `Law`: dedupe по `server_id + topic_external_id`
-- `Law`: `law_key` уникален внутри сервера
-- `LawVersion`: dedupe по `law_id + normalized_text_hash`
-- `LawSourcePost`: уникальность по `law_version_id + post_external_id`
-- `LawBlock`: уникальность по `law_version_id + block_order`
-- `LawImportRun.lockKey` используется как foundation для import/discovery lock
+Добавлены:
 
-### Manual override foundation
+- `server-scoped` источники законодательной базы
+- manual override foundation: `isExcluded`, `classificationOverride`, `internalNote`
+- import lock / idempotency foundation
+- минимальный `super_admin`-only экран `/app/admin-laws`
 
-На уровне `Law` добавлены:
+## Что сделано в 05.3
 
-- `isExcluded`
-- `classificationOverride`
-- `internalNote`
+### Discovery
 
-Эти поля нужны для ручной корректировки discovery/import workflow на следующих шагах, но полноценный review UI пока не строится.
+Реализовано:
 
-### Repositories и services
+- ручной запуск discovery по `LawSourceIndex`
+- обход index URL форума
+- сбор candidate topics с минимумом:
+  - `topic_url`
+  - `topic_external_id`
+  - `title`
+- дедупликация по topic
+- уважение уже сохранённых manual override полей
 
-Добавлены foundation-слои для:
+### Классификация topics
 
-- source indexes
-- laws
-- law versions
-- source posts
-- logical blocks
-- import runs
+Реализована базовая классификация:
 
-Также добавлены foundation-services:
+- `primary`
+- `supplement`
+- `ignored`
 
-- `addLawSourceIndexForServer`
-- `setLawSourceIndexEnabledState`
-- `registerLawStub`
-- `startLawImportRun`
-- `finishLawImportRun`
-- `createImportedDraftLawVersion`
+Текущие правила:
 
-### Internal super_admin contour
+- `Нормативные акты изменения законодательной базы` и близкие темы идут как `supplement`
+- `Судебные прецеденты` не импортируются и считаются `ignored`
+- не-нормативные темы законодательной базы отбрасываются как `ignored`
 
-Добавлен минимальный закрытый экран:
+### Import темы
 
-- `/app/admin-laws`
+Реализовано:
 
-На нём `super_admin` может:
+- ручной import по конкретному `Law`
+- загрузка forum topic как ordered set постов
+- трактовка закона как одной темы
+- сбор непрерывной нормативной цепочки сверху темы
+- остановка import при явном разрыве цепочки
 
-- увидеть список `LawSourceIndex` по серверам
-- добавить новый index URL
-- включить/отключить существующий index URL
+### Raw source layer
 
-На этом шаге экран не умеет:
+Реализовано сохранение включённых постов в `LawSourcePost`:
 
-- запускать discovery
-- импортировать тему
-- подтверждать версии
-- редактировать текст закона
+- `post_external_id`
+- `post_url`
+- `post_order`
+- `author_name`
+- `posted_at`
+- `raw_html`
+- `raw_text`
+- `normalized_text_fragment`
 
-## Следующие подшаги блока
+Это даёт возможность понять, из каких именно постов собрана версия закона.
 
-### 05.3 — discovery + import + normalization foundation
+### Normalization
+
+Реализовано:
+
+- построение единого `normalized_full_text`
+- очистка forum artifacts и HTML-разметки
+- сохранение нумерации и заголовочной структуры в текстовом виде
+- вычисление:
+  - `source_snapshot_hash`
+  - `normalized_text_hash`
+- dedupe: повторный import без изменения текста не создаёт новую версию
+
+### Segmentation
+
+Реализована базовая segmentation в `LawBlock`:
+
+- `section`
+- `chapter`
+- `article`
+- `appendix`
+- `unstructured`
+
+Зафиксировано:
+
+- основной рабочий уровень блока — `article`
+- если статья не выделяется надёжно, текст сохраняется как `unstructured`
+- для `article` сохраняется `article_number_normalized`
+- `block_order` сохраняется для стабильного порядка внутри версии
+
+### Internal super_admin flow
+
+В `/app/admin-laws` теперь доступны:
+
+- добавление index URL
+- включение и отключение index URL
+- ручной запуск `discovery`
+- просмотр обнаруженных laws
+- ручной запуск `import` по конкретному law
+
+При этом всё ещё не доступны:
+
+- review imported draft версии
+- выбор `current`
+- retrieval
+- legal assistant UI
+
+## Первый реальный сервер и smoke-подход
+
+Зафиксировано:
+
+- первый реальный сервер law corpus: `Blackberry`
+- основной source index для него: `https://forum.gta5rp.com/forums/zakonodatelnaja-baza.262/`
+- для smoke и тестов используется отдельный smoke-server dataset
+- production-данные реального сервера и smoke-сценарии не смешиваются
+- production ID серверов не хардкодятся в коде
+
+## Следующий подшаг блока
+
+### 05.4 — current version workflow + retrieval foundation
 
 Должно войти:
 
-- discovery по 1–2 index URL сервера
-- сбор candidate topics
-- фильтрация laws / supplements / ignored topics
-- import forum topic в raw source layer
-- построение непрерывной нормативной цепочки постов
-- создание `imported_draft` version
+- ручное подтверждение `imported_draft` как `current`
+- перевод прошлой current-версии в `superseded`
+- foundation retrieval только по `current primary laws` выбранного сервера
+- server-side foundation для будущего legal assistant
 
-### 05.4 — segmentation + current version workflow + retrieval foundation
+Что не должно входить:
 
-Должно войти:
+- legal assistant UI
+- документы
+- `BBCode`
+- публикация на форум
+- AI-генерация документов
+- post-MVP template documents module
 
-- segmentation в `section/chapter/article/appendix/unstructured`
-- article-level working blocks
-- ручное подтверждение `current` версии
-- supersede прошлой `current`
-- retrieval foundation только по `current primary laws` выбранного сервера
+## Acceptance для 05.3
 
-## Acceptance для 05.2
-
-- схема law corpus готова и мигрируема
-- source management доступен только `super_admin`
-- нельзя добавить источник не с `forum.gta5rp.com`
-- нельзя добавить больше 2 index URL на сервер
-- есть foundation для manual override
-- есть foundation для import lock / idempotency
-- law text не редактируется вручную через этот слой
+- discovery находит candidate topics из `LawSourceIndex`
+- один topic трактуется как один law candidate
+- topics классифицируются в `primary`, `supplement`, `ignored`
+- supplements сохраняются отдельно
+- судебные прецеденты не импортируются
+- multi-post law может собраться в одну `imported_draft` версию
+- import останавливается при разрыве нормативной цепочки
+- raw source layer сохраняется консистентно
+- `normalized_full_text` и hashes строятся консистентно
+- segmentation создаёт `LawBlock` без выдумывания ложной структуры
+- повторный import без изменения текста не плодит новые версии
+- current version автоматически не переключается
+- запуск discovery/import доступен только `super_admin`
