@@ -20,6 +20,14 @@ const defaultDependencies: AssistantInternalProxyDependencies = {
   getEnv: getAssistantInternalProxyEnv,
 };
 
+const OPENAI_METADATA_MAX_LENGTH = 500;
+
+function truncateAssistantProxyMetadataValue(value: string) {
+  return value.length > OPENAI_METADATA_MAX_LENGTH
+    ? value.slice(0, OPENAI_METADATA_MAX_LENGTH)
+    : value;
+}
+
 function normalizeAssistantProxyMetadata(
   metadata: Record<string, unknown> | null | undefined,
 ): Record<string, string> | undefined {
@@ -34,14 +42,14 @@ function normalizeAssistantProxyMetadata(
       }
 
       if (typeof value === "string") {
-        return [key, value] as const;
+        return [key, truncateAssistantProxyMetadataValue(value)] as const;
       }
 
       if (typeof value === "number" || typeof value === "boolean") {
-        return [key, String(value)] as const;
+        return [key, truncateAssistantProxyMetadataValue(String(value))] as const;
       }
 
-      return [key, JSON.stringify(value)] as const;
+      return [key, truncateAssistantProxyMetadataValue(JSON.stringify(value))] as const;
     })
     .filter((entry): entry is readonly [string, string] => Boolean(entry));
 
