@@ -1,10 +1,12 @@
 import { redirect } from "next/navigation";
 
 import { LawSourceManagementSection } from "@/components/product/law-sources/law-source-management-section";
+import { PrecedentSourceFoundationSection } from "@/components/product/precedent-sources/precedent-source-foundation-section";
 import { AppShellHeader } from "@/components/product/shell/app-shell-header";
 import { PageContainer } from "@/components/ui/page-container";
 import { listLawSourceIndexes } from "@/db/repositories/law-source-index.repository";
 import { listLawsForAdminReview } from "@/db/repositories/law.repository";
+import { listPrecedentSourceTopics } from "@/db/repositories/precedent-source-topic.repository";
 import { getAppShellContext } from "@/server/app-shell/context";
 import { buildAdminAccessDeniedRedirectPath } from "@/server/auth/protected";
 import { searchCurrentLawCorpus } from "@/server/law-corpus/retrieval";
@@ -24,10 +26,11 @@ export default async function AdminLawsPage({ searchParams }: AdminLawsPageProps
     redirect(buildAdminAccessDeniedRedirectPath());
   }
 
-  const [resolvedSearchParams, sourceIndexes, laws] = await Promise.all([
+  const [resolvedSearchParams, sourceIndexes, laws, precedentSourceTopics] = await Promise.all([
     searchParams,
     listLawSourceIndexes(),
     listLawsForAdminReview(),
+    listPrecedentSourceTopics(),
   ]);
   const previewServerId =
     resolvedSearchParams?.previewServerId ??
@@ -123,6 +126,36 @@ export default async function AdminLawsPage({ searchParams }: AdminLawsPageProps
               lastDiscoveredAt: sourceIndex.lastDiscoveredAt,
               lastDiscoveryStatus: sourceIndex.lastDiscoveryStatus,
               lastDiscoveryError: sourceIndex.lastDiscoveryError,
+            }))}
+            status={resolvedSearchParams?.status}
+          />
+
+          <PrecedentSourceFoundationSection
+            servers={shellContext.servers.map((server) => ({
+              id: server.id,
+              name: server.name,
+            }))}
+            sourceIndexes={sourceIndexes.map((sourceIndex) => ({
+              id: sourceIndex.id,
+              serverId: sourceIndex.serverId,
+              indexUrl: sourceIndex.indexUrl,
+              isEnabled: sourceIndex.isEnabled,
+            }))}
+            sourceTopics={precedentSourceTopics.map((sourceTopic) => ({
+              id: sourceTopic.id,
+              serverId: sourceTopic.serverId,
+              sourceIndexId: sourceTopic.sourceIndexId,
+              topicUrl: sourceTopic.topicUrl,
+              topicExternalId: sourceTopic.topicExternalId,
+              title: sourceTopic.title,
+              isExcluded: sourceTopic.isExcluded,
+              classificationOverride: sourceTopic.classificationOverride,
+              internalNote: sourceTopic.internalNote,
+              lastDiscoveredAt: sourceTopic.lastDiscoveredAt,
+              lastDiscoveryStatus: sourceTopic.lastDiscoveryStatus,
+              lastDiscoveryError: sourceTopic.lastDiscoveryError,
+              sourceIndexUrl: sourceTopic.sourceIndex.indexUrl,
+              precedentsCount: sourceTopic._count.precedents,
             }))}
             status={resolvedSearchParams?.status}
           />

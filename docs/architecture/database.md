@@ -361,6 +361,48 @@ Raw source layer для версии закона.
 - foundation для идемпотентного discovery/import workflow
 - журнал технического результата запуска без полноценного review UI
 
+### precedent_source_topics
+
+Foundation-таблица отдельного corpus судебных прецедентов.
+
+Основные поля:
+
+- `id`
+- `server_id`
+- `source_index_id`
+- `topic_url`
+- `topic_external_id`
+- `title`
+- `is_excluded`
+- `classification_override`
+- `internal_note`
+- `last_discovered_at`
+- `last_discovery_status`
+- `last_discovery_error`
+- `created_at`
+- `updated_at`
+
+Правила:
+
+- precedents не смешиваются с `laws`
+- dedupe source topic идёт минимум по `server_id + topic_external_id`
+- source topic пока используется только как foundation для будущего precedent discovery/import
+
+### precedents и связанные snapshot-таблицы
+
+После `05.x` и в рамках отдельного следующего блока добавлен foundation для отдельного precedents corpus:
+
+- `precedents`
+- `precedent_versions`
+- `precedent_source_posts`
+- `precedent_blocks`
+
+Важно:
+
+- это отдельная доменная линия, а не расширение `law_kind`
+- `version status` и `validity_status` у precedents разделены
+- precedents пока не подмешиваются в retrieval уже работающего assistant
+
 ## Предлагаемые ограничения и индексы
 
 ### Уникальность персонажа по паспорту

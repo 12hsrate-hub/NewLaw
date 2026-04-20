@@ -13,6 +13,10 @@ vi.mock("@/db/repositories/law.repository", () => ({
   listLawsForAdminReview: vi.fn(),
 }));
 
+vi.mock("@/db/repositories/precedent-source-topic.repository", () => ({
+  listPrecedentSourceTopics: vi.fn(),
+}));
+
 vi.mock("@/server/law-corpus/retrieval", () => ({
   searchCurrentLawCorpus: vi.fn(),
 }));
@@ -20,6 +24,7 @@ vi.mock("@/server/law-corpus/retrieval", () => ({
 import AdminLawsPage from "@/app/(protected-admin)/app/admin-laws/page";
 import { listLawSourceIndexes } from "@/db/repositories/law-source-index.repository";
 import { listLawsForAdminReview } from "@/db/repositories/law.repository";
+import { listPrecedentSourceTopics } from "@/db/repositories/precedent-source-topic.repository";
 import { getAppShellContext } from "@/server/app-shell/context";
 import { searchCurrentLawCorpus } from "@/server/law-corpus/retrieval";
 
@@ -89,6 +94,29 @@ describe("/app/admin-laws", () => {
         },
       },
     ] as never);
+    vi.mocked(listPrecedentSourceTopics).mockResolvedValue([
+      {
+        id: "precedent-topic-1",
+        serverId: "server-1",
+        sourceIndexId: "source-1",
+        topicUrl: "https://forum.gta5rp.com/threads/precedent.1001/",
+        topicExternalId: "1001",
+        title: "Решение Верховного суда",
+        isExcluded: false,
+        classificationOverride: "precedent",
+        internalNote: null,
+        lastDiscoveredAt: null,
+        lastDiscoveryStatus: null,
+        lastDiscoveryError: null,
+        sourceIndex: {
+          id: "source-1",
+          indexUrl: "https://forum.gta5rp.com/forums/laws",
+        },
+        _count: {
+          precedents: 0,
+        },
+      },
+    ] as never);
     vi.mocked(searchCurrentLawCorpus).mockResolvedValue({
       query: "статья 1",
       serverId: "server-1",
@@ -146,5 +174,7 @@ describe("/app/admin-laws", () => {
     expect(html).toContain("Импортировать тему");
     expect(html).toContain("Подтвердить как current");
     expect(html).toContain("Current Primary Law Retrieval");
+    expect(html).toContain("Precedent Source Topic Foundation");
+    expect(html).toContain("Решение Верховного суда");
   });
 });

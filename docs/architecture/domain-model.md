@@ -45,6 +45,8 @@
 - этот assistant является отдельным consumer подтвержденного law corpus сервера
 - он не живёт внутри `/app` и не зависит от active server из личного кабинета
 - он не смешивается с жалобами в ОГП, исками и пост-MVP template documents module
+- judicial precedents после law corpus планируются как отдельный corpus, а не как разновидность `primary laws`
+- до отдельного precedent workflow они не должны автоматически попадать в уже работающий assistant
 
 ### Character
 

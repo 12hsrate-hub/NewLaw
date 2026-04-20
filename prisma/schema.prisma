@@ -58,6 +58,12 @@ enum LawImportRunStatus {
   failure
 }
 
+enum PrecedentSourceTopicDiscoveryStatus {
+  running
+  success
+  failure
+}
+
 enum LawImportRunMode {
   discovery
   import_law
@@ -68,6 +74,32 @@ enum LawBlockType {
   chapter
   article
   appendix
+  unstructured
+}
+
+enum PrecedentSourceTopicClassification {
+  precedent
+  ignored
+}
+
+enum PrecedentVersionStatus {
+  imported_draft
+  current
+  superseded
+}
+
+enum PrecedentValidityStatus {
+  applicable
+  limited
+  obsolete
+}
+
+enum PrecedentBlockType {
+  facts
+  issue
+  holding
+  reasoning
+  resolution
   unstructured
 }
 
@@ -95,6 +127,7 @@ model Account {
   characters              Character[]
   userServerState         UserServerState[]
   confirmedLawVersions    LawVersion[]           @relation("LawVersionConfirmer")
+  confirmedPrecedentVersions PrecedentVersion[]  @relation("PrecedentVersionConfirmer")
   actorAuditLogs          AuditLog[]             @relation("AuditActor")
   targetAuditLogs         AuditLog[]             @relation("AuditTarget")
   aiRequests              AIRequest[]
@@ -113,6 +146,8 @@ model Server {
   lawSourceIndexes LawSourceIndex[]
   laws            Law[]
   lawImportRuns   LawImportRun[]
+  precedentSourceTopics PrecedentSourceTopic[]
+  precedents      Precedent[]
   assistantGuestSessions AssistantGuestSession[]
   aiRequests      AIRequest[]
   createdAt       DateTime          @default(now())
@@ -206,6 +241,7 @@ model LawSourceIndex {
   lastDiscoveryError  String?
   server              Server             @relation(fields: [serverId], references: [id], onDelete: Cascade)
   importRuns          LawImportRun[]
+  precedentSourceTopics PrecedentSourceTopic[]
   createdAt           DateTime           @default(now())
   updatedAt           DateTime           @updatedAt
 
@@ -317,6 +353,109 @@ model LawImportRun {
 
   @@index([serverId, status, startedAt])
   @@index([sourceIndexId, status, startedAt])
+}
+
+model PrecedentSourceTopic {
+  id                    String                               @id @default(cuid())
+  serverId              String
+  sourceIndexId         String
+  topicUrl              String
+  topicExternalId       String
+  title                 String
+  isExcluded            Boolean                              @default(false)
+  classificationOverride PrecedentSourceTopicClassification?
+  internalNote          String?
+  lastDiscoveredAt      DateTime?
+  lastDiscoveryStatus   PrecedentSourceTopicDiscoveryStatus?
+  lastDiscoveryError    String?
+  server                Server                               @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  sourceIndex           LawSourceIndex                       @relation(fields: [sourceIndexId], references: [id], onDelete: Cascade)
+  precedents            Precedent[]
+  createdAt             DateTime                             @default(now())
+  updatedAt             DateTime                             @updatedAt
+
+  @@unique([serverId, topicExternalId])
+  @@index([serverId, isExcluded])
+  @@index([sourceIndexId, createdAt])
+}
+
+model Precedent {
+  id                     String                  @id @default(cuid())
+  serverId               String
+  precedentSourceTopicId String
+  precedentKey           String
+  displayTitle           String
+  precedentLocatorKey    String
+  currentVersionId       String?                 @unique
+  validityStatus         PrecedentValidityStatus @default(applicable)
+  server                 Server                  @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  sourceTopic            PrecedentSourceTopic    @relation(fields: [precedentSourceTopicId], references: [id], onDelete: Cascade)
+  currentVersion         PrecedentVersion?       @relation("CurrentPrecedentVersion", fields: [currentVersionId], references: [id], onDelete: SetNull)
+  versions               PrecedentVersion[]      @relation("PrecedentVersions")
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
+
+  @@unique([serverId, precedentKey])
+  @@unique([precedentSourceTopicId, precedentLocatorKey])
+  @@index([serverId, validityStatus])
+}
+
+model PrecedentVersion {
+  id                 String                  @id @default(cuid())
+  precedentId        String
+  status             PrecedentVersionStatus  @default(imported_draft)
+  normalizedFullText String
+  sourceSnapshotHash String
+  normalizedTextHash String
+  importedAt         DateTime                @default(now())
+  confirmedAt        DateTime?
+  confirmedByAccountId String?               @db.Uuid
+  precedent          Precedent               @relation("PrecedentVersions", fields: [precedentId], references: [id], onDelete: Cascade)
+  confirmedByAccount Account?                @relation("PrecedentVersionConfirmer", fields: [confirmedByAccountId], references: [id], onDelete: SetNull)
+  currentForPrecedent Precedent?             @relation("CurrentPrecedentVersion")
+  sourcePosts        PrecedentSourcePost[]
+  blocks             PrecedentBlock[]
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt
+
+  @@unique([precedentId, normalizedTextHash])
+  @@index([precedentId, status, importedAt])
+}
+
+model PrecedentSourcePost {
+  id                     String           @id @default(cuid())
+  precedentVersionId     String
+  postExternalId         String
+  postUrl                String
+  postOrder              Int
+  authorName             String?
+  postedAt               DateTime?
+  rawHtml                String
+  rawText                String
+  normalizedTextFragment String
+  precedentVersion       PrecedentVersion @relation(fields: [precedentVersionId], references: [id], onDelete: Cascade)
+  createdAt              DateTime         @default(now())
+
+  @@unique([precedentVersionId, postExternalId])
+  @@unique([precedentVersionId, postOrder])
+}
+
+model PrecedentBlock {
+  id                 String             @id @default(cuid())
+  precedentVersionId String
+  blockType          PrecedentBlockType
+  blockOrder         Int
+  blockTitle         String?
+  blockText          String
+  parentBlockId      String?
+  precedentVersion   PrecedentVersion   @relation(fields: [precedentVersionId], references: [id], onDelete: Cascade)
+  parentBlock        PrecedentBlock?    @relation("PrecedentBlockTree", fields: [parentBlockId], references: [id], onDelete: SetNull)
+  childBlocks        PrecedentBlock[]   @relation("PrecedentBlockTree")
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  @@unique([precedentVersionId, blockOrder])
+  @@index([precedentVersionId, blockType, blockOrder])
 }
 
 model AssistantGuestSession {
