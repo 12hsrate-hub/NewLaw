@@ -5,8 +5,8 @@
 `Lawyer5RP MVP` — единое full-stack веб-приложение для подготовки документных сценариев внутри экосистемы GTA5RP.
 Главный сценарий MVP — создание жалобы в ОГП с итоговой генерацией форумного BBCode.
 
-На текущем этапе репозиторий содержит стартовую документацию проекта, инфраструктурные заготовки для production и временную maintenance page.
-Прикладной код продукта пока не добавлялся.
+На текущем этапе репозиторий содержит стартовую документацию проекта, bootstrap-каркас приложения, инфраструктурные заготовки для production и временную maintenance page.
+Прикладная бизнес-логика продукта пока не реализована, но инженерная основа проекта уже подготовлена.
 
 ## Зафиксированный стек
 
@@ -61,6 +61,15 @@
 ## Текущий состав репозитория
 
 - [AGENTS.md](./AGENTS.md) — правила ведения репозитория и границы проекта
+- [package.json](./package.json) — базовые зависимости и `pnpm`-scripts
+- [src/app](./src/app) — `App Router`, корневой layout, стартовая страница и `/api/health`
+- [src/components](./src/components) — разделение базовых UI-компонентов и продуктовых компонентов
+- [src/server](./src/server) — серверные действия, технические обработчики и серверные модули
+- [src/db](./src/db) — Prisma client, seed-структура и репозитории
+- [src/schemas](./src/schemas) — `Zod`-схемы
+- [vitest.config.ts](./vitest.config.ts) — минимальная конфигурация `Vitest`
+- [.github/workflows/ci.yml](./.github/workflows/ci.yml) — baseline CI для lint/typecheck/test/prisma
+- [prisma/schema.prisma](./prisma/schema.prisma) — базовая Prisma-конфигурация
 - [docs/product/overview.md](./docs/product/overview.md) — краткая продуктовая рамка
 - [docs/product/mvp-scope.md](./docs/product/mvp-scope.md) — фиксированный scope MVP
 - [docs/architecture/stack.md](./docs/architecture/stack.md) — технологический стек и ограничения
@@ -86,6 +95,30 @@
 
 ## Полезные команды
 
+После установки `Node.js` и `pnpm`:
+
+```powershell
+pnpm install
+pnpm prisma:generate
+pnpm dev
+```
+
+Базовые проверки:
+
+```powershell
+pnpm lint
+pnpm test
+pnpm typecheck
+pnpm prisma:validate
+pnpm prisma:generate
+```
+
+Запуск тестов в watch-режиме:
+
+```powershell
+pnpm test:watch
+```
+
 Проверка SSH-доступа:
 
 ```powershell
@@ -100,4 +133,4 @@ powershell -ExecutionPolicy Bypass -File .\scripts\deploy-prod.ps1
 
 ## Что дальше
 
-Следующий шаг после этой документации — bootstrap самого приложения на зафиксированном стеке и реализация этапов из `docs/plans`.
+Следующий шаг после bootstrap-каркаса — подключение auth/data layer и реализация этапов из `docs/plans`.

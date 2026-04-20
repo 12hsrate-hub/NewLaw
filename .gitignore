@@ -1,0 +1,30 @@
+# dependencies
+node_modules/
+.tools/
+
+# next
+.next/
+out/
+
+# local env
+.env
+.env.local
+.env.staging
+.env.production
+
+# prisma
+prisma/dev.db
+prisma/dev.db-journal
+
+# logs
+*.log
+pnpm-debug.log*
+
+# tests
+playwright-report/
+test-results/
+
+# misc
+.DS_Store
+Thumbs.db
+tsconfig.tsbuildinfo
