@@ -56,36 +56,48 @@ function scoreLawBlock(
   const normalizedBlockTitle = normalizeSearchText(input.blockTitle ?? "");
   const normalizedBlockText = normalizeSearchText(input.blockText);
   const normalizedArticleNumber = normalizeSearchText(input.articleNumberNormalized ?? "");
-  let score = input.blockType === "article" ? 12 : 0;
+  let score = 0;
+  let hasDirectMatch = false;
 
   if (normalizedArticleNumber && normalizedQuery === normalizedArticleNumber) {
     score += 80;
+    hasDirectMatch = true;
   }
 
   if (normalizedBlockTitle.includes(normalizedQuery) || normalizedLawTitle.includes(normalizedQuery)) {
     score += 28;
+    hasDirectMatch = true;
   }
 
   if (normalizedBlockText.includes(normalizedQuery)) {
     score += 20;
+    hasDirectMatch = true;
   }
 
   for (const token of queryTokens) {
     if (normalizedArticleNumber && normalizedArticleNumber === token) {
       score += 36;
+      hasDirectMatch = true;
     }
 
     if (normalizedLawTitle.includes(token)) {
       score += 10;
+      hasDirectMatch = true;
     }
 
     if (normalizedBlockTitle.includes(token)) {
       score += 12;
+      hasDirectMatch = true;
     }
 
     if (normalizedBlockText.includes(token)) {
       score += 8;
+      hasDirectMatch = true;
     }
+  }
+
+  if (hasDirectMatch && input.blockType === "article") {
+    score += 12;
   }
 
   return score;

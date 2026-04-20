@@ -132,4 +132,43 @@ describe("law corpus retrieval", () => {
     expect(result.resultCount).toBe(1);
     expect(result.results[0]?.blockType).toBe("section");
   });
+
+  it("не возвращает блоки без реального совпадения с запросом", async () => {
+    const result = await searchCurrentLawCorpus(
+      {
+        serverId: "server-1",
+        query: "zzzxqv987654321abc",
+      },
+      {
+        listCurrentLawBlocksByServer: vi.fn().mockResolvedValue([
+          {
+            id: "block-article-1",
+            blockType: "article",
+            blockOrder: 1,
+            blockTitle: "Статья 1. Общие положения",
+            blockText: "Статья 1. Общие положения. Основной текст статьи.",
+            articleNumberNormalized: "1",
+            lawVersion: {
+              id: "version-1",
+              status: "current",
+              lawId: "law-1",
+              sourceSnapshotHash: "source-hash",
+              normalizedTextHash: "normalized-hash",
+              currentForLaw: {
+                id: "law-1",
+                lawKey: "criminal_code",
+                title: "Уголовный кодекс",
+                topicUrl: "https://forum.gta5rp.com/threads/1001/",
+              },
+              sourcePosts: [],
+            },
+          },
+        ]),
+        now: () => new Date("2026-04-20T12:00:00.000Z"),
+      },
+    );
+
+    expect(result.resultCount).toBe(0);
+    expect(result.results).toEqual([]);
+  });
 });
