@@ -1,13 +1,8 @@
 import Link from "next/link";
 
 import { signOutAction } from "@/server/actions/auth";
-import {
-  selectActiveCharacterAction,
-  selectActiveServerAction,
-} from "@/server/actions/shell";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Select } from "@/components/ui/select";
 
 type ServerOption = {
   id: string;
@@ -37,16 +32,17 @@ type AppShellHeaderProps = {
 export function AppShellHeader({
   accountEmail,
   accountLogin,
-  activeCharacterId,
   activeCharacterName,
   activeServerId,
   activeServerName,
   characters,
-  currentPath,
   isSuperAdmin = false,
   mustChangePassword,
   servers,
 }: AppShellHeaderProps) {
+  const hasAvailableServers = servers.length > 0;
+  const hasCharactersOnActiveServer = characters.length > 0;
+
   return (
     <Card className="space-y-4">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -62,7 +58,7 @@ export function AppShellHeader({
           <p className="text-sm leading-6 text-[var(--muted)]">
             Активный сервер:{" "}
             <span className="font-medium text-[var(--foreground)]">
-              {activeServerName ?? "Сервер ещё не выбран"}
+              {activeServerName ?? "Доступный сервер пока не определён"}
             </span>
           </p>
           <p className="text-sm leading-6 text-[var(--muted)]">
@@ -70,6 +66,12 @@ export function AppShellHeader({
             <span className="font-medium text-[var(--foreground)]">
               {activeCharacterName ?? "Персонаж ещё не выбран"}
             </span>
+          </p>
+          <p className="text-sm leading-6 text-[var(--muted)]">
+            Серверов в контуре:{" "}
+            <span className="font-medium text-[var(--foreground)]">{servers.length}</span>
+            . Персонажей на текущем сервере:{" "}
+            <span className="font-medium text-[var(--foreground)]">{characters.length}</span>
           </p>
         </div>
 
@@ -102,62 +104,34 @@ export function AppShellHeader({
         </div>
       ) : null}
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <form action={selectActiveServerAction} className="space-y-3">
-          <input name="redirectTo" type="hidden" value={currentPath} />
-          <div className="space-y-2">
-            <label className="text-sm font-medium" htmlFor="serverId">
-              Активный сервер
-            </label>
-            <Select
-              defaultValue={activeServerId ?? ""}
-              disabled={mustChangePassword}
-              id="serverId"
-              name="serverId"
-              required
-            >
-              {servers.map((server) => (
-                <option key={server.id} value={server.id}>
-                  {server.name}
-                </option>
-              ))}
-            </Select>
-          </div>
-          <Button disabled={mustChangePassword} type="submit" variant="secondary">
-            Выбрать сервер
-          </Button>
-        </form>
-
-        <form action={selectActiveCharacterAction} className="space-y-3">
-          <input name="redirectTo" type="hidden" value={currentPath} />
-          <input name="serverId" type="hidden" value={activeServerId ?? ""} />
-          <div className="space-y-2">
-            <label className="text-sm font-medium" htmlFor="characterId">
-              Активный персонаж
-            </label>
-            <Select
-              defaultValue={activeCharacterId ?? ""}
-              disabled={!characters.length || !activeServerId || mustChangePassword}
-              id="characterId"
-              name="characterId"
-              required
-            >
-              {characters.length ? null : <option value="">На этом сервере пока нет персонажей</option>}
-              {characters.map((character) => (
-                <option key={character.id} value={character.id}>
-                  {character.fullName} · {character.passportNumber}
-                </option>
-              ))}
-            </Select>
-          </div>
-          <Button
-            disabled={!characters.length || !activeServerId || mustChangePassword}
-            type="submit"
-            variant="secondary"
-          >
-            Выбрать персонажа
-          </Button>
-        </form>
+      <div className="rounded-2xl border border-[var(--border)] bg-white/55 px-4 py-4 text-sm leading-6 text-[var(--muted)]">
+        {!hasAvailableServers ? (
+          <p>
+            В read-only shell пока нет доступных серверов. Когда серверы появятся в конфигурации
+            проекта, этот экран начнёт показывать их автоматически.
+          </p>
+        ) : !activeServerId ? (
+          <p>
+            Список серверов загружен, но активный сервер пока не определён. Shell использует
+            безопасный SSR fallback и не пишет состояние выбора в БД на шаге `04.1`.
+          </p>
+        ) : !hasCharactersOnActiveServer ? (
+          <p>
+            Для сервера <span className="font-medium text-[var(--foreground)]">{activeServerName}</span>{" "}
+            персонажи пока не найдены. На следующем подшаге здесь появятся выбор и создание
+            персонажей.
+          </p>
+        ) : (
+          <p>
+            Сейчас shell работает только в режиме чтения: показывает активный сервер{" "}
+            <span className="font-medium text-[var(--foreground)]">{activeServerName}</span> и
+            персонажа{" "}
+            <span className="font-medium text-[var(--foreground)]">
+              {activeCharacterName ?? "без выбранного профиля"}
+            </span>
+            . Мутации выбора сервера и персонажа будут добавлены отдельным подшагом.
+          </p>
+        )}
       </div>
     </Card>
   );

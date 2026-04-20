@@ -1,36 +1,23 @@
-import { CharacterManagementSection } from "@/components/product/characters/character-management-section";
+import { ProtectedShellOverviewSection } from "@/components/product/shell/protected-shell-overview-section";
 import { getAppShellContext } from "@/server/app-shell/context";
 
-type ProtectedAppPageProps = {
-  searchParams?: Promise<{
-    status?: string;
-  }>;
-};
-
-export default async function ProtectedAppPage({
-  searchParams,
-}: ProtectedAppPageProps) {
+export default async function ProtectedAppPage() {
   const shellContext = await getAppShellContext("/app");
-  const resolvedSearchParams = await searchParams;
 
   return (
-    <CharacterManagementSection
+    <ProtectedShellOverviewSection
       activeCharacterId={shellContext.activeCharacter?.id ?? null}
-      activeServerId={shellContext.activeServer?.id ?? null}
+      activeCharacterName={shellContext.activeCharacter?.fullName ?? null}
       activeServerName={shellContext.activeServer?.name ?? null}
       characters={shellContext.characters.map((character) => ({
         id: character.id,
         fullName: character.fullName,
-        nickname: character.nickname,
         passportNumber: character.passportNumber,
-        roles: character.roles.map((role) => ({
-          roleKey: role.roleKey,
-        })),
-        accessFlags: character.accessFlags.map((flag) => ({
-          flagKey: flag.flagKey,
-        })),
       }))}
-      status={resolvedSearchParams?.status}
+      servers={shellContext.servers.map((server) => ({
+        id: server.id,
+        name: server.name,
+      }))}
     />
   );
 }
