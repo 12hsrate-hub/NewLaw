@@ -36,6 +36,17 @@
 - documents, `BBCode`, forum publishing, AI document generation
 - полноценная precedent-админка
 
+## Source of truth для cross-cutting policy
+
+Детальные frozen decisions для precedent-блока собраны в [../architecture/frozen-product-decisions.md](../architecture/frozen-product-decisions.md).
+
+Именно там считаются source of truth:
+
+- precedents как отдельный corpus, а не разновидность law corpus
+- laws-first policy для будущего assistant
+- server/corpus health assumptions
+- operational и migration assumptions вокруг corpus tools
+
 ## Зафиксированные правила
 
 - судебные прецеденты не смешиваются с `primary laws`

@@ -36,6 +36,18 @@
 - судебные прецеденты
 - полноценная админка законов
 
+## Source of truth для cross-cutting policy
+
+Детальные frozen decisions для этого блока собраны в [../architecture/frozen-product-decisions.md](../architecture/frozen-product-decisions.md).
+
+Именно там считаются source of truth:
+
+- assistant policy и границы ответов по confirmed corpus
+- proxy-only AI policy
+- assistant logging и retention policy
+- server/corpus health states
+- future migration policy из transitional `/app`
+
 ## Зафиксированные правила
 
 - управлять law corpus может только `super_admin`
@@ -422,10 +434,9 @@
 
 - первый реальный сервер law corpus: `Blackberry`
 - основной source index для него: `https://forum.gta5rp.com/forums/zakonodatelnaja-baza.262/`
-- internal bootstrap-health summary по серверу должен использовать статусы:
-  - `corpus_bootstrap_incomplete`
-  - `usable_with_gaps`
-  - `current_corpus_ready`
+- `Blackberry` — первый fully bootstrapped real server baseline
+- law corpus status для `Blackberry` — `current_corpus_ready`
+- assistant по `Blackberry` можно использовать как по реальному confirmed corpus
 - для smoke и тестов используется отдельный smoke-server dataset
 - production-данные реального сервера и smoke-сценарии не смешиваются
 - production ID серверов не хардкодятся в коде

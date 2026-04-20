@@ -10,6 +10,7 @@
 - текущее transitional состояние на `/app` не воспринималось как долгосрочный default для всех новых блоков
 
 Детальные frozen product decisions, которые опираются на эту route-policy, собраны отдельно в [frozen-product-decisions.md](./frozen-product-decisions.md).
+Этот документ фиксирует именно target route placement, а frozen decisions дополняют его правилами по assistant, corpus, document lifecycle, server health и future migration policy.
 
 ## Почему `/app` не должен быть универсальным контейнером
 
