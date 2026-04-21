@@ -151,6 +151,46 @@ type OgpComplaintFamilyRouteContext =
       documents: DocumentAreaPersistedListItem[];
     };
 
+type ClaimsFamilyFoundationRouteContext =
+  | {
+      status: "server_not_found";
+      account: AccountDocumentsOverviewContext["account"];
+      requestedServerSlug: string;
+      servers: DocumentAreaServerSummary[];
+    }
+  | {
+      status: "ready";
+      account: AccountDocumentsOverviewContext["account"];
+      server: {
+        id: string;
+        code: string;
+        name: string;
+      };
+      servers: DocumentAreaServerSummary[];
+      canCreateDocuments: boolean;
+      selectedCharacter: SelectedCharacterSummary | null;
+    };
+
+type ClaimsEditorFoundationRouteContext =
+  | {
+      status: "server_not_found";
+      account: AccountDocumentsOverviewContext["account"];
+      requestedServerSlug: string;
+      servers: DocumentAreaServerSummary[];
+    }
+  | {
+      status: "ready";
+      account: AccountDocumentsOverviewContext["account"];
+      server: {
+        id: string;
+        code: string;
+        name: string;
+      };
+      servers: DocumentAreaServerSummary[];
+      documentId: string;
+      selectedCharacter: SelectedCharacterSummary | null;
+    };
+
 type OgpComplaintEditorRouteContext =
   | {
       status: "server_not_found";
@@ -484,6 +524,99 @@ export async function getOgpComplaintFamilyRouteContext(input: {
         server,
       }),
     ),
+  };
+}
+
+export async function getClaimsFamilyFoundationRouteContext(input: {
+  serverSlug: string;
+  nextPath: string;
+}): Promise<ClaimsFamilyFoundationRouteContext> {
+  const { account } = await requireProtectedAccountContext(input.nextPath, undefined, {
+    allowMustChangePassword: true,
+  });
+  const [server, servers, serverStates] = await Promise.all([
+    getServerByCode(input.serverSlug),
+    buildDocumentAreaServerSummaries(account.id),
+    getUserServerStates(account.id),
+  ]);
+
+  if (!server) {
+    return {
+      status: "server_not_found",
+      account,
+      requestedServerSlug: input.serverSlug,
+      servers,
+    };
+  }
+
+  const characters = await getCharactersByServer({
+    accountId: account.id,
+    serverId: server.id,
+  });
+  const selectedCharacter = buildSelectedCharacterSummary({
+    serverId: server.id,
+    characters,
+    serverStates,
+  });
+
+  return {
+    status: "ready",
+    account,
+    server: {
+      id: server.id,
+      code: server.code,
+      name: server.name,
+    },
+    servers,
+    canCreateDocuments: selectedCharacter !== null,
+    selectedCharacter,
+  };
+}
+
+export async function getClaimsEditorFoundationRouteContext(input: {
+  serverSlug: string;
+  documentId: string;
+  nextPath: string;
+}): Promise<ClaimsEditorFoundationRouteContext> {
+  const { account } = await requireProtectedAccountContext(input.nextPath, undefined, {
+    allowMustChangePassword: true,
+  });
+  const [server, servers, serverStates] = await Promise.all([
+    getServerByCode(input.serverSlug),
+    buildDocumentAreaServerSummaries(account.id),
+    getUserServerStates(account.id),
+  ]);
+
+  if (!server) {
+    return {
+      status: "server_not_found",
+      account,
+      requestedServerSlug: input.serverSlug,
+      servers,
+    };
+  }
+
+  const characters = await getCharactersByServer({
+    accountId: account.id,
+    serverId: server.id,
+  });
+  const selectedCharacter = buildSelectedCharacterSummary({
+    serverId: server.id,
+    characters,
+    serverStates,
+  });
+
+  return {
+    status: "ready",
+    account,
+    server: {
+      id: server.id,
+      code: server.code,
+      name: server.name,
+    },
+    servers,
+    documentId: input.documentId,
+    selectedCharacter,
   };
 }
 

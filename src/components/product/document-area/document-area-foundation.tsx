@@ -61,7 +61,9 @@ export function AccountDocumentsOverview(props: {
         <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
           Это cross-server overview route. Здесь показывается общий обзор документов пользователя,
           а основной create/edit flow живёт в server-scoped document area, а не внутри account
-          zone.
+          zone. Persisted `OGP complaints` уже отображаются здесь как реальные документы, а family
+          `Claims` подготовлена так, чтобы позже появиться рядом с ними без смены account route
+          contract.
         </p>
       </Card>
 
@@ -86,6 +88,10 @@ export function AccountDocumentsOverview(props: {
                 <p className="text-sm leading-6 text-[var(--muted)]">
                   Персонажей на сервере: {server.characterCount}. Выбранный по UX-default персонаж:{" "}
                   {server.selectedCharacterName ?? "пока не выбран"}.
+                </p>
+                <p className="text-sm leading-6 text-[var(--muted)]">
+                  Активные families document area: `OGP complaints` и `Claims`. Claims пока
+                  существуют как route/UI foundation и не притворяются persisted editor flow.
                 </p>
               </div>
               <div className="flex flex-wrap gap-3">
@@ -201,21 +207,47 @@ export function ServerDocumentsHub(props: {
         </div>
       </Card>
 
-      <Card className="space-y-4">
-        <div className="space-y-2">
-          <p className="text-xs uppercase tracking-[0.22em] text-[var(--accent)]">Document Family</p>
-          <h2 className="text-2xl font-semibold">OGP complaints</h2>
-          <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
-            В этом foundation-шаге активна только семья жалоб в ОГП. Claims и template documents
-            здесь не показываются как готовые разделы.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-3">
-          <FoundationLink href={`/servers/${props.server.code}/documents/ogp-complaints`}>
-            Открыть OGP complaints
-          </FoundationLink>
-        </div>
-      </Card>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card className="space-y-4">
+          <div className="space-y-2">
+            <p className="text-xs uppercase tracking-[0.22em] text-[var(--accent)]">
+              Document Family
+            </p>
+            <h2 className="text-2xl font-semibold">OGP complaints</h2>
+            <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
+              Первая уже рабочая family в document area. Здесь живут persisted drafts, owner-only
+              editor route, deterministic BBCode generation и manual publication metadata.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <FoundationLink href={`/servers/${props.server.code}/documents/ogp-complaints`}>
+              Открыть OGP complaints
+            </FoundationLink>
+          </div>
+        </Card>
+
+        <Card className="space-y-4">
+          <div className="space-y-2">
+            <p className="text-xs uppercase tracking-[0.22em] text-[var(--accent)]">
+              Document Family
+            </p>
+            <h2 className="text-2xl font-semibold">Claims</h2>
+            <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
+              Отдельная family рядом с OGP complaints. Она покрывает subtype `rehabilitation` и
+              `lawsuit`, но на этом шаге ещё не включает persisted editor, generation или
+              publication workflow.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <FoundationLink href={`/servers/${props.server.code}/documents/claims`}>
+              Открыть Claims
+            </FoundationLink>
+            <FoundationLink href={`/servers/${props.server.code}/documents/claims/new`}>
+              Выбрать subtype
+            </FoundationLink>
+          </div>
+        </Card>
+      </div>
     </div>
   );
 }
@@ -291,6 +323,132 @@ export function OgpComplaintFoundation(props: {
               Открыть pre-draft entry
             </FoundationLink>
           ) : null}
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+function formatClaimSubtypeLabel(subtype: "rehabilitation" | "lawsuit") {
+  return subtype === "rehabilitation" ? "Rehabilitation" : "Lawsuit";
+}
+
+export function ClaimsFamilyFoundation(props: {
+  mode: "index" | "new" | "editor";
+  server: {
+    code: string;
+    name: string;
+  };
+  selectedCharacter: {
+    fullName: string;
+    passportNumber: string;
+    source: "last_used" | "first_available";
+  } | null;
+  selectedSubtype?: "rehabilitation" | "lawsuit" | null;
+  documentId?: string;
+}) {
+  const title =
+    props.mode === "index"
+      ? "Claims"
+      : props.mode === "new"
+        ? "Новый claim"
+        : "Future claims editor route";
+
+  const description =
+    props.mode === "index"
+      ? "Это отдельная family внутри server-scoped document area. Здесь позже будут жить persisted claims типов `rehabilitation` и `lawsuit`."
+      : props.mode === "new"
+        ? "Это entry route family `Claims`. Сначала пользователь обязан выбрать subtype, а persisted create/edit flow начнётся только в следующем claims-шаге."
+        : "Это future owner-account route для claims. Здесь пока нет fake loading, fake persistence и нет подмены работы через `/account` или `/app`.";
+
+  return (
+    <div className="space-y-6">
+      <Card className="space-y-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">Claims Family</p>
+          {props.mode === "editor" ? <Badge>owner-account route foundation</Badge> : null}
+          {props.selectedSubtype ? <Badge>Subtype: {formatClaimSubtypeLabel(props.selectedSubtype)}</Badge> : null}
+        </div>
+        <h1 className="text-3xl font-semibold">{title}</h1>
+        <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">{description}</p>
+        <div className="flex flex-wrap items-center gap-2 text-sm leading-6 text-[var(--muted)]">
+          <Badge>serverSlug: {props.server.code}</Badge>
+          <Badge>Сервер: {props.server.name}</Badge>
+          {props.selectedCharacter ? (
+            <>
+              <Badge>Персонаж: {props.selectedCharacter.fullName}</Badge>
+              <span>Паспорт: {props.selectedCharacter.passportNumber}</span>
+              <span>
+                UX-default:{" "}
+                {props.selectedCharacter.source === "last_used" ? "last-used" : "first available"}
+              </span>
+            </>
+          ) : (
+            <Badge>Персонаж пока не выбран</Badge>
+          )}
+        </div>
+      </Card>
+
+      <Card className="space-y-4">
+        <h2 className="text-2xl font-semibold">Что входит в family `Claims`</h2>
+        <ul className="space-y-2 text-sm leading-6 text-[var(--muted)]">
+          <li>Subtype `rehabilitation`.</li>
+          <li>Subtype `lawsuit`.</li>
+          <li>Отдельный route/editor contract, не подмешанный в `OGP complaints`.</li>
+          <li>Никакого `BBCode`, `publication_url` или forum automation на этом шаге.</li>
+          {props.mode === "editor" ? (
+            <li>Subtype будущего persisted документа будет определяться по `document_type`, а не по URL.</li>
+          ) : null}
+          {props.mode === "editor" && props.documentId ? (
+            <li>Текущий route contract использует documentId из URL: {props.documentId}.</li>
+          ) : null}
+        </ul>
+      </Card>
+
+      {props.mode === "new" ? (
+        <Card className="space-y-4">
+          <h2 className="text-2xl font-semibold">Выбор subtype</h2>
+          <p className="text-sm leading-6 text-[var(--muted)]">
+            Subtype choice обязателен. Сейчас это честный foundation-level entry без draft creation:
+            route только фиксирует будущий контракт editor flow.
+          </p>
+          <div className="flex flex-wrap gap-3">
+            <FoundationLink href={`/servers/${props.server.code}/documents/claims/new?subtype=rehabilitation`}>
+              Выбрать Rehabilitation
+            </FoundationLink>
+            <FoundationLink href={`/servers/${props.server.code}/documents/claims/new?subtype=lawsuit`}>
+              Выбрать Lawsuit
+            </FoundationLink>
+          </div>
+          {props.selectedSubtype ? (
+            <p className="text-sm leading-6 text-[var(--muted)]">
+              Сейчас выбран subtype `{props.selectedSubtype}`. Persisted claims create flow и
+              claims editor payload появятся отдельным следующим блоком.
+            </p>
+          ) : (
+            <p className="text-sm leading-6 text-[var(--muted)]">
+              Пока subtype не выбран. Без явного выбора route не должен создавать впечатление, что
+              claims draft уже создаётся автоматически.
+            </p>
+          )}
+        </Card>
+      ) : null}
+
+      <Card className="space-y-4">
+        <div className="flex flex-wrap gap-3">
+          {props.mode !== "index" ? (
+            <FoundationLink href={`/servers/${props.server.code}/documents/claims`}>
+              Вернуться к Claims family
+            </FoundationLink>
+          ) : null}
+          {props.mode !== "new" ? (
+            <FoundationLink href={`/servers/${props.server.code}/documents/claims/new`}>
+              Открыть subtype choice
+            </FoundationLink>
+          ) : null}
+          <FoundationLink href={`/servers/${props.server.code}/documents`}>
+            Вернуться к hub сервера
+          </FoundationLink>
         </div>
       </Card>
     </div>

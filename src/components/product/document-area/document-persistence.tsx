@@ -43,6 +43,22 @@ function formatDocumentType(documentType: DocumentAreaPersistedListItem["documen
   return "Lawsuit";
 }
 
+function formatDocumentFamily(documentType: DocumentAreaPersistedListItem["documentType"]) {
+  return documentType === "ogp_complaint" ? "OGP complaints" : "Claims";
+}
+
+function formatDocumentSubtype(documentType: DocumentAreaPersistedListItem["documentType"]) {
+  if (documentType === "rehabilitation") {
+    return "Rehabilitation";
+  }
+
+  if (documentType === "lawsuit") {
+    return "Lawsuit";
+  }
+
+  return null;
+}
+
 function formatDocumentStatus(status: DocumentAreaPersistedListItem["status"]) {
   if (status === "draft") {
     return "draft";
@@ -57,6 +73,14 @@ function formatDocumentStatus(status: DocumentAreaPersistedListItem["status"]) {
 
 function formatFilingMode(mode: DocumentAreaPersistedListItem["filingMode"]) {
   return mode === "representative" ? "representative" : "self";
+}
+
+function buildDocumentEditorHref(document: DocumentAreaPersistedListItem) {
+  if (document.documentType === "ogp_complaint") {
+    return `/servers/${document.server.code}/documents/ogp-complaints/${document.id}`;
+  }
+
+  return `/servers/${document.server.code}/documents/claims/${document.id}`;
 }
 
 function PersistedDocumentList(props: {
@@ -79,7 +103,12 @@ function PersistedDocumentList(props: {
         <Card className="space-y-4" key={document.id}>
           <div className="space-y-2">
             <div className="flex flex-wrap items-center gap-2">
-              <Badge>{formatDocumentType(document.documentType)}</Badge>
+              <Badge>{formatDocumentFamily(document.documentType)}</Badge>
+              {formatDocumentSubtype(document.documentType) ? (
+                <Badge>{formatDocumentSubtype(document.documentType)}</Badge>
+              ) : (
+                <Badge>{formatDocumentType(document.documentType)}</Badge>
+              )}
               <Badge>{formatDocumentStatus(document.status)}</Badge>
               <Badge>filing mode: {formatFilingMode(document.filingMode)}</Badge>
               <span className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
@@ -92,10 +121,18 @@ function PersistedDocumentList(props: {
               {document.authorSnapshot.passportNumber}. Snapshot captured:{" "}
               {new Date(document.snapshotCapturedAt).toLocaleString("ru-RU")}.
             </p>
-            {(document.appealNumber || document.objectOrganization || document.objectFullName) ? (
+            {document.documentType === "ogp_complaint" &&
+            (document.appealNumber || document.objectOrganization || document.objectFullName) ? (
               <p className="text-sm leading-6 text-[var(--muted)]">
                 Appeal number: {document.appealNumber || "не указан"}. Object:{" "}
                 {document.objectOrganization || "—"} / {document.objectFullName || "—"}.
+              </p>
+            ) : null}
+            {document.documentType !== "ogp_complaint" ? (
+              <p className="text-sm leading-6 text-[var(--muted)]">
+                Persisted claims summary появится здесь позже без смены aggregator route. Семья
+                документа уже будет видна как `Claims`, а subtype — как `Rehabilitation` или
+                `Lawsuit`.
               </p>
             ) : null}
             <p className="text-sm leading-6 text-[var(--muted)]">
@@ -119,10 +156,10 @@ function PersistedDocumentList(props: {
             ) : null}
           </div>
           <div className="flex flex-wrap gap-3">
-            <DocumentLink
-              href={`/servers/${document.server.code}/documents/ogp-complaints/${document.id}`}
-            >
-              Открыть persisted complaint
+            <DocumentLink href={buildDocumentEditorHref(document)}>
+              {document.documentType === "ogp_complaint"
+                ? "Открыть persisted complaint"
+                : "Открыть persisted claim"}
             </DocumentLink>
           </div>
         </Card>
@@ -144,7 +181,9 @@ export function AccountDocumentsPersistedOverview(props: {
         <h1 className="text-3xl font-semibold">Мои документы</h1>
         <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
           `/account/documents` остаётся cross-server обзором persisted документов. Это не главный
-          create/edit route: рабочая зона по-прежнему живёт в server-scoped маршрутах.
+          create/edit route: рабочая зона по-прежнему живёт в server-scoped маршрутах. `OGP
+          complaints` уже persisted, а family `Claims` зарезервирована рядом с ними и позже будет
+          показывать subtype `rehabilitation | lawsuit` без отдельного account editor center.
         </p>
       </Card>
 
@@ -165,7 +204,8 @@ export function AccountDocumentsPersistedOverview(props: {
                 <p className="text-sm leading-6 text-[var(--muted)]">
                   Персонажей на сервере: {server.characterCount}. persisted OGP complaints:{" "}
                   {server.ogpComplaintDocumentCount}. Это bridge в server-scoped document area, а не
-                  editor внутри account zone.
+                  editor внутри account zone. Claims family тоже живёт в том же server-scoped hub,
+                  но не наследует OGP generation/publication workflow автоматически.
                 </p>
               </div>
               <div className="flex flex-wrap gap-3">
