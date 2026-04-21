@@ -10,6 +10,7 @@ export type AssistantRenderedAnswer = {
   sections: {
     summary: string;
     normativeAnalysis: string;
+    precedentAnalysis: string;
     interpretation: string;
     sources?: string;
   };

@@ -27,6 +27,9 @@ describe("/assistant page", () => {
         name: "Blackberry",
         hasCurrentLawCorpus: true,
         currentPrimaryLawCount: 2,
+        hasUsablePrecedentCorpus: false,
+        currentPrecedentCount: 0,
+        hasUsableAssistantCorpus: true,
       },
     ]);
 

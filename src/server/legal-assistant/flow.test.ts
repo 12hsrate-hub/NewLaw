@@ -28,7 +28,7 @@ describe("legal assistant flow", () => {
           savedAnswer: {
             questionText: "Первый вопрос",
             answerMarkdown:
-              "## Краткий вывод\nОтвет.\n\n## Что прямо следует из норм\nНорма.\n\n## Вывод / интерпретация\nИнтерпретация.",
+              "## Краткий вывод\nОтвет.\n\n## Что прямо следует из норм закона\nНорма.\n\n## Что подтверждается судебными прецедентами\nПрецедент.\n\n## Вывод / интерпретация\nИнтерпретация.",
             answerMetadataJson: {
               serverId: "server-1",
             },
@@ -52,10 +52,11 @@ describe("legal assistant flow", () => {
     const generateServerLegalAssistantAnswer = vi.fn().mockResolvedValue({
       status: "answered",
       answerMarkdown:
-        "## Краткий вывод\nОтвет.\n\n## Что прямо следует из норм\nНорма.\n\n## Вывод / интерпретация\nИнтерпретация.",
+        "## Краткий вывод\nОтвет.\n\n## Что прямо следует из норм закона\nНорма.\n\n## Что подтверждается судебными прецедентами\nПрецедент.\n\n## Вывод / интерпретация\nИнтерпретация.",
       sections: {
         summary: "Ответ.",
         normativeAnalysis: "Норма.",
+        precedentAnalysis: "Прецедент.",
         interpretation: "Интерпретация.",
       },
       metadata: {

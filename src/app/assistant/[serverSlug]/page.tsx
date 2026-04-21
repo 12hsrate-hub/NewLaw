@@ -75,6 +75,9 @@ export default async function AssistantServerPage({ params }: AssistantServerPag
           name: server.name,
           hasCurrentLawCorpus: false,
           currentPrimaryLawCount: 0,
+          hasUsablePrecedentCorpus: false,
+          currentPrecedentCount: 0,
+          hasUsableAssistantCorpus: false,
         }
       : null);
 
@@ -123,12 +126,13 @@ export default async function AssistantServerPage({ params }: AssistantServerPag
             servers={servers}
           />
 
-          {!selectedServer.hasCurrentLawCorpus ? (
+          {!selectedServer.hasUsableAssistantCorpus ? (
             <Card className="space-y-3">
               <h1 className="text-3xl font-semibold">{selectedServer.name}</h1>
               <p className="text-sm leading-6 text-[var(--muted)]">
-                Для этого сервера пока нет подтвержденного current law corpus. Помощник не может
-                честно отвечать, пока подтвержденные primary laws не подготовлены.
+                Для этого сервера пока нет подтвержденного usable corpus. Помощник не может честно
+                отвечать, пока не подготовлены current primary laws или подтверждённые судебные
+                прецеденты после review.
               </p>
             </Card>
           ) : (

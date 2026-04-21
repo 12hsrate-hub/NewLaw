@@ -6,6 +6,7 @@
 `06.2 precedent schema + source topic foundation` выполнен.  
 `06.3 precedent discovery / import / split foundation` выполнен.  
 `06.4 precedents current-review + validity workflow` выполнен.
+`06.5 assistant precedents integration` выполнен.
 
 На текущем шаге блок уже умеет:
 
@@ -35,7 +36,6 @@
 
 Что ещё не входит в блок на этом шаге:
 
-- assistant integration
 - embeddings, vector search, reranking
 - documents, `BBCode`, forum publishing, AI document generation
 - полноценная precedent-админка
@@ -55,7 +55,7 @@
 
 - судебные прецеденты не смешиваются с `primary laws`
 - precedents не хранятся как `law_kind` и не являются разновидностью `supplement`
-- precedents не попадают автоматически в уже работающий assistant
+- precedents не смешиваются с законами в assistant и попадают туда только после отдельного reviewed/current/validity workflow
 - управление precedents corpus доступно только `super_admin`
 - source of truth для precedent — forum topic + imported snapshot
 - текст precedent вручную на сайте не редактируется
@@ -441,20 +441,73 @@ Validity status:
 - только один активный draft остаётся на precedent
 - structurally weak draft даёт warning path, а не auto-block
 - `/app/admin-laws` precedent review controls недоступны `non-super-admin`
-- precedents после `06.4` всё ещё не участвуют в assistant автоматически
+- precedents после `06.5` участвуют в assistant только как отдельный grounded layer и не выдаются как норма закона
 
 ## Следующие подшаги блока
 
-### 06.5 — assistant precedents integration
+## Что сделано в 06.5
 
-Входит:
+### Assistant precedents integration
 
 - precedent retrieval provider
 - typed retrieval envelope `law + precedent`
 - laws-first answer policy
 - отдельный precedent-grounded section в assistant response
+- combined retrieval revision metadata для `law` и `precedent` corpus
 
-Не входит:
+### Retrieval policy для precedents
+
+В assistant retrieval precedents участвуют только если:
+
+- `server_id` совпадает
+- precedent version имеет `status = current`
+- `validity_status in (applicable, limited)`
+
+По умолчанию исключаются:
+
+- `obsolete`
+- `imported_draft`
+- `superseded`
+- `supplement`
+
+Основной retrieval unit для precedents:
+
+- `holding`
+- затем `resolution`
+- затем `reasoning`
+- `facts` и `unstructured` только как fallback
+
+### Laws-first answer policy
+
+Assistant теперь строит ответ по такой схеме:
+
+- сначала law-grounded часть
+- затем отдельная precedent-grounded часть
+- затем отдельная интерпретация
+
+Если закон не найден, но есть подтверждённый precedent, assistant обязан явно пометить, что ответ опирается на precedent-corpus, а не на норму закона.
+
+### Grounded metadata
+
+Metadata ответа теперь поддерживает одновременно:
+
+- `law_corpus_snapshot`
+- `precedent_corpus_snapshot`
+- `combined retrieval revision`
+- `law_version_ids` / `law_block_ids`
+- `precedent_version_ids` / `precedent_block_ids`
+- `source topic URL`
+- `validity_status` для precedent references
+
+### UI и границы
+
+- assistant routes не менялись и по-прежнему живут вне `/app`
+- assistant не превращается в chat/history module
+- precedents показываются в UI как отдельный источник, а не как часть закона
+- if no relevant precedents, assistant не делает вид, что они есть
+- proxy-only AI policy не меняется
+
+## Что не входит даже после 06.5
 
 - embeddings
 - feedback/rating
@@ -464,7 +517,6 @@ Validity status:
 ## Что точно не нужно делать в MVP этого precedent-блока
 
 - смешивать precedents с `primary laws`
-- автоматически подмешивать precedents в текущий assistant до завершения отдельного integration-подшага
 - строить полноценную precedent-админку
 - делать documents / `BBCode` / forum publishing / AI document generation
 - делать embeddings / vector search / reranking как обязательную часть precedent foundation

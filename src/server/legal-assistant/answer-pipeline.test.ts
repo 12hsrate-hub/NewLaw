@@ -2,8 +2,80 @@ import { describe, expect, it, vi } from "vitest";
 
 import { generateServerLegalAssistantAnswer } from "@/server/legal-assistant/answer-pipeline";
 
+function createAssistantRetrieval(overrides?: Partial<{
+  hasCurrentLawCorpus: boolean;
+  hasUsablePrecedentCorpus: boolean;
+  lawResults: Array<Record<string, unknown>>;
+  precedentResults: Array<Record<string, unknown>>;
+}>) {
+  const lawResults = (overrides?.lawResults ?? []) as Array<Record<string, unknown>>;
+  const precedentResults = (overrides?.precedentResults ?? []) as Array<Record<string, unknown>>;
+  const hasCurrentLawCorpus = overrides?.hasCurrentLawCorpus ?? lawResults.length > 0;
+  const hasUsablePrecedentCorpus =
+    overrides?.hasUsablePrecedentCorpus ?? precedentResults.length > 0;
+
+  return {
+    serverId: "server-1",
+    query: "Что с договором?",
+    generatedAt: "2026-04-21T08:00:00.000Z",
+    hasCurrentLawCorpus,
+    hasUsablePrecedentCorpus,
+    hasAnyUsableCorpus: hasCurrentLawCorpus || hasUsablePrecedentCorpus,
+    lawRetrieval: {
+      query: "Что с договором?",
+      serverId: "server-1",
+      resultCount: lawResults.length,
+      corpusSnapshot: {
+        serverId: "server-1",
+        generatedAt: "2026-04-21T08:00:00.000Z",
+        currentVersionIds: hasCurrentLawCorpus ? ["law-version-1"] : [],
+        corpusSnapshotHash: "law-snapshot-hash",
+      },
+      results: lawResults,
+    },
+    precedentRetrieval: {
+      query: "Что с договором?",
+      serverId: "server-1",
+      resultCount: precedentResults.length,
+      corpusSnapshot: {
+        serverId: "server-1",
+        generatedAt: "2026-04-21T08:00:00.000Z",
+        currentVersionIds: hasUsablePrecedentCorpus ? ["precedent-version-1"] : [],
+        corpusSnapshotHash: "precedent-snapshot-hash",
+      },
+      results: precedentResults,
+    },
+    resultCount: lawResults.length + precedentResults.length,
+    results: [
+      ...lawResults.map((result) => ({ ...result, sourceKind: "law" })),
+      ...precedentResults.map((result) => ({ ...result, sourceKind: "precedent" })),
+    ],
+    lawCorpusSnapshot: {
+      serverId: "server-1",
+      generatedAt: "2026-04-21T08:00:00.000Z",
+      currentVersionIds: hasCurrentLawCorpus ? ["law-version-1"] : [],
+      corpusSnapshotHash: "law-snapshot-hash",
+    },
+    precedentCorpusSnapshot: {
+      serverId: "server-1",
+      generatedAt: "2026-04-21T08:00:00.000Z",
+      currentVersionIds: hasUsablePrecedentCorpus ? ["precedent-version-1"] : [],
+      corpusSnapshotHash: "precedent-snapshot-hash",
+    },
+    combinedRetrievalRevision: {
+      serverId: "server-1",
+      generatedAt: "2026-04-21T08:00:00.000Z",
+      lawCorpusSnapshotHash: "law-snapshot-hash",
+      precedentCorpusSnapshotHash: "precedent-snapshot-hash",
+      combinedCorpusSnapshotHash: "combined-snapshot-hash",
+      lawCurrentVersionIds: hasCurrentLawCorpus ? ["law-version-1"] : [],
+      precedentCurrentVersionIds: hasUsablePrecedentCorpus ? ["precedent-version-1"] : [],
+    },
+  };
+}
+
 describe("answer pipeline", () => {
-  it("честно возвращает fallback, если нормы не найдены", async () => {
+  it("честно возвращает fallback, если не найдены ни нормы, ни подтверждённые precedents", async () => {
     const createAIRequest = vi.fn();
     const requestAssistantProxyCompletion = vi.fn();
     const result = await generateServerLegalAssistantAnswer(
@@ -14,29 +86,23 @@ describe("answer pipeline", () => {
         question: "Есть ли норма про неизвестный институт?",
       },
       {
-        searchCurrentLawCorpus: vi.fn().mockResolvedValue({
-          query: "Есть ли норма про неизвестный институт?",
-          serverId: "server-1",
-          resultCount: 0,
-          corpusSnapshot: {
-            serverId: "server-1",
-            generatedAt: "2026-04-20T10:00:00.000Z",
-            currentVersionIds: ["version-1"],
-            corpusSnapshotHash: "snapshot-hash",
-          },
-          results: [],
-        }),
+        searchAssistantCorpus: vi.fn().mockResolvedValue(
+          createAssistantRetrieval({
+            hasCurrentLawCorpus: true,
+            hasUsablePrecedentCorpus: true,
+          }),
+        ),
         requestAssistantProxyCompletion,
         createAIRequest,
-        now: () => new Date("2026-04-20T10:00:00.000Z"),
+        now: () => new Date("2026-04-21T08:00:00.000Z"),
       },
     );
 
     expect(result.status).toBe("no_norms");
     if (result.status === "no_norms") {
-      expect(result.answerMarkdown).toContain("Краткий вывод");
-      expect(result.answerMarkdown).toContain("Использованные нормы / источники");
+      expect(result.answerMarkdown).toContain("Что подтверждается судебными прецедентами");
       expect(result.metadata.references).toEqual([]);
+      expect(result.sections.precedentAnalysis).toContain("precedent");
     }
     expect(requestAssistantProxyCompletion).not.toHaveBeenCalled();
     expect(createAIRequest).toHaveBeenCalledWith(
@@ -49,8 +115,31 @@ describe("answer pipeline", () => {
     );
   });
 
-  it("возвращает grounded metadata и article blocks в успешном ответе", async () => {
+  it("строит laws-first ответ и grounded metadata для законов и precedents", async () => {
     const createAIRequest = vi.fn();
+    const requestAssistantProxyCompletion = vi.fn().mockResolvedValue({
+      status: "success",
+      content: [
+        "## Краткий вывод",
+        "Да, письменная форма требуется, а судебная практика подтверждает жёсткий подход к её отсутствию.",
+        "",
+        "## Что прямо следует из норм закона",
+        "Статья 1 прямо требует письменную форму договора.",
+        "",
+        "## Что подтверждается судебными прецедентами",
+        "Подтверждённый precedent указывает, что отсутствие письменной формы ведёт к отказу в защите требования.",
+        "",
+        "## Вывод / интерпретация",
+        "Следовательно, без письменного оформления позиция стороны будет слабее, если в корпусе нет специального исключения.",
+      ].join("\n"),
+      proxyKey: "primary",
+      providerKey: "openai_compatible",
+      model: "gpt-5.4",
+      responsePayloadJson: {
+        choices: [],
+      },
+    });
+
     const result = await generateServerLegalAssistantAnswer(
       {
         serverId: "server-1",
@@ -60,80 +149,191 @@ describe("answer pipeline", () => {
         accountId: "account-1",
       },
       {
-        searchCurrentLawCorpus: vi.fn().mockResolvedValue({
-          query: "Нужен ли письменный договор?",
-          serverId: "server-1",
-          resultCount: 1,
-          corpusSnapshot: {
-            serverId: "server-1",
-            generatedAt: "2026-04-20T10:00:00.000Z",
-            currentVersionIds: ["version-1"],
-            corpusSnapshotHash: "snapshot-hash",
-          },
-          results: [
-            {
-              serverId: "server-1",
-              lawId: "law-1",
-              lawKey: "civil_code",
-              lawTitle: "Гражданский кодекс",
-              lawVersionId: "version-1",
-              lawVersionStatus: "current",
-              lawBlockId: "block-1",
-              blockType: "article",
-              blockOrder: 1,
-              articleNumberNormalized: "1",
-              snippet: "Статья 1. Договор заключается письменно.",
-              blockText: "Статья 1. Договор заключается письменно.",
-              sourceTopicUrl: "https://forum.gta5rp.com/threads/100001/",
-              sourcePosts: [
-                {
-                  postExternalId: "post-1",
-                  postUrl: "https://forum.gta5rp.com/posts/1001",
-                  postOrder: 1,
+        searchAssistantCorpus: vi.fn().mockResolvedValue(
+          createAssistantRetrieval({
+            lawResults: [
+              {
+                serverId: "server-1",
+                lawId: "law-1",
+                lawKey: "civil_code",
+                lawTitle: "Гражданский кодекс",
+                lawVersionId: "law-version-1",
+                lawVersionStatus: "current",
+                lawBlockId: "law-block-1",
+                blockType: "article",
+                blockOrder: 1,
+                articleNumberNormalized: "1",
+                snippet: "Статья 1. Договор заключается письменно.",
+                blockText: "Статья 1. Договор заключается письменно.",
+                sourceTopicUrl: "https://forum.gta5rp.com/threads/100001/",
+                sourcePosts: [
+                  {
+                    postExternalId: "post-1",
+                    postUrl: "https://forum.gta5rp.com/posts/1001",
+                    postOrder: 1,
+                  },
+                ],
+                metadata: {
+                  sourceSnapshotHash: "law-source-hash",
+                  normalizedTextHash: "law-normalized-hash",
+                  corpusSnapshotHash: "law-snapshot-hash",
                 },
-              ],
-              metadata: {
-                sourceSnapshotHash: "source-hash",
-                normalizedTextHash: "normalized-hash",
-                corpusSnapshotHash: "snapshot-hash",
               },
-            },
-          ],
-        }),
-        requestAssistantProxyCompletion: vi.fn().mockResolvedValue({
-          status: "success",
-          content:
-            "## Краткий вывод\nДа, договор должен быть письменным.\n\n## Что прямо следует из норм\nСтатья 1 прямо требует письменную форму.\n\n## Вывод / интерпретация\nЭто означает, что устной формы недостаточно, если нет специального исключения в корпусе.",
-          proxyKey: "primary",
-          providerKey: "openai_compatible",
-          model: "gpt-5.4",
-          responsePayloadJson: {
-            choices: [],
-          },
-        }),
+            ],
+            precedentResults: [
+              {
+                serverId: "server-1",
+                precedentId: "precedent-1",
+                precedentKey: "precedent_written_form",
+                precedentTitle: "О письменной форме договора",
+                precedentVersionId: "precedent-version-1",
+                precedentVersionStatus: "current",
+                precedentBlockId: "precedent-block-1",
+                blockType: "holding",
+                blockOrder: 2,
+                snippet: "Суд указал, что устное соглашение не подтверждает право требования.",
+                blockText: "Суд указал, что устное соглашение не подтверждает право требования.",
+                validityStatus: "applicable",
+                sourceTopicUrl: "https://forum.gta5rp.com/threads/200001/",
+                sourceTopicTitle: "Судебные прецеденты Верховного суда",
+                sourcePosts: [
+                  {
+                    postExternalId: "post-2",
+                    postUrl: "https://forum.gta5rp.com/posts/2001",
+                    postOrder: 2,
+                  },
+                ],
+                metadata: {
+                  sourceSnapshotHash: "precedent-source-hash",
+                  normalizedTextHash: "precedent-normalized-hash",
+                  corpusSnapshotHash: "precedent-snapshot-hash",
+                },
+              },
+            ],
+          }),
+        ),
+        requestAssistantProxyCompletion,
         createAIRequest,
-        now: () => new Date("2026-04-20T10:00:00.000Z"),
+        now: () => new Date("2026-04-21T08:00:00.000Z"),
       },
     );
 
     expect(result.status).toBe("answered");
     if (result.status === "answered") {
       expect(result.sections.normativeAnalysis).toContain("Статья 1");
-      expect(result.sections.sources).toContain("Гражданский кодекс");
-      expect(result.metadata.references).toHaveLength(1);
-      expect(result.metadata.references[0].blockType).toBe("article");
-      expect(result.answerMarkdown).toContain("## Использованные нормы / источники");
+      expect(result.sections.precedentAnalysis).toContain("precedent");
+      expect(result.answerMarkdown).toContain("## Что прямо следует из норм закона");
+      expect(result.answerMarkdown).toContain("## Что подтверждается судебными прецедентами");
+      expect(result.metadata.lawsUsed).toHaveLength(1);
+      expect(result.metadata.precedentsUsed).toHaveLength(1);
+      expect(result.metadata.references).toHaveLength(2);
+      expect(result.metadata.references[0].sourceKind).toBe("law");
+      expect(result.metadata.references[1].sourceKind).toBe("precedent");
+      expect(result.metadata.combinedRetrievalRevision.combinedCorpusSnapshotHash).toBe(
+        "combined-snapshot-hash",
+      );
     }
+    expect(requestAssistantProxyCompletion).toHaveBeenCalledWith(
+      expect.objectContaining({
+        systemPrompt: expect.stringContaining("Законы и судебные прецеденты — разные типы источников"),
+        userPrompt: expect.stringContaining("Законы (используй только этот grounded layer, если он есть):"),
+        requestMetadata: expect.objectContaining({
+          lawResultsCount: 1,
+          precedentResultsCount: 1,
+        }),
+      }),
+    );
     expect(createAIRequest).toHaveBeenCalledWith(
       expect.objectContaining({
         featureKey: "server_legal_assistant",
         accountId: "account-1",
         status: "success",
         requestPayloadJson: expect.objectContaining({
-          retrievalResults: expect.any(Array),
+          retrievalResults: expect.arrayContaining([
+            expect.objectContaining({ sourceKind: "law" }),
+            expect.objectContaining({ sourceKind: "precedent" }),
+          ]),
         }),
       }),
     );
+  });
+
+  it("явно допускает precedent-only ответ, если laws нет, но есть подтверждённый precedent", async () => {
+    const requestAssistantProxyCompletion = vi.fn().mockResolvedValue({
+      status: "success",
+      content: [
+        "## Краткий вывод",
+        "Прямой нормы закона в подтверждённом corpus не найдено, но есть подтверждённый судебный precedent.",
+        "",
+        "## Что прямо следует из норм закона",
+        "В current primary laws выбранного сервера релевантная норма закона не найдена.",
+        "",
+        "## Что подтверждается судебными прецедентами",
+        "Подтверждённый precedent указывает на необходимость письменной формы.",
+        "",
+        "## Вывод / интерпретация",
+        "Ответ опирается на precedent-corpus, а не на прямую норму закона.",
+      ].join("\n"),
+      proxyKey: "primary",
+      providerKey: "openai_compatible",
+      model: "gpt-5.4",
+      responsePayloadJson: {
+        choices: [],
+      },
+    });
+
+    const result = await generateServerLegalAssistantAnswer(
+      {
+        serverId: "server-1",
+        serverCode: "blackberry",
+        serverName: "Blackberry",
+        question: "Что если только precedent?",
+      },
+      {
+        searchAssistantCorpus: vi.fn().mockResolvedValue(
+          createAssistantRetrieval({
+            hasCurrentLawCorpus: false,
+            hasUsablePrecedentCorpus: true,
+            precedentResults: [
+              {
+                serverId: "server-1",
+                precedentId: "precedent-1",
+                precedentKey: "precedent_only",
+                precedentTitle: "Precedent only",
+                precedentVersionId: "precedent-version-1",
+                precedentVersionStatus: "current",
+                precedentBlockId: "precedent-block-1",
+                blockType: "holding",
+                blockOrder: 1,
+                snippet: "Holding.",
+                blockText: "Holding.",
+                validityStatus: "limited",
+                sourceTopicUrl: "https://forum.gta5rp.com/threads/200001/",
+                sourceTopicTitle: "Topic",
+                sourcePosts: [],
+                metadata: {
+                  sourceSnapshotHash: "source-hash",
+                  normalizedTextHash: "normalized-hash",
+                  corpusSnapshotHash: "snapshot-hash",
+                },
+              },
+            ],
+          }),
+        ),
+        requestAssistantProxyCompletion,
+        createAIRequest: vi.fn(),
+        now: () => new Date("2026-04-21T08:00:00.000Z"),
+      },
+    );
+
+    expect(result.status).toBe("answered");
+    expect(requestAssistantProxyCompletion).toHaveBeenCalled();
+    if (result.status === "answered") {
+      expect(result.metadata.lawsUsed).toEqual([]);
+      expect(result.metadata.precedentsUsed).toHaveLength(1);
+      expect(result.sections.normativeAnalysis).toContain("норма закона");
+      expect(result.sections.precedentAnalysis).toContain("precedent");
+    }
   });
 
   it("возвращает безопасный unavailable state, если AI proxy недоступен", async () => {
@@ -146,40 +346,33 @@ describe("answer pipeline", () => {
         question: "Нужен ли письменный договор?",
       },
       {
-        searchCurrentLawCorpus: vi.fn().mockResolvedValue({
-          query: "Нужен ли письменный договор?",
-          serverId: "server-1",
-          resultCount: 1,
-          corpusSnapshot: {
-            serverId: "server-1",
-            generatedAt: "2026-04-20T10:00:00.000Z",
-            currentVersionIds: ["version-1"],
-            corpusSnapshotHash: "snapshot-hash",
-          },
-          results: [
-            {
-              serverId: "server-1",
-              lawId: "law-1",
-              lawKey: "civil_code",
-              lawTitle: "Гражданский кодекс",
-              lawVersionId: "version-1",
-              lawVersionStatus: "current",
-              lawBlockId: "block-1",
-              blockType: "article",
-              blockOrder: 1,
-              articleNumberNormalized: "1",
-              snippet: "Статья 1. Договор заключается письменно.",
-              blockText: "Статья 1. Договор заключается письменно.",
-              sourceTopicUrl: "https://forum.gta5rp.com/threads/100001/",
-              sourcePosts: [],
-              metadata: {
-                sourceSnapshotHash: "source-hash",
-                normalizedTextHash: "normalized-hash",
-                corpusSnapshotHash: "snapshot-hash",
+        searchAssistantCorpus: vi.fn().mockResolvedValue(
+          createAssistantRetrieval({
+            lawResults: [
+              {
+                serverId: "server-1",
+                lawId: "law-1",
+                lawKey: "civil_code",
+                lawTitle: "Гражданский кодекс",
+                lawVersionId: "law-version-1",
+                lawVersionStatus: "current",
+                lawBlockId: "law-block-1",
+                blockType: "article",
+                blockOrder: 1,
+                articleNumberNormalized: "1",
+                snippet: "Статья 1. Договор заключается письменно.",
+                blockText: "Статья 1. Договор заключается письменно.",
+                sourceTopicUrl: "https://forum.gta5rp.com/threads/100001/",
+                sourcePosts: [],
+                metadata: {
+                  sourceSnapshotHash: "source-hash",
+                  normalizedTextHash: "normalized-hash",
+                  corpusSnapshotHash: "snapshot-hash",
+                },
               },
-            },
-          ],
-        }),
+            ],
+          }),
+        ),
         requestAssistantProxyCompletion: vi.fn().mockResolvedValue({
           status: "unavailable",
           message: "AI proxy не настроен.",
@@ -188,7 +381,7 @@ describe("answer pipeline", () => {
           model: "gpt-5.4",
         }),
         createAIRequest,
-        now: () => new Date("2026-04-20T10:00:00.000Z"),
+        now: () => new Date("2026-04-21T08:00:00.000Z"),
       },
     );
 
@@ -203,7 +396,7 @@ describe("answer pipeline", () => {
     );
   });
 
-  it("логирует no_corpus без вызова модели", async () => {
+  it("логирует no_corpus без вызова модели, если нет ни current laws, ни usable precedents", async () => {
     const createAIRequest = vi.fn();
     const requestAssistantProxyCompletion = vi.fn();
 
@@ -215,21 +408,15 @@ describe("answer pipeline", () => {
         question: "Нужен ли письменный договор?",
       },
       {
-        searchCurrentLawCorpus: vi.fn().mockResolvedValue({
-          query: "Нужен ли письменный договор?",
-          serverId: "server-1",
-          resultCount: 0,
-          corpusSnapshot: {
-            serverId: "server-1",
-            generatedAt: "2026-04-20T10:00:00.000Z",
-            currentVersionIds: [],
-            corpusSnapshotHash: "snapshot-hash",
-          },
-          results: [],
-        }),
+        searchAssistantCorpus: vi.fn().mockResolvedValue(
+          createAssistantRetrieval({
+            hasCurrentLawCorpus: false,
+            hasUsablePrecedentCorpus: false,
+          }),
+        ),
         requestAssistantProxyCompletion,
         createAIRequest,
-        now: () => new Date("2026-04-20T10:00:00.000Z"),
+        now: () => new Date("2026-04-21T08:00:00.000Z"),
       },
     );
 
@@ -245,7 +432,7 @@ describe("answer pipeline", () => {
     );
   });
 
-  it("нормализует ответ модели в структурированный markdown даже если секции неполные", async () => {
+  it("нормализует ответ модели в структурированный markdown даже если precedent section пропущена", async () => {
     const result = await generateServerLegalAssistantAnswer(
       {
         serverId: "server-1",
@@ -254,43 +441,37 @@ describe("answer pipeline", () => {
         question: "Нужен ли письменный договор?",
       },
       {
-        searchCurrentLawCorpus: vi.fn().mockResolvedValue({
-          query: "Нужен ли письменный договор?",
-          serverId: "server-1",
-          resultCount: 1,
-          corpusSnapshot: {
-            serverId: "server-1",
-            generatedAt: "2026-04-20T10:00:00.000Z",
-            currentVersionIds: ["version-1"],
-            corpusSnapshotHash: "snapshot-hash",
-          },
-          results: [
-            {
-              serverId: "server-1",
-              lawId: "law-1",
-              lawKey: "civil_code",
-              lawTitle: "Гражданский кодекс",
-              lawVersionId: "version-1",
-              lawVersionStatus: "current",
-              lawBlockId: "block-1",
-              blockType: "article",
-              blockOrder: 1,
-              articleNumberNormalized: "1",
-              snippet: "Статья 1. Договор заключается письменно.",
-              blockText: "Статья 1. Договор заключается письменно.",
-              sourceTopicUrl: "https://forum.gta5rp.com/threads/100001/",
-              sourcePosts: [],
-              metadata: {
-                sourceSnapshotHash: "source-hash",
-                normalizedTextHash: "normalized-hash",
-                corpusSnapshotHash: "snapshot-hash",
+        searchAssistantCorpus: vi.fn().mockResolvedValue(
+          createAssistantRetrieval({
+            lawResults: [
+              {
+                serverId: "server-1",
+                lawId: "law-1",
+                lawKey: "civil_code",
+                lawTitle: "Гражданский кодекс",
+                lawVersionId: "law-version-1",
+                lawVersionStatus: "current",
+                lawBlockId: "law-block-1",
+                blockType: "article",
+                blockOrder: 1,
+                articleNumberNormalized: "1",
+                snippet: "Статья 1. Договор заключается письменно.",
+                blockText: "Статья 1. Договор заключается письменно.",
+                sourceTopicUrl: "https://forum.gta5rp.com/threads/100001/",
+                sourcePosts: [],
+                metadata: {
+                  sourceSnapshotHash: "source-hash",
+                  normalizedTextHash: "normalized-hash",
+                  corpusSnapshotHash: "snapshot-hash",
+                },
               },
-            },
-          ],
-        }),
+            ],
+          }),
+        ),
         requestAssistantProxyCompletion: vi.fn().mockResolvedValue({
           status: "success",
-          content: "## Краткий вывод\nДа.\n\n## Вывод / интерпретация\nИнтерпретация.",
+          content:
+            "## Краткий вывод\nДа.\n\n## Что прямо следует из норм закона\nСтатья 1.\n\n## Вывод / интерпретация\nИнтерпретация.",
           proxyKey: "primary",
           providerKey: "openai_compatible",
           model: "gpt-5.4",
@@ -299,16 +480,18 @@ describe("answer pipeline", () => {
           },
         }),
         createAIRequest: vi.fn(),
-        now: () => new Date("2026-04-20T10:00:00.000Z"),
+        now: () => new Date("2026-04-21T08:00:00.000Z"),
       },
     );
 
     expect(result.status).toBe("answered");
     if (result.status === "answered") {
       expect(result.answerMarkdown).toContain("## Краткий вывод");
-      expect(result.answerMarkdown).toContain("## Что прямо следует из норм");
+      expect(result.answerMarkdown).toContain("## Что прямо следует из норм закона");
+      expect(result.answerMarkdown).toContain("## Что подтверждается судебными прецедентами");
       expect(result.answerMarkdown).toContain("## Вывод / интерпретация");
       expect(result.answerMarkdown).toContain("## Использованные нормы / источники");
+      expect(result.sections.precedentAnalysis).toContain("прецедент");
     }
   });
 });

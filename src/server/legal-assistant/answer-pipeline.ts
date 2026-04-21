@@ -1,18 +1,21 @@
 import { createAIRequest } from "@/db/repositories/ai-request.repository";
-import { searchCurrentLawCorpus } from "@/server/law-corpus/retrieval";
+import {
+  type AssistantTypedRetrievalReference,
+  searchAssistantCorpus,
+} from "@/server/legal-assistant/retrieval";
 import { requestAssistantProxyCompletion } from "@/server/legal-assistant/ai-proxy";
 
-type RetrievalResult = Awaited<ReturnType<typeof searchCurrentLawCorpus>>;
+type RetrievalResult = Awaited<ReturnType<typeof searchAssistantCorpus>>;
 
 type AnswerPipelineDependencies = {
-  searchCurrentLawCorpus: typeof searchCurrentLawCorpus;
+  searchAssistantCorpus: typeof searchAssistantCorpus;
   requestAssistantProxyCompletion: typeof requestAssistantProxyCompletion;
   createAIRequest: typeof createAIRequest;
   now: () => Date;
 };
 
 const defaultDependencies: AnswerPipelineDependencies = {
-  searchCurrentLawCorpus,
+  searchAssistantCorpus,
   requestAssistantProxyCompletion,
   createAIRequest,
   now: () => new Date(),
@@ -21,6 +24,7 @@ const defaultDependencies: AnswerPipelineDependencies = {
 export type AssistantAnswerSections = {
   summary: string;
   normativeAnalysis: string;
+  precedentAnalysis: string;
   interpretation: string;
   sources?: string;
 };
@@ -34,8 +38,11 @@ export function composeAssistantAnswerMarkdown(sections: AssistantAnswerSections
     "## Краткий вывод",
     normalizeSectionText(sections.summary),
     "",
-    "## Что прямо следует из норм",
+    "## Что прямо следует из норм закона",
     normalizeSectionText(sections.normativeAnalysis),
+    "",
+    "## Что подтверждается судебными прецедентами",
+    normalizeSectionText(sections.precedentAnalysis),
     "",
     "## Вывод / интерпретация",
     normalizeSectionText(sections.interpretation),
@@ -43,7 +50,7 @@ export function composeAssistantAnswerMarkdown(sections: AssistantAnswerSections
     "## Использованные нормы / источники",
     normalizeSectionText(
       sections.sources ??
-        "Подтверждённые нормы и источники перечислены в grounded metadata ответа.",
+        "Подтверждённые нормы, прецеденты и источники перечислены в grounded metadata ответа.",
     ),
   ].join("\n");
 }
@@ -51,18 +58,23 @@ export function composeAssistantAnswerMarkdown(sections: AssistantAnswerSections
 export function parseAssistantAnswerSections(content: string): AssistantAnswerSections {
   const normalizedContent = content.trim();
   const sectionPattern =
-    /##\s*(Краткий вывод|Что прямо следует из норм|Вывод \/ интерпретация|Использованные нормы \/ источники)\s*([\s\S]*?)(?=##\s*(?:Краткий вывод|Что прямо следует из норм|Вывод \/ интерпретация|Использованные нормы \/ источники)|$)/g;
+    /##\s*(Краткий вывод|Что прямо следует из норм закона|Что прямо следует из норм|Что подтверждается судебными прецедентами|Вывод \/ интерпретация|Использованные нормы \/ источники)\s*([\s\S]*?)(?=##\s*(?:Краткий вывод|Что прямо следует из норм закона|Что прямо следует из норм|Что подтверждается судебными прецедентами|Вывод \/ интерпретация|Использованные нормы \/ источники)|$)/g;
   const sectionMap = new Map<string, string>();
 
   for (const match of normalizedContent.matchAll(sectionPattern)) {
-    sectionMap.set(match[1], match[2].trim());
+    const title = match[1] === "Что прямо следует из норм" ? "Что прямо следует из норм закона" : match[1];
+    sectionMap.set(title, match[2].trim());
   }
 
   if (sectionMap.size === 0) {
     return {
       summary: normalizedContent,
-      normativeAnalysis: "Модель не вернула отдельную нормативную секцию в ожидаемом формате.",
-      interpretation: "Модель не выделила интерпретацию отдельно. Нужна ручная перепроверка по использованным нормам.",
+      normativeAnalysis:
+        "Модель не вернула отдельную секцию по тому, что прямо следует из норм закона.",
+      precedentAnalysis:
+        "Модель не выделила отдельную секцию по судебным прецедентам. Нужна ручная перепроверка grounded references.",
+      interpretation:
+        "Модель не выделила интерпретацию отдельно. Нужна ручная перепроверка по использованным источникам.",
       sources: "Использованные нормы и источники нужно брать только из grounded metadata ответа.",
     };
   }
@@ -70,8 +82,11 @@ export function parseAssistantAnswerSections(content: string): AssistantAnswerSe
   return {
     summary: sectionMap.get("Краткий вывод") ?? "Краткий вывод модель не вернула отдельно.",
     normativeAnalysis:
-      sectionMap.get("Что прямо следует из норм") ??
-      "Модель не вернула отдельный список того, что прямо следует из норм.",
+      sectionMap.get("Что прямо следует из норм закона") ??
+      "Модель не вернула отдельную секцию по нормам закона.",
+    precedentAnalysis:
+      sectionMap.get("Что подтверждается судебными прецедентами") ??
+      "Релевантные подтверждённые судебные прецеденты не были выделены отдельной секцией.",
     interpretation:
       sectionMap.get("Вывод / интерпретация") ??
       "Модель не вернула отдельную секцию интерпретации.",
@@ -81,32 +96,99 @@ export function parseAssistantAnswerSections(content: string): AssistantAnswerSe
   };
 }
 
-const MAX_PROMPT_BLOCKS = 4;
+const MAX_PROMPT_LAW_BLOCKS = 4;
+const MAX_PROMPT_PRECEDENT_BLOCKS = 3;
 const MAX_PROMPT_BLOCK_TEXT_LENGTH = 1200;
 const MAX_REFERENCE_SNIPPET_LENGTH = 280;
 
+type GroundedLawReference = {
+  sourceKind: "law";
+  serverId: string;
+  lawId: string;
+  lawKey: string;
+  lawTitle: string;
+  lawVersionId: string;
+  lawVersionStatus: string;
+  lawBlockId: string;
+  blockType: string;
+  blockOrder: number;
+  articleNumberNormalized?: string | null;
+  snippet: string;
+  sourceTopicUrl: string;
+  sourcePosts: Array<{
+    postExternalId: string;
+    postUrl: string;
+    postOrder: number;
+  }>;
+};
+
+type GroundedPrecedentReference = {
+  sourceKind: "precedent";
+  serverId: string;
+  precedentId: string;
+  precedentKey: string;
+  precedentTitle: string;
+  precedentVersionId: string;
+  precedentVersionStatus: string;
+  precedentBlockId: string;
+  blockType: string;
+  blockOrder: number;
+  validityStatus: string;
+  snippet: string;
+  sourceTopicUrl: string;
+  sourceTopicTitle: string;
+  sourcePosts: Array<{
+    postExternalId: string;
+    postUrl: string;
+    postOrder: number;
+  }>;
+};
+
 function buildGroundedReferences(retrieval: RetrievalResult) {
-  return retrieval.results.map((result) => ({
-    serverId: result.serverId,
-    lawId: result.lawId,
-    lawKey: result.lawKey,
-    lawTitle: result.lawTitle,
-    lawVersionId: result.lawVersionId,
-    lawVersionStatus: result.lawVersionStatus,
-    lawBlockId: result.lawBlockId,
-    blockType: result.blockType,
-    blockOrder: result.blockOrder,
-    articleNumberNormalized: result.articleNumberNormalized,
-    snippet: result.snippet.slice(0, MAX_REFERENCE_SNIPPET_LENGTH),
-    sourceTopicUrl: result.sourceTopicUrl,
-    sourcePosts: result.sourcePosts,
-  }));
+  return retrieval.results.map((result) => {
+    if (result.sourceKind === "law") {
+      return {
+        sourceKind: "law",
+        serverId: result.serverId,
+        lawId: result.lawId,
+        lawKey: result.lawKey,
+        lawTitle: result.lawTitle,
+        lawVersionId: result.lawVersionId,
+        lawVersionStatus: result.lawVersionStatus,
+        lawBlockId: result.lawBlockId,
+        blockType: result.blockType,
+        blockOrder: result.blockOrder,
+        articleNumberNormalized: result.articleNumberNormalized,
+        snippet: result.snippet.slice(0, MAX_REFERENCE_SNIPPET_LENGTH),
+        sourceTopicUrl: result.sourceTopicUrl,
+        sourcePosts: result.sourcePosts,
+      } satisfies GroundedLawReference;
+    }
+
+    return {
+      sourceKind: "precedent",
+      serverId: result.serverId,
+      precedentId: result.precedentId,
+      precedentKey: result.precedentKey,
+      precedentTitle: result.precedentTitle,
+      precedentVersionId: result.precedentVersionId,
+      precedentVersionStatus: result.precedentVersionStatus,
+      precedentBlockId: result.precedentBlockId,
+      blockType: result.blockType,
+      blockOrder: result.blockOrder,
+      validityStatus: result.validityStatus,
+      snippet: result.snippet.slice(0, MAX_REFERENCE_SNIPPET_LENGTH),
+      sourceTopicUrl: result.sourceTopicUrl,
+      sourceTopicTitle: result.sourceTopicTitle,
+      sourcePosts: result.sourcePosts,
+    } satisfies GroundedPrecedentReference;
+  });
 }
 
 function buildLawsUsed(retrieval: RetrievalResult) {
   return Array.from(
     new Map(
-      retrieval.results.map((result) => [
+      retrieval.lawRetrieval.results.map((result) => [
         `${result.lawId}:${result.lawVersionId}`,
         {
           lawId: result.lawId,
@@ -120,7 +202,7 @@ function buildLawsUsed(retrieval: RetrievalResult) {
       ]),
     ).values(),
   ).map((entry) => {
-    const matchingResults = retrieval.results.filter(
+    const matchingResults = retrieval.lawRetrieval.results.filter(
       (result) => result.lawId === entry.lawId && result.lawVersionId === entry.lawVersionId,
     );
 
@@ -134,51 +216,113 @@ function buildLawsUsed(retrieval: RetrievalResult) {
   });
 }
 
-function selectPromptContextResults(retrieval: RetrievalResult) {
-  return [...retrieval.results]
+function buildPrecedentsUsed(retrieval: RetrievalResult) {
+  return Array.from(
+    new Map(
+      retrieval.precedentRetrieval.results.map((result) => [
+        `${result.precedentId}:${result.precedentVersionId}`,
+        {
+          precedentId: result.precedentId,
+          precedentKey: result.precedentKey,
+          precedentTitle: result.precedentTitle,
+          precedentVersionId: result.precedentVersionId,
+          precedentBlockIds: [] as string[],
+          validityStatus: result.validityStatus,
+          sourceTopicUrl: result.sourceTopicUrl,
+          sourcePostIds: [] as string[],
+        },
+      ]),
+    ).values(),
+  ).map((entry) => {
+    const matchingResults = retrieval.precedentRetrieval.results.filter(
+      (result) =>
+        result.precedentId === entry.precedentId &&
+        result.precedentVersionId === entry.precedentVersionId,
+    );
+
+    return {
+      ...entry,
+      precedentBlockIds: matchingResults.map((result) => result.precedentBlockId),
+      sourcePostIds: Array.from(
+        new Set(
+          matchingResults.flatMap((result) => result.sourcePosts.map((sourcePost) => sourcePost.postExternalId)),
+        ),
+      ),
+    };
+  });
+}
+
+function selectPromptContextResults(
+  results: AssistantTypedRetrievalReference[],
+  sourceKind: "law" | "precedent",
+  limit: number,
+) {
+  const filteredResults = results.filter((result) => result.sourceKind === sourceKind);
+
+  return [...filteredResults]
     .sort((left, right) => {
-      if (left.blockType === "article" && right.blockType !== "article") {
-        return -1;
-      }
-
-      if (left.blockType !== "article" && right.blockType === "article") {
-        return 1;
-      }
-
       return left.blockOrder - right.blockOrder;
     })
-    .slice(0, MAX_PROMPT_BLOCKS);
+    .slice(0, limit);
 }
 
 function buildSourcesSectionText(retrieval: RetrievalResult) {
   const lawsUsed = buildLawsUsed(retrieval);
+  const precedentsUsed = buildPrecedentsUsed(retrieval);
 
-  if (lawsUsed.length === 0) {
+  const parts: string[] = [];
+
+  if (lawsUsed.length > 0) {
+    parts.push(
+      [
+        "Законы:",
+        ...lawsUsed.map((law, index) => {
+          const articleLabel =
+            law.articleNumbers.length > 0
+              ? `статьи: ${law.articleNumbers.join(", ")}`
+              : "без номера статьи";
+
+          return `${index + 1}. ${law.lawTitle} (${law.lawKey}) — ${articleLabel}; тема: ${law.sourceTopicUrl}`;
+        }),
+      ].join("\n"),
+    );
+  }
+
+  if (precedentsUsed.length > 0) {
+    parts.push(
+      [
+        "Судебные прецеденты:",
+        ...precedentsUsed.map((precedent, index) => {
+          return `${index + 1}. ${precedent.precedentTitle} (${precedent.precedentKey}) — validity: ${precedent.validityStatus}; тема: ${precedent.sourceTopicUrl}`;
+        }),
+      ].join("\n"),
+    );
+  }
+
+  if (parts.length === 0) {
     return "Подтверждённые нормы и прямые ссылки на источники в этом ответе не использовались.";
   }
 
-  return lawsUsed
-    .map((law, index) => {
-      const articleLabel =
-        law.articleNumbers.length > 0 ? `статьи: ${law.articleNumbers.join(", ")}` : "без номера статьи";
-
-      return `${index + 1}. ${law.lawTitle} (${law.lawKey}) — ${articleLabel}; тема: ${law.sourceTopicUrl}`;
-    })
-    .join("\n");
+  return parts.join("\n\n");
 }
 
 function buildAssistantSystemPrompt() {
   return [
     "Ты — server legal assistant Lawyer5RP.",
-    "Отвечай только по переданному confirmed corpus current primary laws выбранного сервера.",
-    "Не используй supplements, precedents, общие знания, догадки или ответы вне корпуса.",
-    "Если надёжной нормы нет, не выдумывай ответ.",
-    "Если что-то следует не прямо из нормы, вынеси это только в секцию интерпретации.",
-    "Не выдавай интерпретацию как будто она прямо написана в законе.",
+    "Отвечай только по переданному confirmed corpus выбранного сервера.",
+    "Используй только current primary laws и только confirmed judicial precedents со status=current и validity in (applicable, limited).",
+    "Не используй supplements, obsolete precedents, draft/superseded versions, общие знания, догадки или ответы вне корпуса.",
+    "Законы и судебные прецеденты — разные типы источников. Не выдавай precedent как будто это норма закона.",
+    "Если законы есть, law-grounded часть ответа должна идти раньше precedent-grounded части.",
+    "Если закон не найден, но найден подтверждённый precedent, прямо напиши, что ответ опирается на precedent-corpus, а не на норму закона.",
+    "Если надёжной нормы или подходящего подтверждённого precedent нет, не выдумывай ответ.",
+    "Если что-то следует не прямо из источника, вынеси это только в секцию интерпретации.",
     "Верни ответ строго на русском языке и строго с markdown-секциями второго уровня:",
     "## Краткий вывод",
-    "## Что прямо следует из норм",
+    "## Что прямо следует из норм закона",
+    "## Что подтверждается судебными прецедентами",
     "## Вывод / интерпретация",
+    "## Использованные нормы / источники",
   ].join("\n");
 }
 
@@ -187,10 +331,14 @@ function buildAssistantUserPrompt(input: {
   question: string;
   retrieval: RetrievalResult;
 }) {
-  const groundedContext = selectPromptContextResults(input.retrieval)
+  const lawContext = selectPromptContextResults(input.retrieval.results, "law", MAX_PROMPT_LAW_BLOCKS)
     .map((result, index) => {
+      if (result.sourceKind !== "law") {
+        return null;
+      }
+
       return [
-        `Источник ${index + 1}`,
+        `Law source ${index + 1}`,
         `- law_key: ${result.lawKey}`,
         `- title: ${result.lawTitle}`,
         `- version_id: ${result.lawVersionId}`,
@@ -201,26 +349,61 @@ function buildAssistantUserPrompt(input: {
         `- text: ${normalizeSectionText(result.blockText).slice(0, MAX_PROMPT_BLOCK_TEXT_LENGTH)}`,
       ].join("\n");
     })
+    .filter((value): value is string => Boolean(value))
+    .join("\n\n");
+
+  const precedentContext = selectPromptContextResults(
+    input.retrieval.results,
+    "precedent",
+    MAX_PROMPT_PRECEDENT_BLOCKS,
+  )
+    .map((result, index) => {
+      if (result.sourceKind !== "precedent") {
+        return null;
+      }
+
+      return [
+        `Precedent source ${index + 1}`,
+        `- precedent_key: ${result.precedentKey}`,
+        `- title: ${result.precedentTitle}`,
+        `- version_id: ${result.precedentVersionId}`,
+        `- block_id: ${result.precedentBlockId}`,
+        `- block_type: ${result.blockType}`,
+        `- validity_status: ${result.validityStatus}`,
+        `- source_topic_url: ${result.sourceTopicUrl}`,
+        `- text: ${normalizeSectionText(result.blockText).slice(0, MAX_PROMPT_BLOCK_TEXT_LENGTH)}`,
+      ].join("\n");
+    })
+    .filter((value): value is string => Boolean(value))
     .join("\n\n");
 
   return [
     `Сервер: ${input.serverName}`,
     `Вопрос пользователя: ${input.question}`,
-    `Corpus snapshot hash: ${input.retrieval.corpusSnapshot.corpusSnapshotHash}`,
-    "Используй только этот компактный grounded context:",
-    groundedContext,
-    "Если прямой нормы недостаточно, честно скажи об ограничении в секции интерпретации.",
+    `Combined corpus snapshot hash: ${input.retrieval.combinedRetrievalRevision.combinedCorpusSnapshotHash}`,
+    "Законы (используй только этот grounded layer, если он есть):",
+    lawContext || "Подходящие current primary laws по запросу не найдены.",
+    "Судебные прецеденты (используй только этот grounded layer, если он есть):",
+    precedentContext || "Подходящие confirmed precedents по запросу не найдены.",
+    "Если law layer пустой, но precedent layer есть, прямо обозначь это в выводе.",
+    "Если ни один layer не даёт надёжной опоры, признай ограничение и не выдумывай ответ.",
   ].join("\n\n");
 }
 
-function buildNoNormsAnswer() {
+function buildNoNormsAnswer(retrieval: RetrievalResult) {
+  const hasCurrentLaws = retrieval.hasCurrentLawCorpus;
+  const hasUsablePrecedents = retrieval.hasUsablePrecedentCorpus;
   const sections = {
     summary:
-      "В текущей подтвержденной законодательной базе выбранного сервера релевантная норма по этому вопросу не найдена.",
-    normativeAnalysis:
-      "В текущем наборе подтвержденных primary laws выбранного сервера retrieval не нашел подходящих статей или иных блоков, на которые можно надежно опереться.",
+      "В текущем подтверждённом корпусе выбранного сервера релевантная норма или подтверждённый прецедент по этому вопросу не найдены.",
+    normativeAnalysis: hasCurrentLaws
+      ? "В current primary laws выбранного сервера retrieval не нашёл статей или иных блоков, на которые можно надёжно опереться."
+      : "Для этого сервера сейчас нет релевантных current primary laws, которые можно использовать как прямую нормативную опору по вопросу.",
+    precedentAnalysis: hasUsablePrecedents
+      ? "Среди подтверждённых current precedents со статусом validity applicable или limited retrieval не нашёл подходящих блоков, которые можно надёжно использовать в ответе."
+      : "В usable precedent corpus выбранного сервера нет подходящих подтверждённых прецедентов, на которые можно добросовестно сослаться.",
     interpretation:
-      "Я не могу добросовестно выводить ответ вне подтвержденного корпуса. Нужна либо более точная формулировка вопроса, либо подтверждение отсутствующей нормы в законодательной базе сервера.",
+      "Я не могу добросовестно выводить ответ вне подтверждённого корпуса. Нужна либо более точная формулировка вопроса, либо пополнение confirmed corpus сервера.",
   } satisfies AssistantAnswerSections;
 
   return {
@@ -244,21 +427,26 @@ export async function generateServerLegalAssistantAnswer(
   },
   dependencies: AnswerPipelineDependencies = defaultDependencies,
 ) {
-  const retrieval = await dependencies.searchCurrentLawCorpus({
+  const retrieval = await dependencies.searchAssistantCorpus({
     serverId: input.serverId,
     query: input.question,
-    limit: 6,
+    lawLimit: 6,
+    precedentLimit: 4,
   });
   const metadataBase = {
     serverId: input.serverId,
     serverCode: input.serverCode,
     serverName: input.serverName,
-    corpusSnapshot: retrieval.corpusSnapshot,
+    lawCorpusSnapshot: retrieval.lawCorpusSnapshot,
+    precedentCorpusSnapshot: retrieval.precedentCorpusSnapshot,
+    combinedRetrievalRevision: retrieval.combinedRetrievalRevision,
+    corpusSnapshot: retrieval.combinedRetrievalRevision,
     lawsUsed: buildLawsUsed(retrieval),
+    precedentsUsed: buildPrecedentsUsed(retrieval),
     references: buildGroundedReferences(retrieval),
   };
 
-  if (retrieval.corpusSnapshot.currentVersionIds.length === 0) {
+  if (!retrieval.hasAnyUsableCorpus) {
     await dependencies.createAIRequest({
       accountId: input.accountId ?? null,
       guestSessionId: input.guestSessionId ?? null,
@@ -273,20 +461,22 @@ export async function generateServerLegalAssistantAnswer(
       },
       responsePayloadJson: {
         branch: "no_corpus",
-        corpusSnapshot: retrieval.corpusSnapshot,
+        lawCorpusSnapshot: retrieval.lawCorpusSnapshot,
+        precedentCorpusSnapshot: retrieval.precedentCorpusSnapshot,
+        combinedRetrievalRevision: retrieval.combinedRetrievalRevision,
       },
-      errorMessage: "Для выбранного сервера нет confirmed current corpus.",
+      errorMessage: "Для выбранного сервера нет confirmed current law или precedent corpus.",
     });
 
     return {
       status: "no_corpus" as const,
-      message: "Для выбранного сервера пока нет подтвержденного корпуса актуальных законов.",
+      message: "Для выбранного сервера пока нет подтверждённого usable corpus для юридического помощника.",
       metadata: metadataBase,
     };
   }
 
   if (retrieval.resultCount === 0) {
-    const fallbackAnswer = buildNoNormsAnswer();
+    const fallbackAnswer = buildNoNormsAnswer(retrieval);
 
     await dependencies.createAIRequest({
       accountId: input.accountId ?? null,
@@ -302,7 +492,9 @@ export async function generateServerLegalAssistantAnswer(
       },
       responsePayloadJson: {
         branch: "no_norms",
-        corpusSnapshot: retrieval.corpusSnapshot,
+        lawCorpusSnapshot: retrieval.lawCorpusSnapshot,
+        precedentCorpusSnapshot: retrieval.precedentCorpusSnapshot,
+        combinedRetrievalRevision: retrieval.combinedRetrievalRevision,
         resultCount: retrieval.resultCount,
       },
       errorMessage: null,
@@ -327,15 +519,32 @@ export async function generateServerLegalAssistantAnswer(
     serverId: input.serverId,
     serverCode: input.serverCode,
     question: input.question,
-    corpusSnapshot: retrieval.corpusSnapshot,
-    retrievalResults: retrieval.results.map((result) => ({
-      lawKey: result.lawKey,
-      lawVersionId: result.lawVersionId,
-      lawBlockId: result.lawBlockId,
-      blockType: result.blockType,
-      articleNumberNormalized: result.articleNumberNormalized,
-      sourceTopicUrl: result.sourceTopicUrl,
-    })),
+    lawCorpusSnapshot: retrieval.lawCorpusSnapshot,
+    precedentCorpusSnapshot: retrieval.precedentCorpusSnapshot,
+    combinedRetrievalRevision: retrieval.combinedRetrievalRevision,
+    retrievalResults: retrieval.results.map((result) => {
+      if (result.sourceKind === "law") {
+        return {
+          sourceKind: "law",
+          lawKey: result.lawKey,
+          lawVersionId: result.lawVersionId,
+          lawBlockId: result.lawBlockId,
+          blockType: result.blockType,
+          articleNumberNormalized: result.articleNumberNormalized,
+          sourceTopicUrl: result.sourceTopicUrl,
+        };
+      }
+
+      return {
+        sourceKind: "precedent",
+        precedentKey: result.precedentKey,
+        precedentVersionId: result.precedentVersionId,
+        precedentBlockId: result.precedentBlockId,
+        blockType: result.blockType,
+        validityStatus: result.validityStatus,
+        sourceTopicUrl: result.sourceTopicUrl,
+      };
+    }),
   };
   const proxyResponse = await dependencies.requestAssistantProxyCompletion({
     systemPrompt: buildAssistantSystemPrompt(),
@@ -347,6 +556,8 @@ export async function generateServerLegalAssistantAnswer(
     requestMetadata: {
       ...proxyRequestPayload,
       retrievalResultsCount: proxyRequestPayload.retrievalResults.length,
+      lawResultsCount: retrieval.lawRetrieval.resultCount,
+      precedentResultsCount: retrieval.precedentRetrieval.resultCount,
     },
   });
 

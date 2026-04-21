@@ -451,6 +451,7 @@
 - `Blackberry` — первый fully bootstrapped real server baseline
 - law corpus status для `Blackberry` — `current_corpus_ready`
 - assistant по `Blackberry` можно использовать как по реальному confirmed corpus
+- assistant policy после precedent integration остаётся laws-first: precedents не смешиваются с законом и подключаются отдельным grounded layer
 - для smoke и тестов используется отдельный smoke-server dataset
 - production-данные реального сервера и smoke-сценарии не смешиваются
 - production ID серверов не хардкодятся в коде

@@ -10,6 +10,9 @@ type AssistantServerSelectorProps = {
     name: string;
     hasCurrentLawCorpus: boolean;
     currentPrimaryLawCount: number;
+    hasUsablePrecedentCorpus: boolean;
+    currentPrecedentCount: number;
+    hasUsableAssistantCorpus: boolean;
   }>;
   currentServerCode?: string | null;
 };
@@ -43,9 +46,9 @@ export function AssistantServerSelector({
                 {isCurrent ? <Badge className="bg-[rgba(32,99,69,0.12)] text-[#206345]">Текущий сервер</Badge> : null}
               </div>
               <p className="text-sm leading-6 text-[var(--muted)]">
-                {server.hasCurrentLawCorpus
-                  ? `Подтвержденный current corpus: ${server.currentPrimaryLawCount} law(s).`
-                  : "Current law corpus для сервера пока не подтвержден."}
+                {server.hasUsableAssistantCorpus
+                  ? `Подтвержденный corpus: ${server.currentPrimaryLawCount} law(s), ${server.currentPrecedentCount} precedent(s).`
+                  : "Для сервера пока нет подтвержденного usable corpus для assistant."}
               </p>
               <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">
                 Открыть assistant

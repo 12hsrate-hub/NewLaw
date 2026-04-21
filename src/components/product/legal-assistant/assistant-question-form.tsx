@@ -44,8 +44,9 @@ export function AssistantQuestionForm({
           </p>
           <h1 className="text-3xl font-semibold">{serverName}</h1>
           <p className="text-sm leading-6 text-[var(--muted)]">
-            Помощник отвечает только по current версиям primary laws выбранного сервера и не
-            использует знания вне подтвержденного корпуса.
+            Помощник отвечает только по подтвержденному corpus выбранного сервера: current primary
+            laws и, где это уместно, reviewed judicial precedents. Знания вне корпуса не
+            используются.
           </p>
           <p className="text-sm leading-6 text-[var(--muted)]">
             {isAuthenticated

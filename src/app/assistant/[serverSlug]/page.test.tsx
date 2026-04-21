@@ -38,6 +38,9 @@ describe("/assistant/[serverSlug] page", () => {
         name: "Blackberry",
         hasCurrentLawCorpus: true,
         currentPrimaryLawCount: 2,
+        hasUsablePrecedentCorpus: false,
+        currentPrecedentCount: 0,
+        hasUsableAssistantCorpus: true,
       },
     ]);
     vi.mocked(getServerByCode).mockResolvedValue({
@@ -87,6 +90,9 @@ describe("/assistant/[serverSlug] page", () => {
         name: "Blackberry",
         hasCurrentLawCorpus: false,
         currentPrimaryLawCount: 0,
+        hasUsablePrecedentCorpus: false,
+        currentPrecedentCount: 0,
+        hasUsableAssistantCorpus: false,
       },
     ]);
     vi.mocked(getServerByCode).mockResolvedValue({
@@ -124,6 +130,6 @@ describe("/assistant/[serverSlug] page", () => {
       }),
     );
 
-    expect(html).toContain("пока нет подтвержденного current law corpus");
+    expect(html).toContain("пока нет подтвержденного usable corpus");
   });
 });

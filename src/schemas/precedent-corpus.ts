@@ -233,6 +233,17 @@ export const rollbackPrecedentCurrentVersionInputSchema = z.object({
   precedentVersionId: precedentVersionIdSchema,
 });
 
+export const searchCurrentPrecedentCorpusInputSchema = z.object({
+  serverId: z.string().min(1),
+  query: z.string().trim().min(2).max(500),
+  limit: z.number().int().min(1).max(20).default(6),
+  includeValidityStatuses: z
+    .array(precedentValidityStatusSchema)
+    .min(1)
+    .max(precedentValidityStatuses.length)
+    .default(["applicable", "limited"]),
+});
+
 export type PrecedentTopicClassificationOverride = z.infer<
   typeof precedentTopicClassificationOverrideSchema
 >;
@@ -273,4 +284,7 @@ export type ConfirmCurrentPrecedentVersionInput = z.infer<
 >;
 export type RollbackPrecedentCurrentVersionInput = z.infer<
   typeof rollbackPrecedentCurrentVersionInputSchema
+>;
+export type SearchCurrentPrecedentCorpusInput = z.infer<
+  typeof searchCurrentPrecedentCorpusInputSchema
 >;

@@ -53,6 +53,19 @@ export async function listAssistantServers(db: PrismaLike = prisma) {
           id: true,
         },
       },
+      precedents: {
+        where: {
+          validityStatus: {
+            in: ["applicable", "limited"],
+          },
+          currentVersionId: {
+            not: null,
+          },
+        },
+        select: {
+          id: true,
+        },
+      },
     },
   });
 
@@ -62,5 +75,8 @@ export async function listAssistantServers(db: PrismaLike = prisma) {
     name: server.name,
     hasCurrentLawCorpus: server.laws.length > 0,
     currentPrimaryLawCount: server.laws.length,
+    hasUsablePrecedentCorpus: server.precedents.length > 0,
+    currentPrecedentCount: server.precedents.length,
+    hasUsableAssistantCorpus: server.laws.length > 0 || server.precedents.length > 0,
   }));
 }

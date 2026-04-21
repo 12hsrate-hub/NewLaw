@@ -31,6 +31,72 @@ export async function listPrecedentsByServer(serverId: string, db: PrismaLike = 
   });
 }
 
+export async function listCurrentPrecedentBlocksByServer(
+  input: {
+    serverId: string;
+    includeValidityStatuses?: Array<"applicable" | "limited" | "obsolete">;
+  },
+  db: PrismaLike = prisma,
+) {
+  const parsedServerId = createPrecedentInputSchema.shape.serverId.parse(input.serverId);
+  const validityStatuses = input.includeValidityStatuses ?? ["applicable", "limited"];
+
+  return db.precedentBlock.findMany({
+    where: {
+      precedentVersion: {
+        status: "current",
+        currentForPrecedent: {
+          is: {
+            serverId: parsedServerId,
+            validityStatus: {
+              in: validityStatuses,
+            },
+          },
+        },
+      },
+    },
+    select: {
+      id: true,
+      blockType: true,
+      blockOrder: true,
+      blockTitle: true,
+      blockText: true,
+      precedentVersion: {
+        select: {
+          id: true,
+          status: true,
+          precedentId: true,
+          sourceSnapshotHash: true,
+          normalizedTextHash: true,
+          currentForPrecedent: {
+            select: {
+              id: true,
+              precedentKey: true,
+              displayTitle: true,
+              validityStatus: true,
+              sourceTopic: {
+                select: {
+                  topicUrl: true,
+                  title: true,
+                },
+              },
+            },
+          },
+          sourcePosts: {
+            orderBy: [{ postOrder: "asc" }],
+            select: {
+              postExternalId: true,
+              postUrl: true,
+              postOrder: true,
+            },
+          },
+        },
+      },
+    },
+    orderBy: [{ blockOrder: "asc" }],
+  });
+}
+
 export async function getPrecedentById(precedentId: string, db: PrismaLike = prisma) {
   return db.precedent.findUnique({
     where: {

@@ -5,8 +5,8 @@
 `Lawyer5RP MVP` — единое full-stack веб-приложение для подготовки документных сценариев внутри экосистемы GTA5RP.
 Главный сценарий MVP — создание жалобы в ОГП с итоговой генерацией форумного BBCode.
 
-На текущем этапе репозиторий содержит стартовую документацию проекта, bootstrap-каркас приложения, foundation для `Supabase Auth` и минимального data layer, account-security foundation, protected shell foundation для `/app` c выбором активного сервера и персонажа, базовый контур ручного управления персонажами с минимальным слоем ролей и `access flags`, минимальные `super_admin` экраны для admin account-security и law corpus source management, law corpus schema foundation, ручной discovery/import pipeline для law corpus с normalizing и segmentation, hardening discovery coverage для forum index layout/pagination cases, manual current-version workflow, retrieval foundation для current primary laws, отдельный public `server legal assistant` модуль вне `/app`, а также schema foundation и discovery/import/split foundation для отдельного corpus судебных прецедентов и временную maintenance page.
-Прикладная бизнес-логика документов пока не реализована, но регистрация по `login + email + password`, подтверждение email по ссылке, forgot-password, reset-password, вход по `email` или `login`, protected shell на `/app` c active server / active character selection, базовый список/создание/редактирование персонажей для текущего сервера вместе с ролями и `access flags` на уровне `character_id`, `/app/security`, self change password, self change email, server-side admin account-security actions, а также foundation для law corpus, server-scoped источников законодательной базы, ручного discovery/import pipeline, bootstrap-health проверки полноты current corpus по серверу, ручного confirm imported draft версий, server-scoped retrieval foundation, public assistant по current primary laws и отдельный precedent-pipeline без assistant integration уже подготовлены.
+На текущем этапе репозиторий содержит стартовую документацию проекта, bootstrap-каркас приложения, foundation для `Supabase Auth` и минимального data layer, account-security foundation, protected shell foundation для `/app` c выбором активного сервера и персонажа, базовый контур ручного управления персонажами с минимальным слоем ролей и `access flags`, минимальные `super_admin` экраны для admin account-security и law corpus source management, law corpus schema foundation, ручной discovery/import pipeline для law corpus с normalizing и segmentation, hardening discovery coverage для forum index layout/pagination cases, manual current-version workflow, retrieval foundation для current primary laws, отдельный public `server legal assistant` модуль вне `/app`, а также полный separate precedent-pipeline с discovery/import/split, current-review/validity workflow и assistant integration по laws-first policy.
+Прикладная бизнес-логика документов пока не реализована, но регистрация по `login + email + password`, подтверждение email по ссылке, forgot-password, reset-password, вход по `email` или `login`, protected shell на `/app` c active server / active character selection, базовый список/создание/редактирование персонажей для текущего сервера вместе с ролями и `access flags` на уровне `character_id`, `/app/security`, self change password, self change email, server-side admin account-security actions, а также foundation для law corpus, server-scoped источников законодательной базы, ручного discovery/import pipeline, bootstrap-health проверки полноты current corpus по серверу, ручного confirm imported draft версий, server-scoped retrieval foundation, public assistant по current primary laws и reviewed precedents, а также separate precedent-pipeline уже подготовлены.
 Production email delivery для auth-писем зафиксирован через `Supabase Custom SMTP`, а не через встроенный email provider Supabase.
 
 ## Зафиксированный стек
@@ -84,7 +84,7 @@ Production email delivery для auth-писем зафиксирован чер
 - [src/server/actions/admin-security.ts](./src/server/actions/admin-security.ts) — server action-обвязка для `super_admin` UI
 - [src/server/admin-security/account-search.ts](./src/server/admin-security/account-search.ts) — поиск account-level цели по email, login или account id
 - [src/server/law-corpus](./src/server/law-corpus) — foundation services для law corpus, import lock, current-version workflow и server-scoped retrieval
-- [src/server/precedent-corpus](./src/server/precedent-corpus) — separate precedent-pipeline: source topic foundation, discovery/import/split, manual current-review, validity workflow и rollback foundation без assistant integration
+- [src/server/precedent-corpus](./src/server/precedent-corpus) — separate precedent-pipeline: source topic foundation, discovery/import/split, manual current-review, validity workflow, rollback foundation и retrieval provider для assistant
 - [src/server/legal-assistant](./src/server/legal-assistant) — guest access layer, proxy-aware answer pipeline и public assistant services
 - [src/server/account-security](./src/server/account-security) — foundation-логика login normalization, reserved logins и runtime backfill
 - [src/server/characters](./src/server/characters) — доменная логика ручного создания и редактирования персонажей с ограничениями аккаунта и сервера
@@ -218,15 +218,15 @@ Production email delivery для auth-писем зафиксирован чер
   - `/assistant/[serverSlug]` для вопроса-ответа по law corpus
   - guest access с лимитом `1` вопрос
   - сохранение одного guest Q/A pair и corpus snapshot metadata
-  - server-side answer pipeline только по `current primary laws`
-  - разделение ответа на `Краткий вывод`, `Что прямо следует из норм`, `Вывод / интерпретация`
-  - grounded references на law/version/block/source
+  - server-side answer pipeline по `current primary laws` и reviewed/current precedents с `validity_status in (applicable, limited)`
+  - laws-first ответ с разделением на `Краткий вывод`, `Что прямо следует из норм закона`, `Что подтверждается судебными прецедентами`, `Вывод / интерпретация`
+  - grounded references на law/version/block/source и precedent/version/block/source
   - proxy-aware AI layer с поддержкой нескольких proxy entries
 - foundation для отдельного precedents corpus внутри `/app/admin-laws`:
   - ручное заведение `precedent source topic`
   - manual override поля `isExcluded`, `classificationOverride`, `internalNote`
   - отдельные `version status` и `validity status`
-  - precedents не смешиваются с `Law`, `LawVersion`, `LawBlock` и пока не попадают в assistant автоматически
+  - precedents не смешиваются с `Law`, `LawVersion`, `LawBlock` и попадают в assistant только как отдельный typed source layer после review/current/validity workflow
 - precedent discovery/import foundation:
   - precedent discovery через существующие `LawSourceIndex`, но отдельным pipeline
   - обновление `PrecedentSourceTopic` по `server_id + topic_external_id`
@@ -278,8 +278,10 @@ Production email delivery для auth-писем зафиксирован чер
 - `supplement`, `imported_draft` и `superseded` в retrieval не попадают
 - основной retrieval unit — `LawBlock` уровня `article`, с аккуратным fallback на другие block types только если article-блоки не дали результата
 - assistant живёт вне `/app` и не зависит от active server, active character, character roles/access flags и account-security screens
-- assistant отвечает только по current `primary` laws выбранного `serverSlug`
-- precedents пока не подмешиваются в retrieval и answer pipeline assistant
+- assistant отвечает только по confirmed corpus выбранного `serverSlug`
+- laws и precedents остаются разными corpus-линиями и объединяются только на уровне typed retrieval envelope
+- precedents участвуют в assistant только если `status=current` и `validity_status in (applicable, limited)`
+- `obsolete`, `imported_draft`, `superseded` и `supplement` в assistant не участвуют
 - assistant не отвечает вне подтвержденного корпуса и не делает вид, что норма найдена, если retrieval её не нашёл
 - guest учитывается по `anonymous session cookie + IP + user-agent`
 - после первого guest вопроса старый ответ остаётся доступным, а новый вопрос требует вход или регистрацию
@@ -453,4 +455,4 @@ powershell -ExecutionPolicy Bypass -File .\scripts\deploy-prod.ps1
 
 ## Что дальше
 
-Следующий шаг уже не должен расширять precedents corpus в discovery/import, review/current workflow и assistant integration без отдельного согласованного подшага. В этот блок по-прежнему не входят документы, форумный контур, embeddings, судебные precedents retrieval inside assistant и полноценная админка.
+Следующий шаг уже не должен расширять готовый assistant в documents, форумный контур, embeddings/vector search, feedback/history или полноценную админку без отдельного согласованного подшага.

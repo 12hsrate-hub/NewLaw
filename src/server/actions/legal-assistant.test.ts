@@ -19,10 +19,11 @@ describe("submit assistant question action", () => {
       answer: {
         question: "Что с договором?",
         answerMarkdown:
-          "## Краткий вывод\nОтвет.\n\n## Что прямо следует из норм\nНорма.\n\n## Вывод / интерпретация\nИнтерпретация.",
+          "## Краткий вывод\nОтвет.\n\n## Что прямо следует из норм закона\nНорма.\n\n## Что подтверждается судебными прецедентами\nПрецедент.\n\n## Вывод / интерпретация\nИнтерпретация.",
         sections: {
           summary: "Ответ.",
           normativeAnalysis: "Норма.",
+          precedentAnalysis: "Прецедент.",
           interpretation: "Интерпретация.",
           sources: "Источник 1.",
         },
@@ -30,13 +31,38 @@ describe("submit assistant question action", () => {
           serverId: "server-1",
           serverCode: "blackberry",
           serverName: "Blackberry",
-          corpusSnapshot: {
+          lawCorpusSnapshot: {
             serverId: "server-1",
             generatedAt: "2026-04-20T10:00:00.000Z",
             currentVersionIds: ["version-1"],
-            corpusSnapshotHash: "snapshot-hash",
+            corpusSnapshotHash: "law-snapshot-hash",
+          },
+          precedentCorpusSnapshot: {
+            serverId: "server-1",
+            generatedAt: "2026-04-20T10:00:00.000Z",
+            currentVersionIds: [],
+            corpusSnapshotHash: "precedent-snapshot-hash",
+          },
+          combinedRetrievalRevision: {
+            serverId: "server-1",
+            generatedAt: "2026-04-20T10:00:00.000Z",
+            lawCorpusSnapshotHash: "law-snapshot-hash",
+            precedentCorpusSnapshotHash: "precedent-snapshot-hash",
+            combinedCorpusSnapshotHash: "snapshot-hash",
+            lawCurrentVersionIds: ["version-1"],
+            precedentCurrentVersionIds: [],
+          },
+          corpusSnapshot: {
+            serverId: "server-1",
+            generatedAt: "2026-04-20T10:00:00.000Z",
+            lawCorpusSnapshotHash: "law-snapshot-hash",
+            precedentCorpusSnapshotHash: "precedent-snapshot-hash",
+            combinedCorpusSnapshotHash: "snapshot-hash",
+            lawCurrentVersionIds: ["version-1"],
+            precedentCurrentVersionIds: [],
           },
           lawsUsed: [],
+          precedentsUsed: [],
           references: [],
         },
       },
@@ -76,10 +102,11 @@ describe("submit assistant question action", () => {
       savedAnswer: {
         question: "Первый вопрос",
         answerMarkdown:
-          "## Краткий вывод\nОтвет.\n\n## Что прямо следует из норм\nНорма.\n\n## Вывод / интерпретация\nИнтерпретация.",
+          "## Краткий вывод\nОтвет.\n\n## Что прямо следует из норм закона\nНорма.\n\n## Что подтверждается судебными прецедентами\nПрецедент.\n\n## Вывод / интерпретация\nИнтерпретация.",
         sections: {
           summary: "Ответ.",
           normativeAnalysis: "Норма.",
+          precedentAnalysis: "Прецедент.",
           interpretation: "Интерпретация.",
           sources: "Источник 1.",
         },
