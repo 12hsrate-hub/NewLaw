@@ -9,7 +9,11 @@ import { getServerByCode, getServers } from "@/db/repositories/server.repository
 import { getUserServerStates } from "@/db/repositories/user-server-state.repository";
 import { requireProtectedAccountContext } from "@/server/auth/protected";
 import { resolveActiveCharacterId } from "@/server/app-shell/state";
-import { readDocumentAuthorSnapshot, readOgpComplaintDraftPayload } from "@/server/document-area/persistence";
+import {
+  readDocumentAuthorSnapshot,
+  readOgpComplaintDraftPayload,
+} from "@/server/document-area/persistence";
+import type { OgpComplaintDraftPayload } from "@/schemas/document";
 
 type AccountDocumentRecord = Awaited<ReturnType<typeof listDocumentsByAccount>>[number];
 type ServerDocumentRecord = Awaited<ReturnType<typeof listDocumentsByAccountAndServerAndType>>[number];
@@ -30,6 +34,10 @@ export type DocumentAreaPersistedListItem = {
   title: string;
   documentType: "ogp_complaint" | "rehabilitation" | "lawsuit";
   status: "draft" | "generated" | "published";
+  filingMode: "self" | "representative";
+  appealNumber: string;
+  objectFullName: string;
+  objectOrganization: string;
   server: {
     id: string;
     code: string;
@@ -57,6 +65,29 @@ type AccountDocumentsOverviewContext = {
   documents: DocumentAreaPersistedListItem[];
 };
 
+type SelectableCharacterSummary = {
+  id: string;
+  fullName: string;
+  passportNumber: string;
+  isProfileComplete: boolean;
+  canUseRepresentative: boolean;
+};
+
+type SelectedCharacterSummary = SelectableCharacterSummary & {
+  source: "last_used" | "first_available";
+};
+
+type CharacterSummaryInput = {
+  id: string;
+  serverId: string;
+  fullName: string;
+  passportNumber: string;
+  isProfileComplete: boolean;
+  accessFlags: Array<{
+    flagKey: string;
+  }>;
+};
+
 type ReadyServerDocumentsRouteContext = {
   status: "ready";
   account: AccountDocumentsOverviewContext["account"];
@@ -66,17 +97,8 @@ type ReadyServerDocumentsRouteContext = {
     name: string;
   };
   servers: DocumentAreaServerSummary[];
-  characters: Array<{
-    id: string;
-    fullName: string;
-    passportNumber: string;
-  }>;
-  selectedCharacter: {
-    id: string;
-    fullName: string;
-    passportNumber: string;
-    source: "last_used" | "first_available";
-  };
+  characters: SelectableCharacterSummary[];
+  selectedCharacter: SelectedCharacterSummary;
   ogpComplaintDocumentCount: number;
 };
 
@@ -121,12 +143,7 @@ type OgpComplaintFamilyRouteContext =
       };
       servers: DocumentAreaServerSummary[];
       canCreateDocuments: boolean;
-      selectedCharacter: {
-        id: string;
-        fullName: string;
-        passportNumber: string;
-        source: "last_used" | "first_available";
-      } | null;
+      selectedCharacter: SelectedCharacterSummary | null;
       documents: DocumentAreaPersistedListItem[];
     };
 
@@ -175,10 +192,21 @@ type OgpComplaintEditorRouteContext =
           nickname: string;
           roleKeys: string[];
           accessFlags: string[];
+          isProfileComplete: boolean;
         };
-        workingNotes: string;
+        payload: OgpComplaintDraftPayload;
       };
     };
+
+function buildSelectableCharacterSummary(character: CharacterSummaryInput) {
+  return {
+    id: character.id,
+    fullName: character.fullName,
+    passportNumber: character.passportNumber,
+    isProfileComplete: character.isProfileComplete,
+    canUseRepresentative: character.accessFlags.some((flag) => flag.flagKey === "advocate"),
+  } satisfies SelectableCharacterSummary;
+}
 
 function buildSelectedCharacterSummary(input: {
   serverId: string;
@@ -187,6 +215,10 @@ function buildSelectedCharacterSummary(input: {
     serverId: string;
     fullName: string;
     passportNumber: string;
+    isProfileComplete: boolean;
+    accessFlags: Array<{
+      flagKey: string;
+    }>;
   }>;
   serverStates: Array<{
     serverId: string;
@@ -205,9 +237,7 @@ function buildSelectedCharacterSummary(input: {
 
   if (activeCharacter) {
     return {
-      id: activeCharacter.id,
-      fullName: activeCharacter.fullName,
-      passportNumber: activeCharacter.passportNumber,
+      ...buildSelectableCharacterSummary(activeCharacter),
       source: "last_used" as const,
     };
   }
@@ -219,14 +249,14 @@ function buildSelectedCharacterSummary(input: {
   }
 
   return {
-    id: firstCharacter.id,
-    fullName: firstCharacter.fullName,
-    passportNumber: firstCharacter.passportNumber,
+    ...buildSelectableCharacterSummary(firstCharacter),
     source: "first_available" as const,
   };
 }
 
-function buildPersistedDocumentListItem(document: AccountDocumentRecord | (ServerDocumentRecord & { server: AccountDocumentRecord["server"] })) {
+function buildPersistedDocumentListItem(
+  document: AccountDocumentRecord | (ServerDocumentRecord & { server: AccountDocumentRecord["server"] }),
+) {
   const authorSnapshot = readDocumentAuthorSnapshot(document.authorSnapshotJson);
   const payload = readOgpComplaintDraftPayload(document.formPayloadJson);
 
@@ -235,6 +265,10 @@ function buildPersistedDocumentListItem(document: AccountDocumentRecord | (Serve
     title: document.title,
     documentType: document.documentType,
     status: document.status,
+    filingMode: payload.filingMode,
+    appealNumber: payload.appealNumber,
+    objectFullName: payload.objectFullName,
+    objectOrganization: payload.objectOrganization,
     server: {
       id: document.server.id,
       code: document.server.code,
@@ -372,11 +406,7 @@ export async function getServerDocumentsRouteContext(input: {
       name: server.name,
     },
     servers,
-    characters: characters.map((character: (typeof characters)[number]) => ({
-      id: character.id,
-      fullName: character.fullName,
-      passportNumber: character.passportNumber,
-    })),
+    characters: characters.map((character) => buildSelectableCharacterSummary(character)),
     selectedCharacter,
     ogpComplaintDocumentCount,
   };
@@ -432,7 +462,7 @@ export async function getOgpComplaintFamilyRouteContext(input: {
     servers,
     canCreateDocuments: selectedCharacter !== null,
     selectedCharacter,
-    documents: documents.map((document: ServerDocumentRecord) =>
+    documents: documents.map((document) =>
       buildPersistedDocumentListItem({
         ...document,
         server,
@@ -512,8 +542,9 @@ export async function getOgpComplaintEditorRouteContext(input: {
         nickname: authorSnapshot.nickname,
         roleKeys: authorSnapshot.roleKeys,
         accessFlags: authorSnapshot.accessFlags,
+        isProfileComplete: authorSnapshot.isProfileComplete,
       },
-      workingNotes: payload.workingNotes,
+      payload,
     },
   };
 }

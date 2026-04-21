@@ -158,7 +158,9 @@ Create/edit contract:
 - `/servers/[serverSlug]/documents/ogp-complaints` показывает persisted список документов family `ogp_complaint`
 - полный OGP wizard, `BBCode` generation и forum/publication logic остаются следующими шагами
 
-### 07.4 — OGP complaint wizard MVP
+### 07.4 — OGP complaint editor MVP
+
+Статус: реализовано.
 
 Что входит:
 
@@ -172,6 +174,28 @@ Create/edit contract:
 
 - claims
 - template documents
+
+Результат шага:
+
+- `/servers/[serverSlug]/documents/ogp-complaints/new` стал реальным pre-draft create entry, а не просто foundation screen
+- после first save работа продолжается в owner-only route `/servers/[serverSlug]/documents/ogp-complaints/[documentId]` без поломки snapshot invariants шага `07.3`
+- complaint payload теперь уже хранит:
+  - `filing_mode`
+  - `appeal_number`
+  - `object_organization`
+  - `object_full_name`
+  - `incident_at`
+  - `situation_description`
+  - `violation_summary`
+  - `working_notes`
+  - `trustor snapshot`
+  - `evidence groups / evidence rows`
+- self filing работает для любого доступного персонажа
+- representative filing доступен только персонажу с `access flag advocate`
+- при representative filing trustor snapshot живёт внутри самого документа и сохраняется консистентно в persisted payload
+- evidence links сохраняются в структуре, пригодной для будущего `BBCode` generation без переделки схемы
+- `/account/documents` и `/servers/[serverSlug]/documents/ogp-complaints` уже показывают persisted `ogp_complaint` drafts/documents пользователя
+- `BBCode` generation, publication metadata UI и forum automation остаются следующими шагами
 
 ### 07.5 — BBCode generation и publication metadata
 

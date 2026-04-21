@@ -2,18 +2,17 @@ import type { ReactNode } from "react";
 
 import Link from "next/link";
 
-import { DocumentDraftEditorClient } from "@/components/product/document-area/document-draft-editor-client";
+import {
+  DocumentDraftEditorClient,
+  OgpComplaintDraftCreateClient,
+} from "@/components/product/document-area/document-draft-editor-client";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
-import { createOgpComplaintDraftAction } from "@/server/actions/documents";
 import type {
   DocumentAreaPersistedListItem,
   DocumentAreaServerSummary,
 } from "@/server/document-area/context";
+import type { OgpComplaintDraftPayload } from "@/schemas/document";
 
 function DocumentLink({
   href,
@@ -56,6 +55,10 @@ function formatDocumentStatus(status: DocumentAreaPersistedListItem["status"]) {
   return "published";
 }
 
+function formatFilingMode(mode: DocumentAreaPersistedListItem["filingMode"]) {
+  return mode === "representative" ? "representative" : "self";
+}
+
 function PersistedDocumentList(props: {
   documents: DocumentAreaPersistedListItem[];
 }) {
@@ -78,6 +81,7 @@ function PersistedDocumentList(props: {
             <div className="flex flex-wrap items-center gap-2">
               <Badge>{formatDocumentType(document.documentType)}</Badge>
               <Badge>{formatDocumentStatus(document.status)}</Badge>
+              <Badge>filing mode: {formatFilingMode(document.filingMode)}</Badge>
               <span className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
                 {document.server.name} / {document.server.code}
               </span>
@@ -88,6 +92,12 @@ function PersistedDocumentList(props: {
               {document.authorSnapshot.passportNumber}. Snapshot captured:{" "}
               {new Date(document.snapshotCapturedAt).toLocaleString("ru-RU")}.
             </p>
+            {(document.appealNumber || document.objectOrganization || document.objectFullName) ? (
+              <p className="text-sm leading-6 text-[var(--muted)]">
+                Appeal number: {document.appealNumber || "не указан"}. Object:{" "}
+                {document.objectOrganization || "—"} / {document.objectFullName || "—"}.
+              </p>
+            ) : null}
             <p className="text-sm leading-6 text-[var(--muted)]">
               Последнее обновление: {new Date(document.updatedAt).toLocaleString("ru-RU")}.
             </p>
@@ -101,7 +111,7 @@ function PersistedDocumentList(props: {
             <DocumentLink
               href={`/servers/${document.server.code}/documents/ogp-complaints/${document.id}`}
             >
-              Открыть persisted draft
+              Открыть persisted complaint
             </DocumentLink>
           </div>
         </Card>
@@ -142,8 +152,9 @@ export function AccountDocumentsPersistedOverview(props: {
                   </span>
                 </div>
                 <p className="text-sm leading-6 text-[var(--muted)]">
-                  Персонажей на сервере: {server.characterCount}. Это bridge в server-scoped
-                  document area, а не editor внутри account zone.
+                  Персонажей на сервере: {server.characterCount}. persisted OGP complaints:{" "}
+                  {server.ogpComplaintDocumentCount}. Это bridge в server-scoped document area, а не
+                  editor внутри account zone.
                 </p>
               </div>
               <div className="flex flex-wrap gap-3">
@@ -170,6 +181,8 @@ export function OgpComplaintFamilyPersistedList(props: {
     fullName: string;
     passportNumber: string;
     source: "last_used" | "first_available";
+    isProfileComplete: boolean;
+    canUseRepresentative: boolean;
   } | null;
 }) {
   return (
@@ -192,6 +205,9 @@ export function OgpComplaintFamilyPersistedList(props: {
               <span>
                 Источник:{" "}
                 {props.selectedCharacter.source === "last_used" ? "last-used" : "first available"}
+              </span>
+              <span>
+                Representative: {props.selectedCharacter.canUseRepresentative ? "да" : "нет"}
               </span>
             </>
           ) : (
@@ -225,6 +241,21 @@ export function OgpComplaintFamilyPersistedList(props: {
   );
 }
 
+function buildInitialCreatePayload(): OgpComplaintDraftPayload {
+  return {
+    filingMode: "self",
+    appealNumber: "",
+    objectOrganization: "",
+    objectFullName: "",
+    incidentAt: "",
+    situationDescription: "",
+    violationSummary: "",
+    workingNotes: "",
+    trustorSnapshot: null,
+    evidenceGroups: [],
+  };
+}
+
 export function OgpComplaintDraftCreateEntry(props: {
   server: {
     code: string;
@@ -234,12 +265,16 @@ export function OgpComplaintDraftCreateEntry(props: {
     id: string;
     fullName: string;
     passportNumber: string;
+    isProfileComplete: boolean;
+    canUseRepresentative: boolean;
   }>;
   selectedCharacter: {
     id: string;
     fullName: string;
     passportNumber: string;
     source: "last_used" | "first_available";
+    isProfileComplete: boolean;
+    canUseRepresentative: boolean;
   };
   status?: string;
 }) {
@@ -251,15 +286,15 @@ export function OgpComplaintDraftCreateEntry(props: {
         </p>
         <h1 className="text-3xl font-semibold">Новая жалоба в ОГП</h1>
         <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
-          Первое сохранение уже создаёт реальный persisted `draft`, фиксирует `serverId`,
-          `characterId`, author snapshot и переводит в owner-account editor route.
+          `/new` отвечает за pre-draft create entry. После первого сохранения работа продолжается
+          в owner-only route `[documentId]`.
         </p>
         <div className="flex flex-wrap items-center gap-2 text-sm leading-6 text-[var(--muted)]">
           <Badge>serverSlug: {props.server.code}</Badge>
           <Badge>Сервер: {props.server.name}</Badge>
           <Badge>UX-default персонаж: {props.selectedCharacter.fullName}</Badge>
           <span>
-            До первого сохранения персонажа можно сменить. Источник default:{" "}
+            До first save персонажа можно сменить. Источник default:{" "}
             {props.selectedCharacter.source === "last_used" ? "last-used" : "first available"}.
           </span>
         </div>
@@ -269,49 +304,18 @@ export function OgpComplaintDraftCreateEntry(props: {
       </Card>
 
       <Card className="space-y-4">
-        <h2 className="text-2xl font-semibold">First-save snapshot capture</h2>
-        <form action={createOgpComplaintDraftAction} className="space-y-4">
-          <input name="serverSlug" type="hidden" value={props.server.code} />
-
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-[var(--foreground)]" htmlFor="characterId">
-              Персонаж для первого сохранения
-            </label>
-            <Select defaultValue={props.selectedCharacter.id} id="characterId" name="characterId">
-              {props.characters.map((character) => (
-                <option key={character.id} value={character.id}>
-                  {character.fullName} ({character.passportNumber})
-                </option>
-              ))}
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-[var(--foreground)]" htmlFor="title">
-              Название черновика
-            </label>
-            <Input defaultValue="Жалоба в ОГП" id="title" maxLength={160} name="title" />
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-[var(--foreground)]" htmlFor="workingNotes">
-              Рабочие заметки foundation
-            </label>
-            <Textarea
-              defaultValue=""
-              id="workingNotes"
-              name="workingNotes"
-              placeholder="Пока это минимальный payload foundation. Полный OGP wizard появится следующим отдельным шагом."
-            />
-          </div>
-
-          <div className="flex flex-wrap gap-3">
-            <Button type="submit">Создать persisted draft</Button>
-            <DocumentLink href={`/servers/${props.server.code}/documents/ogp-complaints`}>
-              Вернуться к persisted списку
-            </DocumentLink>
-          </div>
-        </form>
+        <h2 className="text-2xl font-semibold">Complaint create entry</h2>
+        <p className="text-sm leading-6 text-[var(--muted)]">
+          BBCode generation и forum publication automation пока ещё не реализованы. На этом шаге
+          сохраняется только complaint draft payload и immutable author snapshot.
+        </p>
+        <OgpComplaintDraftCreateClient
+          characters={props.characters}
+          initialPayload={buildInitialCreatePayload()}
+          initialTitle="Жалоба в ОГП"
+          selectedCharacter={props.selectedCharacter}
+          server={props.server}
+        />
       </Card>
     </div>
   );
@@ -368,8 +372,9 @@ export function OgpComplaintPersistedEditor(props: {
       nickname: string;
       roleKeys: string[];
       accessFlags: string[];
+      isProfileComplete: boolean;
     };
-    workingNotes: string;
+    payload: OgpComplaintDraftPayload;
   };
   status?: string;
 }) {
@@ -382,11 +387,12 @@ export function OgpComplaintPersistedEditor(props: {
           </p>
           <Badge>{formatDocumentStatus(props.document.status)}</Badge>
           <Badge>owner-account route</Badge>
+          <Badge>filing mode: {formatFilingMode(props.document.payload.filingMode)}</Badge>
         </div>
         <h1 className="text-3xl font-semibold">{props.document.title}</h1>
         <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
-          Это уже реальный persisted draft route. Здесь загружается document owner-аккаунта,
-          показывается зафиксированный snapshot и работает базовый autosave/manual save foundation.
+          Это уже реальный OGP complaint editor route. Здесь грузится persisted payload, работает
+          owner-only access и базовый autosave/manual save без BBCode generation.
         </p>
         <div className="flex flex-wrap items-center gap-2 text-sm leading-6 text-[var(--muted)]">
           <Badge>serverSlug: {props.document.server.code}</Badge>
@@ -419,11 +425,18 @@ export function OgpComplaintPersistedEditor(props: {
       </Card>
 
       <Card className="space-y-4">
-        <h2 className="text-2xl font-semibold">Draft persistence foundation</h2>
+        <h2 className="text-2xl font-semibold">OGP complaint editor</h2>
         <DocumentDraftEditorClient
+          authorSnapshot={{
+            canUseRepresentative: props.document.authorSnapshot.accessFlags.includes("advocate"),
+            fullName: props.document.authorSnapshot.fullName,
+            isProfileComplete: props.document.authorSnapshot.isProfileComplete,
+            passportNumber: props.document.authorSnapshot.passportNumber,
+          }}
           documentId={props.document.id}
+          initialPayload={props.document.payload}
           initialTitle={props.document.title}
-          initialWorkingNotes={props.document.workingNotes}
+          server={props.document.server}
           status={props.document.status}
           updatedAt={props.document.updatedAt}
         />

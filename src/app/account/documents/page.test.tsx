@@ -24,6 +24,10 @@ describe("/account/documents page", () => {
           title: "Жалоба в ОГП",
           documentType: "ogp_complaint",
           status: "draft",
+          filingMode: "representative",
+          appealNumber: "REP-001",
+          objectFullName: "Сотрудник Полиции",
+          objectOrganization: "LSPD",
           server: {
             id: "server-1",
             code: "blackberry",
@@ -58,6 +62,7 @@ describe("/account/documents page", () => {
     expect(html).toContain("Мои документы");
     expect(html).toContain("cross-server обзором persisted документов");
     expect(html).toContain("Жалоба в ОГП");
+    expect(html).toContain("filing mode: representative");
     expect(html).toContain("/servers/blackberry/documents");
   });
 

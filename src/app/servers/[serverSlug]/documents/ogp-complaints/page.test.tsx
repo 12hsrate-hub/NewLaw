@@ -30,6 +30,8 @@ describe("/servers/[serverSlug]/documents/ogp-complaints page", () => {
         id: "character-1",
         fullName: "Игорь Юристов",
         passportNumber: "AA-001",
+        isProfileComplete: true,
+        canUseRepresentative: true,
         source: "last_used",
       },
       documents: [
@@ -38,6 +40,10 @@ describe("/servers/[serverSlug]/documents/ogp-complaints page", () => {
           title: "Persisted draft",
           documentType: "ogp_complaint",
           status: "draft",
+          filingMode: "self",
+          appealNumber: "OGP-001",
+          objectFullName: "Сотрудник Полиции",
+          objectOrganization: "LSPD",
           server: {
             id: "server-1",
             code: "blackberry",
@@ -66,5 +72,6 @@ describe("/servers/[serverSlug]/documents/ogp-complaints page", () => {
     expect(html).toContain("OGP complaints");
     expect(html).toContain("Persisted draft");
     expect(html).toContain("реальные persisted документы");
+    expect(html).toContain("Appeal number: OGP-001");
   });
 });

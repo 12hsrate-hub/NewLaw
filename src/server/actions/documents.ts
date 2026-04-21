@@ -3,13 +3,16 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { isRedirectError } from "next/dist/client/components/redirect-error";
+import { ZodError } from "zod";
 
 import { requireProtectedAccountContext } from "@/server/auth/protected";
 import {
   createInitialOgpComplaintDraft,
   DocumentAccessDeniedError,
   DocumentCharacterUnavailableError,
+  DocumentRepresentativeAccessError,
   DocumentServerUnavailableError,
+  DocumentValidationError,
   saveOwnedDocumentDraft,
 } from "@/server/document-area/persistence";
 
@@ -24,11 +27,20 @@ function buildStatusRedirect(path: string, status: string) {
   return nextQuery ? `${pathname}?${nextQuery}` : pathname;
 }
 
+function parsePayloadJson(payloadJson: FormDataEntryValue | null) {
+  const payloadText = String(payloadJson ?? "").trim();
+
+  if (payloadText.length === 0) {
+    return {};
+  }
+
+  return JSON.parse(payloadText) as unknown;
+}
+
 export async function createOgpComplaintDraftAction(formData: FormData) {
   const serverSlug = String(formData.get("serverSlug") ?? "");
   const characterId = String(formData.get("characterId") ?? "");
   const title = String(formData.get("title") ?? "");
-  const workingNotes = String(formData.get("workingNotes") ?? "");
   const nextPath = `/servers/${serverSlug}/documents/ogp-complaints/new`;
   const { account } = await requireProtectedAccountContext(nextPath, undefined, {
     allowMustChangePassword: true,
@@ -40,7 +52,7 @@ export async function createOgpComplaintDraftAction(formData: FormData) {
       serverSlug,
       characterId,
       title,
-      workingNotes,
+      payload: parsePayloadJson(formData.get("payloadJson")),
     });
 
     revalidatePath("/account/documents");
@@ -66,6 +78,14 @@ export async function createOgpComplaintDraftAction(formData: FormData) {
       redirect(buildStatusRedirect(nextPath, "character-unavailable"));
     }
 
+    if (error instanceof DocumentRepresentativeAccessError) {
+      redirect(buildStatusRedirect(nextPath, "representative-not-allowed"));
+    }
+
+    if (error instanceof DocumentValidationError || error instanceof SyntaxError || error instanceof ZodError) {
+      redirect(buildStatusRedirect(nextPath, "invalid-payload"));
+    }
+
     redirect(buildStatusRedirect(nextPath, "document-create-error"));
   }
 }
@@ -73,7 +93,7 @@ export async function createOgpComplaintDraftAction(formData: FormData) {
 export async function saveDocumentDraftAction(input: {
   documentId: string;
   title: string;
-  workingNotes: string;
+  payload: unknown;
 }) {
   const { account } = await requireProtectedAccountContext("/account/documents", undefined, {
     allowMustChangePassword: true,
@@ -84,7 +104,7 @@ export async function saveDocumentDraftAction(input: {
       accountId: account.id,
       documentId: input.documentId,
       title: input.title,
-      workingNotes: input.workingNotes,
+      payload: input.payload,
     });
 
     revalidatePath("/account/documents");
@@ -101,7 +121,21 @@ export async function saveDocumentDraftAction(input: {
     if (error instanceof DocumentAccessDeniedError) {
       return {
         ok: false as const,
-        error: "document-access-denied",
+        error: "document-access-denied" as const,
+      };
+    }
+
+    if (error instanceof DocumentRepresentativeAccessError) {
+      return {
+        ok: false as const,
+        error: "representative-not-allowed" as const,
+      };
+    }
+
+    if (error instanceof DocumentValidationError || error instanceof ZodError) {
+      return {
+        ok: false as const,
+        error: "invalid-payload" as const,
       };
     }
 

@@ -31,12 +31,16 @@ describe("/servers/[serverSlug]/documents/ogp-complaints/new page", () => {
           id: "character-1",
           fullName: "Игорь Юристов",
           passportNumber: "AA-001",
+          isProfileComplete: false,
+          canUseRepresentative: true,
         },
       ],
       selectedCharacter: {
         id: "character-1",
         fullName: "Игорь Юристов",
         passportNumber: "AA-001",
+        isProfileComplete: false,
+        canUseRepresentative: true,
         source: "first_available",
       },
       ogpComplaintDocumentCount: 0,
@@ -50,9 +54,10 @@ describe("/servers/[serverSlug]/documents/ogp-complaints/new page", () => {
       }),
     );
 
-    expect(html).toContain("Первое сохранение уже создаёт реальный persisted");
+    expect(html).toContain("После первого сохранения работа продолжается");
     expect(html).toContain("UX-default персонаж: Игорь Юристов");
-    expect(html).toContain("можно сменить");
-    expect(html).toContain("Создать persisted draft");
+    expect(html).toContain("Filing mode: Self");
+    expect(html).toContain("Evidence links");
+    expect(html).toContain("Создать persisted complaint draft");
   });
 });

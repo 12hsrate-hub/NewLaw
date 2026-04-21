@@ -107,7 +107,14 @@ describe("document area context", () => {
         createdAt: new Date("2026-04-21T10:00:00.000Z"),
         updatedAt: new Date("2026-04-21T10:00:00.000Z"),
         roles: [],
-        accessFlags: [],
+        accessFlags: [
+          {
+            id: "flag-1",
+            characterId: "character-2",
+            flagKey: "advocate",
+            createdAt: new Date("2026-04-21T10:00:00.000Z"),
+          },
+        ],
       },
     ]);
     vi.mocked(countDocumentsByAccountAndServerAndType).mockResolvedValue(1);
@@ -120,7 +127,7 @@ describe("document area context", () => {
         documentType: "ogp_complaint",
         title: "Жалоба в ОГП",
         status: "draft",
-        formSchemaVersion: "ogp_complaint_foundation_v1",
+        formSchemaVersion: "ogp_complaint_mvp_editor_v1",
         snapshotCapturedAt: new Date("2026-04-21T10:00:00.000Z"),
         authorSnapshotJson: {
           characterId: "character-2",
@@ -132,11 +139,16 @@ describe("document area context", () => {
           passportNumber: "AA-002",
           isProfileComplete: true,
           roleKeys: [],
-          accessFlags: [],
+          accessFlags: ["advocate"],
           capturedAt: "2026-04-21T10:00:00.000Z",
         },
         formPayloadJson: {
+          filingMode: "self",
+          appealNumber: "OGP-001",
+          objectOrganization: "LSPD",
+          objectFullName: "Сотрудник Полиции",
           workingNotes: "Черновая заметка",
+          evidenceGroups: [],
         },
         lastGeneratedBbcode: null,
         generatedAt: null,
@@ -171,7 +183,10 @@ describe("document area context", () => {
       expect.objectContaining({
         id: "document-1",
         title: "Жалоба в ОГП",
-        workingNotesPreview: "Черновая заметка",
+        filingMode: "self",
+        appealNumber: "OGP-001",
+        objectOrganization: "LSPD",
+        objectFullName: "Сотрудник Полиции",
       }),
     );
   });
@@ -214,13 +229,20 @@ describe("document area context", () => {
         fullName: "Игорь Юристов",
         nickname: "Игорь Юристов",
         passportNumber: "AA-002",
-        isProfileComplete: true,
+        isProfileComplete: false,
         profileDataJson: null,
         deletedAt: null,
         createdAt: new Date("2026-04-21T10:00:00.000Z"),
         updatedAt: new Date("2026-04-21T10:00:00.000Z"),
         roles: [],
-        accessFlags: [],
+        accessFlags: [
+          {
+            id: "flag-2",
+            characterId: "character-2",
+            flagKey: "advocate",
+            createdAt: new Date("2026-04-21T10:00:00.000Z"),
+          },
+        ],
       },
     ]);
     vi.mocked(countDocumentsByAccountAndServerAndType).mockResolvedValue(2);
@@ -239,6 +261,8 @@ describe("document area context", () => {
           id: "character-2",
           fullName: "Игорь Юристов",
           source: "last_used",
+          isProfileComplete: false,
+          canUseRepresentative: true,
         }),
       );
       expect(result.ogpComplaintDocumentCount).toBe(2);
@@ -260,7 +284,7 @@ describe("document area context", () => {
         documentType: "ogp_complaint",
         title: "Исторический draft",
         status: "draft",
-        formSchemaVersion: "ogp_complaint_foundation_v1",
+        formSchemaVersion: "ogp_complaint_mvp_editor_v1",
         snapshotCapturedAt: new Date("2026-04-21T10:00:00.000Z"),
         authorSnapshotJson: {
           characterId: "character-legacy",
@@ -276,7 +300,12 @@ describe("document area context", () => {
           capturedAt: "2026-04-21T10:00:00.000Z",
         },
         formPayloadJson: {
+          filingMode: "self",
+          appealNumber: "OLD-001",
+          objectOrganization: "",
+          objectFullName: "",
           workingNotes: "Исторические заметки",
+          evidenceGroups: [],
         },
         lastGeneratedBbcode: null,
         generatedAt: null,
@@ -302,11 +331,17 @@ describe("document area context", () => {
     if (result.status === "ready") {
       expect(result.canCreateDocuments).toBe(false);
       expect(result.documents).toHaveLength(1);
-      expect(result.documents[0].title).toBe("Исторический draft");
+      expect(result.documents[0]).toEqual(
+        expect.objectContaining({
+          title: "Исторический draft",
+          filingMode: "self",
+          appealNumber: "OLD-001",
+        }),
+      );
     }
   });
 
-  it("editor route отдаёт только owner-account документ", async () => {
+  it("editor route отдаёт только owner-account документ с persisted complaint payload", async () => {
     vi.mocked(requireProtectedAccountContext).mockResolvedValue(accountContext);
     vi.mocked(getServers).mockResolvedValue([blackberryServer]);
     vi.mocked(getServerByCode).mockResolvedValue(blackberryServer);
@@ -321,7 +356,7 @@ describe("document area context", () => {
       documentType: "ogp_complaint",
       title: "Persisted draft",
       status: "draft",
-      formSchemaVersion: "ogp_complaint_foundation_v1",
+      formSchemaVersion: "ogp_complaint_mvp_editor_v1",
       snapshotCapturedAt: new Date("2026-04-21T10:00:00.000Z"),
       authorSnapshotJson: {
         characterId: "character-1",
@@ -331,13 +366,27 @@ describe("document area context", () => {
         fullName: "Игорь Юристов",
         nickname: "Игорь Юристов",
         passportNumber: "AA-002",
-        isProfileComplete: true,
+        isProfileComplete: false,
         roleKeys: ["lawyer"],
         accessFlags: ["advocate"],
         capturedAt: "2026-04-21T10:00:00.000Z",
       },
       formPayloadJson: {
+        filingMode: "representative",
+        appealNumber: "REP-001",
+        objectOrganization: "LSPD",
+        objectFullName: "Сотрудник Полиции",
+        incidentAt: "2026-04-21T11:15",
+        situationDescription: "Описание ситуации",
+        violationSummary: "Резюме нарушения",
         workingNotes: "Рабочие заметки",
+        trustorSnapshot: {
+          sourceType: "inline_manual",
+          fullName: "Пётр Доверитель",
+          passportNumber: "TR-001",
+          note: "",
+        },
+        evidenceGroups: [],
       },
       lastGeneratedBbcode: null,
       generatedAt: null,
@@ -358,7 +407,7 @@ describe("document area context", () => {
         fullName: "Игорь Юристов",
         nickname: "Игорь Юристов",
         passportNumber: "AA-002",
-        isProfileComplete: true,
+        isProfileComplete: false,
         profileDataJson: null,
         deletedAt: null,
         createdAt: new Date("2026-04-21T10:00:00.000Z"),
@@ -392,7 +441,13 @@ describe("document area context", () => {
     if (result.status === "ready") {
       expect(result.document.id).toBe("document-1");
       expect(result.document.authorSnapshot.fullName).toBe("Игорь Юристов");
-      expect(result.document.workingNotes).toBe("Рабочие заметки");
+      expect(result.document.authorSnapshot.isProfileComplete).toBe(false);
+      expect(result.document.payload).toEqual(
+        expect.objectContaining({
+          filingMode: "representative",
+          appealNumber: "REP-001",
+        }),
+      );
     }
   });
 
