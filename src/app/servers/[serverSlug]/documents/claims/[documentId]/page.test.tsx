@@ -81,5 +81,6 @@ describe("/servers/[serverSlug]/documents/claims/[documentId] page", () => {
     expect(html).toContain("Subtype: Rehabilitation");
     expect(html).toContain("claim-123");
     expect(html).toContain("working notes");
+    expect(html).toContain("Claims output preview");
   });
 });

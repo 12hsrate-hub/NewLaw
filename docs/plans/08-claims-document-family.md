@@ -166,6 +166,60 @@ Claims не используют OGP `BBCode`/publication flow по умолча
 - manual save и autosave foundation уже работают с реальным claims payload
 - generation/output и publication/forum automation для claims по-прежнему не включены
 
+### 08.5 — Claims output / rendering policy
+
+Что входит:
+
+- отдельный claims-specific output layer
+- deterministic server-side structured preview
+- copy-friendly text output
+- claims не наследуют OGP `BBCode` и publication model
+- claims могут позже использовать общий status `generated`, но publication workflow не активируется автоматически
+
+Что не входит:
+
+- forum automation
+- `publication_url`
+- OGP `BBCode` reuse
+
+Результат шага:
+
+- claims output target зафиксирован как `structured preview`, а не `BBCode`
+- output строится только из persisted `Document + snapshot + payload`
+- renderer должен быть общим на уровне family, но с subtype-specific ветками `rehabilitation | lawsuit`
+- first output-step не зависит от law corpus, assistant или precedents
+- `generated` status допустим для future checkpoint, но published workflow для claims по умолчанию не активируется
+
+### 08.6 — Claims structured renderer foundation
+
+Что входит:
+
+- family-level renderer contract `ClaimsRenderedOutput`
+- subtype-specific rendering для `rehabilitation` и `lawsuit`
+- deterministic structured preview
+- copy-friendly text output из того же output shape
+- blocking reasons при неполном profile/payload
+- UI preview внутри `/servers/[serverSlug]/documents/claims/[documentId]`
+
+Что не входит:
+
+- generated checkpoint persistence
+- publication/forum automation
+
+Текущий результат шага:
+
+- claims получили отдельный server-side renderer service вместо OGP `BBCode`
+- renderer строит `structured preview` и `copyText` только из persisted claims document и snapshot data
+- preview поддерживает оба subtype:
+  - `rehabilitation`
+  - `lawsuit`
+- common sections включают header, filing mode, claimant/representative, trustor, respondent, claim subject, factual background, legal basis summary, requested relief, evidence и working notes
+- subtype-specific sections строятся отдельно для `rehabilitation` и `lawsuit`
+- blocking reasons честно возвращаются при неполном profile, неполном common payload, неполном subtype payload и неполном trustor snapshot для representative flow
+- evidence может быть пустым и тогда renderer явно показывает, что отдельные evidence links не добавлены
+- `/servers/[serverSlug]/documents/claims/[documentId]` уже умеет собирать structured preview и copy-friendly text без перевода документа в `generated`
+- claims по-прежнему не притворяются publication/forum workflow и не используют OGP `publication_url`
+
 ## Acceptance criteria
 
 ### Claims architecture готова

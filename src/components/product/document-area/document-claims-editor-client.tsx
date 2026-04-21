@@ -7,7 +7,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { createClaimDraftAction, saveDocumentDraftAction } from "@/server/actions/documents";
+import {
+  createClaimDraftAction,
+  generateClaimsStructuredPreviewAction,
+  saveDocumentDraftAction,
+} from "@/server/actions/documents";
+import type { ClaimsRenderedOutput } from "@/server/document-area/claims-rendering";
 import type {
   ClaimDocumentType,
   ClaimsDraftPayload,
@@ -54,6 +59,8 @@ type ClaimsDraftEditorClientProps = {
   status: "draft" | "generated" | "published";
   updatedAt: string;
 };
+
+type ClaimsPreviewState = ClaimsRenderedOutput | null;
 
 type ClaimsEditorState = {
   title: string;
@@ -895,6 +902,9 @@ export function ClaimsDraftEditorClient(props: ClaimsDraftEditorClientProps) {
   );
   const [savedUpdatedAt, setSavedUpdatedAt] = useState(props.updatedAt);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [previewMessage, setPreviewMessage] = useState<string | null>(null);
+  const [previewState, setPreviewState] = useState<ClaimsPreviewState>(null);
+  const [isPreviewStale, setIsPreviewStale] = useState(false);
   const lastAutoSaveKeyRef = useRef<string | null>(null);
   const representativeAllowed = props.authorSnapshot.canUseRepresentative;
   const isDirty = !areStatesEqual(editorState, savedState);
@@ -937,13 +947,14 @@ export function ClaimsDraftEditorClient(props: ClaimsDraftEditorClientProps) {
 
       setSavedState(editorState);
       setSavedUpdatedAt(result.updatedAt);
+      setIsPreviewStale((current) => current || previewState !== null);
       setSaveMessage(
         mode === "autosave"
           ? `Claims draft автосохранён: ${new Date(result.updatedAt).toLocaleString("ru-RU")}`
           : `Claims draft сохранён вручную: ${new Date(result.updatedAt).toLocaleString("ru-RU")}`,
       );
     },
-    [editorState, props.documentId],
+    [editorState, previewState, props.documentId],
   );
 
   useEffect(() => {
@@ -968,6 +979,54 @@ export function ClaimsDraftEditorClient(props: ClaimsDraftEditorClientProps) {
       window.clearTimeout(timer);
     };
   }, [editorState, isDirty, performSave]);
+
+  const handleGeneratePreview = useCallback(async () => {
+    if (!isDirty && !savedUpdatedAt) {
+      setPreviewMessage("Сначала сохраните claims draft, чтобы preview строился из persisted документа.");
+      return;
+    }
+
+    if (isDirty) {
+      setPreviewMessage("Сначала сохраните claims draft. Structured preview всегда строится только из persisted документа.");
+      return;
+    }
+
+    const result = await generateClaimsStructuredPreviewAction({
+      documentId: props.documentId,
+    });
+
+    if (!result.ok) {
+      setPreviewState(null);
+      setIsPreviewStale(false);
+
+      if (result.error === "preview-blocked") {
+        setPreviewMessage(result.reasons.join(" "));
+        return;
+      }
+
+      setPreviewMessage("Не удалось построить structured preview. Проверь доступ и попробуй ещё раз.");
+      return;
+    }
+
+    setPreviewState(result.output);
+    setIsPreviewStale(false);
+    setPreviewMessage(
+      `Structured preview собран из persisted claims document. Format: ${result.output.format}.`,
+    );
+  }, [isDirty, props.documentId, savedUpdatedAt]);
+
+  const handleCopyPreview = useCallback(async () => {
+    if (!previewState) {
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(previewState.copyText);
+      setPreviewMessage("Copy-friendly text скопирован в буфер обмена.");
+    } catch {
+      setPreviewMessage("Не удалось скопировать preview автоматически. Можно скопировать текст вручную из блока ниже.");
+    }
+  }, [previewState]);
 
   return (
     <div className="space-y-6">
@@ -995,9 +1054,92 @@ export function ClaimsDraftEditorClient(props: ClaimsDraftEditorClientProps) {
         >
           Сохранить claims draft
         </Button>
+        <Button
+          disabled={isDirty}
+          onClick={() => {
+            startTransition(() => {
+              void handleGeneratePreview();
+            });
+          }}
+          type="button"
+          variant="secondary"
+        >
+          Собрать structured preview
+        </Button>
+        <Button
+          disabled={!previewState}
+          onClick={() => {
+            startTransition(() => {
+              void handleCopyPreview();
+            });
+          }}
+          type="button"
+          variant="secondary"
+        >
+          Копировать текст preview
+        </Button>
       </div>
 
       {saveMessage ? <p className="text-sm text-[var(--muted)]">{saveMessage}</p> : null}
+      {previewMessage ? <p className="text-sm text-[var(--muted)]">{previewMessage}</p> : null}
+
+      <div className="space-y-4 rounded-3xl border border-[var(--border)] bg-white/70 p-4">
+        <div className="space-y-1">
+          <h3 className="text-lg font-semibold">Claims output preview</h3>
+          <ClaimsFieldHint>
+            Это отдельный claims structured renderer. Он не использует OGP BBCode, не меняет status документа и не включает publication workflow.
+          </ClaimsFieldHint>
+        </div>
+        <ul className="space-y-2 text-sm leading-6 text-[var(--muted)]">
+          <li>Document status остаётся: {props.status}</li>
+          <li>Preview format: {previewState?.format ?? "ещё не собран"}</li>
+          <li>Renderer version: {previewState?.rendererVersion ?? "ещё не собран"}</li>
+          <li>Publication / forum sync для claims на этом шаге не активируются.</li>
+          {previewState ? (
+            <li>
+              Blocking reasons: {previewState.blockingReasons.length > 0 ? previewState.blockingReasons.join(", ") : "нет"}
+            </li>
+          ) : null}
+          {isPreviewStale ? <li>Текущий preview устарел после последнего сохранения. Собери его заново.</li> : null}
+        </ul>
+      </div>
+
+      <div className="space-y-4 rounded-3xl border border-[var(--border)] bg-white/70 p-4">
+        <div className="space-y-1">
+          <h3 className="text-lg font-semibold">Structured preview</h3>
+          <ClaimsFieldHint>
+            Preview и copyText строятся из одного и того же deterministic output shape.
+          </ClaimsFieldHint>
+        </div>
+        {previewState ? (
+          <div className="space-y-4">
+            {previewState.sections.map((section) => (
+              <div className="space-y-2 rounded-2xl border border-[var(--border)] bg-white/80 p-4" key={section.key}>
+                <h4 className="text-sm font-semibold text-[var(--foreground)]">{section.title}</h4>
+                <pre className="whitespace-pre-wrap text-sm leading-6 text-[var(--muted)]">{section.body}</pre>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="rounded-2xl border border-dashed border-[var(--border)] px-4 py-5 text-sm text-[var(--muted)]">
+            Structured preview ещё не собран. Сначала сохрани draft, затем запусти Generate preview.
+          </div>
+        )}
+      </div>
+
+      <div className="space-y-4 rounded-3xl border border-[var(--border)] bg-white/70 p-4">
+        <div className="space-y-1">
+          <h3 className="text-lg font-semibold">Copy-friendly text</h3>
+          <ClaimsFieldHint>
+            Это не BBCode и не publication artifact. Текст только для просмотра и копирования.
+          </ClaimsFieldHint>
+        </div>
+        <Textarea
+          className="min-h-[320px] font-mono text-xs"
+          readOnly
+          value={previewState?.copyText ?? "Preview ещё не собран."}
+        />
+      </div>
     </div>
   );
 }

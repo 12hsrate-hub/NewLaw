@@ -741,7 +741,8 @@ export function ClaimsPersistedEditor(props: {
         <h1 className="text-3xl font-semibold">{props.document.title}</h1>
         <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
           Это уже реальный claims editor route. Здесь грузится persisted draft, работает
-          owner-only access и базовый manual/autosave foundation без generation/publication слоя.
+          owner-only access, базовый manual/autosave foundation и claims structured preview без
+          generation checkpoint persistence и publication слоя.
         </p>
         <div className="flex flex-wrap items-center gap-2 text-sm leading-6 text-[var(--muted)]">
           <Badge>serverSlug: {props.document.server.code}</Badge>
@@ -769,7 +770,7 @@ export function ClaimsPersistedEditor(props: {
           <li>Role keys: {props.document.authorSnapshot.roleKeys.join(", ") || "нет"}</li>
           <li>Access flags: {props.document.authorSnapshot.accessFlags.join(", ") || "нет"}</li>
           <li>Server, character snapshot и subtype после first save больше не меняются.</li>
-          <li>Claims generation/publication capability на этом шаге ещё не включена.</li>
+          <li>Claims structured preview уже доступен, но status остаётся draft и publication workflow не активируется.</li>
         </ul>
       </Card>
 

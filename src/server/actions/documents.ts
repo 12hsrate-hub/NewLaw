@@ -17,6 +17,11 @@ import {
   saveOwnedDocumentDraft,
 } from "@/server/document-area/persistence";
 import {
+  ClaimsOutputBlockedError,
+  mapClaimsOutputBlockingReasonsToMessages,
+  renderOwnedClaimsStructuredPreview,
+} from "@/server/document-area/claims-rendering";
+import {
   DocumentGenerationBlockedError,
   DocumentPublicationMetadataStateError,
   generateOwnedOgpComplaintBbcode,
@@ -277,6 +282,43 @@ export async function generateOgpComplaintBbcodeAction(input: {
         ok: false as const,
         error: "generation-blocked" as const,
         reasons: mapGenerationBlockingReasonsToMessages(error.reasons),
+      };
+    }
+
+    throw error;
+  }
+}
+
+export async function generateClaimsStructuredPreviewAction(input: {
+  documentId: string;
+}) {
+  const { account } = await requireProtectedAccountContext("/account/documents", undefined, {
+    allowMustChangePassword: true,
+  });
+
+  try {
+    const output = await renderOwnedClaimsStructuredPreview({
+      accountId: account.id,
+      documentId: input.documentId,
+    });
+
+    return {
+      ok: true as const,
+      output,
+    };
+  } catch (error) {
+    if (error instanceof DocumentAccessDeniedError) {
+      return {
+        ok: false as const,
+        error: "document-access-denied" as const,
+      };
+    }
+
+    if (error instanceof ClaimsOutputBlockedError) {
+      return {
+        ok: false as const,
+        error: "preview-blocked" as const,
+        reasons: mapClaimsOutputBlockingReasonsToMessages(error.reasons),
       };
     }
 

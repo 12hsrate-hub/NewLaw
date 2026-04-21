@@ -170,6 +170,10 @@ export const generateOgpComplaintBbcodeActionInputSchema = z.object({
   documentId: documentIdSchema,
 });
 
+export const generateClaimsStructuredPreviewActionInputSchema = z.object({
+  documentId: documentIdSchema,
+});
+
 export const updateDocumentPublicationMetadataActionInputSchema = z.object({
   documentId: documentIdSchema,
   publicationUrl: documentPublicationUrlSchema,
