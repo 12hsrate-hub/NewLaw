@@ -613,7 +613,7 @@ describe("document persistence foundation", () => {
       expect.objectContaining({
         documentType: "rehabilitation",
         title: "Документ по реабилитации",
-        formSchemaVersion: "rehabilitation_claim_foundation_v1",
+        formSchemaVersion: "rehabilitation_claim_mvp_editor_v1",
         snapshotCapturedAt: now,
         authorSnapshotJson: expect.objectContaining({
           serverId: "server-1",
@@ -621,7 +621,18 @@ describe("document persistence foundation", () => {
           passportNumber: "AA-001",
         }),
         formPayloadJson: {
+          filingMode: "self",
+          respondentName: "",
+          claimSubject: "",
+          factualBackground: "",
+          legalBasisSummary: "",
+          requestedRelief: "",
           workingNotes: "Черновой claim",
+          trustorSnapshot: null,
+          evidenceGroups: [],
+          caseReference: "",
+          rehabilitationBasis: "",
+          harmSummary: "",
         },
       }),
     );
@@ -682,12 +693,184 @@ describe("document persistence foundation", () => {
       expect.objectContaining({
         documentType: "lawsuit",
         title: "Исковое заявление",
-        formSchemaVersion: "lawsuit_claim_foundation_v1",
+        formSchemaVersion: "lawsuit_claim_mvp_editor_v1",
         formPayloadJson: {
+          filingMode: "self",
+          respondentName: "",
+          claimSubject: "",
+          factualBackground: "",
+          legalBasisSummary: "",
+          requestedRelief: "",
           workingNotes: "Черновой lawsuit",
+          trustorSnapshot: null,
+          evidenceGroups: [],
+          courtName: "",
+          defendantName: "",
+          claimAmount: "",
+          pretrialSummary: "",
         },
       }),
     );
+  });
+
+  it("claims representative filing доступен только при advocate и сохраняет trustor snapshot с evidence rows", async () => {
+    const createDocumentRecord = vi.fn().mockResolvedValue({
+      id: "claim-3",
+      status: "draft",
+      updatedAt: new Date("2026-04-22T05:20:00.000Z"),
+      documentType: "lawsuit",
+      server: {
+        id: "server-1",
+        code: "blackberry",
+        name: "Blackberry",
+      },
+    });
+
+    await createInitialClaimDraft(
+      {
+        accountId: "00000000-0000-0000-0000-000000000001",
+        serverSlug: "blackberry",
+        characterId: "character-1",
+        documentType: "lawsuit",
+        title: "Исковое заявление",
+        payload: {
+          filingMode: "representative",
+          respondentName: "LSPD",
+          claimSubject: "Оспаривание действий",
+          factualBackground: "Факты по делу",
+          legalBasisSummary: "Правовые основания",
+          requestedRelief: "Прошу удовлетворить иск",
+          workingNotes: "Claims representative draft",
+          trustorSnapshot: {
+            sourceType: "inline_manual",
+            fullName: "Пётр Доверитель",
+            passportNumber: "TR-001",
+            note: "Действую по доверенности",
+          },
+          evidenceGroups: [
+            {
+              id: "group-1",
+              title: "Материалы",
+              rows: [
+                {
+                  id: "row-1",
+                  label: "Ссылка на доказательство",
+                  url: "https://example.com/evidence-1",
+                  note: "Подтверждает позицию",
+                },
+              ],
+            },
+          ],
+          courtName: "Верховный суд",
+          defendantName: "Ответчик",
+          claimAmount: "150000",
+          pretrialSummary: "Претензия направлялась",
+        },
+      },
+      {
+        getServerByCode: vi.fn().mockResolvedValue({
+          id: "server-1",
+          code: "blackberry",
+          name: "Blackberry",
+        }),
+        getCharacterByIdForAccount: vi.fn().mockResolvedValue({
+          id: "character-1",
+          accountId: "00000000-0000-0000-0000-000000000001",
+          serverId: "server-1",
+          fullName: "Игорь Юристов",
+          nickname: "Игорь Юристов",
+          passportNumber: "AA-001",
+          isProfileComplete: true,
+          roles: [{ roleKey: "lawyer" }],
+          accessFlags: [{ flagKey: "advocate" }],
+        }),
+        createDocumentRecord,
+        getDocumentByIdForAccount: vi.fn(),
+        updateDocumentDraftRecord: vi.fn(),
+        setActiveServerSelection: vi.fn().mockResolvedValue(undefined),
+        setActiveCharacterSelection: vi.fn().mockResolvedValue(undefined),
+        now: () => new Date("2026-04-22T05:20:00.000Z"),
+      },
+    );
+
+    expect(createDocumentRecord).toHaveBeenCalledWith(
+      expect.objectContaining({
+        documentType: "lawsuit",
+        formPayloadJson: expect.objectContaining({
+          filingMode: "representative",
+          trustorSnapshot: expect.objectContaining({
+            fullName: "Пётр Доверитель",
+            passportNumber: "TR-001",
+          }),
+          evidenceGroups: [
+            expect.objectContaining({
+              rows: [
+                expect.objectContaining({
+                  url: "https://example.com/evidence-1",
+                }),
+              ],
+            }),
+          ],
+        }),
+      }),
+    );
+  });
+
+  it("без advocate claims representative filing недоступен", async () => {
+    await expect(
+      createInitialClaimDraft(
+        {
+          accountId: "00000000-0000-0000-0000-000000000001",
+          serverSlug: "blackberry",
+          characterId: "character-1",
+          documentType: "rehabilitation",
+          title: "Документ по реабилитации",
+          payload: {
+            filingMode: "representative",
+            respondentName: "LSPD",
+            claimSubject: "Реабилитация",
+            factualBackground: "",
+            legalBasisSummary: "",
+            requestedRelief: "",
+            workingNotes: "",
+            trustorSnapshot: {
+              sourceType: "inline_manual",
+              fullName: "Доверитель",
+              passportNumber: "TR-002",
+              note: "",
+            },
+            evidenceGroups: [],
+            caseReference: "",
+            rehabilitationBasis: "",
+            harmSummary: "",
+          },
+        },
+        {
+          getServerByCode: vi.fn().mockResolvedValue({
+            id: "server-1",
+            code: "blackberry",
+            name: "Blackberry",
+          }),
+          getCharacterByIdForAccount: vi.fn().mockResolvedValue({
+            id: "character-1",
+            accountId: "00000000-0000-0000-0000-000000000001",
+            serverId: "server-1",
+            fullName: "Павел Гражданин",
+            nickname: "Павел Гражданин",
+            passportNumber: "AA-001",
+            isProfileComplete: true,
+            roles: [],
+            accessFlags: [],
+          }),
+          createDocumentRecord: vi.fn(),
+          getDocumentByIdForAccount: vi.fn(),
+          updateDocumentDraftRecord: vi.fn(),
+          setActiveServerSelection: vi.fn(),
+          setActiveCharacterSelection: vi.fn(),
+          now: () => new Date("2026-04-22T05:20:00.000Z"),
+        },
+      ),
+    ).rejects.toBeInstanceOf(DocumentRepresentativeAccessError);
   });
 
   it("manual save для claims обновляет payload, но не меняет serverId, characterId и subtype", async () => {
@@ -699,7 +882,7 @@ describe("document persistence foundation", () => {
       documentType: "rehabilitation" as const,
       title: "Документ по реабилитации",
       status: "draft" as const,
-      formSchemaVersion: "rehabilitation_claim_foundation_v1",
+      formSchemaVersion: "rehabilitation_claim_mvp_editor_v1",
       snapshotCapturedAt: new Date("2026-04-22T05:00:00.000Z"),
       authorSnapshotJson: {
         characterId: "character-1",
@@ -715,7 +898,18 @@ describe("document persistence foundation", () => {
         capturedAt: "2026-04-22T05:00:00.000Z",
       },
       formPayloadJson: {
+        filingMode: "self",
+        respondentName: "",
+        claimSubject: "",
+        factualBackground: "",
+        legalBasisSummary: "",
+        requestedRelief: "",
         workingNotes: "Старые notes",
+        trustorSnapshot: null,
+        evidenceGroups: [],
+        caseReference: "",
+        rehabilitationBasis: "",
+        harmSummary: "",
       },
       lastGeneratedBbcode: null,
       generatedAt: null,
@@ -753,7 +947,18 @@ describe("document persistence foundation", () => {
       ...existingDocument,
       title: "Документ по реабилитации / draft 2",
       formPayloadJson: {
+        filingMode: "self",
+        respondentName: "",
+        claimSubject: "",
+        factualBackground: "",
+        legalBasisSummary: "",
+        requestedRelief: "",
         workingNotes: "Новые notes по claim",
+        trustorSnapshot: null,
+        evidenceGroups: [],
+        caseReference: "",
+        rehabilitationBasis: "",
+        harmSummary: "",
       },
       updatedAt: new Date("2026-04-22T05:15:00.000Z"),
     });
@@ -783,14 +988,36 @@ describe("document persistence foundation", () => {
       documentId: "claim-1",
       title: "Документ по реабилитации / draft 2",
       formPayloadJson: {
+        filingMode: "self",
+        respondentName: "",
+        claimSubject: "",
+        factualBackground: "",
+        legalBasisSummary: "",
+        requestedRelief: "",
         workingNotes: "Новые notes по claim",
+        trustorSnapshot: null,
+        evidenceGroups: [],
+        caseReference: "",
+        rehabilitationBasis: "",
+        harmSummary: "",
       },
     });
     expect(savedDocument.serverId).toBe("server-1");
     expect(savedDocument.characterId).toBe("character-1");
     expect(savedDocument.documentType).toBe("rehabilitation");
-    expect(readClaimsDraftPayload(savedDocument.formPayloadJson)).toEqual({
+    expect(readClaimsDraftPayload("rehabilitation", savedDocument.formPayloadJson)).toEqual({
+      filingMode: "self",
+      respondentName: "",
+      claimSubject: "",
+      factualBackground: "",
+      legalBasisSummary: "",
+      requestedRelief: "",
       workingNotes: "Новые notes по claim",
+      trustorSnapshot: null,
+      evidenceGroups: [],
+      caseReference: "",
+      rehabilitationBasis: "",
+      harmSummary: "",
     });
   });
 });

@@ -352,14 +352,14 @@ function buildPersistedDocumentListItem(
   const subtype = isClaimsDocumentType(document.documentType) ? document.documentType : null;
 
   if (document.documentType !== "ogp_complaint") {
-    const payload = readClaimsDraftPayload(document.formPayloadJson);
+    const payload = readClaimsDraftPayload(document.documentType, document.formPayloadJson);
 
     return {
       id: document.id,
       title: document.title,
       documentType: document.documentType,
       status: document.status,
-      filingMode: null,
+      filingMode: payload.filingMode,
       subtype,
       appealNumber: null,
       objectFullName: null,
@@ -742,7 +742,7 @@ export async function getClaimsEditorRouteContext(input: {
   }
 
   const authorSnapshot = readDocumentAuthorSnapshot(document.authorSnapshotJson);
-  const payload = readClaimsDraftPayload(document.formPayloadJson);
+  const payload = readClaimsDraftPayload(document.documentType, document.formPayloadJson);
 
   return {
     status: "ready",

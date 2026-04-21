@@ -33,7 +33,7 @@ describe("/servers/[serverSlug]/documents/claims/[documentId] page", () => {
         createdAt: "2026-04-22T00:00:00.000Z",
         updatedAt: "2026-04-22T00:10:00.000Z",
         snapshotCapturedAt: "2026-04-22T00:00:00.000Z",
-        formSchemaVersion: "rehabilitation_claim_foundation_v1",
+        formSchemaVersion: "rehabilitation_claim_mvp_editor_v1",
         server: {
           code: "blackberry",
           name: "Blackberry",
@@ -47,7 +47,18 @@ describe("/servers/[serverSlug]/documents/claims/[documentId] page", () => {
           isProfileComplete: true,
         },
         payload: {
+          filingMode: "self",
+          respondentName: "",
+          claimSubject: "",
+          factualBackground: "",
+          legalBasisSummary: "",
+          requestedRelief: "",
           workingNotes: "Черновые notes",
+          trustorSnapshot: null,
+          evidenceGroups: [],
+          caseReference: "",
+          rehabilitationBasis: "",
+          harmSummary: "",
         },
       },
     });

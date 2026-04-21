@@ -102,8 +102,29 @@ export const ogpComplaintDraftPayloadSchema = z.object({
   evidenceGroups: z.array(ogpComplaintEvidenceGroupSchema).max(12).default([]),
 });
 
-export const claimsDraftPayloadSchema = z.object({
+const claimsDraftPayloadBaseSchema = z.object({
+  filingMode: ogpComplaintFilingModeSchema.default("self"),
+  respondentName: z.string().trim().max(160).default(""),
+  claimSubject: z.string().trim().max(240).default(""),
+  factualBackground: z.string().max(12_000).default(""),
+  legalBasisSummary: z.string().max(8_000).default(""),
+  requestedRelief: z.string().max(8_000).default(""),
   workingNotes: documentWorkingNotesSchema,
+  trustorSnapshot: ogpComplaintTrustorSnapshotSchema.nullable().optional(),
+  evidenceGroups: z.array(ogpComplaintEvidenceGroupSchema).max(12).default([]),
+});
+
+export const rehabilitationClaimDraftPayloadSchema = claimsDraftPayloadBaseSchema.extend({
+  caseReference: z.string().trim().max(160).default(""),
+  rehabilitationBasis: z.string().max(8_000).default(""),
+  harmSummary: z.string().max(8_000).default(""),
+});
+
+export const lawsuitClaimDraftPayloadSchema = claimsDraftPayloadBaseSchema.extend({
+  courtName: z.string().trim().max(200).default(""),
+  defendantName: z.string().trim().max(160).default(""),
+  claimAmount: z.string().trim().max(80).default(""),
+  pretrialSummary: z.string().max(8_000).default(""),
 });
 
 export const createDocumentDraftInputSchema = z.object({
@@ -178,4 +199,7 @@ export type OgpComplaintTrustorSnapshot = z.infer<typeof ogpComplaintTrustorSnap
 export type OgpComplaintEvidenceRow = z.infer<typeof ogpComplaintEvidenceRowSchema>;
 export type OgpComplaintEvidenceGroup = z.infer<typeof ogpComplaintEvidenceGroupSchema>;
 export type OgpComplaintDraftPayload = z.infer<typeof ogpComplaintDraftPayloadSchema>;
-export type ClaimsDraftPayload = z.infer<typeof claimsDraftPayloadSchema>;
+export type ClaimsCommonDraftPayload = z.infer<typeof claimsDraftPayloadBaseSchema>;
+export type RehabilitationClaimDraftPayload = z.infer<typeof rehabilitationClaimDraftPayloadSchema>;
+export type LawsuitClaimDraftPayload = z.infer<typeof lawsuitClaimDraftPayloadSchema>;
+export type ClaimsDraftPayload = RehabilitationClaimDraftPayload | LawsuitClaimDraftPayload;

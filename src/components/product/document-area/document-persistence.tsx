@@ -145,10 +145,9 @@ function PersistedDocumentList(props: {
             ) : null}
             {document.documentType !== "ogp_complaint" ? (
               <p className="text-sm leading-6 text-[var(--muted)]">
-                Persisted claims foundation уже работает: subtype{" "}
+                Claims editor уже работает внутри отдельной family `Claims`: subtype{" "}
                 `{formatDocumentSubtype(document.documentType)}` фиксируется через internal
-                `document_type`, а editor route остаётся в отдельной family `Claims` без
-                автоматического наследования OGP generation/publication workflow.
+                `document_type`, а payload живёт отдельно от OGP и не наследует его generation/publication workflow.
               </p>
             ) : null}
             <p className="text-sm leading-6 text-[var(--muted)]">
@@ -324,9 +323,34 @@ function buildInitialCreatePayload(): OgpComplaintDraftPayload {
   };
 }
 
-function buildInitialClaimsCreatePayload(): ClaimsDraftPayload {
-  return {
+function buildInitialClaimsCreatePayload(documentType: ClaimDocumentType): ClaimsDraftPayload {
+  const commonFields = {
+    filingMode: "self" as const,
+    respondentName: "",
+    claimSubject: "",
+    factualBackground: "",
+    legalBasisSummary: "",
+    requestedRelief: "",
     workingNotes: "",
+    trustorSnapshot: null,
+    evidenceGroups: [],
+  };
+
+  if (documentType === "rehabilitation") {
+    return {
+      ...commonFields,
+      caseReference: "",
+      rehabilitationBasis: "",
+      harmSummary: "",
+    };
+  }
+
+  return {
+    ...commonFields,
+    courtName: "",
+    defendantName: "",
+    claimAmount: "",
+    pretrialSummary: "",
   };
 }
 
@@ -658,19 +682,19 @@ export function ClaimsDraftCreateEntry(props: {
         ) : null}
       </Card>
 
-      <Card className="space-y-4">
-        <h2 className="text-2xl font-semibold">Claims create entry</h2>
-        <p className="text-sm leading-6 text-[var(--muted)]">
-          На этом route создаётся persisted claims draft и фиксируется immutable author snapshot.
-          Полный subtype-specific payload появится отдельным следующим шагом.
-        </p>
-        <ClaimsDraftCreateClient
-          characters={props.characters}
-          documentType={props.documentType}
-          initialPayload={buildInitialClaimsCreatePayload()}
-          initialTitle={getDocumentTitleForType(props.documentType)}
-          selectedCharacter={props.selectedCharacter}
-          server={props.server}
+        <Card className="space-y-4">
+          <h2 className="text-2xl font-semibold">Claims create entry</h2>
+          <p className="text-sm leading-6 text-[var(--muted)]">
+            На этом route создаётся persisted claims draft, фиксируется immutable author snapshot,
+            а subtype-specific payload уже собирается внутри editor flow без generation/publication слоя.
+          </p>
+          <ClaimsDraftCreateClient
+            characters={props.characters}
+            documentType={props.documentType}
+            initialPayload={buildInitialClaimsCreatePayload(props.documentType)}
+            initialTitle={getDocumentTitleForType(props.documentType)}
+            selectedCharacter={props.selectedCharacter}
+            server={props.server}
         />
       </Card>
     </div>
@@ -750,9 +774,10 @@ export function ClaimsPersistedEditor(props: {
       </Card>
 
       <Card className="space-y-4">
-        <h2 className="text-2xl font-semibold">Claims editor foundation</h2>
+        <h2 className="text-2xl font-semibold">Claims editor MVP</h2>
         <ClaimsDraftEditorClient
           authorSnapshot={{
+            canUseRepresentative: props.document.authorSnapshot.accessFlags.includes("advocate"),
             fullName: props.document.authorSnapshot.fullName,
             isProfileComplete: props.document.authorSnapshot.isProfileComplete,
             passportNumber: props.document.authorSnapshot.passportNumber,

@@ -144,6 +144,28 @@ Claims не используют OGP `BBCode`/publication flow по умолча
 - forum publication automation
 - template documents
 
+Текущий результат шага:
+
+- `/servers/[serverSlug]/documents/claims/[documentId]` работает как реальный owner-only claims editor route, а не только как persistence foundation
+- общий persisted claims payload уже включает:
+  - `filing_mode`
+  - `respondent_name`
+  - `claim_subject`
+  - `factual_background`
+  - `legal_basis_summary`
+  - `requested_relief`
+  - `working_notes`
+  - `trustor_snapshot`
+  - `evidence_groups / evidence_rows`
+- subtype-specific payload уже работает:
+  - `rehabilitation`: `case_reference`, `rehabilitation_basis`, `harm_summary`
+  - `lawsuit`: `court_name`, `defendant_name`, `claim_amount`, `pretrial_summary`
+- representative branch доступна только при `access_flag = advocate`; без `advocate` filing принудительно остаётся `self`
+- trustor snapshot живёт внутри persisted claims document и не требует отдельного trustor module
+- claims используют тот же evidence pattern, что и OGP, без отдельной несовместимой модели доказательств
+- manual save и autosave foundation уже работают с реальным claims payload
+- generation/output и publication/forum automation для claims по-прежнему не включены
+
 ## Acceptance criteria
 
 ### Claims architecture готова

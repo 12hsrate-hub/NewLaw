@@ -124,7 +124,9 @@ export async function createClaimDraftAction(formData: FormData) {
   const characterId = String(formData.get("characterId") ?? "");
   const documentType = String(formData.get("documentType") ?? "");
   const title = String(formData.get("title") ?? "");
-  const nextPath = `/servers/${serverSlug}/documents/claims/new`;
+  const nextPath = documentType
+    ? `/servers/${serverSlug}/documents/claims/new?subtype=${documentType}`
+    : `/servers/${serverSlug}/documents/claims/new`;
   const { account } = await requireProtectedAccountContext(nextPath, undefined, {
     allowMustChangePassword: true,
   });
@@ -162,6 +164,10 @@ export async function createClaimDraftAction(formData: FormData) {
 
     if (error instanceof DocumentCharacterUnavailableError) {
       redirect(buildStatusRedirect(nextPath, "character-unavailable"));
+    }
+
+    if (error instanceof DocumentRepresentativeAccessError) {
+      redirect(buildStatusRedirect(nextPath, "representative-not-allowed"));
     }
 
     if (error instanceof DocumentValidationError || error instanceof SyntaxError || error instanceof ZodError) {

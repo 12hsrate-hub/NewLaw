@@ -6,12 +6,13 @@ import { getServerByCode } from "@/db/repositories/server.repository";
 import { setActiveCharacterSelection, setActiveServerSelection } from "@/server/app-shell/selection";
 import {
   claimDocumentTypeSchema,
-  claimsDraftPayloadSchema,
   createClaimDraftActionInputSchema,
   createOgpComplaintDraftActionInputSchema,
   documentAuthorSnapshotSchema,
   documentTitleSchema,
+  lawsuitClaimDraftPayloadSchema,
   ogpComplaintDraftPayloadSchema,
+  rehabilitationClaimDraftPayloadSchema,
   saveDocumentDraftActionInputSchema,
   type ClaimDocumentType,
   type ClaimsDraftPayload,
@@ -20,8 +21,8 @@ import {
 } from "@/schemas/document";
 
 export const OGP_COMPLAINT_FORM_SCHEMA_VERSION = "ogp_complaint_mvp_editor_v1";
-export const REHABILITATION_CLAIM_FORM_SCHEMA_VERSION = "rehabilitation_claim_foundation_v1";
-export const LAWSUIT_CLAIM_FORM_SCHEMA_VERSION = "lawsuit_claim_foundation_v1";
+export const REHABILITATION_CLAIM_FORM_SCHEMA_VERSION = "rehabilitation_claim_mvp_editor_v1";
+export const LAWSUIT_CLAIM_FORM_SCHEMA_VERSION = "lawsuit_claim_mvp_editor_v1";
 
 type DocumentPersistenceDependencies = {
   getServerByCode: typeof getServerByCode;
@@ -131,9 +132,60 @@ function normalizeOgpComplaintDraftPayload(input: unknown): OgpComplaintDraftPay
   }
 }
 
-function normalizeClaimsDraftPayload(input: unknown): ClaimsDraftPayload {
+function buildEmptyTrustorSnapshot() {
+  return {
+    sourceType: "inline_manual" as const,
+    fullName: "",
+    passportNumber: "",
+    note: "",
+  };
+}
+
+function buildEmptyClaimsDraftPayload(documentType: ClaimDocumentType): ClaimsDraftPayload {
+  const commonFields = {
+    filingMode: "self" as const,
+    respondentName: "",
+    claimSubject: "",
+    factualBackground: "",
+    legalBasisSummary: "",
+    requestedRelief: "",
+    workingNotes: "",
+    trustorSnapshot: null,
+    evidenceGroups: [],
+  };
+
+  if (documentType === "rehabilitation") {
+    return {
+      ...commonFields,
+      caseReference: "",
+      rehabilitationBasis: "",
+      harmSummary: "",
+    };
+  }
+
+  return {
+    ...commonFields,
+    courtName: "",
+    defendantName: "",
+    claimAmount: "",
+    pretrialSummary: "",
+  };
+}
+
+function normalizeClaimsDraftPayload(documentType: ClaimDocumentType, input: unknown): ClaimsDraftPayload {
   try {
-    return claimsDraftPayloadSchema.parse(input);
+    const parsed =
+      documentType === "rehabilitation"
+        ? rehabilitationClaimDraftPayloadSchema.parse(input)
+        : lawsuitClaimDraftPayloadSchema.parse(input);
+
+    return {
+      ...parsed,
+      trustorSnapshot:
+        parsed.filingMode === "representative"
+          ? (parsed.trustorSnapshot ?? buildEmptyTrustorSnapshot())
+          : null,
+    };
   } catch (error) {
     if (error instanceof ZodError) {
       throw new DocumentValidationError();
@@ -145,7 +197,7 @@ function normalizeClaimsDraftPayload(input: unknown): ClaimsDraftPayload {
 
 function assertRepresentativeAccess(input: {
   authorSnapshot: Pick<DocumentAuthorSnapshot, "accessFlags">;
-  payload: OgpComplaintDraftPayload;
+  payload: Pick<OgpComplaintDraftPayload, "filingMode"> | Pick<ClaimsDraftPayload, "filingMode">;
 }) {
   if (input.payload.filingMode !== "representative") {
     return;
@@ -232,14 +284,12 @@ export function readOgpComplaintDraftPayload(payload: unknown) {
   }
 }
 
-export function readClaimsDraftPayload(payload: unknown) {
+export function readClaimsDraftPayload(documentType: ClaimDocumentType, payload: unknown) {
   try {
-    return normalizeClaimsDraftPayload(payload);
+    return normalizeClaimsDraftPayload(documentType, payload);
   } catch (error) {
     if (error instanceof DocumentValidationError) {
-      return {
-        workingNotes: "",
-      } satisfies ClaimsDraftPayload;
+      return buildEmptyClaimsDraftPayload(documentType);
     }
 
     throw error;
@@ -341,8 +391,13 @@ export async function createInitialClaimDraft(
     server,
     capturedAt,
   });
-  const payload = normalizeClaimsDraftPayload(parsed.payload);
   const documentType = parsed.documentType;
+  const payload = normalizeClaimsDraftPayload(documentType, parsed.payload);
+
+  assertRepresentativeAccess({
+    authorSnapshot,
+    payload,
+  });
   const createdDocument = await dependencies.createDocumentRecord({
     accountId: input.accountId,
     serverId: server.id,
@@ -410,7 +465,14 @@ export async function saveOwnedDocumentDraft(
       return savedDocument;
     }
 
-    const payload = normalizeClaimsDraftPayload(parsed.payload);
+    const authorSnapshot = readDocumentAuthorSnapshot(existingDocument.authorSnapshotJson);
+    const payload = normalizeClaimsDraftPayload(existingDocument.documentType, parsed.payload);
+
+    assertRepresentativeAccess({
+      authorSnapshot,
+      payload,
+    });
+
     const savedDocument = await dependencies.updateDocumentDraftRecord({
       documentId: existingDocument.id,
       title: parsed.title,

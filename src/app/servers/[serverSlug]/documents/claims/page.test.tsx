@@ -40,7 +40,7 @@ describe("/servers/[serverSlug]/documents/claims page", () => {
           title: "Документ по реабилитации",
           documentType: "rehabilitation",
           status: "draft",
-          filingMode: null,
+          filingMode: "self",
           subtype: "rehabilitation",
           appealNumber: null,
           objectFullName: null,
