@@ -7,6 +7,7 @@ import { ZodError } from "zod";
 
 import { requireProtectedAccountContext } from "@/server/auth/protected";
 import {
+  createInitialClaimDraft,
   createInitialOgpComplaintDraft,
   DocumentAccessDeniedError,
   DocumentCharacterUnavailableError,
@@ -44,6 +45,25 @@ function parsePayloadJson(payloadJson: FormDataEntryValue | null) {
   return JSON.parse(payloadText) as unknown;
 }
 
+function revalidateDocumentPaths(input: {
+  documentId: string;
+  serverCode: string;
+  documentType: "ogp_complaint" | "rehabilitation" | "lawsuit";
+}) {
+  revalidatePath("/account/documents");
+  revalidatePath(`/servers/${input.serverCode}/documents`);
+
+  if (input.documentType === "ogp_complaint") {
+    revalidatePath(`/servers/${input.serverCode}/documents/ogp-complaints`);
+    revalidatePath(`/servers/${input.serverCode}/documents/ogp-complaints/${input.documentId}`);
+
+    return;
+  }
+
+  revalidatePath(`/servers/${input.serverCode}/documents/claims`);
+  revalidatePath(`/servers/${input.serverCode}/documents/claims/${input.documentId}`);
+}
+
 export async function createOgpComplaintDraftAction(formData: FormData) {
   const serverSlug = String(formData.get("serverSlug") ?? "");
   const characterId = String(formData.get("characterId") ?? "");
@@ -62,9 +82,11 @@ export async function createOgpComplaintDraftAction(formData: FormData) {
       payload: parsePayloadJson(formData.get("payloadJson")),
     });
 
-    revalidatePath("/account/documents");
-    revalidatePath(`/servers/${document.server.code}/documents`);
-    revalidatePath(`/servers/${document.server.code}/documents/ogp-complaints`);
+    revalidateDocumentPaths({
+      documentId: document.id,
+      serverCode: document.server.code,
+      documentType: "ogp_complaint",
+    });
 
     redirect(
       buildStatusRedirect(
@@ -97,6 +119,59 @@ export async function createOgpComplaintDraftAction(formData: FormData) {
   }
 }
 
+export async function createClaimDraftAction(formData: FormData) {
+  const serverSlug = String(formData.get("serverSlug") ?? "");
+  const characterId = String(formData.get("characterId") ?? "");
+  const documentType = String(formData.get("documentType") ?? "");
+  const title = String(formData.get("title") ?? "");
+  const nextPath = `/servers/${serverSlug}/documents/claims/new`;
+  const { account } = await requireProtectedAccountContext(nextPath, undefined, {
+    allowMustChangePassword: true,
+  });
+
+  try {
+    const document = await createInitialClaimDraft({
+      accountId: account.id,
+      serverSlug,
+      characterId,
+      documentType: documentType as "rehabilitation" | "lawsuit",
+      title,
+      payload: parsePayloadJson(formData.get("payloadJson")),
+    });
+
+    revalidateDocumentPaths({
+      documentId: document.id,
+      serverCode: document.server.code,
+      documentType: document.documentType,
+    });
+
+    redirect(
+      buildStatusRedirect(
+        `/servers/${document.server.code}/documents/claims/${document.id}`,
+        "draft-created",
+      ),
+    );
+  } catch (error) {
+    if (isRedirectError(error)) {
+      throw error;
+    }
+
+    if (error instanceof DocumentServerUnavailableError) {
+      redirect(buildStatusRedirect(nextPath, "server-unavailable"));
+    }
+
+    if (error instanceof DocumentCharacterUnavailableError) {
+      redirect(buildStatusRedirect(nextPath, "character-unavailable"));
+    }
+
+    if (error instanceof DocumentValidationError || error instanceof SyntaxError || error instanceof ZodError) {
+      redirect(buildStatusRedirect(nextPath, "invalid-payload"));
+    }
+
+    redirect(buildStatusRedirect(nextPath, "document-create-error"));
+  }
+}
+
 export async function saveDocumentDraftAction(input: {
   documentId: string;
   title: string;
@@ -114,10 +189,11 @@ export async function saveDocumentDraftAction(input: {
       payload: input.payload,
     });
 
-    revalidatePath("/account/documents");
-    revalidatePath(`/servers/${document.server.code}/documents`);
-    revalidatePath(`/servers/${document.server.code}/documents/ogp-complaints`);
-    revalidatePath(`/servers/${document.server.code}/documents/ogp-complaints/${document.id}`);
+    revalidateDocumentPaths({
+      documentId: document.id,
+      serverCode: document.server.code,
+      documentType: document.documentType,
+    });
 
     return {
       ok: true as const,

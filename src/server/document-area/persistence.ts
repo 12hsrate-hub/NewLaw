@@ -5,15 +5,23 @@ import { getCharacterByIdForAccount } from "@/db/repositories/character.reposito
 import { getServerByCode } from "@/db/repositories/server.repository";
 import { setActiveCharacterSelection, setActiveServerSelection } from "@/server/app-shell/selection";
 import {
+  claimDocumentTypeSchema,
+  claimsDraftPayloadSchema,
+  createClaimDraftActionInputSchema,
   createOgpComplaintDraftActionInputSchema,
   documentAuthorSnapshotSchema,
+  documentTitleSchema,
   ogpComplaintDraftPayloadSchema,
   saveDocumentDraftActionInputSchema,
+  type ClaimDocumentType,
+  type ClaimsDraftPayload,
   type DocumentAuthorSnapshot,
   type OgpComplaintDraftPayload,
 } from "@/schemas/document";
 
 export const OGP_COMPLAINT_FORM_SCHEMA_VERSION = "ogp_complaint_mvp_editor_v1";
+export const REHABILITATION_CLAIM_FORM_SCHEMA_VERSION = "rehabilitation_claim_foundation_v1";
+export const LAWSUIT_CLAIM_FORM_SCHEMA_VERSION = "lawsuit_claim_foundation_v1";
 
 type DocumentPersistenceDependencies = {
   getServerByCode: typeof getServerByCode;
@@ -123,6 +131,18 @@ function normalizeOgpComplaintDraftPayload(input: unknown): OgpComplaintDraftPay
   }
 }
 
+function normalizeClaimsDraftPayload(input: unknown): ClaimsDraftPayload {
+  try {
+    return claimsDraftPayloadSchema.parse(input);
+  } catch (error) {
+    if (error instanceof ZodError) {
+      throw new DocumentValidationError();
+    }
+
+    throw error;
+  }
+}
+
 function assertRepresentativeAccess(input: {
   authorSnapshot: Pick<DocumentAuthorSnapshot, "accessFlags">;
   payload: OgpComplaintDraftPayload;
@@ -148,6 +168,43 @@ export function getDocumentTitleForType(documentType: "ogp_complaint" | "rehabil
   return "Исковое заявление";
 }
 
+function getDocumentFormSchemaVersion(documentType: "ogp_complaint" | "rehabilitation" | "lawsuit") {
+  if (documentType === "ogp_complaint") {
+    return OGP_COMPLAINT_FORM_SCHEMA_VERSION;
+  }
+
+  if (documentType === "rehabilitation") {
+    return REHABILITATION_CLAIM_FORM_SCHEMA_VERSION;
+  }
+
+  return LAWSUIT_CLAIM_FORM_SCHEMA_VERSION;
+}
+
+function normalizeDocumentTitle(input: {
+  title: string;
+  documentType: "ogp_complaint" | "rehabilitation" | "lawsuit";
+}) {
+  if (input.title.length === 0) {
+    return getDocumentTitleForType(input.documentType);
+  }
+
+  try {
+    return documentTitleSchema.parse(input.title);
+  } catch (error) {
+    if (error instanceof ZodError) {
+      throw new DocumentValidationError();
+    }
+
+    throw error;
+  }
+}
+
+export function isClaimsDocumentType(
+  documentType: "ogp_complaint" | "rehabilitation" | "lawsuit",
+): documentType is ClaimDocumentType {
+  return claimDocumentTypeSchema.safeParse(documentType).success;
+}
+
 export function readDocumentAuthorSnapshot(snapshot: unknown) {
   return documentAuthorSnapshotSchema.parse(snapshot);
 }
@@ -169,6 +226,20 @@ export function readOgpComplaintDraftPayload(payload: unknown) {
         trustorSnapshot: null,
         evidenceGroups: [],
       } satisfies OgpComplaintDraftPayload;
+    }
+
+    throw error;
+  }
+}
+
+export function readClaimsDraftPayload(payload: unknown) {
+  try {
+    return normalizeClaimsDraftPayload(payload);
+  } catch (error) {
+    if (error instanceof DocumentValidationError) {
+      return {
+        workingNotes: "",
+      } satisfies ClaimsDraftPayload;
     }
 
     throw error;
@@ -237,6 +308,67 @@ export async function createInitialOgpComplaintDraft(
   return createdDocument;
 }
 
+export async function createInitialClaimDraft(
+  input: {
+    accountId: string;
+    serverSlug: string;
+    characterId: string;
+    documentType: ClaimDocumentType;
+    title: string;
+    payload: unknown;
+  },
+  dependencies: DocumentPersistenceDependencies = defaultDependencies,
+) {
+  const parsed = createClaimDraftActionInputSchema.parse(input);
+  const server = await dependencies.getServerByCode(parsed.serverSlug);
+
+  if (!server) {
+    throw new DocumentServerUnavailableError();
+  }
+
+  const character = await dependencies.getCharacterByIdForAccount({
+    accountId: input.accountId,
+    characterId: parsed.characterId,
+  });
+
+  if (!character || character.serverId !== server.id) {
+    throw new DocumentCharacterUnavailableError();
+  }
+
+  const capturedAt = dependencies.now();
+  const authorSnapshot = buildAuthorSnapshot({
+    character,
+    server,
+    capturedAt,
+  });
+  const payload = normalizeClaimsDraftPayload(parsed.payload);
+  const documentType = parsed.documentType;
+  const createdDocument = await dependencies.createDocumentRecord({
+    accountId: input.accountId,
+    serverId: server.id,
+    characterId: character.id,
+    documentType,
+    title: normalizeDocumentTitle({
+      title: parsed.title,
+      documentType,
+    }),
+    formSchemaVersion: getDocumentFormSchemaVersion(documentType),
+    snapshotCapturedAt: capturedAt,
+    authorSnapshotJson: authorSnapshot,
+    formPayloadJson: payload,
+  });
+
+  await dependencies.setActiveServerSelection(input.accountId, {
+    serverId: server.id,
+  });
+  await dependencies.setActiveCharacterSelection(input.accountId, {
+    serverId: server.id,
+    characterId: character.id,
+  });
+
+  return createdDocument;
+}
+
 export async function saveOwnedDocumentDraft(
   input: {
     accountId: string;
@@ -256,14 +388,29 @@ export async function saveOwnedDocumentDraft(
       throw new DocumentAccessDeniedError();
     }
 
-    const authorSnapshot = readDocumentAuthorSnapshot(existingDocument.authorSnapshotJson);
-    const payload = normalizeOgpComplaintDraftPayload(parsed.payload);
+    if (existingDocument.documentType === "ogp_complaint") {
+      const authorSnapshot = readDocumentAuthorSnapshot(existingDocument.authorSnapshotJson);
+      const payload = normalizeOgpComplaintDraftPayload(parsed.payload);
 
-    assertRepresentativeAccess({
-      authorSnapshot,
-      payload,
-    });
+      assertRepresentativeAccess({
+        authorSnapshot,
+        payload,
+      });
 
+      const savedDocument = await dependencies.updateDocumentDraftRecord({
+        documentId: existingDocument.id,
+        title: parsed.title,
+        formPayloadJson: payload,
+      });
+
+      if (!savedDocument) {
+        throw new DocumentAccessDeniedError();
+      }
+
+      return savedDocument;
+    }
+
+    const payload = normalizeClaimsDraftPayload(parsed.payload);
     const savedDocument = await dependencies.updateDocumentDraftRecord({
       documentId: existingDocument.id,
       title: parsed.title,

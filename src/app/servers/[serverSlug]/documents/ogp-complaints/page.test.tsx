@@ -41,6 +41,7 @@ describe("/servers/[serverSlug]/documents/ogp-complaints page", () => {
           documentType: "ogp_complaint",
           status: "draft",
           filingMode: "self",
+          subtype: null,
           appealNumber: "OGP-001",
           objectFullName: "Сотрудник Полиции",
           objectOrganization: "LSPD",

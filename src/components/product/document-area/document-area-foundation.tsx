@@ -234,8 +234,8 @@ export function ServerDocumentsHub(props: {
             <h2 className="text-2xl font-semibold">Claims</h2>
             <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
               Отдельная family рядом с OGP complaints. Она покрывает subtype `rehabilitation` и
-              `lawsuit`, но на этом шаге ещё не включает persisted editor, generation или
-              publication workflow.
+              `lawsuit`. Persisted drafts и owner-only routes уже заведены, но generation,
+              publication и full subtype-specific payload editor появятся позже.
             </p>
           </div>
           <div className="flex flex-wrap gap-3">

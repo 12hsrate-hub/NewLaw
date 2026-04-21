@@ -2,15 +2,15 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@/server/document-area/context", () => ({
-  getClaimsFamilyFoundationRouteContext: vi.fn(),
+  getClaimsFamilyRouteContext: vi.fn(),
 }));
 
 import ClaimsFamilyPage from "@/app/servers/[serverSlug]/documents/claims/page";
-import { getClaimsFamilyFoundationRouteContext } from "@/server/document-area/context";
+import { getClaimsFamilyRouteContext } from "@/server/document-area/context";
 
 describe("/servers/[serverSlug]/documents/claims page", () => {
-  it("существует как отдельная claims family рядом с OGP", async () => {
-    vi.mocked(getClaimsFamilyFoundationRouteContext).mockResolvedValue({
+  it("читает persisted claims family рядом с OGP", async () => {
+    vi.mocked(getClaimsFamilyRouteContext).mockResolvedValue({
       status: "ready",
       account: {
         id: "account-1",
@@ -34,6 +34,36 @@ describe("/servers/[serverSlug]/documents/claims page", () => {
         canUseRepresentative: true,
         source: "last_used",
       },
+      documents: [
+        {
+          id: "claim-1",
+          title: "Документ по реабилитации",
+          documentType: "rehabilitation",
+          status: "draft",
+          filingMode: null,
+          subtype: "rehabilitation",
+          appealNumber: null,
+          objectFullName: null,
+          objectOrganization: null,
+          server: {
+            id: "server-1",
+            code: "blackberry",
+            name: "Blackberry",
+          },
+          authorSnapshot: {
+            fullName: "Игорь Юристов",
+            passportNumber: "AA-001",
+          },
+          workingNotesPreview: "Черновые заметки",
+          generatedAt: null,
+          publicationUrl: null,
+          isSiteForumSynced: false,
+          isModifiedAfterGeneration: false,
+          snapshotCapturedAt: "2026-04-22T00:00:00.000Z",
+          updatedAt: "2026-04-22T00:00:00.000Z",
+          createdAt: "2026-04-22T00:00:00.000Z",
+        },
+      ],
     });
 
     const html = renderToStaticMarkup(
@@ -44,13 +74,13 @@ describe("/servers/[serverSlug]/documents/claims page", () => {
       }),
     );
 
-    expect(getClaimsFamilyFoundationRouteContext).toHaveBeenCalledWith({
+    expect(getClaimsFamilyRouteContext).toHaveBeenCalledWith({
       serverSlug: "blackberry",
       nextPath: "/servers/blackberry/documents/claims",
     });
     expect(html).toContain("Claims");
     expect(html).toContain("rehabilitation");
-    expect(html).toContain("lawsuit");
-    expect(html).toContain("не включает persisted editor");
+    expect(html).toContain("Документ по реабилитации");
+    expect(html).toContain("реальные persisted документы");
   });
 });

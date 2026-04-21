@@ -4,6 +4,7 @@ export const documentTypes = ["ogp_complaint", "rehabilitation", "lawsuit"] as c
 export const documentStatuses = ["draft", "generated", "published"] as const;
 export const ogpComplaintFilingModes = ["self", "representative"] as const;
 export const trustorSnapshotSourceTypes = ["inline_manual"] as const;
+export const claimDocumentTypes = ["rehabilitation", "lawsuit"] as const;
 
 const datetimeLocalPattern = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
 
@@ -37,6 +38,7 @@ function isValidOptionalForumPublicationUrl(value: string) {
 
 export const documentIdSchema = z.string().trim().min(1);
 export const documentTypeSchema = z.enum(documentTypes);
+export const claimDocumentTypeSchema = z.enum(claimDocumentTypes);
 export const documentStatusSchema = z.enum(documentStatuses);
 export const ogpComplaintFilingModeSchema = z.enum(ogpComplaintFilingModes);
 export const trustorSnapshotSourceTypeSchema = z.enum(trustorSnapshotSourceTypes);
@@ -100,6 +102,10 @@ export const ogpComplaintDraftPayloadSchema = z.object({
   evidenceGroups: z.array(ogpComplaintEvidenceGroupSchema).max(12).default([]),
 });
 
+export const claimsDraftPayloadSchema = z.object({
+  workingNotes: documentWorkingNotesSchema,
+});
+
 export const createDocumentDraftInputSchema = z.object({
   accountId: z.string().uuid(),
   serverId: z.string().min(1),
@@ -122,6 +128,14 @@ export const createOgpComplaintDraftActionInputSchema = z.object({
   serverSlug: z.string().trim().min(1),
   characterId: z.string().trim().min(1),
   title: documentTitleSchema.catch("Жалоба в ОГП"),
+  payload: z.unknown(),
+});
+
+export const createClaimDraftActionInputSchema = z.object({
+  serverSlug: z.string().trim().min(1),
+  characterId: z.string().trim().min(1),
+  documentType: claimDocumentTypeSchema,
+  title: z.string().trim().max(160).default(""),
   payload: z.unknown(),
 });
 
@@ -157,9 +171,11 @@ export const documentAuthorSnapshotSchema = z.object({
 
 export type DocumentType = z.infer<typeof documentTypeSchema>;
 export type DocumentStatus = z.infer<typeof documentStatusSchema>;
+export type ClaimDocumentType = z.infer<typeof claimDocumentTypeSchema>;
 export type OgpComplaintFilingMode = z.infer<typeof ogpComplaintFilingModeSchema>;
 export type DocumentAuthorSnapshot = z.infer<typeof documentAuthorSnapshotSchema>;
 export type OgpComplaintTrustorSnapshot = z.infer<typeof ogpComplaintTrustorSnapshotSchema>;
 export type OgpComplaintEvidenceRow = z.infer<typeof ogpComplaintEvidenceRowSchema>;
 export type OgpComplaintEvidenceGroup = z.infer<typeof ogpComplaintEvidenceGroupSchema>;
 export type OgpComplaintDraftPayload = z.infer<typeof ogpComplaintDraftPayloadSchema>;
+export type ClaimsDraftPayload = z.infer<typeof claimsDraftPayloadSchema>;

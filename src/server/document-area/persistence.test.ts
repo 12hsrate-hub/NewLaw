@@ -1,10 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  createInitialClaimDraft,
   createInitialOgpComplaintDraft,
   DocumentAccessDeniedError,
   DocumentCharacterUnavailableError,
   DocumentRepresentativeAccessError,
+  readClaimsDraftPayload,
   readOgpComplaintDraftPayload,
   saveOwnedDocumentDraft,
 } from "@/server/document-area/persistence";
@@ -554,5 +556,241 @@ describe("document persistence foundation", () => {
         },
       ),
     ).rejects.toBeInstanceOf(DocumentAccessDeniedError);
+  });
+
+  it("first save для rehabilitation создаёт persisted draft и фиксирует snapshot", async () => {
+    const now = new Date("2026-04-22T05:00:00.000Z");
+    const createDocumentRecord = vi.fn().mockResolvedValue({
+      id: "claim-1",
+      status: "draft",
+      updatedAt: now,
+      documentType: "rehabilitation",
+      server: {
+        id: "server-1",
+        code: "blackberry",
+        name: "Blackberry",
+      },
+    });
+
+    await createInitialClaimDraft(
+      {
+        accountId: "00000000-0000-0000-0000-000000000001",
+        serverSlug: "blackberry",
+        characterId: "character-1",
+        documentType: "rehabilitation",
+        title: "Документ по реабилитации",
+        payload: {
+          workingNotes: "Черновой claim",
+        },
+      },
+      {
+        getServerByCode: vi.fn().mockResolvedValue({
+          id: "server-1",
+          code: "blackberry",
+          name: "Blackberry",
+        }),
+        getCharacterByIdForAccount: vi.fn().mockResolvedValue({
+          id: "character-1",
+          accountId: "00000000-0000-0000-0000-000000000001",
+          serverId: "server-1",
+          fullName: "Игорь Юристов",
+          nickname: "Игорь Юристов",
+          passportNumber: "AA-001",
+          isProfileComplete: true,
+          roles: [{ roleKey: "lawyer" }],
+          accessFlags: [{ flagKey: "advocate" }],
+        }),
+        createDocumentRecord,
+        getDocumentByIdForAccount: vi.fn(),
+        updateDocumentDraftRecord: vi.fn(),
+        setActiveServerSelection: vi.fn().mockResolvedValue(undefined),
+        setActiveCharacterSelection: vi.fn().mockResolvedValue(undefined),
+        now: () => now,
+      },
+    );
+
+    expect(createDocumentRecord).toHaveBeenCalledWith(
+      expect.objectContaining({
+        documentType: "rehabilitation",
+        title: "Документ по реабилитации",
+        formSchemaVersion: "rehabilitation_claim_foundation_v1",
+        snapshotCapturedAt: now,
+        authorSnapshotJson: expect.objectContaining({
+          serverId: "server-1",
+          characterId: "character-1",
+          passportNumber: "AA-001",
+        }),
+        formPayloadJson: {
+          workingNotes: "Черновой claim",
+        },
+      }),
+    );
+  });
+
+  it("first save для lawsuit создаёт persisted draft и фиксирует snapshot", async () => {
+    const now = new Date("2026-04-22T05:10:00.000Z");
+    const createDocumentRecord = vi.fn().mockResolvedValue({
+      id: "claim-2",
+      status: "draft",
+      updatedAt: now,
+      documentType: "lawsuit",
+      server: {
+        id: "server-1",
+        code: "blackberry",
+        name: "Blackberry",
+      },
+    });
+
+    await createInitialClaimDraft(
+      {
+        accountId: "00000000-0000-0000-0000-000000000001",
+        serverSlug: "blackberry",
+        characterId: "character-1",
+        documentType: "lawsuit",
+        title: "Исковое заявление",
+        payload: {
+          workingNotes: "Черновой lawsuit",
+        },
+      },
+      {
+        getServerByCode: vi.fn().mockResolvedValue({
+          id: "server-1",
+          code: "blackberry",
+          name: "Blackberry",
+        }),
+        getCharacterByIdForAccount: vi.fn().mockResolvedValue({
+          id: "character-1",
+          accountId: "00000000-0000-0000-0000-000000000001",
+          serverId: "server-1",
+          fullName: "Игорь Юристов",
+          nickname: "Игорь Юристов",
+          passportNumber: "AA-001",
+          isProfileComplete: true,
+          roles: [{ roleKey: "lawyer" }],
+          accessFlags: [],
+        }),
+        createDocumentRecord,
+        getDocumentByIdForAccount: vi.fn(),
+        updateDocumentDraftRecord: vi.fn(),
+        setActiveServerSelection: vi.fn().mockResolvedValue(undefined),
+        setActiveCharacterSelection: vi.fn().mockResolvedValue(undefined),
+        now: () => now,
+      },
+    );
+
+    expect(createDocumentRecord).toHaveBeenCalledWith(
+      expect.objectContaining({
+        documentType: "lawsuit",
+        title: "Исковое заявление",
+        formSchemaVersion: "lawsuit_claim_foundation_v1",
+        formPayloadJson: {
+          workingNotes: "Черновой lawsuit",
+        },
+      }),
+    );
+  });
+
+  it("manual save для claims обновляет payload, но не меняет serverId, characterId и subtype", async () => {
+    const existingDocument = {
+      id: "claim-1",
+      accountId: "00000000-0000-0000-0000-000000000001",
+      serverId: "server-1",
+      characterId: "character-1",
+      documentType: "rehabilitation" as const,
+      title: "Документ по реабилитации",
+      status: "draft" as const,
+      formSchemaVersion: "rehabilitation_claim_foundation_v1",
+      snapshotCapturedAt: new Date("2026-04-22T05:00:00.000Z"),
+      authorSnapshotJson: {
+        characterId: "character-1",
+        serverId: "server-1",
+        serverCode: "blackberry",
+        serverName: "Blackberry",
+        fullName: "Игорь Юристов",
+        nickname: "Игорь Юристов",
+        passportNumber: "AA-001",
+        isProfileComplete: true,
+        roleKeys: ["lawyer"],
+        accessFlags: [],
+        capturedAt: "2026-04-22T05:00:00.000Z",
+      },
+      formPayloadJson: {
+        workingNotes: "Старые notes",
+      },
+      lastGeneratedBbcode: null,
+      generatedAt: null,
+      generatedLawVersion: null,
+      generatedTemplateVersion: null,
+      generatedFormSchemaVersion: null,
+      publicationUrl: null,
+      isSiteForumSynced: false,
+      isModifiedAfterGeneration: false,
+      deletedAt: null,
+      createdAt: new Date("2026-04-22T05:00:00.000Z"),
+      updatedAt: new Date("2026-04-22T05:00:00.000Z"),
+      server: {
+        id: "server-1",
+        code: "blackberry",
+        name: "Blackberry",
+      },
+      character: {
+        id: "character-1",
+        accountId: "00000000-0000-0000-0000-000000000001",
+        serverId: "server-1",
+        fullName: "Игорь Юристов",
+        nickname: "Игорь Юристов",
+        passportNumber: "AA-001",
+        isProfileComplete: true,
+        profileDataJson: null,
+        deletedAt: null,
+        createdAt: new Date("2026-04-22T05:00:00.000Z"),
+        updatedAt: new Date("2026-04-22T05:00:00.000Z"),
+        roles: [{ roleKey: "lawyer" }],
+        accessFlags: [],
+      },
+    };
+    const updateDocumentDraftRecord = vi.fn().mockResolvedValue({
+      ...existingDocument,
+      title: "Документ по реабилитации / draft 2",
+      formPayloadJson: {
+        workingNotes: "Новые notes по claim",
+      },
+      updatedAt: new Date("2026-04-22T05:15:00.000Z"),
+    });
+
+    const savedDocument = await saveOwnedDocumentDraft(
+      {
+        accountId: "00000000-0000-0000-0000-000000000001",
+        documentId: "claim-1",
+        title: "Документ по реабилитации / draft 2",
+        payload: {
+          workingNotes: "Новые notes по claim",
+        },
+      },
+      {
+        getServerByCode: vi.fn(),
+        getCharacterByIdForAccount: vi.fn(),
+        createDocumentRecord: vi.fn(),
+        getDocumentByIdForAccount: vi.fn().mockResolvedValue(existingDocument),
+        updateDocumentDraftRecord,
+        setActiveServerSelection: vi.fn(),
+        setActiveCharacterSelection: vi.fn(),
+        now: () => new Date("2026-04-22T05:00:00.000Z"),
+      },
+    );
+
+    expect(updateDocumentDraftRecord).toHaveBeenCalledWith({
+      documentId: "claim-1",
+      title: "Документ по реабилитации / draft 2",
+      formPayloadJson: {
+        workingNotes: "Новые notes по claim",
+      },
+    });
+    expect(savedDocument.serverId).toBe("server-1");
+    expect(savedDocument.characterId).toBe("character-1");
+    expect(savedDocument.documentType).toBe("rehabilitation");
+    expect(readClaimsDraftPayload(savedDocument.formPayloadJson)).toEqual({
+      workingNotes: "Новые notes по claim",
+    });
   });
 });

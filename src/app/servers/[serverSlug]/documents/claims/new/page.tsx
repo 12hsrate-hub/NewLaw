@@ -3,6 +3,7 @@ import {
   DocumentNoCharactersState,
   DocumentServerNotFoundState,
 } from "@/components/product/document-area/document-area-foundation";
+import { ClaimsDraftCreateEntry } from "@/components/product/document-area/document-persistence";
 import {
   buildCharactersBridgePath,
   getServerDocumentsRouteContext,
@@ -16,6 +17,7 @@ type ClaimsNewPageProps = {
   }>;
   searchParams?: Promise<{
     subtype?: string;
+    status?: string;
   }>;
 };
 
@@ -56,12 +58,26 @@ export default async function ClaimsNewPage({
     );
   }
 
+  const selectedSubtype = readSelectedSubtype(resolvedSearchParams?.subtype);
+
+  if (!selectedSubtype) {
+    return (
+      <ClaimsFamilyFoundation
+        mode="new"
+        selectedCharacter={context.selectedCharacter}
+        selectedSubtype={selectedSubtype}
+        server={context.server}
+      />
+    );
+  }
+
   return (
-    <ClaimsFamilyFoundation
-      mode="new"
+    <ClaimsDraftCreateEntry
+      characters={context.characters}
+      documentType={selectedSubtype}
       selectedCharacter={context.selectedCharacter}
-      selectedSubtype={readSelectedSubtype(resolvedSearchParams?.subtype)}
       server={context.server}
+      status={resolvedSearchParams?.status}
     />
   );
 }

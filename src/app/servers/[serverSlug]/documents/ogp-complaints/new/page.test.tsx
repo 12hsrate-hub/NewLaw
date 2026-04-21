@@ -44,6 +44,7 @@ describe("/servers/[serverSlug]/documents/ogp-complaints/new page", () => {
         source: "first_available",
       },
       ogpComplaintDocumentCount: 0,
+      claimsDocumentCount: 0,
     });
 
     const html = renderToStaticMarkup(

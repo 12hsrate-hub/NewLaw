@@ -1,8 +1,11 @@
 import {
-  ClaimsFamilyFoundation,
   DocumentServerNotFoundState,
 } from "@/components/product/document-area/document-area-foundation";
-import { getClaimsEditorFoundationRouteContext } from "@/server/document-area/context";
+import {
+  ClaimsPersistedEditor,
+  OwnedDocumentUnavailableState,
+} from "@/components/product/document-area/document-persistence";
+import { getClaimsEditorRouteContext } from "@/server/document-area/context";
 
 export const dynamic = "force-dynamic";
 
@@ -11,13 +14,18 @@ type ClaimsEditorFoundationPageProps = {
     serverSlug: string;
     documentId: string;
   }>;
+  searchParams?: Promise<{
+    status?: string;
+  }>;
 };
 
 export default async function ClaimsEditorFoundationPage({
   params,
+  searchParams,
 }: ClaimsEditorFoundationPageProps) {
   const resolvedParams = await params;
-  const context = await getClaimsEditorFoundationRouteContext({
+  const resolvedSearchParams = await searchParams;
+  const context = await getClaimsEditorRouteContext({
     serverSlug: resolvedParams.serverSlug,
     documentId: resolvedParams.documentId,
     nextPath: `/servers/${resolvedParams.serverSlug}/documents/claims/${resolvedParams.documentId}`,
@@ -32,12 +40,21 @@ export default async function ClaimsEditorFoundationPage({
     );
   }
 
+  if (context.status === "document_not_found") {
+    return (
+      <OwnedDocumentUnavailableState
+        documentId={context.documentId}
+        familyHref={`/servers/${context.server.code}/documents/claims`}
+        familyLabel="persisted claims"
+        server={context.server}
+      />
+    );
+  }
+
   return (
-    <ClaimsFamilyFoundation
-      documentId={context.documentId}
-      mode="editor"
-      selectedCharacter={context.selectedCharacter}
-      server={context.server}
+    <ClaimsPersistedEditor
+      document={context.document}
+      status={resolvedSearchParams?.status}
     />
   );
 }

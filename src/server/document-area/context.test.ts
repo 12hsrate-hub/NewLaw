@@ -42,6 +42,8 @@ import { getUserServerStates } from "@/db/repositories/user-server-state.reposit
 import {
   buildCharactersBridgePath,
   getAccountDocumentsOverviewContext,
+  getClaimsEditorRouteContext,
+  getClaimsFamilyRouteContext,
   getOgpComplaintEditorRouteContext,
   getOgpComplaintFamilyRouteContext,
   getServerDocumentsRouteContext,
@@ -172,11 +174,12 @@ describe("document area context", () => {
       undefined,
       { allowMustChangePassword: true },
     );
-    expect(result.servers[0]).toEqual(
+      expect(result.servers[0]).toEqual(
       expect.objectContaining({
         code: "blackberry",
         selectedCharacterId: "character-2",
         ogpComplaintDocumentCount: 1,
+        claimsDocumentCount: 2,
       }),
     );
     expect(result.documents[0]).toEqual(
@@ -266,6 +269,7 @@ describe("document area context", () => {
         }),
       );
       expect(result.ogpComplaintDocumentCount).toBe(2);
+      expect(result.claimsDocumentCount).toBe(4);
     }
   });
 
@@ -453,5 +457,290 @@ describe("document area context", () => {
 
   it("строит временный bridge path для no-characters create flow", () => {
     expect(buildCharactersBridgePath()).toBe("/app");
+  });
+
+  it("строит /account/documents с persisted claims рядом с OGP", async () => {
+    vi.mocked(requireProtectedAccountContext).mockResolvedValue(accountContext);
+    vi.mocked(getServers).mockResolvedValue([blackberryServer]);
+    vi.mocked(getUserServerStates).mockResolvedValue([]);
+    vi.mocked(getCharactersByServer).mockResolvedValue([
+      {
+        id: "character-2",
+        accountId: accountContext.account.id,
+        serverId: "server-1",
+        fullName: "Игорь Юристов",
+        nickname: "Игорь Юристов",
+        passportNumber: "AA-002",
+        isProfileComplete: true,
+        profileDataJson: null,
+        deletedAt: null,
+        createdAt: new Date("2026-04-22T10:00:00.000Z"),
+        updatedAt: new Date("2026-04-22T10:00:00.000Z"),
+        roles: [],
+        accessFlags: [],
+      },
+    ]);
+    vi.mocked(countDocumentsByAccountAndServerAndType)
+      .mockResolvedValueOnce(1)
+      .mockResolvedValueOnce(1)
+      .mockResolvedValueOnce(0);
+    vi.mocked(listDocumentsByAccount).mockResolvedValue([
+      {
+        id: "claim-1",
+        accountId: accountContext.account.id,
+        serverId: "server-1",
+        characterId: "character-2",
+        documentType: "rehabilitation",
+        title: "Документ по реабилитации",
+        status: "draft",
+        formSchemaVersion: "rehabilitation_claim_foundation_v1",
+        snapshotCapturedAt: new Date("2026-04-22T10:00:00.000Z"),
+        authorSnapshotJson: {
+          characterId: "character-2",
+          serverId: "server-1",
+          serverCode: "blackberry",
+          serverName: "Blackberry",
+          fullName: "Игорь Юристов",
+          nickname: "Игорь Юристов",
+          passportNumber: "AA-002",
+          isProfileComplete: true,
+          roleKeys: [],
+          accessFlags: [],
+          capturedAt: "2026-04-22T10:00:00.000Z",
+        },
+        formPayloadJson: {
+          workingNotes: "Claims notes",
+        },
+        lastGeneratedBbcode: null,
+        generatedAt: null,
+        generatedLawVersion: null,
+        generatedTemplateVersion: null,
+        generatedFormSchemaVersion: null,
+        publicationUrl: null,
+        isSiteForumSynced: false,
+        isModifiedAfterGeneration: false,
+        deletedAt: null,
+        createdAt: new Date("2026-04-22T10:00:00.000Z"),
+        updatedAt: new Date("2026-04-22T10:05:00.000Z"),
+        server: blackberryServer,
+      },
+    ]);
+
+    const result = await getAccountDocumentsOverviewContext("/account/documents");
+
+    expect(result.documents[0]).toEqual(
+      expect.objectContaining({
+        id: "claim-1",
+        documentType: "rehabilitation",
+        subtype: "rehabilitation",
+        filingMode: null,
+        workingNotesPreview: "Claims notes",
+      }),
+    );
+  });
+
+  it("claims family route показывает persisted rehabilitation/lawsuit документы на сервере", async () => {
+    vi.mocked(requireProtectedAccountContext).mockResolvedValue(accountContext);
+    vi.mocked(getServers).mockResolvedValue([blackberryServer]);
+    vi.mocked(getServerByCode).mockResolvedValue(blackberryServer);
+    vi.mocked(getUserServerStates).mockResolvedValue([]);
+    vi.mocked(getCharactersByServer).mockResolvedValue([
+      {
+        id: "character-2",
+        accountId: accountContext.account.id,
+        serverId: "server-1",
+        fullName: "Игорь Юристов",
+        nickname: "Игорь Юристов",
+        passportNumber: "AA-002",
+        isProfileComplete: true,
+        profileDataJson: null,
+        deletedAt: null,
+        createdAt: new Date("2026-04-22T10:00:00.000Z"),
+        updatedAt: new Date("2026-04-22T10:00:00.000Z"),
+        roles: [],
+        accessFlags: [],
+      },
+    ]);
+    vi.mocked(listDocumentsByAccountAndServerAndType)
+      .mockResolvedValueOnce([
+        {
+          id: "claim-1",
+          accountId: accountContext.account.id,
+          serverId: "server-1",
+          characterId: "character-2",
+          documentType: "rehabilitation",
+          title: "Документ по реабилитации",
+          status: "draft",
+          formSchemaVersion: "rehabilitation_claim_foundation_v1",
+          snapshotCapturedAt: new Date("2026-04-22T10:00:00.000Z"),
+          authorSnapshotJson: {
+            characterId: "character-2",
+            serverId: "server-1",
+            serverCode: "blackberry",
+            serverName: "Blackberry",
+            fullName: "Игорь Юристов",
+            nickname: "Игорь Юристов",
+            passportNumber: "AA-002",
+            isProfileComplete: true,
+            roleKeys: [],
+            accessFlags: [],
+            capturedAt: "2026-04-22T10:00:00.000Z",
+          },
+          formPayloadJson: { workingNotes: "Rehab notes" },
+          lastGeneratedBbcode: null,
+          generatedAt: null,
+          generatedLawVersion: null,
+          generatedTemplateVersion: null,
+          generatedFormSchemaVersion: null,
+          publicationUrl: null,
+          isSiteForumSynced: false,
+          isModifiedAfterGeneration: false,
+          deletedAt: null,
+          createdAt: new Date("2026-04-22T10:00:00.000Z"),
+          updatedAt: new Date("2026-04-22T10:05:00.000Z"),
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          id: "claim-2",
+          accountId: accountContext.account.id,
+          serverId: "server-1",
+          characterId: "character-2",
+          documentType: "lawsuit",
+          title: "Исковое заявление",
+          status: "draft",
+          formSchemaVersion: "lawsuit_claim_foundation_v1",
+          snapshotCapturedAt: new Date("2026-04-22T10:00:00.000Z"),
+          authorSnapshotJson: {
+            characterId: "character-2",
+            serverId: "server-1",
+            serverCode: "blackberry",
+            serverName: "Blackberry",
+            fullName: "Игорь Юристов",
+            nickname: "Игорь Юристов",
+            passportNumber: "AA-002",
+            isProfileComplete: true,
+            roleKeys: [],
+            accessFlags: [],
+            capturedAt: "2026-04-22T10:00:00.000Z",
+          },
+          formPayloadJson: { workingNotes: "Lawsuit notes" },
+          lastGeneratedBbcode: null,
+          generatedAt: null,
+          generatedLawVersion: null,
+          generatedTemplateVersion: null,
+          generatedFormSchemaVersion: null,
+          publicationUrl: null,
+          isSiteForumSynced: false,
+          isModifiedAfterGeneration: false,
+          deletedAt: null,
+          createdAt: new Date("2026-04-22T10:00:00.000Z"),
+          updatedAt: new Date("2026-04-22T10:10:00.000Z"),
+        },
+      ]);
+
+    const result = await getClaimsFamilyRouteContext({
+      serverSlug: "blackberry",
+      nextPath: "/servers/blackberry/documents/claims",
+    });
+
+    expect(result.status).toBe("ready");
+    if (result.status === "ready") {
+      expect(result.canCreateDocuments).toBe(true);
+      expect(result.documents).toHaveLength(2);
+      expect(result.documents[0]).toEqual(
+        expect.objectContaining({
+          documentType: "lawsuit",
+          subtype: "lawsuit",
+        }),
+      );
+      expect(result.documents[1]).toEqual(
+        expect.objectContaining({
+          documentType: "rehabilitation",
+          subtype: "rehabilitation",
+        }),
+      );
+    }
+  });
+
+  it("claims editor route отдаёт только owner-account persisted claim", async () => {
+    vi.mocked(requireProtectedAccountContext).mockResolvedValue(accountContext);
+    vi.mocked(getServers).mockResolvedValue([blackberryServer]);
+    vi.mocked(getServerByCode).mockResolvedValue(blackberryServer);
+    vi.mocked(getDocumentByIdForAccount).mockResolvedValue({
+      id: "claim-1",
+      accountId: accountContext.account.id,
+      serverId: "server-1",
+      characterId: "character-1",
+      documentType: "rehabilitation",
+      title: "Документ по реабилитации",
+      status: "draft",
+      formSchemaVersion: "rehabilitation_claim_foundation_v1",
+      snapshotCapturedAt: new Date("2026-04-22T10:00:00.000Z"),
+      authorSnapshotJson: {
+        characterId: "character-1",
+        serverId: "server-1",
+        serverCode: "blackberry",
+        serverName: "Blackberry",
+        fullName: "Игорь Юристов",
+        nickname: "Игорь Юристов",
+        passportNumber: "AA-002",
+        isProfileComplete: true,
+        roleKeys: ["lawyer"],
+        accessFlags: [],
+        capturedAt: "2026-04-22T10:00:00.000Z",
+      },
+      formPayloadJson: {
+        workingNotes: "Claims notes",
+      },
+      lastGeneratedBbcode: null,
+      generatedAt: null,
+      generatedLawVersion: null,
+      generatedTemplateVersion: null,
+      generatedFormSchemaVersion: null,
+      publicationUrl: null,
+      isSiteForumSynced: false,
+      isModifiedAfterGeneration: false,
+      deletedAt: null,
+      createdAt: new Date("2026-04-22T10:00:00.000Z"),
+      updatedAt: new Date("2026-04-22T10:05:00.000Z"),
+      server: blackberryServer,
+      character: {
+        id: "character-1",
+        accountId: accountContext.account.id,
+        serverId: "server-1",
+        fullName: "Игорь Юристов",
+        nickname: "Игорь Юристов",
+        passportNumber: "AA-002",
+        isProfileComplete: true,
+        profileDataJson: null,
+        deletedAt: null,
+        createdAt: new Date("2026-04-22T10:00:00.000Z"),
+        updatedAt: new Date("2026-04-22T10:00:00.000Z"),
+        roles: [
+          {
+            id: "role-1",
+            characterId: "character-1",
+            roleKey: "lawyer",
+            createdAt: new Date("2026-04-22T10:00:00.000Z"),
+          },
+        ],
+        accessFlags: [],
+      },
+    });
+
+    const result = await getClaimsEditorRouteContext({
+      serverSlug: "blackberry",
+      documentId: "claim-1",
+      nextPath: "/servers/blackberry/documents/claims/claim-1",
+    });
+
+    expect(result.status).toBe("ready");
+    if (result.status === "ready") {
+      expect(result.document.documentType).toBe("rehabilitation");
+      expect(result.document.payload).toEqual({
+        workingNotes: "Claims notes",
+      });
+    }
   });
 });

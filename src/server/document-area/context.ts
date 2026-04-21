@@ -11,9 +11,11 @@ import { requireProtectedAccountContext } from "@/server/auth/protected";
 import { resolveActiveCharacterId } from "@/server/app-shell/state";
 import {
   readDocumentAuthorSnapshot,
+  readClaimsDraftPayload,
+  isClaimsDocumentType,
   readOgpComplaintDraftPayload,
 } from "@/server/document-area/persistence";
-import type { OgpComplaintDraftPayload } from "@/schemas/document";
+import type { ClaimDocumentType, ClaimsDraftPayload, OgpComplaintDraftPayload } from "@/schemas/document";
 
 type AccountDocumentRecord = Awaited<ReturnType<typeof listDocumentsByAccount>>[number];
 type ServerDocumentRecord = Awaited<ReturnType<typeof listDocumentsByAccountAndServerAndType>>[number];
@@ -27,6 +29,7 @@ export type DocumentAreaServerSummary = {
   selectedCharacterName: string | null;
   selectedCharacterSource: "last_used" | "first_available" | "none";
   ogpComplaintDocumentCount: number;
+  claimsDocumentCount: number;
 };
 
 export type DocumentAreaPersistedListItem = {
@@ -34,10 +37,11 @@ export type DocumentAreaPersistedListItem = {
   title: string;
   documentType: "ogp_complaint" | "rehabilitation" | "lawsuit";
   status: "draft" | "generated" | "published";
-  filingMode: "self" | "representative";
-  appealNumber: string;
-  objectFullName: string;
-  objectOrganization: string;
+  filingMode: "self" | "representative" | null;
+  subtype: ClaimDocumentType | null;
+  appealNumber: string | null;
+  objectFullName: string | null;
+  objectOrganization: string | null;
   server: {
     id: string;
     code: string;
@@ -104,6 +108,7 @@ type ReadyServerDocumentsRouteContext = {
   characters: SelectableCharacterSummary[];
   selectedCharacter: SelectedCharacterSummary;
   ogpComplaintDocumentCount: number;
+  claimsDocumentCount: number;
 };
 
 type NoCharactersServerDocumentsRouteContext = {
@@ -116,6 +121,7 @@ type NoCharactersServerDocumentsRouteContext = {
   };
   servers: DocumentAreaServerSummary[];
   ogpComplaintDocumentCount: number;
+  claimsDocumentCount: number;
 };
 
 type ServerNotFoundDocumentsRouteContext = {
@@ -151,7 +157,7 @@ type OgpComplaintFamilyRouteContext =
       documents: DocumentAreaPersistedListItem[];
     };
 
-type ClaimsFamilyFoundationRouteContext =
+type ClaimsFamilyRouteContext =
   | {
       status: "server_not_found";
       account: AccountDocumentsOverviewContext["account"];
@@ -169,14 +175,26 @@ type ClaimsFamilyFoundationRouteContext =
       servers: DocumentAreaServerSummary[];
       canCreateDocuments: boolean;
       selectedCharacter: SelectedCharacterSummary | null;
+      documents: DocumentAreaPersistedListItem[];
     };
 
-type ClaimsEditorFoundationRouteContext =
+type ClaimsEditorRouteContext =
   | {
       status: "server_not_found";
       account: AccountDocumentsOverviewContext["account"];
       requestedServerSlug: string;
       servers: DocumentAreaServerSummary[];
+    }
+  | {
+      status: "document_not_found";
+      account: AccountDocumentsOverviewContext["account"];
+      server: {
+        id: string;
+        code: string;
+        name: string;
+      };
+      servers: DocumentAreaServerSummary[];
+      documentId: string;
     }
   | {
       status: "ready";
@@ -187,8 +205,29 @@ type ClaimsEditorFoundationRouteContext =
         name: string;
       };
       servers: DocumentAreaServerSummary[];
-      documentId: string;
-      selectedCharacter: SelectedCharacterSummary | null;
+      document: {
+        id: string;
+        title: string;
+        documentType: ClaimDocumentType;
+        status: "draft" | "generated" | "published";
+        createdAt: string;
+        updatedAt: string;
+        snapshotCapturedAt: string;
+        formSchemaVersion: string;
+        server: {
+          code: string;
+          name: string;
+        };
+        authorSnapshot: {
+          fullName: string;
+          passportNumber: string;
+          nickname: string;
+          roleKeys: string[];
+          accessFlags: string[];
+          isProfileComplete: boolean;
+        };
+        payload: ClaimsDraftPayload;
+      };
     };
 
 type OgpComplaintEditorRouteContext =
@@ -310,6 +349,41 @@ function buildPersistedDocumentListItem(
   document: AccountDocumentRecord | (ServerDocumentRecord & { server: AccountDocumentRecord["server"] }),
 ) {
   const authorSnapshot = readDocumentAuthorSnapshot(document.authorSnapshotJson);
+  const subtype = isClaimsDocumentType(document.documentType) ? document.documentType : null;
+
+  if (document.documentType !== "ogp_complaint") {
+    const payload = readClaimsDraftPayload(document.formPayloadJson);
+
+    return {
+      id: document.id,
+      title: document.title,
+      documentType: document.documentType,
+      status: document.status,
+      filingMode: null,
+      subtype,
+      appealNumber: null,
+      objectFullName: null,
+      objectOrganization: null,
+      server: {
+        id: document.server.id,
+        code: document.server.code,
+        name: document.server.name,
+      },
+      authorSnapshot: {
+        fullName: authorSnapshot.fullName,
+        passportNumber: authorSnapshot.passportNumber,
+      },
+      workingNotesPreview: payload.workingNotes.slice(0, 240),
+      generatedAt: document.generatedAt?.toISOString() ?? null,
+      publicationUrl: document.publicationUrl,
+      isSiteForumSynced: document.isSiteForumSynced,
+      isModifiedAfterGeneration: document.isModifiedAfterGeneration,
+      snapshotCapturedAt: document.snapshotCapturedAt.toISOString(),
+      updatedAt: document.updatedAt.toISOString(),
+      createdAt: document.createdAt.toISOString(),
+    } satisfies DocumentAreaPersistedListItem;
+  }
+
   const payload = readOgpComplaintDraftPayload(document.formPayloadJson);
 
   return {
@@ -318,6 +392,7 @@ function buildPersistedDocumentListItem(
     documentType: document.documentType,
     status: document.status,
     filingMode: payload.filingMode,
+    subtype,
     appealNumber: payload.appealNumber,
     objectFullName: payload.objectFullName,
     objectOrganization: payload.objectOrganization,
@@ -349,7 +424,7 @@ async function buildDocumentAreaServerSummaries(accountId: string) {
 
   const serverSummaries = await Promise.all(
     servers.map(async (server) => {
-      const [characters, ogpComplaintDocumentCount] = await Promise.all([
+      const [characters, ogpComplaintDocumentCount, rehabilitationDocumentCount, lawsuitDocumentCount] = await Promise.all([
         getCharactersByServer({
           accountId,
           serverId: server.id,
@@ -358,6 +433,16 @@ async function buildDocumentAreaServerSummaries(accountId: string) {
           accountId,
           serverId: server.id,
           documentType: "ogp_complaint",
+        }),
+        countDocumentsByAccountAndServerAndType({
+          accountId,
+          serverId: server.id,
+          documentType: "rehabilitation",
+        }),
+        countDocumentsByAccountAndServerAndType({
+          accountId,
+          serverId: server.id,
+          documentType: "lawsuit",
         }),
       ]);
       const selectedCharacter = buildSelectedCharacterSummary({
@@ -375,6 +460,7 @@ async function buildDocumentAreaServerSummaries(accountId: string) {
         selectedCharacterName: selectedCharacter?.fullName ?? null,
         selectedCharacterSource: selectedCharacter?.source ?? "none",
         ogpComplaintDocumentCount,
+        claimsDocumentCount: rehabilitationDocumentCount + lawsuitDocumentCount,
       } satisfies DocumentAreaServerSummary;
     }),
   );
@@ -422,7 +508,7 @@ export async function getServerDocumentsRouteContext(input: {
     };
   }
 
-  const [characters, ogpComplaintDocumentCount] = await Promise.all([
+  const [characters, ogpComplaintDocumentCount, rehabilitationDocumentCount, lawsuitDocumentCount] = await Promise.all([
     getCharactersByServer({
       accountId: account.id,
       serverId: server.id,
@@ -431,6 +517,16 @@ export async function getServerDocumentsRouteContext(input: {
       accountId: account.id,
       serverId: server.id,
       documentType: "ogp_complaint",
+    }),
+    countDocumentsByAccountAndServerAndType({
+      accountId: account.id,
+      serverId: server.id,
+      documentType: "rehabilitation",
+    }),
+    countDocumentsByAccountAndServerAndType({
+      accountId: account.id,
+      serverId: server.id,
+      documentType: "lawsuit",
     }),
   ]);
   const selectedCharacter = buildSelectedCharacterSummary({
@@ -450,6 +546,7 @@ export async function getServerDocumentsRouteContext(input: {
       },
       servers,
       ogpComplaintDocumentCount,
+      claimsDocumentCount: rehabilitationDocumentCount + lawsuitDocumentCount,
     };
   }
 
@@ -465,6 +562,7 @@ export async function getServerDocumentsRouteContext(input: {
     characters: characters.map((character) => buildSelectableCharacterSummary(character)),
     selectedCharacter,
     ogpComplaintDocumentCount,
+    claimsDocumentCount: rehabilitationDocumentCount + lawsuitDocumentCount,
   };
 }
 
@@ -527,10 +625,10 @@ export async function getOgpComplaintFamilyRouteContext(input: {
   };
 }
 
-export async function getClaimsFamilyFoundationRouteContext(input: {
+export async function getClaimsFamilyRouteContext(input: {
   serverSlug: string;
   nextPath: string;
-}): Promise<ClaimsFamilyFoundationRouteContext> {
+}): Promise<ClaimsFamilyRouteContext> {
   const { account } = await requireProtectedAccountContext(input.nextPath, undefined, {
     allowMustChangePassword: true,
   });
@@ -549,15 +647,43 @@ export async function getClaimsFamilyFoundationRouteContext(input: {
     };
   }
 
-  const characters = await getCharactersByServer({
-    accountId: account.id,
-    serverId: server.id,
-  });
+  const [characters, rehabilitationDocuments, lawsuitDocuments] = await Promise.all([
+    getCharactersByServer({
+      accountId: account.id,
+      serverId: server.id,
+    }),
+    listDocumentsByAccountAndServerAndType({
+      accountId: account.id,
+      serverId: server.id,
+      documentType: "rehabilitation",
+    }),
+    listDocumentsByAccountAndServerAndType({
+      accountId: account.id,
+      serverId: server.id,
+      documentType: "lawsuit",
+    }),
+  ]);
   const selectedCharacter = buildSelectedCharacterSummary({
     serverId: server.id,
     characters,
     serverStates,
   });
+  const documents = [...rehabilitationDocuments, ...lawsuitDocuments]
+    .sort((left, right) => {
+      const updatedAtDiff = right.updatedAt.getTime() - left.updatedAt.getTime();
+
+      if (updatedAtDiff !== 0) {
+        return updatedAtDiff;
+      }
+
+      return right.createdAt.getTime() - left.createdAt.getTime();
+    })
+    .map((document) =>
+      buildPersistedDocumentListItem({
+        ...document,
+        server,
+      }),
+    );
 
   return {
     status: "ready",
@@ -570,21 +696,21 @@ export async function getClaimsFamilyFoundationRouteContext(input: {
     servers,
     canCreateDocuments: selectedCharacter !== null,
     selectedCharacter,
+    documents,
   };
 }
 
-export async function getClaimsEditorFoundationRouteContext(input: {
+export async function getClaimsEditorRouteContext(input: {
   serverSlug: string;
   documentId: string;
   nextPath: string;
-}): Promise<ClaimsEditorFoundationRouteContext> {
+}): Promise<ClaimsEditorRouteContext> {
   const { account } = await requireProtectedAccountContext(input.nextPath, undefined, {
     allowMustChangePassword: true,
   });
-  const [server, servers, serverStates] = await Promise.all([
+  const [server, servers] = await Promise.all([
     getServerByCode(input.serverSlug),
     buildDocumentAreaServerSummaries(account.id),
-    getUserServerStates(account.id),
   ]);
 
   if (!server) {
@@ -596,15 +722,27 @@ export async function getClaimsEditorFoundationRouteContext(input: {
     };
   }
 
-  const characters = await getCharactersByServer({
+  const document = await getDocumentByIdForAccount({
     accountId: account.id,
-    serverId: server.id,
+    documentId: input.documentId,
   });
-  const selectedCharacter = buildSelectedCharacterSummary({
-    serverId: server.id,
-    characters,
-    serverStates,
-  });
+
+  if (!document || document.serverId !== server.id || !isClaimsDocumentType(document.documentType)) {
+    return {
+      status: "document_not_found",
+      account,
+      server: {
+        id: server.id,
+        code: server.code,
+        name: server.name,
+      },
+      servers,
+      documentId: input.documentId,
+    };
+  }
+
+  const authorSnapshot = readDocumentAuthorSnapshot(document.authorSnapshotJson);
+  const payload = readClaimsDraftPayload(document.formPayloadJson);
 
   return {
     status: "ready",
@@ -615,8 +753,29 @@ export async function getClaimsEditorFoundationRouteContext(input: {
       name: server.name,
     },
     servers,
-    documentId: input.documentId,
-    selectedCharacter,
+    document: {
+      id: document.id,
+      title: document.title,
+      documentType: document.documentType,
+      status: document.status,
+      createdAt: document.createdAt.toISOString(),
+      updatedAt: document.updatedAt.toISOString(),
+      snapshotCapturedAt: document.snapshotCapturedAt.toISOString(),
+      formSchemaVersion: document.formSchemaVersion,
+      server: {
+        code: document.server.code,
+        name: document.server.name,
+      },
+      authorSnapshot: {
+        fullName: authorSnapshot.fullName,
+        passportNumber: authorSnapshot.passportNumber,
+        nickname: authorSnapshot.nickname,
+        roleKeys: authorSnapshot.roleKeys,
+        accessFlags: authorSnapshot.accessFlags,
+        isProfileComplete: authorSnapshot.isProfileComplete,
+      },
+      payload,
+    },
   };
 }
 

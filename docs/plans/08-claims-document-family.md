@@ -111,13 +111,22 @@ Claims не используют OGP `BBCode`/publication flow по умолча
 - persisted drafts для `rehabilitation` и `lawsuit`
 - first-save snapshot capture
 - immutable server / character context after first save
+- immutable subtype after first save
 - owner-only persisted `[documentId]` route
 - persisted claims entries в `/account/documents` и `/servers/[serverSlug]/documents/claims`
+- базовый manual save и autosave foundation без полного claims payload editor
 
 Что не входит:
 
 - full claims editor payload
 - generation/output
+
+Текущий результат шага:
+
+- `/servers/[serverSlug]/documents/claims/new` при выбранном subtype уже создаёт persisted draft
+- subtype `rehabilitation | lawsuit` фиксируется в `document_type` и не меняется после first save
+- `/servers/[serverSlug]/documents/claims/[documentId]` уже грузит owner-only persisted draft с реальным snapshot context
+- `/account/documents` и server-scoped family list уже читают persisted claims рядом с OGP
 
 ### 08.4 — Claims editor MVP
 

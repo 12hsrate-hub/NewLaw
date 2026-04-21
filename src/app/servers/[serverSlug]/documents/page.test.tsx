@@ -44,6 +44,7 @@ describe("/servers/[serverSlug]/documents page", () => {
         source: "last_used",
       },
       ogpComplaintDocumentCount: 2,
+      claimsDocumentCount: 0,
     });
 
     const html = renderToStaticMarkup(
@@ -81,6 +82,7 @@ describe("/servers/[serverSlug]/documents page", () => {
       },
       servers: [],
       ogpComplaintDocumentCount: 0,
+      claimsDocumentCount: 0,
     });
 
     const html = renderToStaticMarkup(

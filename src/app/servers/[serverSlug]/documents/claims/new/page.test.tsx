@@ -44,6 +44,7 @@ describe("/servers/[serverSlug]/documents/claims/new page", () => {
         source: "first_available",
       },
       ogpComplaintDocumentCount: 0,
+      claimsDocumentCount: 0,
     });
 
     const html = renderToStaticMarkup(
@@ -61,10 +62,60 @@ describe("/servers/[serverSlug]/documents/claims/new page", () => {
       serverSlug: "blackberry",
       nextPath: "/servers/blackberry/documents/claims/new",
     });
-    expect(html).toContain("Выбор subtype");
+    expect(html).toContain("Claims create entry");
     expect(html).toContain("Subtype: Rehabilitation");
-    expect(html).toContain("Persisted claims create flow");
-    expect(html).toContain("/servers/blackberry/documents/claims/new?subtype=lawsuit");
+    expect(html).toContain("Создать persisted claim draft");
+    expect(html).toContain("После первого сохранения работа продолжается");
+  });
+
+  it("без subtype остаётся на foundation-level subtype choice", async () => {
+    vi.mocked(getServerDocumentsRouteContext).mockResolvedValue({
+      status: "ready",
+      account: {
+        id: "account-1",
+        email: "user@example.com",
+        login: "tester",
+        isSuperAdmin: false,
+        mustChangePassword: false,
+      },
+      server: {
+        id: "server-1",
+        code: "blackberry",
+        name: "Blackberry",
+      },
+      servers: [],
+      characters: [
+        {
+          id: "character-1",
+          fullName: "Игорь Юристов",
+          passportNumber: "AA-001",
+          isProfileComplete: false,
+          canUseRepresentative: true,
+        },
+      ],
+      selectedCharacter: {
+        id: "character-1",
+        fullName: "Игорь Юристов",
+        passportNumber: "AA-001",
+        isProfileComplete: false,
+        canUseRepresentative: true,
+        source: "first_available",
+      },
+      ogpComplaintDocumentCount: 0,
+      claimsDocumentCount: 0,
+    });
+
+    const html = renderToStaticMarkup(
+      await ClaimsNewPage({
+        params: Promise.resolve({
+          serverSlug: "blackberry",
+        }),
+        searchParams: Promise.resolve({}),
+      }),
+    );
+
+    expect(html).toContain("Выбор subtype");
+    expect(html).toContain("Subtype choice обязателен");
   });
 
   it("показывает empty state с CTA, если на сервере нет персонажей", async () => {
@@ -84,6 +135,7 @@ describe("/servers/[serverSlug]/documents/claims/new page", () => {
       },
       servers: [],
       ogpComplaintDocumentCount: 0,
+      claimsDocumentCount: 0,
     });
 
     const html = renderToStaticMarkup(

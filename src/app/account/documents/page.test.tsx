@@ -25,6 +25,7 @@ describe("/account/documents page", () => {
           documentType: "ogp_complaint",
           status: "draft",
           filingMode: "representative",
+          subtype: null,
           appealNumber: "REP-001",
           objectFullName: "Сотрудник Полиции",
           objectOrganization: "LSPD",
@@ -57,6 +58,7 @@ describe("/account/documents page", () => {
           selectedCharacterName: "Игорь Юристов",
           selectedCharacterSource: "last_used",
           ogpComplaintDocumentCount: 1,
+          claimsDocumentCount: 0,
         },
       ],
     });
