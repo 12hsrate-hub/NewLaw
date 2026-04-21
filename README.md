@@ -330,6 +330,7 @@ pnpm dev
 - `NEXT_PUBLIC_SUPABASE_URL` и `NEXT_PUBLIC_SUPABASE_ANON_KEY` обязательны для реального `signup/signin/confirm` flow.
 - `APP_URL` обязателен для server-side redirect URL в security-сценариях.
 - `SUPABASE_SERVICE_ROLE_KEY` нужен для service-role helper и уже реализованных server-side admin security actions.
+- `DIRECT_URL` должен быть задан явно во всех окружениях. Для `local` допускается тот же URL, что и `DATABASE_URL`, но для `staging/production` лучше использовать отдельный direct connection string для Prisma migrations.
 - `AI_PROXY_ACTIVE_KEY`, `AI_PROXY_CONFIGS_JSON`, `AI_PROXY_INTERNAL_TOKEN` и `OPENAI_API_KEY` нужны для public `server legal assistant`.
 - placeholder-значения из `.env.*.example` позволяют открыть UI и безопасно посмотреть auth-экраны, но не дают рабочую регистрацию, письмо подтверждения и вход.
 - placeholder-значения `AI_PROXY_*` позволяют собрать assistant UI, но не дают реальную генерацию ответа через proxy.
@@ -338,6 +339,12 @@ pnpm dev
 - встроенный email provider Supabase не считается production-ready для проекта Lawyer5RP MVP.
 - public assistant 05.5 не делает прямых вызовов к `OpenAI API`; он работает только через server-side proxy abstraction.
 - `OPENAI_API_KEY` и `AI_PROXY_INTERNAL_TOKEN` должны существовать только на серверной стороне и не должны попадать в UI, тестовые fixtures, tracked JSON-конфиги и логи.
+
+Operational notes:
+
+- локально вместо сырого `pnpm prisma generate` лучше использовать `pnpm prisma:generate`: этот script уже умеет автоматически повторить генерацию на Windows, если Prisma один раз упёрлась в типичный `EPERM` на rename engine file.
+- если `pnpm prisma generate` всё же запускается вручную и падает на `EPERM`, это обычно не продуктовая проблема, а Windows file-locking; повторный запуск или `pnpm prisma:generate` обычно снимают проблему.
+- в production `.env.production` переменная `DIRECT_URL` должна существовать заранее и не должна оставаться неявным fallback из deploy-команды.
 
 ## Ручная настройка Supabase Auth
 

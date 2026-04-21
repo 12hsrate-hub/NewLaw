@@ -117,6 +117,12 @@ Production разворачивается на `Ubuntu 24.04 LTS VPS`.
 - `OPENAI_API_KEY`
 - `APP_URL`
 
+Для Prisma есть отдельное operational правило:
+
+- `DIRECT_URL` должен быть задан в `production` и `staging` явно, а не рассчитываться как скрытый fallback во время deploy
+- временное emergency-решение `DIRECT_URL=DATABASE_URL` допустимо только как разовый bootstrap workaround
+- целевой production-вариант — отдельный direct connection string для Prisma migrations
+
 Секреты не должны попадать:
 
 - в клиентский код
