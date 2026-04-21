@@ -2,16 +2,15 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@/server/document-area/context", () => ({
-  buildCharactersBridgePath: vi.fn(() => "/app"),
-  getServerDocumentsRouteContext: vi.fn(),
+  getOgpComplaintFamilyRouteContext: vi.fn(),
 }));
 
 import OgpComplaintFamilyPage from "@/app/servers/[serverSlug]/documents/ogp-complaints/page";
-import { getServerDocumentsRouteContext } from "@/server/document-area/context";
+import { getOgpComplaintFamilyRouteContext } from "@/server/document-area/context";
 
 describe("/servers/[serverSlug]/documents/ogp-complaints page", () => {
-  it("существует как family index foundation route", async () => {
-    vi.mocked(getServerDocumentsRouteContext).mockResolvedValue({
+  it("показывает persisted family list по серверу", async () => {
+    vi.mocked(getOgpComplaintFamilyRouteContext).mockResolvedValue({
       status: "ready",
       account: {
         id: "account-1",
@@ -26,19 +25,34 @@ describe("/servers/[serverSlug]/documents/ogp-complaints page", () => {
         name: "Blackberry",
       },
       servers: [],
-      characters: [
-        {
-          id: "character-1",
-          fullName: "Игорь Юристов",
-          passportNumber: "AA-001",
-        },
-      ],
+      canCreateDocuments: true,
       selectedCharacter: {
         id: "character-1",
         fullName: "Игорь Юристов",
         passportNumber: "AA-001",
         source: "last_used",
       },
+      documents: [
+        {
+          id: "document-1",
+          title: "Persisted draft",
+          documentType: "ogp_complaint",
+          status: "draft",
+          server: {
+            id: "server-1",
+            code: "blackberry",
+            name: "Blackberry",
+          },
+          authorSnapshot: {
+            fullName: "Игорь Юристов",
+            passportNumber: "AA-001",
+          },
+          workingNotesPreview: "Черновая заметка",
+          snapshotCapturedAt: "2026-04-21T10:00:00.000Z",
+          updatedAt: "2026-04-21T10:15:00.000Z",
+          createdAt: "2026-04-21T10:00:00.000Z",
+        },
+      ],
     });
 
     const html = renderToStaticMarkup(
@@ -50,6 +64,7 @@ describe("/servers/[serverSlug]/documents/ogp-complaints page", () => {
     );
 
     expect(html).toContain("OGP complaints");
-    expect(html).toContain("family index");
+    expect(html).toContain("Persisted draft");
+    expect(html).toContain("реальные persisted документы");
   });
 });

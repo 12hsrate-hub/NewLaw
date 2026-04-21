@@ -43,6 +43,7 @@ export default async function ServerDocumentsPage({ params }: ServerDocumentsPag
 
   return (
     <ServerDocumentsHub
+      ogpComplaintDocumentCount={context.ogpComplaintDocumentCount}
       selectedCharacter={context.selectedCharacter}
       server={context.server}
     />

@@ -1,11 +1,12 @@
 import {
-  DocumentNoCharactersState,
   DocumentServerNotFoundState,
-  OgpComplaintFoundation,
 } from "@/components/product/document-area/document-area-foundation";
 import {
-  buildCharactersBridgePath,
-  getServerDocumentsRouteContext,
+  OgpComplaintPersistedEditor,
+  OwnedDocumentUnavailableState,
+} from "@/components/product/document-area/document-persistence";
+import {
+  getOgpComplaintEditorRouteContext,
 } from "@/server/document-area/context";
 
 export const dynamic = "force-dynamic";
@@ -15,14 +16,20 @@ type OgpComplaintEditorFoundationPageProps = {
     serverSlug: string;
     documentId: string;
   }>;
+  searchParams?: Promise<{
+    status?: string;
+  }>;
 };
 
 export default async function OgpComplaintEditorFoundationPage({
   params,
+  searchParams,
 }: OgpComplaintEditorFoundationPageProps) {
   const resolvedParams = await params;
-  const context = await getServerDocumentsRouteContext({
+  const resolvedSearchParams = await searchParams;
+  const context = await getOgpComplaintEditorRouteContext({
     serverSlug: resolvedParams.serverSlug,
+    documentId: resolvedParams.documentId,
     nextPath: `/servers/${resolvedParams.serverSlug}/documents/ogp-complaints/${resolvedParams.documentId}`,
   });
 
@@ -35,21 +42,19 @@ export default async function OgpComplaintEditorFoundationPage({
     );
   }
 
-  if (context.status === "no_characters") {
+  if (context.status === "document_not_found") {
     return (
-      <DocumentNoCharactersState
-        bridgeHref={buildCharactersBridgePath()}
+      <OwnedDocumentUnavailableState
+        documentId={context.documentId}
         server={context.server}
       />
     );
   }
 
   return (
-    <OgpComplaintFoundation
-      documentId={resolvedParams.documentId}
-      mode="editor"
-      selectedCharacter={context.selectedCharacter}
-      server={context.server}
+    <OgpComplaintPersistedEditor
+      document={context.document}
+      status={resolvedSearchParams?.status}
     />
   );
 }

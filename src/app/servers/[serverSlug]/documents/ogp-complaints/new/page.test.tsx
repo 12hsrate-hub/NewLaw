@@ -39,6 +39,7 @@ describe("/servers/[serverSlug]/documents/ogp-complaints/new page", () => {
         passportNumber: "AA-001",
         source: "first_available",
       },
+      ogpComplaintDocumentCount: 0,
     });
 
     const html = renderToStaticMarkup(
@@ -49,8 +50,9 @@ describe("/servers/[serverSlug]/documents/ogp-complaints/new page", () => {
       }),
     );
 
-    expect(html).toContain("pre-draft entry route");
-    expect(html).toContain("Персонаж: Игорь Юристов");
-    expect(html).toContain("можно будет сменить");
+    expect(html).toContain("Первое сохранение уже создаёт реальный persisted");
+    expect(html).toContain("UX-default персонаж: Игорь Юристов");
+    expect(html).toContain("можно сменить");
+    expect(html).toContain("Создать persisted draft");
   });
 });

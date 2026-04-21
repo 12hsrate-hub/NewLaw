@@ -1,8 +1,8 @@
 import {
   DocumentNoCharactersState,
   DocumentServerNotFoundState,
-  OgpComplaintFoundation,
 } from "@/components/product/document-area/document-area-foundation";
+import { OgpComplaintDraftCreateEntry } from "@/components/product/document-area/document-persistence";
 import {
   buildCharactersBridgePath,
   getServerDocumentsRouteContext,
@@ -14,10 +14,17 @@ type OgpComplaintNewPageProps = {
   params: Promise<{
     serverSlug: string;
   }>;
+  searchParams?: Promise<{
+    status?: string;
+  }>;
 };
 
-export default async function OgpComplaintNewPage({ params }: OgpComplaintNewPageProps) {
+export default async function OgpComplaintNewPage({
+  params,
+  searchParams,
+}: OgpComplaintNewPageProps) {
   const resolvedParams = await params;
+  const resolvedSearchParams = await searchParams;
   const context = await getServerDocumentsRouteContext({
     serverSlug: resolvedParams.serverSlug,
     nextPath: `/servers/${resolvedParams.serverSlug}/documents/ogp-complaints/new`,
@@ -42,10 +49,11 @@ export default async function OgpComplaintNewPage({ params }: OgpComplaintNewPag
   }
 
   return (
-    <OgpComplaintFoundation
-      mode="new"
+    <OgpComplaintDraftCreateEntry
+      characters={context.characters}
       selectedCharacter={context.selectedCharacter}
       server={context.server}
+      status={resolvedSearchParams?.status}
     />
   );
 }

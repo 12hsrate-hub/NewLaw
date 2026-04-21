@@ -114,6 +114,18 @@ enum PrecedentImportRunMode {
   import_source_topic
 }
 
+enum DocumentType {
+  ogp_complaint
+  rehabilitation
+  lawsuit
+}
+
+enum DocumentStatus {
+  draft
+  generated
+  published
+}
+
 enum AIRequestStatus {
   success
   failure
@@ -142,6 +154,7 @@ model Account {
   actorAuditLogs          AuditLog[]             @relation("AuditActor")
   targetAuditLogs         AuditLog[]             @relation("AuditTarget")
   aiRequests              AIRequest[]
+  documents               Document[]
   createdAt               DateTime               @default(now())
   updatedAt               DateTime               @updatedAt
 }
@@ -162,6 +175,7 @@ model Server {
   precedentImportRuns PrecedentImportRun[]
   assistantGuestSessions AssistantGuestSession[]
   aiRequests      AIRequest[]
+  documents       Document[]
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
 }
@@ -197,6 +211,7 @@ model Character {
   roles             CharacterRole[]
   accessFlags       CharacterAccessFlag[]
   activeInStates    UserServerState[]     @relation("ActiveCharacter")
+  documents         Document[]
   createdAt         DateTime              @default(now())
   updatedAt         DateTime              @updatedAt
 
@@ -241,6 +256,38 @@ model AuditLog {
   @@index([actionKey, createdAt])
   @@index([actorAccountId, createdAt])
   @@index([targetAccountId, createdAt])
+}
+
+model Document {
+  id                         String         @id @default(cuid())
+  accountId                  String         @db.Uuid
+  serverId                   String
+  characterId                String
+  documentType               DocumentType
+  title                      String
+  status                     DocumentStatus @default(draft)
+  formSchemaVersion          String
+  snapshotCapturedAt         DateTime
+  authorSnapshotJson         Json
+  formPayloadJson            Json?
+  lastGeneratedBbcode        String?
+  generatedAt                DateTime?
+  generatedLawVersion        String?
+  generatedTemplateVersion   String?
+  generatedFormSchemaVersion String?
+  publicationUrl             String?
+  isSiteForumSynced          Boolean        @default(false)
+  isModifiedAfterGeneration  Boolean        @default(false)
+  deletedAt                  DateTime?
+  account                    Account        @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  server                     Server         @relation(fields: [serverId], references: [id], onDelete: Restrict)
+  character                  Character      @relation(fields: [characterId], references: [id], onDelete: Restrict)
+  createdAt                  DateTime       @default(now())
+  updatedAt                  DateTime       @updatedAt
+
+  @@index([accountId, createdAt])
+  @@index([accountId, serverId, documentType, createdAt])
+  @@index([serverId, documentType, status, createdAt])
 }
 
 model LawSourceIndex {

@@ -2,16 +2,15 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@/server/document-area/context", () => ({
-  buildCharactersBridgePath: vi.fn(() => "/app"),
-  getServerDocumentsRouteContext: vi.fn(),
+  getOgpComplaintEditorRouteContext: vi.fn(),
 }));
 
 import OgpComplaintEditorFoundationPage from "@/app/servers/[serverSlug]/documents/ogp-complaints/[documentId]/page";
-import { getServerDocumentsRouteContext } from "@/server/document-area/context";
+import { getOgpComplaintEditorRouteContext } from "@/server/document-area/context";
 
 describe("/servers/[serverSlug]/documents/ogp-complaints/[documentId] page", () => {
-  it("существует как future editor foundation route без fake persistence", async () => {
-    vi.mocked(getServerDocumentsRouteContext).mockResolvedValue({
+  it("рендерит owner-account persisted editor route", async () => {
+    vi.mocked(getOgpComplaintEditorRouteContext).mockResolvedValue({
       status: "ready",
       account: {
         id: "account-1",
@@ -26,18 +25,26 @@ describe("/servers/[serverSlug]/documents/ogp-complaints/[documentId] page", () 
         name: "Blackberry",
       },
       servers: [],
-      characters: [
-        {
-          id: "character-1",
+      document: {
+        id: "doc-123",
+        title: "Persisted draft",
+        status: "draft",
+        createdAt: "2026-04-21T10:00:00.000Z",
+        updatedAt: "2026-04-21T10:15:00.000Z",
+        snapshotCapturedAt: "2026-04-21T10:00:00.000Z",
+        formSchemaVersion: "ogp_complaint_foundation_v1",
+        server: {
+          code: "blackberry",
+          name: "Blackberry",
+        },
+        authorSnapshot: {
           fullName: "Игорь Юристов",
           passportNumber: "AA-001",
+          nickname: "Игорь Юристов",
+          roleKeys: ["lawyer"],
+          accessFlags: ["advocate"],
         },
-      ],
-      selectedCharacter: {
-        id: "character-1",
-        fullName: "Игорь Юристов",
-        passportNumber: "AA-001",
-        source: "last_used",
+        workingNotes: "Черновая заметка",
       },
     });
 
@@ -50,8 +57,9 @@ describe("/servers/[serverSlug]/documents/ogp-complaints/[documentId] page", () 
       }),
     );
 
-    expect(html).toContain("Future editor route");
-    expect(html).toContain("owner-account route foundation");
+    expect(html).toContain("owner-account editor route");
+    expect(html).toContain("Persisted draft");
     expect(html).toContain("doc-123");
+    expect(html).toContain("autosave/manual save foundation");
   });
 });

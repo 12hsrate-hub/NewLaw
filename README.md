@@ -6,7 +6,7 @@
 Главный сценарий MVP — создание жалобы в ОГП с итоговой генерацией форумного BBCode.
 
 На текущем этапе репозиторий содержит стартовую документацию проекта, bootstrap-каркас приложения, foundation для `Supabase Auth` и минимального data layer, account-security foundation, protected shell foundation для `/app` c выбором активного сервера и персонажа, базовый контур ручного управления персонажами с минимальным слоем ролей и `access flags`, минимальные `super_admin` экраны для admin account-security и law corpus source management, law corpus schema foundation, ручной discovery/import pipeline для law corpus с normalizing и segmentation, hardening discovery coverage для forum index layout/pagination cases, manual current-version workflow, retrieval foundation для current primary laws, отдельный public `server legal assistant` модуль вне `/app`, а также полный separate precedent-pipeline с discovery/import/split, current-review/validity workflow и assistant integration по laws-first policy.
-Прикладная бизнес-логика документов пока не реализована полностью, но уже добавлен document area foundation: отдельная account zone `/account` с обзорным `/account/documents`, server-scoped hub `/servers/[serverSlug]/documents` и route foundation для `OGP complaints` без persistence и wizard logic. Регистрация по `login + email + password`, подтверждение email по ссылке, forgot-password, reset-password, вход по `email` или `login`, protected shell на `/app` c active server / active character selection, базовый список/создание/редактирование персонажей для текущего сервера вместе с ролями и `access flags` на уровне `character_id`, `/app/security`, self change password, self change email, server-side admin account-security actions, а также foundation для law corpus, server-scoped источников законодательной базы, ручного discovery/import pipeline, bootstrap-health проверки полноты current corpus по серверу, ручного confirm imported draft версий, server-scoped retrieval foundation, public assistant по current primary laws и reviewed precedents, а также separate precedent-pipeline уже подготовлены.
+Прикладная бизнес-логика документов пока не реализована полностью, но document area уже вышла из чистого route foundation: добавлены отдельная account zone `/account` с обзорным `/account/documents`, server-scoped hub `/servers/[serverSlug]/documents`, persisted family routes для `OGP complaints`, реальная `Document`-модель со snapshot foundation, first-save capture из `/new` в owner-account `[documentId]` route, базовый draft persistence layer и minimal autosave/manual save foundation без полного wizard logic и без `BBCode` generation. Регистрация по `login + email + password`, подтверждение email по ссылке, forgot-password, reset-password, вход по `email` или `login`, protected shell на `/app` c active server / active character selection, базовый список/создание/редактирование персонажей для текущего сервера вместе с ролями и `access flags` на уровне `character_id`, `/app/security`, self change password, self change email, server-side admin account-security actions, а также foundation для law corpus, server-scoped источников законодательной базы, ручного discovery/import pipeline, bootstrap-health проверки полноты current corpus по серверу, ручного confirm imported draft версий, server-scoped retrieval foundation, public assistant по current primary laws и reviewed precedents, а также separate precedent-pipeline уже подготовлены.
 Production email delivery для auth-писем зафиксирован через `Supabase Custom SMTP`, а не через встроенный email provider Supabase.
 
 ## Зафиксированный стек
@@ -74,11 +74,11 @@ Production email delivery для auth-писем зафиксирован чер
 - [src/app/assistant](./src/app/assistant) — публичная входная страница `server legal assistant` с явным выбором сервера
 - [src/app/assistant/[serverSlug]](./src/app/assistant/%5BserverSlug%5D) — публичная страница вопроса-ответа по law corpus конкретного сервера
 - [src/app/account](./src/app/account) — foundation-level account zone вне `/app`
-- [src/app/account/documents](./src/app/account/documents) — account-level обзор документов по всем серверам и типам
+- [src/app/account/documents](./src/app/account/documents) — account-level обзор persisted документов по всем серверам и типам
 - [src/app/servers/[serverSlug]/documents](./src/app/servers/%5BserverSlug%5D/documents) — server-scoped document hub
-- [src/app/servers/[serverSlug]/documents/ogp-complaints](./src/app/servers/%5BserverSlug%5D/documents/ogp-complaints) — foundation route семьи `OGP complaints`
-- [src/app/servers/[serverSlug]/documents/ogp-complaints/new](./src/app/servers/%5BserverSlug%5D/documents/ogp-complaints/new) — pre-draft entry foundation для будущего OGP flow
-- [src/app/servers/[serverSlug]/documents/ogp-complaints/[documentId]](./src/app/servers/%5BserverSlug%5D/documents/ogp-complaints/%5BdocumentId%5D) — future editor route foundation без fake persistence
+- [src/app/servers/[serverSlug]/documents/ogp-complaints](./src/app/servers/%5BserverSlug%5D/documents/ogp-complaints) — persisted family route для документов `ogp_complaint`
+- [src/app/servers/[serverSlug]/documents/ogp-complaints/new](./src/app/servers/%5BserverSlug%5D/documents/ogp-complaints/new) — first-save entry с фиксацией snapshot
+- [src/app/servers/[serverSlug]/documents/ogp-complaints/[documentId]](./src/app/servers/%5BserverSlug%5D/documents/ogp-complaints/%5BdocumentId%5D) — owner-account editor route с базовым autosave/manual save foundation
 - [src/app/(protected)/app](./src/app/%28protected%29/app) — защищённая часть приложения с app shell
 - [src/app/(protected-security)/app/security](./src/app/%28protected-security%29/app/security) — защищённый экран account security
 - [src/app/(protected-admin)/app/admin-security](./src/app/%28protected-admin%29/app/admin-security) — минимальный `super_admin` экран admin account security
@@ -97,7 +97,7 @@ Production email delivery для auth-писем зафиксирован чер
 - [src/server/app-shell](./src/server/app-shell) — SSR логика shell, fallback состояния и server-side selection helper’ы
 - [src/components/product/shell/protected-shell-overview-section.tsx](./src/components/product/shell/protected-shell-overview-section.tsx) — обзорный экран shell для `/app`
 - [src/components/product/characters](./src/components/product/characters) — UI-контур списка, создания и редактирования персонажей с минимальным слоем ролей и `access flags`
-- [src/db](./src/db) — Prisma client, seed-структура и репозитории
+- [src/db](./src/db) — Prisma client, seed-структура и репозитории, включая `documents`
 - [src/db/repositories/auth-session.repository.ts](./src/db/repositories/auth-session.repository.ts) — security helper для revoke пользовательских auth-сессий
 - [src/lib/supabase](./src/lib/supabase) — runtime-обвязка `Supabase Auth` для browser/server/middleware
 - [src/lib/supabase/service-role.ts](./src/lib/supabase/service-role.ts) — helper для service-role сценариев account-security
@@ -105,7 +105,7 @@ Production email delivery для auth-писем зафиксирован чер
 - [src/schemas/legal-assistant.ts](./src/schemas/legal-assistant.ts) — схема вопроса, `serverSlug` и proxy-config foundation для assistant
 - [vitest.config.ts](./vitest.config.ts) — минимальная конфигурация `Vitest`
 - [.github/workflows/ci.yml](./.github/workflows/ci.yml) — baseline CI для lint/typecheck/test/prisma
-- [prisma/schema.prisma](./prisma/schema.prisma) — Prisma-схема foundation для account-security, shell/characters, law corpus, precedents corpus и guest/AI assistant storage
+- [prisma/schema.prisma](./prisma/schema.prisma) — Prisma-схема foundation для account-security, shell/characters, documents, law corpus, precedents corpus и guest/AI assistant storage
 - [prisma/migrations](./prisma/migrations) — миграции Prisma
 - [docs/product/overview.md](./docs/product/overview.md) — краткая продуктовая рамка
 - [docs/product/mvp-scope.md](./docs/product/mvp-scope.md) — фиксированный scope MVP
@@ -229,6 +229,13 @@ Production email delivery для auth-писем зафиксирован чер
   - `/servers/[serverSlug]/documents` как server-scoped рабочая зона документов
   - route family foundation для `OGP complaints`
   - auth + serverSlug + character-availability guards без persistence и без wizard logic
+- document persistence foundation:
+  - реальная `Document`-модель c `document_type`, `status`, `author_snapshot_json`, `form_payload_json` и generation/publication foundation-полями
+  - first-save snapshot capture из `/servers/[serverSlug]/documents/ogp-complaints/new`
+  - immutable `serverId` и `characterId`/author snapshot после первого сохранения
+  - owner-account editor route с базовым autosave/manual save для persisted drafts
+  - `/account/documents` как рабочий persisted aggregator по всем серверам и типам
+  - `/servers/[serverSlug]/documents/ogp-complaints` как persisted family list для `ogp_complaint`
   - server-side answer pipeline по `current primary laws` и reviewed/current precedents с `validity_status in (applicable, limited)`
   - laws-first ответ с разделением на `Краткий вывод`, `Что прямо следует из норм закона`, `Что подтверждается судебными прецедентами`, `Вывод / интерпретация`
   - grounded references на law/version/block/source и precedent/version/block/source

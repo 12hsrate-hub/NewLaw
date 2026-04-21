@@ -129,17 +129,34 @@ Create/edit contract:
 
 ### 07.3 — Document persistence + snapshot foundation
 
+Статус: реализовано.
+
 Что входит:
 
 - document model и storage foundation
 - first-save snapshot capture
 - immutable server / character context after first save
 - manual save foundation
+- basic autosave foundation
+- persisted owner-account editor route
+- persisted aggregator в `/account/documents`
+- persisted family list для `ogp_complaint`
 
 Что не входит:
 
 - full OGP wizard
 - `BBCode` generation
+
+Результат шага:
+
+- добавлена реальная `Document`-модель в Prisma
+- первое сохранение из `/servers/[serverSlug]/documents/ogp-complaints/new` создаёт `draft`, фиксирует `serverId`, `characterId`, `author_snapshot_json` и `snapshotCapturedAt`
+- после first save server context и author snapshot больше не меняются
+- `/servers/[serverSlug]/documents/ogp-complaints/[documentId]` больше не fake foundation route, а owner-account persisted editor
+- в editor route уже работает минимальный autosave/manual save для `title` и `workingNotes`
+- `/account/documents` показывает реальные persisted документы пользователя
+- `/servers/[serverSlug]/documents/ogp-complaints` показывает persisted список документов family `ogp_complaint`
+- полный OGP wizard, `BBCode` generation и forum/publication logic остаются следующими шагами
 
 ### 07.4 — OGP complaint wizard MVP
 

@@ -18,6 +18,27 @@ describe("/account/documents page", () => {
         isSuperAdmin: false,
         mustChangePassword: false,
       },
+      documents: [
+        {
+          id: "document-1",
+          title: "Жалоба в ОГП",
+          documentType: "ogp_complaint",
+          status: "draft",
+          server: {
+            id: "server-1",
+            code: "blackberry",
+            name: "Blackberry",
+          },
+          authorSnapshot: {
+            fullName: "Игорь Юристов",
+            passportNumber: "AA-001",
+          },
+          workingNotesPreview: "Черновая заметка",
+          snapshotCapturedAt: "2026-04-21T10:00:00.000Z",
+          updatedAt: "2026-04-21T10:15:00.000Z",
+          createdAt: "2026-04-21T10:00:00.000Z",
+        },
+      ],
       servers: [
         {
           id: "server-1",
@@ -27,6 +48,7 @@ describe("/account/documents page", () => {
           selectedCharacterId: "character-1",
           selectedCharacterName: "Игорь Юристов",
           selectedCharacterSource: "last_used",
+          ogpComplaintDocumentCount: 1,
         },
       ],
     });
@@ -34,7 +56,8 @@ describe("/account/documents page", () => {
     const html = renderToStaticMarkup(await AccountDocumentsPage());
 
     expect(html).toContain("Мои документы");
-    expect(html).toContain("cross-server overview route");
+    expect(html).toContain("cross-server обзором persisted документов");
+    expect(html).toContain("Жалоба в ОГП");
     expect(html).toContain("/servers/blackberry/documents");
   });
 

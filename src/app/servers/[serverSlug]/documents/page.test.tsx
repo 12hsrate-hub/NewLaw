@@ -39,6 +39,7 @@ describe("/servers/[serverSlug]/documents page", () => {
         passportNumber: "AA-001",
         source: "last_used",
       },
+      ogpComplaintDocumentCount: 2,
     });
 
     const html = renderToStaticMarkup(
@@ -73,6 +74,7 @@ describe("/servers/[serverSlug]/documents page", () => {
         name: "Blackberry",
       },
       servers: [],
+      ogpComplaintDocumentCount: 0,
     });
 
     const html = renderToStaticMarkup(

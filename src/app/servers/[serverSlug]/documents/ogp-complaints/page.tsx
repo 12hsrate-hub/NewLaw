@@ -1,11 +1,9 @@
 import {
-  DocumentNoCharactersState,
   DocumentServerNotFoundState,
-  OgpComplaintFoundation,
 } from "@/components/product/document-area/document-area-foundation";
+import { OgpComplaintFamilyPersistedList } from "@/components/product/document-area/document-persistence";
 import {
-  buildCharactersBridgePath,
-  getServerDocumentsRouteContext,
+  getOgpComplaintFamilyRouteContext,
 } from "@/server/document-area/context";
 
 export const dynamic = "force-dynamic";
@@ -20,7 +18,7 @@ export default async function OgpComplaintFamilyPage({
   params,
 }: OgpComplaintFamilyPageProps) {
   const resolvedParams = await params;
-  const context = await getServerDocumentsRouteContext({
+  const context = await getOgpComplaintFamilyRouteContext({
     serverSlug: resolvedParams.serverSlug,
     nextPath: `/servers/${resolvedParams.serverSlug}/documents/ogp-complaints`,
   });
@@ -34,18 +32,10 @@ export default async function OgpComplaintFamilyPage({
     );
   }
 
-  if (context.status === "no_characters") {
-    return (
-      <DocumentNoCharactersState
-        bridgeHref={buildCharactersBridgePath()}
-        server={context.server}
-      />
-    );
-  }
-
   return (
-    <OgpComplaintFoundation
-      mode="index"
+    <OgpComplaintFamilyPersistedList
+      canCreateDocuments={context.canCreateDocuments}
+      documents={context.documents}
       selectedCharacter={context.selectedCharacter}
       server={context.server}
     />

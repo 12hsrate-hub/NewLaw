@@ -176,6 +176,7 @@ export function ServerDocumentsHub(props: {
     passportNumber: string;
     source: "last_used" | "first_available";
   };
+  ogpComplaintDocumentCount?: number;
 }) {
   return (
     <div className="space-y-6">
@@ -194,6 +195,9 @@ export function ServerDocumentsHub(props: {
           <span>
             UX-default: {props.selectedCharacter.source === "last_used" ? "last-used" : "first available"}
           </span>
+          {typeof props.ogpComplaintDocumentCount === "number" ? (
+            <span>Persisted OGP documents: {props.ogpComplaintDocumentCount}</span>
+          ) : null}
         </div>
       </Card>
 
