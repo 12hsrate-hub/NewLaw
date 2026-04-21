@@ -3,8 +3,12 @@ import type { Prisma, PrismaClient } from "@prisma/client";
 import { prisma } from "@/db/prisma";
 import {
   createDocumentDraftInputSchema,
+  claimsRenderedOutputSchema,
+  documentGeneratedArtifactTextSchema,
   documentIdSchema,
   documentGeneratedMetadataVersionSchema,
+  documentGeneratedOutputFormatSchema,
+  documentGeneratedRendererVersionSchema,
   documentPublicationUrlSchema,
   type DocumentType,
   updateDocumentDraftInputSchema,
@@ -218,6 +222,65 @@ export async function markDocumentGeneratedRecord(
       generatedTemplateVersion: parsedGeneratedTemplateVersion,
       generatedFormSchemaVersion: parsedGeneratedFormSchemaVersion,
       isModifiedAfterGeneration: false,
+      isSiteForumSynced: false,
+    },
+    include: {
+      server: true,
+    },
+  });
+}
+
+export async function markClaimsDocumentGeneratedRecord(
+  input: {
+    documentId: string;
+    generatedArtifactJson: Record<string, unknown>;
+    generatedArtifactText: string;
+    generatedAt: Date;
+    generatedFormSchemaVersion: string;
+    generatedOutputFormat: string;
+    generatedRendererVersion: string;
+  },
+  db: PrismaLike = prisma,
+) {
+  const parsedDocumentId = documentIdSchema.parse(input.documentId);
+  const parsedGeneratedArtifactJson = claimsRenderedOutputSchema.parse(input.generatedArtifactJson);
+  const parsedGeneratedArtifactText = documentGeneratedArtifactTextSchema.parse(
+    input.generatedArtifactText,
+  );
+  const parsedGeneratedFormSchemaVersion = documentGeneratedMetadataVersionSchema.parse(
+    input.generatedFormSchemaVersion,
+  );
+  const parsedGeneratedOutputFormat = documentGeneratedOutputFormatSchema.parse(
+    input.generatedOutputFormat,
+  );
+  const parsedGeneratedRendererVersion = documentGeneratedRendererVersionSchema.parse(
+    input.generatedRendererVersion,
+  );
+
+  const existingDocument = await db.document.findUnique({
+    where: {
+      id: parsedDocumentId,
+    },
+  });
+
+  if (!existingDocument) {
+    return null;
+  }
+
+  return db.document.update({
+    where: {
+      id: parsedDocumentId,
+    },
+    data: {
+      status: "generated",
+      generatedArtifactJson: parsedGeneratedArtifactJson as Prisma.InputJsonValue,
+      generatedArtifactText: parsedGeneratedArtifactText,
+      generatedOutputFormat: parsedGeneratedOutputFormat,
+      generatedRendererVersion: parsedGeneratedRendererVersion,
+      generatedAt: input.generatedAt,
+      generatedFormSchemaVersion: parsedGeneratedFormSchemaVersion,
+      isModifiedAfterGeneration: false,
+      publicationUrl: null,
       isSiteForumSynced: false,
     },
     include: {

@@ -34,6 +34,12 @@ describe("/servers/[serverSlug]/documents/claims/[documentId] page", () => {
         updatedAt: "2026-04-22T00:10:00.000Z",
         snapshotCapturedAt: "2026-04-22T00:00:00.000Z",
         formSchemaVersion: "rehabilitation_claim_mvp_editor_v1",
+        generatedAt: null,
+        generatedFormSchemaVersion: null,
+        generatedOutputFormat: null,
+        generatedRendererVersion: null,
+        generatedArtifact: null,
+        isModifiedAfterGeneration: false,
         server: {
           code: "blackberry",
           name: "Blackberry",

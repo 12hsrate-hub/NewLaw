@@ -15,7 +15,13 @@ import {
   isClaimsDocumentType,
   readOgpComplaintDraftPayload,
 } from "@/server/document-area/persistence";
-import type { ClaimDocumentType, ClaimsDraftPayload, OgpComplaintDraftPayload } from "@/schemas/document";
+import { readClaimsGeneratedArtifact } from "@/server/document-area/claims-rendering";
+import type {
+  ClaimDocumentType,
+  ClaimsDraftPayload,
+  ClaimsRenderedOutput,
+  OgpComplaintDraftPayload,
+} from "@/schemas/document";
 
 type AccountDocumentRecord = Awaited<ReturnType<typeof listDocumentsByAccount>>[number];
 type ServerDocumentRecord = Awaited<ReturnType<typeof listDocumentsByAccountAndServerAndType>>[number];
@@ -214,6 +220,12 @@ type ClaimsEditorRouteContext =
         updatedAt: string;
         snapshotCapturedAt: string;
         formSchemaVersion: string;
+        generatedAt: string | null;
+        generatedFormSchemaVersion: string | null;
+        generatedOutputFormat: string | null;
+        generatedRendererVersion: string | null;
+        generatedArtifact: ClaimsRenderedOutput | null;
+        isModifiedAfterGeneration: boolean;
         server: {
           code: string;
           name: string;
@@ -743,6 +755,7 @@ export async function getClaimsEditorRouteContext(input: {
 
   const authorSnapshot = readDocumentAuthorSnapshot(document.authorSnapshotJson);
   const payload = readClaimsDraftPayload(document.documentType, document.formPayloadJson);
+  const generatedArtifact = readClaimsGeneratedArtifact(document.generatedArtifactJson);
 
   return {
     status: "ready",
@@ -762,6 +775,12 @@ export async function getClaimsEditorRouteContext(input: {
       updatedAt: document.updatedAt.toISOString(),
       snapshotCapturedAt: document.snapshotCapturedAt.toISOString(),
       formSchemaVersion: document.formSchemaVersion,
+      generatedAt: document.generatedAt?.toISOString() ?? null,
+      generatedFormSchemaVersion: document.generatedFormSchemaVersion,
+      generatedOutputFormat: document.generatedOutputFormat,
+      generatedRendererVersion: document.generatedRendererVersion,
+      generatedArtifact,
+      isModifiedAfterGeneration: document.isModifiedAfterGeneration,
       server: {
         code: document.server.code,
         name: document.server.name,

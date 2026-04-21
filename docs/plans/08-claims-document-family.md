@@ -220,6 +220,43 @@ Claims не используют OGP `BBCode`/publication flow по умолча
 - `/servers/[serverSlug]/documents/claims/[documentId]` уже умеет собирать structured preview и copy-friendly text без перевода документа в `generated`
 - claims по-прежнему не притворяются publication/forum workflow и не используют OGP `publication_url`
 
+### 08.7 — Claims generated checkpoint + status integration
+
+Что входит:
+
+- persisted generated artifact для claims structured preview
+- `status = generated` без publication workflow
+- `generated_at`
+- `generated_form_schema_version`
+- renderer/output metadata для claims checkpoint
+- regenerate behavior
+- `modified_after_generation` после последующих правок
+
+Что не входит:
+
+- `publication_url`
+- forum sync
+- template documents
+- precedents-aware claims logic
+
+Текущий результат шага:
+
+- claims preview больше не живёт только как runtime-слой: successful generate action уже фиксирует отдельный persisted structured artifact
+- claims не используют OGP-specific поле `last_generated_bbcode`; для них заведён output-neutral generated artifact layer
+- persisted claims checkpoint сохраняет:
+  - generated artifact
+  - copy-friendly generated text
+  - output format metadata
+  - renderer version metadata
+  - `generated_at`
+  - `generated_form_schema_version`
+- успешный checkpoint переводит claims document из `draft` в `generated`
+- повторный generate перезаписывает claims artifact и generation metadata детерминированным output из persisted payload
+- последующая правка persisted claims payload не ломает snapshot invariants, но помечает документ как `modified_after_generation`
+- `/servers/[serverSlug]/documents/claims/[documentId]` уже показывает generated state, `generated_at`, renderer/output metadata и persisted artifact preview
+- `/account/documents` и `/servers/[serverSlug]/documents/claims` продолжают использовать общую status model document area и уже корректно показывают generated claims state
+- publication/forum workflow для claims по-прежнему не активируется и не смешивается с OGP `BBCode/publication` model
+
 ## Acceptance criteria
 
 ### Claims architecture готова

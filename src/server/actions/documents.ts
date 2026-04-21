@@ -21,6 +21,7 @@ import {
   mapClaimsOutputBlockingReasonsToMessages,
   renderOwnedClaimsStructuredPreview,
 } from "@/server/document-area/claims-rendering";
+import { generateOwnedClaimsStructuredCheckpoint } from "@/server/document-area/claims-generation";
 import {
   DocumentGenerationBlockedError,
   DocumentPublicationMetadataStateError,
@@ -318,6 +319,56 @@ export async function generateClaimsStructuredPreviewAction(input: {
       return {
         ok: false as const,
         error: "preview-blocked" as const,
+        reasons: mapClaimsOutputBlockingReasonsToMessages(error.reasons),
+      };
+    }
+
+    throw error;
+  }
+}
+
+export async function generateClaimsStructuredCheckpointAction(input: {
+  documentId: string;
+}) {
+  const { account } = await requireProtectedAccountContext("/account/documents", undefined, {
+    allowMustChangePassword: true,
+  });
+
+  try {
+    const { document, output } = await generateOwnedClaimsStructuredCheckpoint({
+      accountId: account.id,
+      documentId: input.documentId,
+    });
+
+    revalidateDocumentPaths({
+      documentId: document.id,
+      serverCode: document.server.code,
+      documentType: document.documentType,
+    });
+
+    return {
+      ok: true as const,
+      status: document.status,
+      updatedAt: document.updatedAt.toISOString(),
+      generatedAt: document.generatedAt?.toISOString() ?? null,
+      generatedFormSchemaVersion: document.generatedFormSchemaVersion,
+      generatedOutputFormat: document.generatedOutputFormat,
+      generatedRendererVersion: document.generatedRendererVersion,
+      isModifiedAfterGeneration: document.isModifiedAfterGeneration,
+      output,
+    };
+  } catch (error) {
+    if (error instanceof DocumentAccessDeniedError) {
+      return {
+        ok: false as const,
+        error: "document-access-denied" as const,
+      };
+    }
+
+    if (error instanceof ClaimsOutputBlockedError) {
+      return {
+        ok: false as const,
+        error: "generation-blocked" as const,
         reasons: mapClaimsOutputBlockingReasonsToMessages(error.reasons),
       };
     }

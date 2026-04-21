@@ -270,6 +270,10 @@ model Document {
   snapshotCapturedAt         DateTime
   authorSnapshotJson         Json
   formPayloadJson            Json?
+  generatedArtifactJson      Json?
+  generatedArtifactText      String?
+  generatedOutputFormat      String?
+  generatedRendererVersion   String?
   lastGeneratedBbcode        String?
   generatedAt                DateTime?
   generatedLawVersion        String?

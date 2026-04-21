@@ -9,13 +9,14 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import {
   createClaimDraftAction,
+  generateClaimsStructuredCheckpointAction,
   generateClaimsStructuredPreviewAction,
   saveDocumentDraftAction,
 } from "@/server/actions/documents";
-import type { ClaimsRenderedOutput } from "@/server/document-area/claims-rendering";
 import type {
   ClaimDocumentType,
   ClaimsDraftPayload,
+  ClaimsRenderedOutput,
   OgpComplaintEvidenceGroup,
   OgpComplaintEvidenceRow,
   OgpComplaintTrustorSnapshot,
@@ -58,9 +59,24 @@ type ClaimsDraftEditorClientProps = {
   initialPayload: ClaimsDraftPayload;
   status: "draft" | "generated" | "published";
   updatedAt: string;
+  generatedAt: string | null;
+  generatedFormSchemaVersion: string | null;
+  generatedOutputFormat: string | null;
+  generatedRendererVersion: string | null;
+  generatedArtifact: ClaimsRenderedOutput | null;
+  isModifiedAfterGeneration: boolean;
 };
 
 type ClaimsPreviewState = ClaimsRenderedOutput | null;
+
+type ClaimsGenerationState = {
+  status: "draft" | "generated" | "published";
+  generatedAt: string | null;
+  generatedFormSchemaVersion: string | null;
+  generatedOutputFormat: string | null;
+  generatedRendererVersion: string | null;
+  isModifiedAfterGeneration: boolean;
+};
 
 type ClaimsEditorState = {
   title: string;
@@ -115,6 +131,24 @@ function createEditorState(input: {
 
 function areStatesEqual(left: ClaimsEditorState, right: ClaimsEditorState) {
   return JSON.stringify(left) === JSON.stringify(right);
+}
+
+function createGenerationState(input: {
+  status: "draft" | "generated" | "published";
+  generatedAt: string | null;
+  generatedFormSchemaVersion: string | null;
+  generatedOutputFormat: string | null;
+  generatedRendererVersion: string | null;
+  isModifiedAfterGeneration: boolean;
+}): ClaimsGenerationState {
+  return {
+    status: input.status,
+    generatedAt: input.generatedAt,
+    generatedFormSchemaVersion: input.generatedFormSchemaVersion,
+    generatedOutputFormat: input.generatedOutputFormat,
+    generatedRendererVersion: input.generatedRendererVersion,
+    isModifiedAfterGeneration: input.isModifiedAfterGeneration,
+  };
 }
 
 function formatSubtypeLabel(documentType: ClaimDocumentType) {
@@ -901,10 +935,22 @@ export function ClaimsDraftEditorClient(props: ClaimsDraftEditorClientProps) {
     }),
   );
   const [savedUpdatedAt, setSavedUpdatedAt] = useState(props.updatedAt);
+  const [generationState, setGenerationState] = useState(() =>
+    createGenerationState({
+      status: props.status,
+      generatedAt: props.generatedAt,
+      generatedFormSchemaVersion: props.generatedFormSchemaVersion,
+      generatedOutputFormat: props.generatedOutputFormat,
+      generatedRendererVersion: props.generatedRendererVersion,
+      isModifiedAfterGeneration: props.isModifiedAfterGeneration,
+    }),
+  );
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [previewMessage, setPreviewMessage] = useState<string | null>(null);
-  const [previewState, setPreviewState] = useState<ClaimsPreviewState>(null);
-  const [isPreviewStale, setIsPreviewStale] = useState(false);
+  const [previewState, setPreviewState] = useState<ClaimsPreviewState>(props.generatedArtifact);
+  const [isPreviewStale, setIsPreviewStale] = useState(
+    props.generatedArtifact ? props.isModifiedAfterGeneration : false,
+  );
   const lastAutoSaveKeyRef = useRef<string | null>(null);
   const representativeAllowed = props.authorSnapshot.canUseRepresentative;
   const isDirty = !areStatesEqual(editorState, savedState);
@@ -947,7 +993,12 @@ export function ClaimsDraftEditorClient(props: ClaimsDraftEditorClientProps) {
 
       setSavedState(editorState);
       setSavedUpdatedAt(result.updatedAt);
-      setIsPreviewStale((current) => current || previewState !== null);
+      setGenerationState((current) => ({
+        ...current,
+        status: result.status,
+        isModifiedAfterGeneration: result.isModifiedAfterGeneration,
+      }));
+      setIsPreviewStale((current) => current || previewState !== null || result.isModifiedAfterGeneration);
       setSaveMessage(
         mode === "autosave"
           ? `Claims draft автосохранён: ${new Date(result.updatedAt).toLocaleString("ru-RU")}`
@@ -996,10 +1047,8 @@ export function ClaimsDraftEditorClient(props: ClaimsDraftEditorClientProps) {
     });
 
     if (!result.ok) {
-      setPreviewState(null);
-      setIsPreviewStale(false);
-
       if (result.error === "preview-blocked") {
+        setIsPreviewStale(previewState !== null || generationState.isModifiedAfterGeneration);
         setPreviewMessage(result.reasons.join(" "));
         return;
       }
@@ -1009,9 +1058,49 @@ export function ClaimsDraftEditorClient(props: ClaimsDraftEditorClientProps) {
     }
 
     setPreviewState(result.output);
-    setIsPreviewStale(false);
+    setIsPreviewStale(generationState.isModifiedAfterGeneration);
     setPreviewMessage(
       `Structured preview собран из persisted claims document. Format: ${result.output.format}.`,
+    );
+  }, [generationState.isModifiedAfterGeneration, isDirty, previewState, props.documentId, savedUpdatedAt]);
+
+  const handleGenerateCheckpoint = useCallback(async () => {
+    if (!savedUpdatedAt || isDirty) {
+      setPreviewMessage(
+        "Сначала сохраните claims draft. Generated checkpoint всегда фиксируется только из persisted документа.",
+      );
+      return;
+    }
+
+    const result = await generateClaimsStructuredCheckpointAction({
+      documentId: props.documentId,
+    });
+
+    if (!result.ok) {
+      if (result.error === "generation-blocked") {
+        setPreviewMessage(result.reasons.join(" "));
+        return;
+      }
+
+      setPreviewMessage("Не удалось зафиксировать generated checkpoint. Проверь доступ и попробуй ещё раз.");
+      return;
+    }
+
+    setPreviewState(result.output);
+    setGenerationState({
+      status: result.status,
+      generatedAt: result.generatedAt,
+      generatedFormSchemaVersion: result.generatedFormSchemaVersion,
+      generatedOutputFormat: result.generatedOutputFormat,
+      generatedRendererVersion: result.generatedRendererVersion,
+      isModifiedAfterGeneration: result.isModifiedAfterGeneration,
+    });
+    setSavedUpdatedAt(result.updatedAt);
+    setIsPreviewStale(false);
+    setPreviewMessage(
+      `Claims generated checkpoint сохранён: ${
+        result.generatedAt ? new Date(result.generatedAt).toLocaleString("ru-RU") : "время недоступно"
+      }.`,
     );
   }, [isDirty, props.documentId, savedUpdatedAt]);
 
@@ -1033,7 +1122,7 @@ export function ClaimsDraftEditorClient(props: ClaimsDraftEditorClientProps) {
       <ClaimsFormFields
         characterLabel={`${props.authorSnapshot.fullName} (${props.authorSnapshot.passportNumber})`}
         documentType={props.documentType}
-        draftStatusLabel={props.status}
+        draftStatusLabel={generationState.status}
         mode="edit"
         onStateChange={setEditorState}
         profileComplete={props.authorSnapshot.isProfileComplete}
@@ -1067,6 +1156,18 @@ export function ClaimsDraftEditorClient(props: ClaimsDraftEditorClientProps) {
           Собрать structured preview
         </Button>
         <Button
+          disabled={isDirty}
+          onClick={() => {
+            startTransition(() => {
+              void handleGenerateCheckpoint();
+            });
+          }}
+          type="button"
+          variant="secondary"
+        >
+          Зафиксировать generated checkpoint
+        </Button>
+        <Button
           disabled={!previewState}
           onClick={() => {
             startTransition(() => {
@@ -1087,20 +1188,34 @@ export function ClaimsDraftEditorClient(props: ClaimsDraftEditorClientProps) {
         <div className="space-y-1">
           <h3 className="text-lg font-semibold">Claims output preview</h3>
           <ClaimsFieldHint>
-            Это отдельный claims structured renderer. Он не использует OGP BBCode, не меняет status документа и не включает publication workflow.
+            Это отдельный claims structured renderer. Он не использует OGP BBCode и не включает publication workflow.
           </ClaimsFieldHint>
         </div>
         <ul className="space-y-2 text-sm leading-6 text-[var(--muted)]">
-          <li>Document status остаётся: {props.status}</li>
-          <li>Preview format: {previewState?.format ?? "ещё не собран"}</li>
-          <li>Renderer version: {previewState?.rendererVersion ?? "ещё не собран"}</li>
+          <li>Document status: {generationState.status}</li>
+          <li>Preview format: {previewState?.format ?? generationState.generatedOutputFormat ?? "ещё не собран"}</li>
+          <li>Renderer version: {previewState?.rendererVersion ?? generationState.generatedRendererVersion ?? "ещё не собран"}</li>
+          <li>
+            Generated at:{" "}
+            {generationState.generatedAt
+              ? new Date(generationState.generatedAt).toLocaleString("ru-RU")
+              : "checkpoint ещё не фиксировался"}
+          </li>
+          <li>
+            Generated form schema version: {generationState.generatedFormSchemaVersion ?? "ещё не зафиксирована"}
+          </li>
+          <li>
+            Modified after generation: {generationState.isModifiedAfterGeneration ? "да" : "нет"}
+          </li>
           <li>Publication / forum sync для claims на этом шаге не активируются.</li>
           {previewState ? (
             <li>
               Blocking reasons: {previewState.blockingReasons.length > 0 ? previewState.blockingReasons.join(", ") : "нет"}
             </li>
           ) : null}
-          {isPreviewStale ? <li>Текущий preview устарел после последнего сохранения. Собери его заново.</li> : null}
+          {isPreviewStale ? (
+            <li>Текущий preview устарел после последнего сохранения. Можно собрать preview заново или перезаписать generated checkpoint.</li>
+          ) : null}
         </ul>
       </div>
 

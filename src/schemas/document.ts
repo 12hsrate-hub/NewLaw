@@ -5,6 +5,7 @@ export const documentStatuses = ["draft", "generated", "published"] as const;
 export const ogpComplaintFilingModes = ["self", "representative"] as const;
 export const trustorSnapshotSourceTypes = ["inline_manual"] as const;
 export const claimDocumentTypes = ["rehabilitation", "lawsuit"] as const;
+export const claimsStructuredPreviewFormat = "claims_structured_preview_v1" as const;
 
 const datetimeLocalPattern = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
 
@@ -46,6 +47,9 @@ export const documentTitleSchema = z.string().trim().min(3).max(160);
 export const documentWorkingNotesSchema = z.string().max(12_000).default("");
 export const documentFormSchemaVersionSchema = z.string().trim().min(1).max(64);
 export const documentGeneratedMetadataVersionSchema = z.string().trim().min(1).max(160);
+export const documentGeneratedArtifactTextSchema = z.string().max(200_000);
+export const documentGeneratedOutputFormatSchema = z.string().trim().min(1).max(160);
+export const documentGeneratedRendererVersionSchema = z.string().trim().min(1).max(160);
 export const documentPublicationUrlSchema = z
   .string()
   .trim()
@@ -174,6 +178,10 @@ export const generateClaimsStructuredPreviewActionInputSchema = z.object({
   documentId: documentIdSchema,
 });
 
+export const generateClaimsStructuredCheckpointActionInputSchema = z.object({
+  documentId: documentIdSchema,
+});
+
 export const updateDocumentPublicationMetadataActionInputSchema = z.object({
   documentId: documentIdSchema,
   publicationUrl: documentPublicationUrlSchema,
@@ -194,6 +202,22 @@ export const documentAuthorSnapshotSchema = z.object({
   capturedAt: z.string().datetime(),
 });
 
+export const claimsRenderedSectionSchema = z.object({
+  key: z.string().trim().min(1).max(120),
+  title: z.string().trim().min(1).max(200),
+  body: z.string(),
+});
+
+export const claimsRenderedOutputSchema = z.object({
+  family: z.literal("claims"),
+  documentType: claimDocumentTypeSchema,
+  format: z.literal(claimsStructuredPreviewFormat),
+  rendererVersion: documentGeneratedRendererVersionSchema,
+  sections: z.array(claimsRenderedSectionSchema).max(32),
+  copyText: documentGeneratedArtifactTextSchema,
+  blockingReasons: z.array(z.string()).max(32),
+});
+
 export type DocumentType = z.infer<typeof documentTypeSchema>;
 export type DocumentStatus = z.infer<typeof documentStatusSchema>;
 export type ClaimDocumentType = z.infer<typeof claimDocumentTypeSchema>;
@@ -207,3 +231,5 @@ export type ClaimsCommonDraftPayload = z.infer<typeof claimsDraftPayloadBaseSche
 export type RehabilitationClaimDraftPayload = z.infer<typeof rehabilitationClaimDraftPayloadSchema>;
 export type LawsuitClaimDraftPayload = z.infer<typeof lawsuitClaimDraftPayloadSchema>;
 export type ClaimsDraftPayload = RehabilitationClaimDraftPayload | LawsuitClaimDraftPayload;
+export type ClaimsRenderedSection = z.infer<typeof claimsRenderedSectionSchema>;
+export type ClaimsRenderedOutput = z.infer<typeof claimsRenderedOutputSchema>;

@@ -2,11 +2,14 @@ import { getDocumentByIdForAccount } from "@/db/repositories/document.repository
 import type {
   ClaimDocumentType,
   ClaimsDraftPayload,
+  ClaimsRenderedOutput,
+  ClaimsRenderedSection,
   DocumentAuthorSnapshot,
   LawsuitClaimDraftPayload,
   OgpComplaintEvidenceGroup,
   RehabilitationClaimDraftPayload,
 } from "@/schemas/document";
+import { claimsRenderedOutputSchema } from "@/schemas/document";
 import {
   DocumentAccessDeniedError,
   isClaimsDocumentType,
@@ -36,22 +39,6 @@ const claimsOutputBlockingReasonLabels = {
 } as const;
 
 export type ClaimsOutputBlockingReason = keyof typeof claimsOutputBlockingReasonLabels;
-
-export type ClaimsRenderedSection = {
-  key: string;
-  title: string;
-  body: string;
-};
-
-export type ClaimsRenderedOutput = {
-  family: "claims";
-  documentType: ClaimDocumentType;
-  format: typeof CLAIMS_STRUCTURED_PREVIEW_FORMAT;
-  rendererVersion: typeof CLAIMS_STRUCTURED_RENDERER_VERSION;
-  sections: ClaimsRenderedSection[];
-  copyText: string;
-  blockingReasons: ClaimsOutputBlockingReason[];
-};
 
 type ClaimsRenderingDependencies = {
   getDocumentByIdForAccount: typeof getDocumentByIdForAccount;
@@ -327,22 +314,19 @@ export function mapClaimsOutputBlockingReasonsToMessages(reasons: ClaimsOutputBl
   return reasons.map((reason) => claimsOutputBlockingReasonLabels[reason]);
 }
 
-export async function renderOwnedClaimsStructuredPreview(
-  input: {
-    accountId: string;
-    documentId: string;
-  },
-  dependencies: ClaimsRenderingDependencies = defaultDependencies,
-): Promise<ClaimsRenderedOutput> {
-  const document = await dependencies.getDocumentByIdForAccount({
-    accountId: input.accountId,
-    documentId: input.documentId,
-  });
-
-  if (!document || !isClaimsDocumentType(document.documentType)) {
-    throw new DocumentAccessDeniedError();
-  }
-
+export function renderClaimsStructuredPreviewFromDocument(input: {
+  document: {
+    title: string;
+    documentType: ClaimDocumentType;
+    server: {
+      code: string;
+      name: string;
+    };
+    authorSnapshotJson: unknown;
+    formPayloadJson: unknown;
+  };
+}) {
+  const document = input.document;
   const authorSnapshot = readDocumentAuthorSnapshot(document.authorSnapshotJson);
   const payload = readClaimsDraftPayload(document.documentType, document.formPayloadJson);
   const blockingReasons = getClaimsOutputBlockingReasons({
@@ -376,5 +360,45 @@ export async function renderOwnedClaimsStructuredPreview(
     sections,
     copyText: buildCopyText(sections),
     blockingReasons: [],
-  };
+  } satisfies ClaimsRenderedOutput;
+}
+
+export async function renderOwnedClaimsStructuredPreview(
+  input: {
+    accountId: string;
+    documentId: string;
+  },
+  dependencies: ClaimsRenderingDependencies = defaultDependencies,
+): Promise<ClaimsRenderedOutput> {
+  const document = await dependencies.getDocumentByIdForAccount({
+    accountId: input.accountId,
+    documentId: input.documentId,
+  });
+
+  if (!document || !isClaimsDocumentType(document.documentType)) {
+    throw new DocumentAccessDeniedError();
+  }
+
+  return renderClaimsStructuredPreviewFromDocument({
+    document: {
+      title: document.title,
+      documentType: document.documentType,
+      server: {
+        code: document.server.code,
+        name: document.server.name,
+      },
+      authorSnapshotJson: document.authorSnapshotJson,
+      formPayloadJson: document.formPayloadJson,
+    },
+  });
+}
+
+export function readClaimsGeneratedArtifact(input: unknown): ClaimsRenderedOutput | null {
+  if (!input || typeof input !== "object") {
+    return null;
+  }
+
+  const parsed = claimsRenderedOutputSchema.safeParse(input);
+
+  return parsed.success ? parsed.data : null;
 }

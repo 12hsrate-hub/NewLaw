@@ -17,7 +17,12 @@ import type {
   DocumentAreaServerSummary,
 } from "@/server/document-area/context";
 import { getDocumentTitleForType } from "@/server/document-area/persistence";
-import type { ClaimDocumentType, ClaimsDraftPayload, OgpComplaintDraftPayload } from "@/schemas/document";
+import type {
+  ClaimDocumentType,
+  ClaimsDraftPayload,
+  ClaimsRenderedOutput,
+  OgpComplaintDraftPayload,
+} from "@/schemas/document";
 
 function DocumentLink({
   href,
@@ -147,7 +152,8 @@ function PersistedDocumentList(props: {
               <p className="text-sm leading-6 text-[var(--muted)]">
                 Claims editor уже работает внутри отдельной family `Claims`: subtype{" "}
                 `{formatDocumentSubtype(document.documentType)}` фиксируется через internal
-                `document_type`, а payload живёт отдельно от OGP и не наследует его generation/publication workflow.
+                `document_type`, а payload живёт отдельно от OGP. Claims generated checkpoint тоже
+                хранится в отдельном structured artifact, а не в OGP generation/publication workflow.
               </p>
             ) : null}
             <p className="text-sm leading-6 text-[var(--muted)]">
@@ -711,6 +717,12 @@ export function ClaimsPersistedEditor(props: {
     updatedAt: string;
     snapshotCapturedAt: string;
     formSchemaVersion: string;
+    generatedAt: string | null;
+    generatedFormSchemaVersion: string | null;
+    generatedOutputFormat: string | null;
+    generatedRendererVersion: string | null;
+    generatedArtifact: ClaimsRenderedOutput | null;
+    isModifiedAfterGeneration: boolean;
     server: {
       code: string;
       name: string;
@@ -741,8 +753,8 @@ export function ClaimsPersistedEditor(props: {
         <h1 className="text-3xl font-semibold">{props.document.title}</h1>
         <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
           Это уже реальный claims editor route. Здесь грузится persisted draft, работает
-          owner-only access, базовый manual/autosave foundation и claims structured preview без
-          generation checkpoint persistence и publication слоя.
+          owner-only access, базовый manual/autosave foundation и claims generated checkpoint без
+          publication слоя.
         </p>
         <div className="flex flex-wrap items-center gap-2 text-sm leading-6 text-[var(--muted)]">
           <Badge>serverSlug: {props.document.server.code}</Badge>
@@ -766,11 +778,23 @@ export function ClaimsPersistedEditor(props: {
             Snapshot captured at: {new Date(props.document.snapshotCapturedAt).toLocaleString("ru-RU")}
           </li>
           <li>Form schema version: {props.document.formSchemaVersion}</li>
+          <li>
+            Generated at:{" "}
+            {props.document.generatedAt
+              ? new Date(props.document.generatedAt).toLocaleString("ru-RU")
+              : "ещё не фиксировался"}
+          </li>
+          <li>Generated form schema version: {props.document.generatedFormSchemaVersion ?? "ещё не зафиксирована"}</li>
+          <li>Generated output format: {props.document.generatedOutputFormat ?? "ещё не зафиксирован"}</li>
+          <li>Generated renderer version: {props.document.generatedRendererVersion ?? "ещё не зафиксирована"}</li>
+          <li>
+            Modified after generation: {props.document.isModifiedAfterGeneration ? "да" : "нет"}
+          </li>
           <li>Nickname snapshot: {props.document.authorSnapshot.nickname}</li>
           <li>Role keys: {props.document.authorSnapshot.roleKeys.join(", ") || "нет"}</li>
           <li>Access flags: {props.document.authorSnapshot.accessFlags.join(", ") || "нет"}</li>
           <li>Server, character snapshot и subtype после first save больше не меняются.</li>
-          <li>Claims structured preview уже доступен, но status остаётся draft и publication workflow не активируется.</li>
+          <li>Claims generated checkpoint не активирует publication workflow и не использует OGP BBCode.</li>
         </ul>
       </Card>
 
@@ -785,7 +809,13 @@ export function ClaimsPersistedEditor(props: {
           }}
           documentId={props.document.id}
           documentType={props.document.documentType}
+          generatedArtifact={props.document.generatedArtifact}
+          generatedAt={props.document.generatedAt}
+          generatedFormSchemaVersion={props.document.generatedFormSchemaVersion}
+          generatedOutputFormat={props.document.generatedOutputFormat}
+          generatedRendererVersion={props.document.generatedRendererVersion}
           initialPayload={props.document.payload}
+          isModifiedAfterGeneration={props.document.isModifiedAfterGeneration}
           initialTitle={props.document.title}
           server={props.document.server}
           status={props.document.status}
