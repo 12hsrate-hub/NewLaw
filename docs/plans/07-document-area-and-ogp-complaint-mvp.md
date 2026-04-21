@@ -199,6 +199,8 @@ Create/edit contract:
 
 ### 07.5 — BBCode generation и publication metadata
 
+Статус: реализовано.
+
 Что входит:
 
 - generation `BBCode`
@@ -212,6 +214,25 @@ Create/edit contract:
 Что не входит:
 
 - forum automation beyond agreed MVP flow
+
+Результат шага:
+
+- generation `BBCode` вызывается только для persisted `ogp_complaint` документа и всегда строится из сохранённого payload
+- generation deterministic: один и тот же persisted payload даёт предсказуемый `BBCode`
+- generation работает для `self` и `representative`, при representative flow использует trustor snapshot из самого документа
+- `evidenceGroups` и `evidenceRows` со ссылками корректно попадают в итоговый `BBCode`
+- generation честно блокируется при неполном обязательном profile или неполном complaint payload
+- при успешной generation сохраняются:
+  - `last_generated_bbcode`
+  - `generated_at`
+  - `generated_law_version`
+  - `generated_template_version`
+  - `generated_form_schema_version`
+- успешная generation переводит документ из `draft` в `generated`
+- последующая правка persisted документа помечает его как `modified_after_generation`
+- `publication_url` и manual forum sync metadata уже можно обновлять вручную только для owner и только после хотя бы одной успешной generation
+- `/account/documents` и `/servers/[serverSlug]/documents/ogp-complaints` уже показывают generation-related state
+- forum automation, external forum checks и любые другие document families остаются вне этого шага
 
 ## Acceptance criteria
 

@@ -9,7 +9,9 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import {
   createOgpComplaintDraftAction,
+  generateOgpComplaintBbcodeAction,
   saveDocumentDraftAction,
+  updateDocumentPublicationMetadataAction,
 } from "@/server/actions/documents";
 import type {
   OgpComplaintDraftPayload,
@@ -51,6 +53,14 @@ type OgpComplaintDraftEditorClientProps = {
   authorSnapshot: SharedCharacterContext;
   initialTitle: string;
   initialPayload: OgpComplaintDraftPayload;
+  initialLastGeneratedBbcode: string | null;
+  generatedAt: string | null;
+  generatedLawVersion: string | null;
+  generatedTemplateVersion: string | null;
+  generatedFormSchemaVersion: string | null;
+  initialPublicationUrl: string | null;
+  initialIsSiteForumSynced: boolean;
+  initialIsModifiedAfterGeneration: boolean;
   status: "draft" | "generated" | "published";
   updatedAt: string;
 };
@@ -58,6 +68,18 @@ type OgpComplaintDraftEditorClientProps = {
 type OgpComplaintEditorState = {
   title: string;
   payload: OgpComplaintDraftPayload;
+};
+
+type OgpComplaintGenerationState = {
+  status: "draft" | "generated" | "published";
+  lastGeneratedBbcode: string | null;
+  generatedAt: string | null;
+  generatedLawVersion: string | null;
+  generatedTemplateVersion: string | null;
+  generatedFormSchemaVersion: string | null;
+  publicationUrl: string | null;
+  isSiteForumSynced: boolean;
+  isModifiedAfterGeneration: boolean;
 };
 
 function createEditorState(input: {
@@ -116,6 +138,30 @@ function buildEmptyTrustorSnapshot(): OgpComplaintTrustorSnapshot {
     fullName: "",
     passportNumber: "",
     note: "",
+  };
+}
+
+function createGenerationState(input: {
+  status: "draft" | "generated" | "published";
+  lastGeneratedBbcode: string | null;
+  generatedAt: string | null;
+  generatedLawVersion: string | null;
+  generatedTemplateVersion: string | null;
+  generatedFormSchemaVersion: string | null;
+  publicationUrl: string | null;
+  isSiteForumSynced: boolean;
+  isModifiedAfterGeneration: boolean;
+}): OgpComplaintGenerationState {
+  return {
+    status: input.status,
+    lastGeneratedBbcode: input.lastGeneratedBbcode,
+    generatedAt: input.generatedAt,
+    generatedLawVersion: input.generatedLawVersion,
+    generatedTemplateVersion: input.generatedTemplateVersion,
+    generatedFormSchemaVersion: input.generatedFormSchemaVersion,
+    publicationUrl: input.publicationUrl,
+    isSiteForumSynced: input.isSiteForumSynced,
+    isModifiedAfterGeneration: input.isModifiedAfterGeneration,
   };
 }
 
@@ -748,8 +794,24 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
       payload: props.initialPayload,
     }),
   );
+  const [generationState, setGenerationState] = useState(() =>
+    createGenerationState({
+      status: props.status,
+      lastGeneratedBbcode: props.initialLastGeneratedBbcode,
+      generatedAt: props.generatedAt,
+      generatedLawVersion: props.generatedLawVersion,
+      generatedTemplateVersion: props.generatedTemplateVersion,
+      generatedFormSchemaVersion: props.generatedFormSchemaVersion,
+      publicationUrl: props.initialPublicationUrl,
+      isSiteForumSynced: props.initialIsSiteForumSynced,
+      isModifiedAfterGeneration: props.initialIsModifiedAfterGeneration,
+    }),
+  );
   const [savedUpdatedAt, setSavedUpdatedAt] = useState(props.updatedAt);
+  const [publicationUrlInput, setPublicationUrlInput] = useState(props.initialPublicationUrl ?? "");
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [generationMessage, setGenerationMessage] = useState<string | null>(null);
+  const [publicationMessage, setPublicationMessage] = useState<string | null>(null);
   const lastAutoSaveKeyRef = useRef<string | null>(null);
 
   const representativeAllowed = props.authorSnapshot.canUseRepresentative;
@@ -768,6 +830,7 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
   }, [editorState.payload.filingMode, representativeAllowed]);
 
   const isDirty = !areStatesEqual(editorState, savedState);
+  const canGenerateFromPersistedState = !isDirty;
 
   const performSave = useCallback(
     async (mode: "autosave" | "manual") => {
@@ -794,6 +857,12 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
 
       setSavedState(editorState);
       setSavedUpdatedAt(result.updatedAt);
+      setGenerationState((current) => ({
+        ...current,
+        status: result.status,
+        isModifiedAfterGeneration: result.isModifiedAfterGeneration,
+        isSiteForumSynced: result.isModifiedAfterGeneration ? false : current.isSiteForumSynced,
+      }));
       setSaveMessage(
         mode === "autosave"
           ? `Черновик автосохранён: ${new Date(result.updatedAt).toLocaleString("ru-RU")}`
@@ -826,11 +895,95 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
     };
   }, [editorState, isDirty, performSave]);
 
+  const handleGenerate = useCallback(async () => {
+    if (!canGenerateFromPersistedState) {
+      setGenerationMessage("Сначала сохраните черновик. Генерация всегда берёт уже persisted payload.");
+      return;
+    }
+
+    const result = await generateOgpComplaintBbcodeAction({
+      documentId: props.documentId,
+    });
+
+    if (!result.ok) {
+      if (result.error === "generation-blocked") {
+        setGenerationMessage(result.reasons.join(" "));
+        return;
+      }
+
+      setGenerationMessage("Сгенерировать BBCode не удалось. Проверь доступ и попробуй ещё раз.");
+      return;
+    }
+
+    setSavedUpdatedAt(result.updatedAt);
+    setGenerationState({
+      status: result.status,
+      lastGeneratedBbcode: result.lastGeneratedBbcode,
+      generatedAt: result.generatedAt,
+      generatedLawVersion: result.generatedLawVersion,
+      generatedTemplateVersion: result.generatedTemplateVersion,
+      generatedFormSchemaVersion: result.generatedFormSchemaVersion,
+      publicationUrl: result.publicationUrl,
+      isSiteForumSynced: result.isSiteForumSynced,
+      isModifiedAfterGeneration: result.isModifiedAfterGeneration,
+    });
+    setPublicationUrlInput(result.publicationUrl ?? "");
+    setGenerationMessage(
+      `BBCode сгенерирован: ${result.generatedAt ? new Date(result.generatedAt).toLocaleString("ru-RU") : "время недоступно"}.`,
+    );
+  }, [canGenerateFromPersistedState, props.documentId]);
+
+  const handleCopyBbcode = useCallback(async () => {
+    if (!generationState.lastGeneratedBbcode) {
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(generationState.lastGeneratedBbcode);
+      setGenerationMessage("BBCode скопирован в буфер обмена.");
+    } catch {
+      setGenerationMessage("Не удалось скопировать BBCode автоматически. Можно скопировать его вручную из блока ниже.");
+    }
+  }, [generationState.lastGeneratedBbcode]);
+
+  const handlePublicationSave = useCallback(async () => {
+    const result = await updateDocumentPublicationMetadataAction({
+      documentId: props.documentId,
+      publicationUrl: publicationUrlInput,
+      isSiteForumSynced: generationState.isSiteForumSynced && publicationUrlInput.trim().length > 0,
+    });
+
+    if (!result.ok) {
+      if (result.error === "publication-before-generation") {
+        setPublicationMessage("Сначала сгенерируйте BBCode, а уже потом указывайте publication URL.");
+        return;
+      }
+
+      if (result.error === "invalid-publication-url") {
+        setPublicationMessage("Publication URL должен быть пустым или вести на https://forum.gta5rp.com/.");
+        return;
+      }
+
+      setPublicationMessage("Сохранить publication metadata не удалось.");
+      return;
+    }
+
+    setSavedUpdatedAt(result.updatedAt);
+    setGenerationState((current) => ({
+      ...current,
+      status: result.status,
+      publicationUrl: result.publicationUrl,
+      isSiteForumSynced: result.isSiteForumSynced,
+    }));
+    setPublicationUrlInput(result.publicationUrl ?? "");
+    setPublicationMessage("Publication metadata обновлены.");
+  }, [generationState.isSiteForumSynced, props.documentId, publicationUrlInput]);
+
   return (
     <div className="space-y-6">
       <ComplaintFormFields
         characterLabel={`${props.authorSnapshot.fullName} (${props.authorSnapshot.passportNumber})`}
-        draftStatusLabel={props.status}
+        draftStatusLabel={generationState.status}
         mode="edit"
         onStateChange={setEditorState}
         profileComplete={props.authorSnapshot.isProfileComplete}
@@ -851,12 +1004,131 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
         >
           Сохранить complaint draft
         </Button>
-        <span className="text-sm text-[var(--muted)]">
-          BBCode generation и forum publication automation в этом шаге ещё не реализованы.
-        </span>
+        <Button
+          disabled={!canGenerateFromPersistedState}
+          onClick={() => {
+            startTransition(() => {
+              void handleGenerate();
+            });
+          }}
+          type="button"
+          variant="secondary"
+        >
+          Сгенерировать BBCode
+        </Button>
       </div>
 
       {saveMessage ? <p className="text-sm text-[var(--muted)]">{saveMessage}</p> : null}
+      {generationMessage ? <p className="text-sm text-[var(--muted)]">{generationMessage}</p> : null}
+
+      <div className="space-y-4 rounded-3xl border border-[var(--border)] bg-white/70 p-4">
+        <div className="space-y-1">
+          <h3 className="text-lg font-semibold">Generation metadata</h3>
+          <ComplaintFieldHint>
+            Генерация использует только уже persisted complaint payload и не подменяет server/character snapshot.
+          </ComplaintFieldHint>
+        </div>
+        <ul className="space-y-2 text-sm leading-6 text-[var(--muted)]">
+          <li>Status: {generationState.status}</li>
+          <li>
+            Generated at:{" "}
+            {generationState.generatedAt
+              ? new Date(generationState.generatedAt).toLocaleString("ru-RU")
+              : "ещё не генерировалось"}
+          </li>
+          <li>Generated law version: {generationState.generatedLawVersion ?? "ещё не заполнено"}</li>
+          <li>
+            Generated template version: {generationState.generatedTemplateVersion ?? "ещё не заполнено"}
+          </li>
+          <li>
+            Generated form schema version: {generationState.generatedFormSchemaVersion ?? "ещё не заполнено"}
+          </li>
+          <li>
+            Modified after generation: {generationState.isModifiedAfterGeneration ? "да" : "нет"}
+          </li>
+        </ul>
+      </div>
+
+      <div className="space-y-4 rounded-3xl border border-[var(--border)] bg-white/70 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="space-y-1">
+            <h3 className="text-lg font-semibold">BBCode preview</h3>
+            <ComplaintFieldHint>
+              Здесь показывается deterministic результат generation. Forum automation в этот шаг не входит.
+            </ComplaintFieldHint>
+          </div>
+          <Button
+            disabled={!generationState.lastGeneratedBbcode}
+            onClick={() => {
+              startTransition(() => {
+                void handleCopyBbcode();
+              });
+            }}
+            type="button"
+            variant="secondary"
+          >
+            Копировать BBCode
+          </Button>
+        </div>
+        <Textarea
+          className="min-h-[320px] font-mono text-xs"
+          readOnly
+          value={generationState.lastGeneratedBbcode ?? "BBCode ещё не сгенерирован."}
+        />
+      </div>
+
+      <div className="space-y-4 rounded-3xl border border-[var(--border)] bg-white/70 p-4">
+        <div className="space-y-1">
+          <h3 className="text-lg font-semibold">Publication metadata</h3>
+          <ComplaintFieldHint>
+            Publication URL и manual forum sync marker относятся только к `ogp_complaint`. Автопубликации и проверки форума тут нет.
+          </ComplaintFieldHint>
+        </div>
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-[var(--foreground)]" htmlFor="publication-url">
+            Publication URL
+          </label>
+          <Input
+            id="publication-url"
+            onChange={(event) => {
+              setPublicationUrlInput(event.target.value);
+            }}
+            placeholder="https://forum.gta5rp.com/..."
+            value={publicationUrlInput}
+          />
+        </div>
+        <label className="flex items-center gap-3 text-sm text-[var(--foreground)]">
+          <input
+            checked={generationState.isSiteForumSynced}
+            disabled={publicationUrlInput.trim().length === 0}
+            onChange={(event) => {
+              setGenerationState((current) => ({
+                ...current,
+                isSiteForumSynced: event.target.checked,
+              }));
+            }}
+            type="checkbox"
+          />
+          Пометить как вручную синхронизированный с форумом
+        </label>
+        <div className="flex flex-wrap items-center gap-3">
+          <Button
+            onClick={() => {
+              startTransition(() => {
+                void handlePublicationSave();
+              });
+            }}
+            type="button"
+            variant="secondary"
+          >
+            Сохранить publication metadata
+          </Button>
+          <span className="text-sm text-[var(--muted)]">
+            Текущий forum sync: {generationState.isSiteForumSynced ? "да" : "нет"}
+          </span>
+        </div>
+        {publicationMessage ? <p className="text-sm text-[var(--muted)]">{publicationMessage}</p> : null}
+      </div>
     </div>
   );
 }

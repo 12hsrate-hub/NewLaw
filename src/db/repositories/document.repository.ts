@@ -4,6 +4,8 @@ import { prisma } from "@/db/prisma";
 import {
   createDocumentDraftInputSchema,
   documentIdSchema,
+  documentGeneratedMetadataVersionSchema,
+  documentPublicationUrlSchema,
   type DocumentType,
   updateDocumentDraftInputSchema,
 } from "@/schemas/document";
@@ -163,6 +165,102 @@ export async function updateDocumentDraftRecord(
         ? true
         : existingDocument.isModifiedAfterGeneration,
       isSiteForumSynced: touchedGeneratedDocument ? false : existingDocument.isSiteForumSynced,
+    },
+    include: {
+      server: true,
+    },
+  });
+}
+
+export async function markDocumentGeneratedRecord(
+  input: {
+    documentId: string;
+    lastGeneratedBbcode: string;
+    generatedAt: Date;
+    generatedLawVersion: string;
+    generatedTemplateVersion: string;
+    generatedFormSchemaVersion: string;
+  },
+  db: PrismaLike = prisma,
+) {
+  const parsedDocumentId = documentIdSchema.parse(input.documentId);
+  const parsedGeneratedLawVersion = documentGeneratedMetadataVersionSchema.parse(
+    input.generatedLawVersion,
+  );
+  const parsedGeneratedTemplateVersion = documentGeneratedMetadataVersionSchema.parse(
+    input.generatedTemplateVersion,
+  );
+  const parsedGeneratedFormSchemaVersion = documentGeneratedMetadataVersionSchema.parse(
+    input.generatedFormSchemaVersion,
+  );
+
+  const existingDocument = await db.document.findUnique({
+    where: {
+      id: parsedDocumentId,
+    },
+  });
+
+  if (!existingDocument) {
+    return null;
+  }
+
+  const nextStatus = existingDocument.publicationUrl ? "published" : "generated";
+
+  return db.document.update({
+    where: {
+      id: parsedDocumentId,
+    },
+    data: {
+      status: nextStatus,
+      lastGeneratedBbcode: input.lastGeneratedBbcode,
+      generatedAt: input.generatedAt,
+      generatedLawVersion: parsedGeneratedLawVersion,
+      generatedTemplateVersion: parsedGeneratedTemplateVersion,
+      generatedFormSchemaVersion: parsedGeneratedFormSchemaVersion,
+      isModifiedAfterGeneration: false,
+      isSiteForumSynced: false,
+    },
+    include: {
+      server: true,
+    },
+  });
+}
+
+export async function updateDocumentPublicationMetadataRecord(
+  input: {
+    documentId: string;
+    publicationUrl: string;
+    isSiteForumSynced: boolean;
+  },
+  db: PrismaLike = prisma,
+) {
+  const parsedDocumentId = documentIdSchema.parse(input.documentId);
+  const parsedPublicationUrl = documentPublicationUrlSchema.parse(input.publicationUrl);
+  const existingDocument = await db.document.findUnique({
+    where: {
+      id: parsedDocumentId,
+    },
+  });
+
+  if (!existingDocument) {
+    return null;
+  }
+
+  const nextPublicationUrl = parsedPublicationUrl.length > 0 ? parsedPublicationUrl : null;
+  const nextStatus = nextPublicationUrl
+    ? "published"
+    : existingDocument.generatedAt
+      ? "generated"
+      : existingDocument.status;
+
+  return db.document.update({
+    where: {
+      id: parsedDocumentId,
+    },
+    data: {
+      publicationUrl: nextPublicationUrl,
+      status: nextStatus,
+      isSiteForumSynced: nextPublicationUrl ? input.isSiteForumSynced : false,
     },
     include: {
       server: true,

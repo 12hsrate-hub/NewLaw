@@ -48,6 +48,10 @@ export type DocumentAreaPersistedListItem = {
     passportNumber: string;
   };
   workingNotesPreview: string;
+  generatedAt: string | null;
+  publicationUrl: string | null;
+  isSiteForumSynced: boolean;
+  isModifiedAfterGeneration: boolean;
   snapshotCapturedAt: string;
   updatedAt: string;
   createdAt: string;
@@ -182,6 +186,14 @@ type OgpComplaintEditorRouteContext =
         updatedAt: string;
         snapshotCapturedAt: string;
         formSchemaVersion: string;
+        lastGeneratedBbcode: string | null;
+        generatedAt: string | null;
+        generatedLawVersion: string | null;
+        generatedTemplateVersion: string | null;
+        generatedFormSchemaVersion: string | null;
+        publicationUrl: string | null;
+        isSiteForumSynced: boolean;
+        isModifiedAfterGeneration: boolean;
         server: {
           code: string;
           name: string;
@@ -279,6 +291,10 @@ function buildPersistedDocumentListItem(
       passportNumber: authorSnapshot.passportNumber,
     },
     workingNotesPreview: payload.workingNotes.slice(0, 240),
+    generatedAt: document.generatedAt?.toISOString() ?? null,
+    publicationUrl: document.publicationUrl,
+    isSiteForumSynced: document.isSiteForumSynced,
+    isModifiedAfterGeneration: document.isModifiedAfterGeneration,
     snapshotCapturedAt: document.snapshotCapturedAt.toISOString(),
     updatedAt: document.updatedAt.toISOString(),
     createdAt: document.createdAt.toISOString(),
@@ -532,6 +548,14 @@ export async function getOgpComplaintEditorRouteContext(input: {
       updatedAt: document.updatedAt.toISOString(),
       snapshotCapturedAt: document.snapshotCapturedAt.toISOString(),
       formSchemaVersion: document.formSchemaVersion,
+      lastGeneratedBbcode: document.lastGeneratedBbcode,
+      generatedAt: document.generatedAt?.toISOString() ?? null,
+      generatedLawVersion: document.generatedLawVersion,
+      generatedTemplateVersion: document.generatedTemplateVersion,
+      generatedFormSchemaVersion: document.generatedFormSchemaVersion,
+      publicationUrl: document.publicationUrl,
+      isSiteForumSynced: document.isSiteForumSynced,
+      isModifiedAfterGeneration: document.isModifiedAfterGeneration,
       server: {
         code: document.server.code,
         name: document.server.name,

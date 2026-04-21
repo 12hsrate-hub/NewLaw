@@ -146,6 +146,31 @@ export async function listCurrentLawBlocksByServer(
   });
 }
 
+export async function listCurrentPrimaryLawVersionIdsByServer(
+  serverId: string,
+  db: PrismaLike = prisma,
+) {
+  const parsedServerId = registerLawInputSchema.shape.serverId.parse(serverId);
+  const laws = await db.law.findMany({
+    where: {
+      serverId: parsedServerId,
+      lawKind: "primary",
+      isExcluded: false,
+      currentVersionId: {
+        not: null,
+      },
+    },
+    select: {
+      currentVersionId: true,
+    },
+    orderBy: [{ lawKey: "asc" }],
+  });
+
+  return laws
+    .map((law) => law.currentVersionId)
+    .filter((currentVersionId): currentVersionId is string => Boolean(currentVersionId));
+}
+
 export async function getLawById(lawId: string, db: PrismaLike = prisma) {
   return db.law.findUnique({
     where: {

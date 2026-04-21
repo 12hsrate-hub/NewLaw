@@ -15,6 +15,13 @@ import {
   DocumentValidationError,
   saveOwnedDocumentDraft,
 } from "@/server/document-area/persistence";
+import {
+  DocumentGenerationBlockedError,
+  DocumentPublicationMetadataStateError,
+  generateOwnedOgpComplaintBbcode,
+  mapGenerationBlockingReasonsToMessages,
+  updateOwnedDocumentPublicationMetadata,
+} from "@/server/document-area/generation";
 
 function buildStatusRedirect(path: string, status: string) {
   const [pathname, queryString] = path.split("?");
@@ -116,6 +123,7 @@ export async function saveDocumentDraftAction(input: {
       ok: true as const,
       updatedAt: document.updatedAt.toISOString(),
       status: document.status,
+      isModifiedAfterGeneration: document.isModifiedAfterGeneration,
     };
   } catch (error) {
     if (error instanceof DocumentAccessDeniedError) {
@@ -136,6 +144,112 @@ export async function saveDocumentDraftAction(input: {
       return {
         ok: false as const,
         error: "invalid-payload" as const,
+      };
+    }
+
+    throw error;
+  }
+}
+
+export async function generateOgpComplaintBbcodeAction(input: {
+  documentId: string;
+}) {
+  const { account } = await requireProtectedAccountContext("/account/documents", undefined, {
+    allowMustChangePassword: true,
+  });
+
+  try {
+    const document = await generateOwnedOgpComplaintBbcode({
+      accountId: account.id,
+      documentId: input.documentId,
+    });
+
+    revalidatePath("/account/documents");
+    revalidatePath(`/servers/${document.server.code}/documents`);
+    revalidatePath(`/servers/${document.server.code}/documents/ogp-complaints`);
+    revalidatePath(`/servers/${document.server.code}/documents/ogp-complaints/${document.id}`);
+
+    return {
+      ok: true as const,
+      status: document.status,
+      updatedAt: document.updatedAt.toISOString(),
+      generatedAt: document.generatedAt?.toISOString() ?? null,
+      lastGeneratedBbcode: document.lastGeneratedBbcode,
+      generatedLawVersion: document.generatedLawVersion,
+      generatedTemplateVersion: document.generatedTemplateVersion,
+      generatedFormSchemaVersion: document.generatedFormSchemaVersion,
+      publicationUrl: document.publicationUrl,
+      isSiteForumSynced: document.isSiteForumSynced,
+      isModifiedAfterGeneration: document.isModifiedAfterGeneration,
+    };
+  } catch (error) {
+    if (error instanceof DocumentAccessDeniedError) {
+      return {
+        ok: false as const,
+        error: "document-access-denied" as const,
+      };
+    }
+
+    if (error instanceof DocumentGenerationBlockedError) {
+      return {
+        ok: false as const,
+        error: "generation-blocked" as const,
+        reasons: mapGenerationBlockingReasonsToMessages(error.reasons),
+      };
+    }
+
+    throw error;
+  }
+}
+
+export async function updateDocumentPublicationMetadataAction(input: {
+  documentId: string;
+  publicationUrl: string;
+  isSiteForumSynced: boolean;
+}) {
+  const { account } = await requireProtectedAccountContext("/account/documents", undefined, {
+    allowMustChangePassword: true,
+  });
+
+  try {
+    const document = await updateOwnedDocumentPublicationMetadata({
+      accountId: account.id,
+      documentId: input.documentId,
+      publicationUrl: input.publicationUrl,
+      isSiteForumSynced: input.isSiteForumSynced,
+    });
+
+    revalidatePath("/account/documents");
+    revalidatePath(`/servers/${document.server.code}/documents`);
+    revalidatePath(`/servers/${document.server.code}/documents/ogp-complaints`);
+    revalidatePath(`/servers/${document.server.code}/documents/ogp-complaints/${document.id}`);
+
+    return {
+      ok: true as const,
+      status: document.status,
+      updatedAt: document.updatedAt.toISOString(),
+      publicationUrl: document.publicationUrl,
+      isSiteForumSynced: document.isSiteForumSynced,
+    };
+  } catch (error) {
+    if (error instanceof DocumentAccessDeniedError) {
+      return {
+        ok: false as const,
+        error: "document-access-denied" as const,
+      };
+    }
+
+    if (error instanceof DocumentPublicationMetadataStateError) {
+      return {
+        ok: false as const,
+        error: "publication-before-generation" as const,
+      };
+    }
+
+    if (error instanceof DocumentValidationError || error instanceof ZodError) {
+      return {
+        ok: false as const,
+        error: "invalid-publication-url" as const,
       };
     }
 

@@ -243,7 +243,10 @@ Production email delivery для auth-писем зафиксирован чер
   - trustor snapshot хранится внутри документа, а не как обязательная runtime-зависимость от внешнего registry
   - `evidenceGroups` и `evidenceRows` со ссылками уже сохраняются в persisted payload
   - `[documentId]` работает как owner-only complaint editor с реальным manual save и autosave foundation
-  - generation/publication UI и `BBCode` пока ещё не реализованы
+  - deterministic `BBCode` generation уже работает для persisted `ogp_complaint` drafts
+  - generation блокируется при неполном profile/payload и честно показывает причину
+  - сохраняются `last_generated_bbcode`, `generated_at`, generation versions metadata, `publication_url` и manual forum sync marker
+  - forum publication automation по-прежнему не реализована
   - server-side answer pipeline по `current primary laws` и reviewed/current precedents с `validity_status in (applicable, limited)`
   - laws-first ответ с разделением на `Краткий вывод`, `Что прямо следует из норм закона`, `Что подтверждается судебными прецедентами`, `Вывод / интерпретация`
   - grounded references на law/version/block/source и precedent/version/block/source

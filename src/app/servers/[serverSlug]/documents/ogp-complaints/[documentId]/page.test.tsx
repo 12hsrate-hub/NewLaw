@@ -33,6 +33,14 @@ describe("/servers/[serverSlug]/documents/ogp-complaints/[documentId] page", () 
         updatedAt: "2026-04-21T10:15:00.000Z",
         snapshotCapturedAt: "2026-04-21T10:00:00.000Z",
         formSchemaVersion: "ogp_complaint_mvp_editor_v1",
+        lastGeneratedBbcode: null,
+        generatedAt: null,
+        generatedLawVersion: null,
+        generatedTemplateVersion: null,
+        generatedFormSchemaVersion: null,
+        publicationUrl: null,
+        isSiteForumSynced: false,
+        isModifiedAfterGeneration: false,
         server: {
           code: "blackberry",
           name: "Blackberry",
@@ -79,5 +87,6 @@ describe("/servers/[serverSlug]/documents/ogp-complaints/[documentId] page", () 
     expect(html).toContain("doc-123");
     expect(html).toContain("OGP complaint editor");
     expect(html).toContain("filing mode: representative");
+    expect(html).toContain("BBCode preview");
   });
 });

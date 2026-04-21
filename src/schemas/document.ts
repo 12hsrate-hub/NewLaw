@@ -21,6 +21,20 @@ function isValidOptionalHttpUrl(value: string) {
   return value.startsWith("http://") || value.startsWith("https://");
 }
 
+function isValidOptionalForumPublicationUrl(value: string) {
+  if (value === "") {
+    return true;
+  }
+
+  const parsed = z.string().url().safeParse(value);
+
+  if (!parsed.success) {
+    return false;
+  }
+
+  return value.startsWith("https://forum.gta5rp.com/");
+}
+
 export const documentIdSchema = z.string().trim().min(1);
 export const documentTypeSchema = z.enum(documentTypes);
 export const documentStatusSchema = z.enum(documentStatuses);
@@ -29,6 +43,15 @@ export const trustorSnapshotSourceTypeSchema = z.enum(trustorSnapshotSourceTypes
 export const documentTitleSchema = z.string().trim().min(3).max(160);
 export const documentWorkingNotesSchema = z.string().max(12_000).default("");
 export const documentFormSchemaVersionSchema = z.string().trim().min(1).max(64);
+export const documentGeneratedMetadataVersionSchema = z.string().trim().min(1).max(160);
+export const documentPublicationUrlSchema = z
+  .string()
+  .trim()
+  .max(2_048)
+  .default("")
+  .refine(isValidOptionalForumPublicationUrl, {
+    message: "Publication URL должен быть пустым или вести на https://forum.gta5rp.com/.",
+  });
 
 export const ogpComplaintTrustorSnapshotSchema = z.object({
   sourceType: trustorSnapshotSourceTypeSchema.default("inline_manual"),
@@ -106,6 +129,16 @@ export const saveDocumentDraftActionInputSchema = z.object({
   documentId: documentIdSchema,
   title: documentTitleSchema,
   payload: z.unknown(),
+});
+
+export const generateOgpComplaintBbcodeActionInputSchema = z.object({
+  documentId: documentIdSchema,
+});
+
+export const updateDocumentPublicationMetadataActionInputSchema = z.object({
+  documentId: documentIdSchema,
+  publicationUrl: documentPublicationUrlSchema,
+  isSiteForumSynced: z.boolean().default(false),
 });
 
 export const documentAuthorSnapshotSchema = z.object({

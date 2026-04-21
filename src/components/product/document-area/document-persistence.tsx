@@ -101,6 +101,17 @@ function PersistedDocumentList(props: {
             <p className="text-sm leading-6 text-[var(--muted)]">
               Последнее обновление: {new Date(document.updatedAt).toLocaleString("ru-RU")}.
             </p>
+            {document.generatedAt ? (
+              <p className="text-sm leading-6 text-[var(--muted)]">
+                Generated at: {new Date(document.generatedAt).toLocaleString("ru-RU")}.
+                {document.isModifiedAfterGeneration ? " После генерации есть несинхронизированные изменения." : ""}
+              </p>
+            ) : null}
+            {document.publicationUrl ? (
+              <p className="text-sm leading-6 text-[var(--muted)]">
+                Publication URL: {document.publicationUrl}. Forum sync: {document.isSiteForumSynced ? "да" : "нет"}.
+              </p>
+            ) : null}
             {document.workingNotesPreview ? (
               <p className="text-sm leading-6 text-[var(--muted)]">
                 Рабочие заметки: {document.workingNotesPreview}
@@ -306,8 +317,9 @@ export function OgpComplaintDraftCreateEntry(props: {
       <Card className="space-y-4">
         <h2 className="text-2xl font-semibold">Complaint create entry</h2>
         <p className="text-sm leading-6 text-[var(--muted)]">
-          BBCode generation и forum publication automation пока ещё не реализованы. На этом шаге
-          сохраняется только complaint draft payload и immutable author snapshot.
+          На этом route создаётся persisted complaint draft и фиксируется immutable author snapshot.
+          BBCode generation и manual publication metadata появятся после first save уже в owner-only
+          route `[documentId]`.
         </p>
         <OgpComplaintDraftCreateClient
           characters={props.characters}
@@ -354,17 +366,25 @@ export function OwnedDocumentUnavailableState(props: {
 }
 
 export function OgpComplaintPersistedEditor(props: {
-  document: {
-    id: string;
-    title: string;
-    status: "draft" | "generated" | "published";
-    createdAt: string;
-    updatedAt: string;
-    snapshotCapturedAt: string;
-    formSchemaVersion: string;
-    server: {
-      code: string;
-      name: string;
+      document: {
+        id: string;
+        title: string;
+        status: "draft" | "generated" | "published";
+        createdAt: string;
+        updatedAt: string;
+        snapshotCapturedAt: string;
+        formSchemaVersion: string;
+        lastGeneratedBbcode: string | null;
+        generatedAt: string | null;
+        generatedLawVersion: string | null;
+        generatedTemplateVersion: string | null;
+        generatedFormSchemaVersion: string | null;
+        publicationUrl: string | null;
+        isSiteForumSynced: boolean;
+        isModifiedAfterGeneration: boolean;
+        server: {
+          code: string;
+          name: string;
     };
     authorSnapshot: {
       fullName: string;
@@ -392,7 +412,7 @@ export function OgpComplaintPersistedEditor(props: {
         <h1 className="text-3xl font-semibold">{props.document.title}</h1>
         <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
           Это уже реальный OGP complaint editor route. Здесь грузится persisted payload, работает
-          owner-only access и базовый autosave/manual save без BBCode generation.
+          owner-only access, manual/autosave и deterministic BBCode generation без forum automation.
         </p>
         <div className="flex flex-wrap items-center gap-2 text-sm leading-6 text-[var(--muted)]">
           <Badge>serverSlug: {props.document.server.code}</Badge>
@@ -421,6 +441,9 @@ export function OgpComplaintPersistedEditor(props: {
           <li>
             Server и character snapshot после first save больше не меняются в рамках этого шага.
           </li>
+          <li>
+            Generation status: {props.document.generatedAt ? "есть generated BBCode" : "ещё не генерировался"}.
+          </li>
         </ul>
       </Card>
 
@@ -434,6 +457,14 @@ export function OgpComplaintPersistedEditor(props: {
             passportNumber: props.document.authorSnapshot.passportNumber,
           }}
           documentId={props.document.id}
+          generatedFormSchemaVersion={props.document.generatedFormSchemaVersion}
+          generatedAt={props.document.generatedAt}
+          generatedLawVersion={props.document.generatedLawVersion}
+          generatedTemplateVersion={props.document.generatedTemplateVersion}
+          initialIsModifiedAfterGeneration={props.document.isModifiedAfterGeneration}
+          initialIsSiteForumSynced={props.document.isSiteForumSynced}
+          initialLastGeneratedBbcode={props.document.lastGeneratedBbcode}
+          initialPublicationUrl={props.document.publicationUrl}
           initialPayload={props.document.payload}
           initialTitle={props.document.title}
           server={props.document.server}
