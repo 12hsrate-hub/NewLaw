@@ -11,6 +11,9 @@ CURRENT_LINK="${CURRENT_LINK:-$APP_ROOT/current}"
 ENV_FILE="${ENV_FILE:-$APP_ROOT/shared/.env.production}"
 SERVICE_NAME="${SERVICE_NAME:-newlaw-app}"
 PNPM_BIN="${PNPM_BIN:-/usr/local/bin/pnpm}"
+PREFLIGHT_SCRIPT_RELATIVE_PATH="scripts/deploy-env-preflight.mts"
+SMOKE_SCRIPT_RELATIVE_PATH="scripts/deploy-smoke.mts"
+ROLLBACK_SCRIPT_RELATIVE_PATH="scripts/deploy-rollback.sh"
 
 TARGET_REF="${1:-}"
 
@@ -131,6 +134,10 @@ run_release_build() {
   "$PNPM_BIN" install --frozen-lockfile
   log "install finished"
 
+  log "env preflight started"
+  "$PNPM_BIN" exec tsx "./$PREFLIGHT_SCRIPT_RELATIVE_PATH" --env-file "$ENV_FILE"
+  log "env preflight finished"
+
   log "prisma generate started"
   "$PNPM_BIN" prisma:generate
   log "prisma generate finished"
@@ -142,109 +149,6 @@ run_release_build() {
   log "build started"
   "$PNPM_BIN" build
   log "build finished"
-}
-
-run_read_only_db_check() {
-  local script_path="$RELEASE_DIR/.deploy-read-db.mts"
-
-  cat > "$script_path" <<'EOF'
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient({
-  log: ["warn", "error"],
-});
-
-const server = await prisma.server.findFirst({
-  orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
-  select: { code: true },
-});
-
-if (!server?.code) {
-  throw new Error("No server records available for deploy smoke");
-}
-
-console.log(server.code);
-await prisma.$disconnect();
-EOF
-
-  KNOWN_SERVER_SLUG="$("$PNPM_BIN" exec tsx "$script_path")"
-  rm -f "$script_path"
-
-  if [[ -z "$KNOWN_SERVER_SLUG" ]]; then
-    fail "Failed to resolve known server slug for smoke"
-  fi
-
-  log "read-only DB check passed with server slug: $KNOWN_SERVER_SLUG"
-}
-
-run_app_context_db_check() {
-  local script_path="$RELEASE_DIR/.deploy-app-context.mts"
-
-  cat > "$script_path" <<'EOF'
-const internalHealthModule = await import("./src/server/internal/health.ts");
-
-const getInternalHealthContext =
-  internalHealthModule.getInternalHealthContext ??
-  internalHealthModule.default?.getInternalHealthContext;
-
-if (typeof getInternalHealthContext !== "function") {
-  throw new Error("getInternalHealthContext export is unavailable");
-}
-
-const context = await getInternalHealthContext();
-
-if (context.runtime.status !== "ok") {
-  throw new Error(`Unexpected runtime status: ${context.runtime.status}`);
-}
-
-if (context.serverSummaries.length === 0) {
-  throw new Error("Internal health context returned zero server summaries");
-}
-
-console.log(`servers=${context.serverSummaries.length}`);
-EOF
-
-  local output
-  output="$("$PNPM_BIN" exec tsx "$script_path")"
-  rm -f "$script_path"
-
-  if [[ -z "$output" ]]; then
-    printf '[deploy] ERROR: app-context DB check returned empty output\n' >&2
-    return 1
-  fi
-
-  log "app-context DB check passed: $output"
-}
-
-assert_status_code() {
-  local url="$1"
-  local expected="$2"
-  local actual
-
-  actual="$(curl -sS -o /dev/null -w '%{http_code}' "$url")"
-
-  if [[ "$actual" != "$expected" ]]; then
-    printf '[deploy] ERROR: unexpected status for %s: expected %s, got %s\n' "$url" "$expected" "$actual" >&2
-    return 1
-  fi
-}
-
-assert_redirect_target() {
-  local url="$1"
-  local expected_path="$2"
-  local headers
-
-  headers="$(curl -sS -I "$url")"
-
-  if ! grep -qi '^HTTP/.* 307' <<<"$headers"; then
-    printf '[deploy] ERROR: expected 307 redirect for %s\n' "$url" >&2
-    return 1
-  fi
-
-  if ! grep -qi "^location: .*${expected_path}" <<<"$headers"; then
-    printf '[deploy] ERROR: redirect target for %s does not include %s\n' "$url" "$expected_path" >&2
-    return 1
-  fi
 }
 
 wait_for_health() {
@@ -264,24 +168,6 @@ wait_for_health() {
   return 1
 }
 
-run_http_smoke() {
-  local base_url="${APP_URL%/}"
-
-  log "mandatory smoke started against $base_url"
-
-  assert_status_code "$base_url/api/health" "200" || return 1
-  assert_status_code "$base_url/sign-in" "200" || return 1
-  assert_status_code "$base_url/forgot-password" "200" || return 1
-  assert_status_code "$base_url/assistant" "200" || return 1
-  assert_status_code "$base_url/servers" "200" || return 1
-
-  assert_redirect_target "$base_url/account" "/sign-in?next=%2Faccount" || return 1
-  assert_redirect_target "$base_url/servers/$KNOWN_SERVER_SLUG" "/sign-in?next=%2Fservers%2F$KNOWN_SERVER_SLUG" || return 1
-  assert_redirect_target "$base_url/internal" "/sign-in?next=%2Finternal" || return 1
-
-  log "mandatory smoke finished"
-}
-
 rollback_release() {
   if [[ -z "$PREVIOUS_RELEASE" ]]; then
     fail "Rollback required but previous release path is unknown"
@@ -290,13 +176,10 @@ rollback_release() {
   log "rollback started"
   log "previous release: $PREVIOUS_RELEASE"
 
-  ln -sfn "$PREVIOUS_RELEASE" "$CURRENT_LINK"
-  systemctl restart "$SERVICE_NAME"
-
-  if wait_for_health "${APP_URL%/}/api/health"; then
+  if "$RELEASE_DIR/$ROLLBACK_SCRIPT_RELATIVE_PATH" "$PREVIOUS_RELEASE"; then
     log "rollback finished successfully"
   else
-    fail "Rollback restart finished but /api/health did not recover"
+    fail "Rollback helper failed"
   fi
 
   ROLLED_BACK=1
@@ -332,15 +215,12 @@ activate_and_verify_release() {
     fail "/api/health did not return 200 after release activation"
   fi
 
-  if ! run_app_context_db_check; then
-    rollback_release
-    fail "App-context DB smoke failed after release activation"
-  fi
-
-  if ! run_http_smoke; then
+  log "mandatory smoke helper started"
+  if ! "$PNPM_BIN" exec tsx "./$SMOKE_SCRIPT_RELATIVE_PATH" --env-file "$ENV_FILE"; then
     rollback_release
     fail "Mandatory smoke failed after release activation"
   fi
+  log "mandatory smoke helper finished"
 }
 
 main() {
@@ -349,7 +229,6 @@ main() {
   prepare_repo_checkout
   create_release_dir
   run_release_build
-  run_read_only_db_check
   activate_and_verify_release
   cleanup_release_dir
   log "deploy sequence completed successfully"

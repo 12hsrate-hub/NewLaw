@@ -174,6 +174,12 @@ Operational note:
 
 - `scripts/deploy-release.sh <target-sha-or-ref>`
 
+Operational helper layer поверх него:
+
+- `scripts/deploy-env-preflight.mts --env-file /srv/newlaw/app/shared/.env.production`
+- `scripts/deploy-smoke.mts --env-file /srv/newlaw/app/shared/.env.production`
+- `scripts/deploy-rollback.sh <previous-release-path>`
+
 ## Health и наблюдаемость
 
 Для baseline production эксплуатации уже должны существовать:

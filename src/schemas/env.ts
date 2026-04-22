@@ -4,6 +4,13 @@ const appRuntimeEnvSchema = z.object({
   APP_URL: z.string().url(),
 });
 
+const appReleaseEnvSchema = z.object({
+  APP_ENV: z.enum(["local", "staging", "production"]),
+  APP_URL: z.string().url(),
+  DATABASE_URL: z.string().trim().min(1),
+  DIRECT_URL: z.string().trim().min(1),
+});
+
 const supabaseRuntimeEnvSchema = z.object({
   NEXT_PUBLIC_SUPABASE_URL: z.string().url(),
   NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1),
@@ -40,6 +47,15 @@ const ogpForumAutomationRuntimeEnvSchema = z.object({
 export function getAppRuntimeEnv() {
   return appRuntimeEnvSchema.parse({
     APP_URL: process.env.APP_URL,
+  });
+}
+
+export function getAppReleaseEnv() {
+  return appReleaseEnvSchema.parse({
+    APP_ENV: process.env.APP_ENV,
+    APP_URL: process.env.APP_URL,
+    DATABASE_URL: process.env.DATABASE_URL,
+    DIRECT_URL: process.env.DIRECT_URL,
   });
 }
 
@@ -102,6 +118,51 @@ export function hasLiveSupabaseServiceRoleEnv(
     serviceRoleKey.includes("placeholder") ||
     appUrl.includes("your-") ||
     appUrl.includes("example.com")
+  ) {
+    return false;
+  }
+
+  return true;
+}
+
+export function isPlaceholderRuntimeValue(value: string | undefined) {
+  const normalized = value?.trim() ?? "";
+
+  if (!normalized) {
+    return false;
+  }
+
+  return (
+    normalized.includes("your-") ||
+    normalized.includes("placeholder") ||
+    normalized.includes("example") ||
+    normalized.includes("postgres:postgres@") ||
+    normalized.includes("@db:") ||
+    normalized.includes("localhost") ||
+    normalized.includes("127.0.0.1")
+  );
+}
+
+export function hasLiveAppReleaseEnv(
+  env: Partial<z.infer<typeof appReleaseEnvSchema>>,
+) {
+  const appEnv = env.APP_ENV?.trim() ?? "";
+  const appUrl = env.APP_URL?.trim() ?? "";
+  const databaseUrl = env.DATABASE_URL?.trim() ?? "";
+  const directUrl = env.DIRECT_URL?.trim() ?? "";
+
+  if (!appEnv || !appUrl || !databaseUrl || !directUrl) {
+    return false;
+  }
+
+  if (appEnv !== "production") {
+    return false;
+  }
+
+  if (
+    isPlaceholderRuntimeValue(appUrl) ||
+    isPlaceholderRuntimeValue(databaseUrl) ||
+    isPlaceholderRuntimeValue(directUrl)
   ) {
     return false;
   }

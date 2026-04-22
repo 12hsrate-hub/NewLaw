@@ -18,6 +18,9 @@
 Каноническая server-side реализация этого порядка находится в:
 
 - `scripts/deploy-release.sh <target-sha-or-ref>`
+- `scripts/deploy-env-preflight.mts --env-file /srv/newlaw/app/shared/.env.production`
+- `scripts/deploy-smoke.mts --env-file /srv/newlaw/app/shared/.env.production`
+- `scripts/deploy-rollback.sh <previous-release-path>`
 
 ## Canonical runtime model
 
@@ -73,6 +76,16 @@ Interpretation:
 
 - missing optional env = feature disabled / unavailable
 - optional env не должен блокировать whole-app deploy
+
+Operational helper policy:
+
+- `deploy-env-preflight.mts` классифицирует env как:
+  - `blocking_missing`
+  - `optional_missing`
+  - `placeholder_non_live`
+  - `valid`
+- missing required env = blocking release failure
+- missing optional env = feature disabled / unavailable, но не release blocker
 
 ## Canonical release sequence
 
@@ -177,6 +190,10 @@ Canonical order:
 - безопасный read internal health context
 - безопасный read directory/hub summary
 
+Эти проверки теперь вынесены в reusable helper:
+
+- `scripts/deploy-smoke.mts --env-file /srv/newlaw/app/shared/.env.production`
+
 Не обязательно каждый раз:
 
 - глубокий authenticated browser smoke
@@ -228,6 +245,10 @@ Canonical order:
    - `systemctl is-active newlaw-app`
    - `/api/health`
    - короткий smoke-check
+
+Для ручного bounded rollback используется helper:
+
+- `scripts/deploy-rollback.sh <previous-release-path>`
 
 Release считается unsuccessful, если:
 
