@@ -63,9 +63,10 @@ describe("law source actions", () => {
 
     vi.mocked(addLawSourceIndexForServer).mockResolvedValue({ id: "source-1" } as never);
 
-    await expectRedirect(createLawSourceIndexAction(formData), "/app/admin-laws?status=law-source-created");
+    await expectRedirect(createLawSourceIndexAction(formData), "/internal/laws?status=law-source-created");
 
-    expect(requireSuperAdminAccountContext).toHaveBeenCalledWith("/app/admin-laws");
+    expect(requireSuperAdminAccountContext).toHaveBeenCalledWith("/internal/laws");
+    expect(revalidatePathMock).toHaveBeenCalledWith("/internal/laws");
   });
 
   it("не позволяет не-super_admin дойти до source management actions", async () => {
@@ -91,7 +92,7 @@ describe("law source actions", () => {
 
     await expectRedirect(
       createLawSourceIndexAction(formData),
-      "/app/admin-laws?status=law-source-create-error",
+      "/internal/laws?status=law-source-create-error",
     );
 
     expect(addLawSourceIndexForServer).not.toHaveBeenCalled();
@@ -106,7 +107,7 @@ describe("law source actions", () => {
 
     await expectRedirect(
       createLawSourceIndexAction(formData),
-      "/app/admin-laws?status=law-source-duplicate",
+      "/internal/laws?status=law-source-duplicate",
     );
   });
 
@@ -119,12 +120,13 @@ describe("law source actions", () => {
 
     await expectRedirect(
       toggleLawSourceIndexAction(formData),
-      "/app/admin-laws?status=law-source-updated",
+      "/internal/laws?status=law-source-updated",
     );
 
     expect(setLawSourceIndexEnabledState).toHaveBeenCalledWith({
       sourceIndexId: "source-1",
       isEnabled: false,
     });
+    expect(revalidatePathMock).toHaveBeenCalledWith("/internal/laws");
   });
 });

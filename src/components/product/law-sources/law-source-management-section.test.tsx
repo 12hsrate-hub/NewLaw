@@ -74,6 +74,7 @@ describe("law source management section", () => {
     expect(html).toContain("Импортировать тему");
     expect(html).toContain("corpus_bootstrap_incomplete");
     expect(html).toContain("Current Primary Law Retrieval");
+    expect(html).toContain('value="/internal/laws"');
   });
 
   it("показывает review controls и retrieval preview для current corpus", () => {

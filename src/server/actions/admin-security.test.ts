@@ -42,6 +42,8 @@ describe("admin security actions", () => {
       "0b9d1c81-e5a9-4323-a748-e01622b02a41",
       "Проверка доступа",
     );
+    expect(requireProtectedAccountContext).toHaveBeenCalledWith("/internal/security");
+    expect(revalidatePath).toHaveBeenCalledWith("/internal/security");
     expect(result.status).toBe("success");
   });
 

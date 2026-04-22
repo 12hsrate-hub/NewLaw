@@ -257,17 +257,19 @@ Post-MVP policy для этой линии:
 - старый план deploy/release не полностью совпадает с текущей фактической operational схемой
 - release hardening и финальная формализация процесса ещё не сведены в честный “formal done”
 
-### Pending
-
 #### `/app` migration / cleanup
 
-Статус: `pending`
+Статус: `done`
 
 Зафиксировано:
 
-- `/app` остаётся transitional
-- новые крупные user-facing модули больше не должны строиться вокруг `/app`
-- но отдельный cleanup / migration block ещё не выполнен
+- `/app` больше не является primary workspace и остаётся только controlled compatibility surface
+- default self-service target = `/account`
+- canonical self-service security route = `/account/security`
+- canonical character-management route = `/account/characters`
+- canonical admin/internal contour = `/internal/*`
+- `/app/security`, `/app/admin-laws` и `/app/admin-security` сохраняются как compatibility routes, а не как primary targets
+- global hard removal `/app` не требуется для закрытия текущего agreed cleanup scope
 
 ### Post-MVP
 

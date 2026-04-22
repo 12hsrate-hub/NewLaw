@@ -91,10 +91,11 @@ describe("precedent corpus actions", () => {
 
     await expectRedirect(
       runPrecedentSourceDiscoveryAction(formData),
-      "/app/admin-laws?status=precedent-discovery-success",
+      "/internal/laws?status=precedent-discovery-success",
     );
 
-    expect(requireSuperAdminAccountContext).toHaveBeenCalledWith("/app/admin-laws");
+    expect(requireSuperAdminAccountContext).toHaveBeenCalledWith("/internal/laws");
+    expect(revalidatePathMock).toHaveBeenCalledWith("/internal/laws");
   });
 
   it("precedent import доступен только через super_admin guard", async () => {
@@ -107,7 +108,7 @@ describe("precedent corpus actions", () => {
 
     await expectRedirect(
       runPrecedentSourceTopicImportAction(formData),
-      "/app/admin-laws?status=precedent-import-created",
+      "/internal/laws?status=precedent-import-created",
     );
   });
 
@@ -118,7 +119,7 @@ describe("precedent corpus actions", () => {
 
     await expectRedirect(
       runPrecedentSourceDiscoveryAction(discoveryFormData),
-      "/app/admin-laws?status=precedent-discovery-running",
+      "/internal/laws?status=precedent-discovery-running",
     );
 
     const importFormData = new FormData();
@@ -127,7 +128,7 @@ describe("precedent corpus actions", () => {
 
     await expectRedirect(
       runPrecedentSourceTopicImportAction(importFormData),
-      "/app/admin-laws?status=precedent-import-no-posts",
+      "/internal/laws?status=precedent-import-no-posts",
     );
   });
 
@@ -140,7 +141,7 @@ describe("precedent corpus actions", () => {
 
     await expectRedirect(
       runPrecedentSourceTopicImportAction(notFoundFormData),
-      "/app/admin-laws?status=precedent-source-topic-not-found",
+      "/internal/laws?status=precedent-source-topic-not-found",
     );
 
     const excludedFormData = new FormData();
@@ -151,7 +152,7 @@ describe("precedent corpus actions", () => {
 
     await expectRedirect(
       runPrecedentSourceTopicImportAction(excludedFormData),
-      "/app/admin-laws?status=precedent-import-excluded",
+      "/internal/laws?status=precedent-import-excluded",
     );
   });
 
@@ -166,13 +167,14 @@ describe("precedent corpus actions", () => {
 
     await expectRedirect(
       confirmCurrentPrecedentVersionAction(formData),
-      "/app/admin-laws?status=precedent-version-confirmed",
+      "/internal/laws?status=precedent-version-confirmed",
     );
 
     expect(confirmImportedDraftPrecedentVersionAsCurrent).toHaveBeenCalledWith({
       precedentVersionId: "precedent-version-draft",
       confirmedByAccountId: "account-1",
     });
+    expect(revalidatePathMock).toHaveBeenCalledWith("/internal/laws");
   });
 
   it("обновляет precedent validity status только через super_admin guard", async () => {
@@ -187,13 +189,14 @@ describe("precedent corpus actions", () => {
 
     await expectRedirect(
       updatePrecedentValidityStatusAction(formData),
-      "/app/admin-laws?status=precedent-validity-updated",
+      "/internal/laws?status=precedent-validity-updated",
     );
 
     expect(updateReviewedPrecedentValidityStatus).toHaveBeenCalledWith({
       precedentId: "precedent-1",
       validityStatus: "limited",
     });
+    expect(revalidatePathMock).toHaveBeenCalledWith("/internal/laws");
   });
 
   it("выполняет precedent rollback только через super_admin guard", async () => {
@@ -207,12 +210,13 @@ describe("precedent corpus actions", () => {
 
     await expectRedirect(
       rollbackPrecedentCurrentVersionAction(formData),
-      "/app/admin-laws?status=precedent-version-rolled-back",
+      "/internal/laws?status=precedent-version-rolled-back",
     );
 
     expect(rollbackPrecedentCurrentVersion).toHaveBeenCalledWith({
       precedentVersionId: "precedent-version-old-current",
       confirmedByAccountId: "account-1",
     });
+    expect(revalidatePathMock).toHaveBeenCalledWith("/internal/laws");
   });
 });

@@ -337,7 +337,7 @@ export function LawSourceManagementSection({
   selectedPreviewServerId,
   previewQuery,
   retrievalPreview,
-  redirectTo = "/app/admin-laws",
+  redirectTo = "/internal/laws",
 }: LawSourceManagementSectionProps) {
   const statusMessage = resolveStatusMessage(status);
 

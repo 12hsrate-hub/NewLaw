@@ -65,10 +65,11 @@ describe("precedent source actions", () => {
 
     await expectRedirect(
       createPrecedentSourceTopicAction(formData),
-      "/app/admin-laws?status=precedent-source-created",
+      "/internal/laws?status=precedent-source-created",
     );
 
-    expect(requireSuperAdminAccountContext).toHaveBeenCalledWith("/app/admin-laws");
+    expect(requireSuperAdminAccountContext).toHaveBeenCalledWith("/internal/laws");
+    expect(revalidatePathMock).toHaveBeenCalledWith("/internal/laws");
   });
 
   it("не позволяет non-super-admin дойти до precedent foundation actions", async () => {
@@ -96,7 +97,7 @@ describe("precedent source actions", () => {
 
     await expectRedirect(
       createPrecedentSourceTopicAction(formData),
-      "/app/admin-laws?status=precedent-source-create-error",
+      "/internal/laws?status=precedent-source-create-error",
     );
 
     expect(addPrecedentSourceTopic).not.toHaveBeenCalled();
@@ -112,7 +113,7 @@ describe("precedent source actions", () => {
 
     await expectRedirect(
       createPrecedentSourceTopicAction(formData),
-      "/app/admin-laws?status=precedent-source-duplicate",
+      "/internal/laws?status=precedent-source-duplicate",
     );
   });
 
@@ -127,7 +128,7 @@ describe("precedent source actions", () => {
 
     await expectRedirect(
       updatePrecedentSourceTopicAction(formData),
-      "/app/admin-laws?status=precedent-source-updated",
+      "/internal/laws?status=precedent-source-updated",
     );
 
     expect(updatePrecedentSourceTopicOverrides).toHaveBeenCalledWith({
@@ -136,5 +137,6 @@ describe("precedent source actions", () => {
       classificationOverride: "ignored",
       internalNote: "Исключить до отдельного review.",
     });
+    expect(revalidatePathMock).toHaveBeenCalledWith("/internal/laws");
   });
 });

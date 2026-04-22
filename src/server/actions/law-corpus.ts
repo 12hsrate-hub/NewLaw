@@ -32,7 +32,7 @@ function getRedirectTarget(formData: FormData) {
     return redirectTo;
   }
 
-  return "/app/admin-laws";
+  return "/internal/laws";
 }
 
 function buildStatusRedirect(path: string, status: string) {
@@ -57,7 +57,7 @@ export async function runLawSourceDiscoveryAction(formData: FormData) {
       }).sourceIndexId,
     );
 
-    revalidatePath("/app/admin-laws");
+    revalidatePath(redirectTo);
     redirect(buildStatusRedirect(redirectTo, "law-discovery-success"));
   } catch (error) {
     if (isRedirectError(error)) {
@@ -87,7 +87,7 @@ export async function runLawTopicImportAction(formData: FormData) {
       }).lawId,
     );
 
-    revalidatePath("/app/admin-laws");
+    revalidatePath(redirectTo);
     redirect(
       buildStatusRedirect(
         redirectTo,
@@ -131,7 +131,7 @@ export async function confirmCurrentLawVersionAction(formData: FormData) {
       confirmedByAccountId: protectedContext.account.id,
     });
 
-    revalidatePath("/app/admin-laws");
+    revalidatePath(redirectTo);
     redirect(buildStatusRedirect(redirectTo, "law-version-confirmed"));
   } catch (error) {
     if (isRedirectError(error)) {

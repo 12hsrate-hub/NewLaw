@@ -112,5 +112,6 @@ describe("precedent source foundation section", () => {
     expect(html).toContain("Обновить validity");
     expect(html).toContain("weak-structure warning");
     expect(html).toContain("не смешиваются");
+    expect(html).toContain('value="/internal/laws"');
   });
 });

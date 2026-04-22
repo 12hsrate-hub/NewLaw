@@ -75,11 +75,12 @@ describe("law corpus actions", () => {
 
     await expectRedirect(
       runLawSourceDiscoveryAction(formData),
-      "/app/admin-laws?status=law-discovery-success",
+      "/internal/laws?status=law-discovery-success",
     );
 
-    expect(requireSuperAdminAccountContext).toHaveBeenCalledWith("/app/admin-laws");
+    expect(requireSuperAdminAccountContext).toHaveBeenCalledWith("/internal/laws");
     expect(runLawSourceDiscovery).toHaveBeenCalledWith("source-1");
+    expect(revalidatePathMock).toHaveBeenCalledWith("/internal/laws");
   });
 
   it("не позволяет non-super-admin запустить discovery/import", async () => {
@@ -107,7 +108,7 @@ describe("law corpus actions", () => {
 
     await expectRedirect(
       runLawTopicImportAction(formData),
-      "/app/admin-laws?status=law-import-unchanged",
+      "/internal/laws?status=law-import-unchanged",
     );
   });
 
@@ -122,13 +123,14 @@ describe("law corpus actions", () => {
 
     await expectRedirect(
       confirmCurrentLawVersionAction(formData),
-      "/app/admin-laws?status=law-version-confirmed",
+      "/internal/laws?status=law-version-confirmed",
     );
 
     expect(confirmImportedDraftLawVersionAsCurrent).toHaveBeenCalledWith({
       lawVersionId: "version-draft",
       confirmedByAccountId: "account-1",
     });
+    expect(revalidatePathMock).toHaveBeenCalledWith("/internal/laws");
   });
 
   it("не даёт non-super-admin подтвердить imported_draft как current", async () => {

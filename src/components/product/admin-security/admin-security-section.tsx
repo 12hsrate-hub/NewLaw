@@ -11,8 +11,8 @@ type AdminSecuritySectionProps = {
 
 export function AdminSecuritySection({
   searchResult,
-  searchActionPath = "/app/admin-security",
-  actionsReturnPath = "/app/admin-security",
+  searchActionPath = "/internal/security",
+  actionsReturnPath = "/internal/security",
 }: AdminSecuritySectionProps) {
   return (
     <section className="space-y-6">

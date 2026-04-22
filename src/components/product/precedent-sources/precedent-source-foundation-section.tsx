@@ -181,7 +181,7 @@ export function PrecedentSourceFoundationSection({
   sourceIndexes,
   sourceTopics,
   status,
-  redirectTo = "/app/admin-laws",
+  redirectTo = "/internal/laws",
 }: PrecedentSourceFoundationSectionProps) {
   const statusMessage = resolveStatusMessage(status);
 

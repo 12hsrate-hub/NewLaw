@@ -43,7 +43,7 @@ export function AdminSecurityActionsPanel({
   accountEmail,
   accountLogin,
   pendingEmail,
-  returnPath = "/app/admin-security",
+  returnPath = "/internal/security",
 }: AdminSecurityActionsPanelProps) {
   const [recoveryResult, setRecoveryResult] = useState<AdminUiActionResult | null>(null);
   const [emailChangeResult, setEmailChangeResult] = useState<AdminUiActionResult | null>(null);

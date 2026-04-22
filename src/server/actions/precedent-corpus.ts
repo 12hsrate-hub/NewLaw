@@ -39,7 +39,7 @@ function getRedirectTarget(formData: FormData) {
     return redirectTo;
   }
 
-  return "/app/admin-laws";
+  return "/internal/laws";
 }
 
 function buildStatusRedirect(path: string, status: string) {
@@ -64,7 +64,7 @@ export async function runPrecedentSourceDiscoveryAction(formData: FormData) {
       }).sourceIndexId,
     );
 
-    revalidatePath("/app/admin-laws");
+    revalidatePath(redirectTo);
     redirect(buildStatusRedirect(redirectTo, "precedent-discovery-success"));
   } catch (error) {
     if (isRedirectError(error)) {
@@ -94,7 +94,7 @@ export async function runPrecedentSourceTopicImportAction(formData: FormData) {
       }).sourceTopicId,
     );
 
-    revalidatePath("/app/admin-laws");
+    revalidatePath(redirectTo);
     redirect(
       buildStatusRedirect(
         redirectTo,
@@ -138,7 +138,7 @@ export async function confirmCurrentPrecedentVersionAction(formData: FormData) {
       confirmedByAccountId: protectedContext.account.id,
     });
 
-    revalidatePath("/app/admin-laws");
+    revalidatePath(redirectTo);
     redirect(buildStatusRedirect(redirectTo, "precedent-version-confirmed"));
   } catch (error) {
     if (isRedirectError(error)) {
@@ -169,7 +169,7 @@ export async function updatePrecedentValidityStatusAction(formData: FormData) {
       }),
     );
 
-    revalidatePath("/app/admin-laws");
+    revalidatePath(redirectTo);
     redirect(buildStatusRedirect(redirectTo, "precedent-validity-updated"));
   } catch (error) {
     if (isRedirectError(error)) {
@@ -196,7 +196,7 @@ export async function rollbackPrecedentCurrentVersionAction(formData: FormData) 
       confirmedByAccountId: protectedContext.account.id,
     });
 
-    revalidatePath("/app/admin-laws");
+    revalidatePath(redirectTo);
     redirect(buildStatusRedirect(redirectTo, "precedent-version-rolled-back"));
   } catch (error) {
     if (isRedirectError(error)) {

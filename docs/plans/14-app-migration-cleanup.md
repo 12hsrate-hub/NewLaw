@@ -11,7 +11,8 @@
 - `14.3` — character bridge migration off `/app` выполнен
 - `14.4` — `/app/security` migration выполнен
 - `14.5` — `/app` root degradation выполнен
-- global cleanup ещё не начат
+- `14.6` — long-tail hygiene выполнен
+- global cleanup по-прежнему не начат и не требуется для закрытия текущего cleanup scope
 
 ## Цель блока
 
@@ -93,10 +94,12 @@
 - active server / active character summary и `UserServerState` не удаляются, но остаются только как compatibility context
 - `/app` больше не рендерит character-management block как основной рабочий центр
 
-### 14.6+ — Long-tail `/app` cleanup
+### 14.6 — Long-tail `/app` hygiene
 
-Что должно войти позже:
+Что вошло:
 
-- финальная зачистка оставшегося `/app` после уже выполненной деградации root до compatibility shell
-- уборка remaining `/app/admin-*` fallback defaults внутри shared internal code
-- финальный reconciliation snapshot по surviving `/app` routes
+- remaining stale `/app/admin-laws` и `/app/admin-security` defaults внутри shared/internal code больше не используются как canonical fallback targets
+- shared admin-security defaults теперь смотрят в `/internal/security`
+- shared corpus/admin defaults теперь смотрят в `/internal/laws`
+- compatibility routes `/app`, `/app/security`, `/app/admin-laws`, `/app/admin-security` сохранены как controlled compatibility surfaces
+- `/app` cleanup block закрыт на уровне текущего agreed scope без hard removal `/app`

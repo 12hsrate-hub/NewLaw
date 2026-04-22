@@ -25,7 +25,7 @@ function getRedirectTarget(formData: FormData) {
     return redirectTo;
   }
 
-  return "/app/admin-laws";
+  return "/internal/laws";
 }
 
 function buildStatusRedirect(path: string, status: string) {
@@ -51,7 +51,7 @@ export async function createLawSourceIndexAction(formData: FormData) {
       }),
     );
 
-    revalidatePath("/app/admin-laws");
+    revalidatePath(redirectTo);
     redirect(buildStatusRedirect(redirectTo, "law-source-created"));
   } catch (error) {
     if (isRedirectError(error)) {
@@ -86,7 +86,7 @@ export async function toggleLawSourceIndexAction(formData: FormData) {
       }),
     );
 
-    revalidatePath("/app/admin-laws");
+    revalidatePath(redirectTo);
     redirect(buildStatusRedirect(redirectTo, "law-source-updated"));
   } catch (error) {
     if (isRedirectError(error)) {

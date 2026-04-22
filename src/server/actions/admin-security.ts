@@ -40,7 +40,7 @@ function resolveAdminSecurityReturnPath(
     return returnPath as AdminSecurityReturnPath;
   }
 
-  return "/app/admin-security";
+  return "/internal/security";
 }
 
 export async function sendRecoveryEmailAdminAction(input: {

@@ -24,7 +24,7 @@ function getRedirectTarget(formData: FormData) {
     return redirectTo;
   }
 
-  return "/app/admin-laws";
+  return "/internal/laws";
 }
 
 function buildStatusRedirect(path: string, status: string) {
@@ -51,7 +51,7 @@ export async function createPrecedentSourceTopicAction(formData: FormData) {
       }),
     );
 
-    revalidatePath("/app/admin-laws");
+    revalidatePath(redirectTo);
     redirect(buildStatusRedirect(redirectTo, "precedent-source-created"));
   } catch (error) {
     if (isRedirectError(error)) {
@@ -88,7 +88,7 @@ export async function updatePrecedentSourceTopicAction(formData: FormData) {
       }),
     );
 
-    revalidatePath("/app/admin-laws");
+    revalidatePath(redirectTo);
     redirect(buildStatusRedirect(redirectTo, "precedent-source-updated"));
   } catch (error) {
     if (isRedirectError(error)) {
