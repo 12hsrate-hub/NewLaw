@@ -143,6 +143,32 @@
 
 Это означает, что account zone и server-scoped entry zone уже ушли значительно дальше старой крупноблочной схемы.
 
+#### `12-admin-panel-reconciliation-and-completion`
+
+Статус: `done`
+
+Фактически реализованы и уже сведены в единый internal contour:
+
+- `/internal`
+- `/internal/laws`
+- `/internal/precedents`
+- `/internal/security`
+- `/internal/health`
+- shared internal nav и общий `super_admin`-only guard
+- migration существующих corpus sections в `/internal/laws` и `/internal/precedents`
+- migration admin account-security flow в `/internal/security`
+- compact internal health summary в `/internal/health`
+- transitional cleanup для:
+  - `/app/admin-laws`
+  - `/app/admin-security`
+
+Важно:
+
+- `/internal/...` теперь уже существует как единая internal zone
+- `/app/admin-laws` и `/app/admin-security` больше не считаются primary admin surface
+- они сохраняются только как transitional bridge routes к `/internal/*`
+- это закрывает текущий agreed admin-panel scope, но не означает global `/app` cleanup
+
 ### Optional / Temporary
 
 #### `09-ogp-forum-automation`
@@ -186,20 +212,6 @@ Post-MVP policy для этой линии:
 - если registry позже появится, его target route = `/account/trustors`
 
 ### Partial
-
-#### `07-admin-panel`
-
-Статус: `partial`
-
-В repo есть признаки internal/admin foundation:
-
-- transitional admin-related routes
-- отдельные internal/admin куски для security и laws
-
-Но пока не подтверждён как завершённый цельный product block:
-
-- единый `/internal/...` contour ещё не оформлен как законченная пользовательская/административная зона
-- старый крупный план админки нельзя честно считать закрытым
 
 #### `08-ai-integration`
 
@@ -301,9 +313,8 @@ Server-specific template documents остаются отдельной post-MVP 
 
 С учётом фактического repo остаются следующие честные открытые вопросы:
 
-1. Нужен ли отдельный цельный admin panel block как обязательная часть MVP, или текущих internal/admin foundations пока достаточно.
-2. Нужно ли расширять document AI дальше уже реализованного field rewrite v1, если текущий MVP AI scope уже покрыт helper-уровнем внутри existing editors.
-3. Нужен ли отдельный formal deploy/release hardening block поверх уже работающего production release процесса.
+1. Нужно ли расширять document AI дальше уже реализованного field rewrite v1, если текущий MVP AI scope уже покрыт helper-уровнем внутри existing editors.
+2. Нужен ли отдельный formal deploy/release hardening block поверх уже работающего production release процесса.
 
 ## Спорные места, которые не стоит маскировать
 
@@ -314,13 +325,6 @@ Server-specific template documents остаются отдельной post-MVP 
 - trustor snapshots уже признаны достаточными для MVP
 - standalone trustors registry больше не трактуется как обязательный блок MVP
 - если later convenience module всё же понадобится, он должен оформляться отдельно и жить в `/account/trustors`
-
-### Admin panel
-
-Спорное место:
-
-- internal/admin foundations уже есть
-- но законченный admin panel block по старому плану явно не оформлен
 
 ### AI integration
 
