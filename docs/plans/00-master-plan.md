@@ -166,17 +166,19 @@ Post-MVP policy для этой линии:
 
 #### `04-trustors`
 
-Статус: `pending`
+Статус: `optional / future`
 
 Честная картина по repo:
 
 - trustor snapshot уже используется внутри `OGP complaints` и claims representative flow
-- но отдельный полноценный trustors-модуль как самостоятельный user-facing блок не подтверждён как реализованный
+- current representative flows не блокируются отсутствием standalone registry
+- document success state уже не зависит от отдельного trustors module
 
 Поэтому:
 
-- inline document trustor usage = уже есть
-- standalone trustor registry block = пока не закрыт
+- inline document trustor usage = уже есть и достаточно для MVP
+- standalone trustor registry = optional convenience line
+- если registry позже появится, его target route = `/account/trustors`
 
 #### `07-admin-panel`
 
@@ -282,21 +284,19 @@ Server-specific template documents остаются отдельной post-MVP 
 
 С учётом фактического repo остаются следующие честные открытые вопросы:
 
-1. Нужен ли standalone trustors module как обязательная часть MVP, если representative flows уже работают на document snapshots.
-2. Нужен ли отдельный цельный admin panel block как обязательная часть MVP, или текущих internal/admin foundations пока достаточно.
-3. Нужен ли отдельный document-AI block помимо уже существующего assistant, если старый AI plan всё ещё числится в MVP.
-4. Нужен ли отдельный formal deploy/release hardening block поверх уже работающего production release процесса.
+1. Нужен ли отдельный цельный admin panel block как обязательная часть MVP, или текущих internal/admin foundations пока достаточно.
+2. Нужен ли отдельный document-AI block помимо уже существующего assistant, если старый AI plan всё ещё числится в MVP.
+3. Нужен ли отдельный formal deploy/release hardening block поверх уже работающего production release процесса.
 
 ## Спорные места, которые не стоит маскировать
 
 ### Trustors
 
-Спорное место:
+Больше не считается открытым MVP-блокером:
 
-- standalone trustors module остаётся в старом плане как MVP-блок
-- но реальные document flows уже используют trustor snapshots без отдельного завершённого trustors registry
-
-Это требует либо отдельной реализации, либо явного product decision по scope.
+- trustor snapshots уже признаны достаточными для MVP
+- standalone trustors registry больше не трактуется как обязательный блок MVP
+- если later convenience module всё же понадобится, он должен оформляться отдельно и жить в `/account/trustors`
 
 ### Admin panel
 
