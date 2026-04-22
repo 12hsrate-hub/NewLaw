@@ -11,6 +11,11 @@
 - текущий MVP AI scope уже не считается пустым или блокирующе незавершённым
 - chat UI и broad drafting suite в этом плане не активируются
 
+Важно:
+
+- `partial` здесь больше не означает “AI ещё не начат”
+- `partial` здесь означает только future expansion beyond current `assistant + document field rewrite v1 + first grounded v2 rollout`
+
 ## Текущий реализованный scope
 
 ### 1. Server legal assistant
@@ -133,6 +138,7 @@
 - broader drafting assist beyond field-level rewrite
 - grounded expansion beyond first supported legal sections
 - deeper document-AI UX поверх existing grounded rewrite foundation
+- richer retrieval transparency / references UX, если это понадобится отдельно
 
 Но это уже не часть текущего agreed scope после `v1 + first grounded legal rollout`.
 
@@ -140,4 +146,5 @@
 
 - assistant и document AI остаются разными product lines
 - current MVP AI scope покрывается существующим assistant module + document field rewrite v1
+- grounded document AI v2 уже существует как первый post-MVP expansion inside existing editors
 - поэтому `partial` здесь означает не “AI для MVP ещё не существует”, а только то, что future expansion beyond current scope ещё не закрыта

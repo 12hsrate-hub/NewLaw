@@ -41,7 +41,8 @@
 - для MVP trustor живет внутри документа как snapshot
 - trustor snapshot привязан к конкретному документу и не зависит от live trustor entity
 - standalone trustors registry не является обязательной частью MVP
-- если later reusable trustor registry появится, он будет только convenience layer поверх уже работающего snapshot-подхода
+- post-MVP reusable trustor registry уже может существовать только как convenience layer поверх уже работающего snapshot-подхода
+- даже при наличии `/account/trustors` document flows по-прежнему остаются snapshot-based и не получают `trustorId` dependency
 
 ### Документы
 
@@ -146,8 +147,8 @@
 
 Следующие кандидаты относятся уже не к закрытию текущего MVP, а к следующей фазе:
 
-- grounded document AI v2
-- optional standalone trustors registry
+- deeper grounded document AI expansion beyond current first grounded legal rollout
+- deeper standalone trustors registry expansion beyond current `/account/trustors` CRUD + optional prefill
 - post-MVP template documents
 - deeper operational/admin maturity
 

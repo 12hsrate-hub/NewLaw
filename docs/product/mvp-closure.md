@@ -48,8 +48,8 @@
 
 ### Future expansion
 
-- grounded document AI v2
-- optional trustors registry
+- deeper grounded document AI expansion beyond current first grounded legal rollout
+- deeper trustors registry expansion beyond current `/account/trustors` CRUD + optional document prefill
 - deeper admin/internal maturity
 
 ### Optional / temporary

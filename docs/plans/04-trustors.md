@@ -2,30 +2,32 @@
 
 ## Статус решения
 
-Standalone trustors registry не является обязательной частью MVP.
+Standalone trustors registry не является обязательной частью MVP, но post-MVP линия уже реально ушла дальше foundation-only этапа.
 
 Зафиксировано:
 
-- current `OGP representative` и `claims representative` flows уже работают через trustor snapshot inside document
+- current `OGP representative` и `claims representative` flows по-прежнему работают через trustor snapshot inside document
 - standalone registry не является обязательной runtime dependency document flow
 - `trustor snapshots are enough for MVP`
 - standalone registry остаётся optional convenience line
-- если later модуль всё же появится, его target route = `/account/trustors`
-- текущий реализованный post-MVP step = inline create/edit/soft-delete UX внутри `/account/trustors`
-- поверх registry CRUD уже допускается отдельный optional choose-from-registry prefill inside OGP/claims
-- registry CRUD не должен добавлять `trustorId` dependency в `documents` и не должен менять snapshot-only document model
+- target route уже реально существует: `/account/trustors`
+- registry foundation + grouped overview уже реализованы
+- inline create/edit/soft-delete UX внутри `/account/trustors` уже реализованы
+- document-side choose-from-registry prefill inside OGP/claims уже существует как optional convenience layer
+- registry CRUD и document-prefill не добавляют `trustorId` dependency в `documents` и не меняют snapshot-only document model
 
 ## Цель блока
 
-Зафиксировать future architecture для optional trustors registry без расхождений с уже работающим snapshot-подходом.
+Зафиксировать уже реализованную optional trustors line без расхождений с работающим snapshot-подходом и явно отделить сделанное от дальнейших post-MVP расширений.
 
-Этот блок больше не трактуется как обязательный standalone CRUD-этап для MVP.
+Этот блок больше не трактуется как обязательный standalone CRUD-этап для MVP и больше не описывается как “маршрут появится позже”.
 
-## Что входит
+## Что уже входит
 
-- future reusable registry внутри связки `user + server`
-- owner-only list / create / edit / soft delete later
-- optional choose-from-registry prefill для document flows
+- reusable registry внутри связки `user + server`
+- owner-only grouped overview в `/account/trustors`
+- create / edit / soft delete внутри account zone
+- optional choose-from-registry prefill для representative document flows
 - сохранение строгого разделения между reusable entity и document snapshot
 
 ## Что не входит
@@ -44,7 +46,7 @@ Standalone trustors registry не является обязательной ча
 
 ## Current post-MVP shape
 
-На текущем этапе trusted baseline для registry такой:
+На текущем этапе trustors registry уже выглядит так:
 
 - отдельная `Trustor` entity как reusable account-owned и server-scoped registry record
 - owner-only route `/account/trustors` внутри existing account zone
@@ -61,7 +63,15 @@ Standalone trustors registry не является обязательной ча
 - save-back из document snapshot в registry
 - live dependency уже созданных документов от registry
 
-## Future shape, если registry later понадобится дальше
+## Что ещё не делает текущая линия
+
+- не показывает restore/archive UI для soft-deleted entries
+- не делает bulk management
+- не добавляет richer trustor profile beyond current minimal fields
+- не делает save-back из document snapshot в registry
+- не делает live dependency documents от registry entity
+
+## Future shape, если trustors line понадобится расширять дальше
 
 ### Route policy
 
@@ -72,7 +82,7 @@ Standalone trustors registry не является обязательной ча
 
 ### Relationship с document flows
 
-- `OGP complaints` и claims могут later использовать `choose from registry` только как convenience prefill
+- `OGP complaints` и claims уже могут использовать `choose from registry` только как convenience prefill
 - `manual inline entry` остаётся обязательным fallback
 - после выбора из registry данные копируются в document snapshot
 - после сохранения документа snapshot живёт автономно
@@ -92,11 +102,11 @@ Standalone trustors registry не является обязательной ча
 - удаление доверителя не должно менять старые документы
 - standalone registry не должен становиться source of truth для уже созданного документа
 
-## Критерии завершения
+## Критерии завершения текущего post-MVP среза
 
 - product decision зафиксирован без противоречий с уже работающим repo
 - trustor snapshots признаны достаточными для MVP
-- standalone registry описан как optional convenience line
-- target route для future registry зафиксирован как `/account/trustors`
+- standalone registry зафиксирован как optional convenience line, а не blocker
+- `/account/trustors` уже существует как owner-only grouped-by-server account route
 - registry CRUD внутри `/account/trustors` работает отдельно от document model
 - choose-from-registry остаётся только convenience prefill и не ломает snapshot-only документную модель

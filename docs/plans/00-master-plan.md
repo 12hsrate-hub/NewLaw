@@ -257,12 +257,18 @@ Post-MVP policy для этой линии:
 - trustor snapshot уже используется внутри `OGP complaints` и claims representative flow
 - current representative flows не блокируются отсутствием standalone registry
 - document success state уже не зависит от отдельного trustors module
+- standalone route `/account/trustors` уже существует
+- registry foundation + grouped overview уже существуют
+- create / edit / soft delete внутри `/account/trustors` уже существуют
+- optional choose-from-registry prefill inside document flows уже существует
 
 Поэтому:
 
 - inline document trustor usage = уже есть и достаточно для MVP
 - standalone trustor registry = optional convenience line
-- если registry позже появится, его target route = `/account/trustors`
+- documents по-прежнему остаются snapshot-based и не получают `trustorId` dependency
+- изменение или удаление registry entry не меняет уже созданные документы
+- future здесь означает только дальнейшее расширение trustors line beyond current CRUD + prefill scope, а не “registry ещё не появился”
 
 ### Partial
 
@@ -277,21 +283,23 @@ Post-MVP policy для этой линии:
 - logging foundation
 - document field rewrite v1 внутри existing OGP/claims editors
 - agreed v1 scope для field-level rewrite уже реально закрыт
+- grounded document AI v2 для первого supported legal rollout уже реально существует
 - текущий согласованный MVP AI scope больше не выглядит пустым или недоделанным
 
 Что не подтверждено как отдельный завершённый product block:
 
 - более широкий document-AI suite beyond field rewrite
-- grounding by law corpus / precedents inside document AI
+- grounded expansion beyond first supported legal sections
 - consistency-check и broad drafting workflows
 - отдельное решение о том, нужно ли расширять document AI beyond current helper-level inside editor
 
 Поэтому:
 
 - assistant и AI infrastructure сильно продвинуты
-- первый document-AI block уже реально реализован
+- document field rewrite v1 и первый grounded v2 rollout уже реально реализованы
 - current MVP-level AI scope можно считать покрытым существующим assistant module + document field rewrite v1
-- но весь AI block нельзя автоматически считать формально закрытым только из-за assistant + rewrite v1
+- `partial` здесь теперь означает только future expansion beyond current assistant + v1 + first grounded v2 scope
+- но весь AI block нельзя автоматически считать формально закрытым только из-за уже существующих assistant + rewrite + first grounded rollout
 
 ### Post-MVP
 
@@ -339,14 +347,14 @@ Server-specific template documents остаются отдельной post-MVP 
 
 Дальше остаются только future expansion вопросы:
 
-1. Нужно ли расширять document AI дальше уже реализованного field rewrite v1, если текущий MVP AI scope уже покрыт helper-уровнем внутри existing editors.
+1. Нужно ли расширять grounded document AI дальше уже реализованного first legal rollout, если текущий MVP AI scope уже покрыт assistant module + rewrite v1 + first grounded v2.
 
 ## What Comes After MVP
 
 После formal MVP closure следующими кандидатами могут быть только отдельные future-линии, а не обязательные blocker-этапы:
 
-- grounded document AI v2
-- optional standalone trustors registry
+- deeper grounded document AI expansion beyond current supported sections
+- deeper standalone trustors registry expansion beyond current CRUD + optional prefill
 - post-MVP template documents
 - deeper operational/admin maturity beyond current proven release flow
 
@@ -364,7 +372,11 @@ Server-specific template documents остаются отдельной post-MVP 
 
 - trustor snapshots уже признаны достаточными для MVP
 - standalone trustors registry больше не трактуется как обязательный блок MVP
-- если later convenience module всё же понадобится, он должен оформляться отдельно и жить в `/account/trustors`
+- optional convenience line уже ушла дальше foundation-only этапа:
+  - `/account/trustors`
+  - CRUD inside account zone
+  - optional choose-from-registry prefill
+- document model при этом остаётся snapshot-only
 
 ### AI integration
 
@@ -372,9 +384,9 @@ Server-specific template documents остаются отдельной post-MVP 
 
 - assistant и AI infrastructure в repo уже сильно продвинуты
 - document field rewrite v1 уже реализован внутри document area
-- agreed v1 scope для document field rewrite уже закрыт
+- first grounded document AI v2 rollout для supported legal sections тоже уже реализован
 - текущий MVP AI scope больше не должен описываться как незакрытый blocker
-- но большой AI-suite по-прежнему не должен притворяться закрытым только потому, что есть assistant и rewrite foundation
+- но большой AI-suite по-прежнему не должен притворяться закрытым только потому, что уже есть assistant, rewrite v1 и first grounded rollout
 
 ### Deploy / release hardening
 
