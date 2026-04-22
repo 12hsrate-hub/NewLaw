@@ -37,6 +37,32 @@ export async function listServerDirectoryServers(db: PrismaLike = prisma) {
   });
 }
 
+export async function getServerDirectoryServerByCode(
+  serverCode: string,
+  db: PrismaLike = prisma,
+) {
+  return db.server.findFirst({
+    where: {
+      code: serverCodeSchema.parse(serverCode),
+    },
+    include: {
+      laws: {
+        select: {
+          lawKind: true,
+          isExcluded: true,
+          classificationOverride: true,
+          currentVersionId: true,
+          _count: {
+            select: {
+              versions: true,
+            },
+          },
+        },
+      },
+    },
+  });
+}
+
 export async function getServerById(serverId: string, db: PrismaLike = prisma) {
   return db.server.findFirst({
     where: {

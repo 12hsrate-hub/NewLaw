@@ -141,7 +141,7 @@ Operational note текущего шага:
 
 ### 10.3 — Auth-gated server hub
 
-Что later должно войти:
+Что входит:
 
 - `/servers/[serverSlug]`
 - owner/auth-aware module cards:
@@ -154,6 +154,21 @@ Operational note текущего шага:
 - навигационные links в уже существующие:
   - `/assistant/[serverSlug]`
   - `/servers/[serverSlug]/documents`
+
+Текущий результат шага:
+
+- `/servers/[serverSlug]` теперь существует как auth-gated server hub
+- source of truth по серверу берётся только из `serverSlug` в URL
+- guest уходит на sign-in с корректным `next`
+- hub показывает только две top-level cards:
+  - `Assistant`
+  - `Documents`
+- unknown `serverSlug` даёт honest `server_not_found`
+- inactive server даёт honest `server_unavailable`
+- отсутствие персонажа не ломает hub:
+  - `Assistant` остаётся доступным по policy
+  - `Documents` честно показывает `needs_character` и ведёт во временный bridge персонажей
+- claims и OGP complaints не становятся top-level cards hub и остаются внутри `Documents`
 
 Что не должно смешиваться:
 
