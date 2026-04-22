@@ -26,11 +26,30 @@ export type AdminResetPasswordUiActionResult =
       tempPassword: string;
     };
 
+const adminSecurityReturnPaths = ["/app/admin-security", "/internal/security"] as const;
+
+type AdminSecurityReturnPath = (typeof adminSecurityReturnPaths)[number];
+
+function resolveAdminSecurityReturnPath(
+  returnPath: string | undefined,
+): AdminSecurityReturnPath {
+  if (
+    returnPath &&
+    adminSecurityReturnPaths.includes(returnPath as AdminSecurityReturnPath)
+  ) {
+    return returnPath as AdminSecurityReturnPath;
+  }
+
+  return "/app/admin-security";
+}
+
 export async function sendRecoveryEmailAdminAction(input: {
   targetAccountId: string;
   comment: string;
+  returnPath?: string;
 }): Promise<AdminUiActionResult> {
-  const { account } = await requireProtectedAccountContext("/app/admin-security");
+  const returnPath = resolveAdminSecurityReturnPath(input.returnPath);
+  const { account } = await requireProtectedAccountContext(returnPath);
   const parsed = adminSecurityUiInputBaseSchema.safeParse(input);
 
   if (!parsed.success) {
@@ -46,7 +65,7 @@ export async function sendRecoveryEmailAdminAction(input: {
     return result;
   }
 
-  revalidatePath("/app/admin-security");
+  revalidatePath(returnPath);
 
   return {
     status: "success",
@@ -57,8 +76,10 @@ export async function sendRecoveryEmailAdminAction(input: {
 export async function resetPasswordWithTempPasswordAdminAction(input: {
   targetAccountId: string;
   comment: string;
+  returnPath?: string;
 }): Promise<AdminResetPasswordUiActionResult> {
-  const { account } = await requireProtectedAccountContext("/app/admin-security");
+  const returnPath = resolveAdminSecurityReturnPath(input.returnPath);
+  const { account } = await requireProtectedAccountContext(returnPath);
   const parsed = adminSecurityUiInputBaseSchema.safeParse(input);
 
   if (!parsed.success) {
@@ -78,7 +99,7 @@ export async function resetPasswordWithTempPasswordAdminAction(input: {
     return result;
   }
 
-  revalidatePath("/app/admin-security");
+  revalidatePath(returnPath);
 
   return {
     status: "success",
@@ -92,8 +113,10 @@ export async function changeEmailAsAdminAction(input: {
   targetAccountId: string;
   newEmail: string;
   comment: string;
+  returnPath?: string;
 }): Promise<AdminUiActionResult> {
-  const { account } = await requireProtectedAccountContext("/app/admin-security");
+  const returnPath = resolveAdminSecurityReturnPath(input.returnPath);
+  const { account } = await requireProtectedAccountContext(returnPath);
   const parsed = adminChangeEmailUiInputSchema.safeParse(input);
 
   if (!parsed.success) {
@@ -114,7 +137,7 @@ export async function changeEmailAsAdminAction(input: {
     return result;
   }
 
-  revalidatePath("/app/admin-security");
+  revalidatePath(returnPath);
 
   return {
     status: "success",

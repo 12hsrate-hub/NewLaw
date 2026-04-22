@@ -18,6 +18,7 @@ type AdminSecurityActionsPanelProps = {
   accountEmail: string;
   accountLogin: string;
   pendingEmail: string | null;
+  returnPath?: "/app/admin-security" | "/internal/security";
 };
 
 function ResultMessage({
@@ -42,6 +43,7 @@ export function AdminSecurityActionsPanel({
   accountEmail,
   accountLogin,
   pendingEmail,
+  returnPath = "/app/admin-security",
 }: AdminSecurityActionsPanelProps) {
   const [recoveryResult, setRecoveryResult] = useState<AdminUiActionResult | null>(null);
   const [emailChangeResult, setEmailChangeResult] = useState<AdminUiActionResult | null>(null);
@@ -81,6 +83,7 @@ export function AdminSecurityActionsPanel({
               const result = await sendRecoveryEmailAdminAction({
                 targetAccountId: accountId,
                 comment,
+                returnPath,
               });
 
               setRecoveryResult(result);
@@ -131,6 +134,7 @@ export function AdminSecurityActionsPanel({
               const result = await resetPasswordWithTempPasswordAdminAction({
                 targetAccountId: accountId,
                 comment,
+                returnPath,
               });
 
               setResetResult(result);
@@ -198,6 +202,7 @@ export function AdminSecurityActionsPanel({
                 targetAccountId: accountId,
                 newEmail,
                 comment,
+                returnPath,
               });
 
               setEmailChangeResult(result);

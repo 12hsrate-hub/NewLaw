@@ -21,6 +21,7 @@ import {
 } from "@/server/actions/admin-security";
 import { changeEmailAsAdmin, resetPasswordWithTempPassword, sendRecoveryEmail } from "@/server/auth/admin-security";
 import { requireProtectedAccountContext } from "@/server/auth/protected";
+import { revalidatePath } from "next/cache";
 
 describe("admin security actions", () => {
   it("вызывает sendRecoveryEmail из UI корректно", async () => {
@@ -109,5 +110,24 @@ describe("admin security actions", () => {
       status: "forbidden",
       message: "Только super_admin может выполнять это действие.",
     });
+  });
+
+  it("умеет переиспользоваться из /internal/security и ревалидирует новый target contour", async () => {
+    vi.mocked(requireProtectedAccountContext).mockResolvedValue({
+      account: { id: "4f49f692-c07b-4dba-a8fc-66b687d6f2c6" },
+    } as never);
+    vi.mocked(sendRecoveryEmail).mockResolvedValue({
+      status: "success",
+    });
+
+    const result = await sendRecoveryEmailAdminAction({
+      targetAccountId: "0b9d1c81-e5a9-4323-a748-e01622b02a41",
+      comment: "Проверка internal contour",
+      returnPath: "/internal/security",
+    });
+
+    expect(requireProtectedAccountContext).toHaveBeenCalledWith("/internal/security");
+    expect(revalidatePath).toHaveBeenCalledWith("/internal/security");
+    expect(result.status).toBe("success");
   });
 });

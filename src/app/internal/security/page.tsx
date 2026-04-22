@@ -1,21 +1,33 @@
 import {
   InternalAccessDeniedState,
-  InternalSectionSkeleton,
 } from "@/components/product/internal/internal-shell";
+import { AdminSecuritySection } from "@/components/product/admin-security/admin-security-section";
+import { findAccountForAdminSearch } from "@/server/admin-security/account-search";
 import { getInternalAccessContext } from "@/server/internal/access";
 
-export default async function InternalSecurityPage() {
+type InternalSecurityPageProps = {
+  searchParams?: Promise<{
+    identifier?: string;
+  }>;
+};
+
+export default async function InternalSecurityPage({
+  searchParams,
+}: InternalSecurityPageProps) {
   const accessContext = await getInternalAccessContext("/internal/security");
 
   if (accessContext.status === "denied") {
     return <InternalAccessDeniedState accountLogin={accessContext.viewer.login} />;
   }
 
+  const resolvedSearchParams = await searchParams;
+  const searchResult = await findAccountForAdminSearch(resolvedSearchParams?.identifier);
+
   return (
-    <InternalSectionSkeleton
-      eyebrow="Internal security"
-      title="Admin Security"
-      description="Здесь later переедут admin account lookup и security actions над чужими аккаунтами. Self-service `/account/security` при этом остаётся отдельной user zone."
+    <AdminSecuritySection
+      actionsReturnPath="/internal/security"
+      searchActionPath="/internal/security"
+      searchResult={searchResult}
     />
   );
 }

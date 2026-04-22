@@ -10,10 +10,15 @@ vi.mock("@/server/internal/corpus", () => ({
   getInternalPrecedentCorpusPageData: vi.fn(),
 }));
 
+vi.mock("@/server/admin-security/account-search", () => ({
+  findAccountForAdminSearch: vi.fn(),
+}));
+
 import InternalHealthPage from "@/app/internal/health/page";
 import InternalLawsPage from "@/app/internal/laws/page";
 import InternalPrecedentsPage from "@/app/internal/precedents/page";
 import InternalSecurityPage from "@/app/internal/security/page";
+import { findAccountForAdminSearch } from "@/server/admin-security/account-search";
 import { getInternalAccessContext } from "@/server/internal/access";
 import {
   getInternalLawCorpusPageData,
@@ -55,6 +60,12 @@ describe("internal target route skeletons", () => {
       sourceIndexes: [],
       sourceTopics: [],
     });
+    vi.mocked(findAccountForAdminSearch).mockResolvedValue({
+      status: "idle",
+      identifier: "",
+      account: null,
+      message: null,
+    });
   });
 
   it("рендерит /internal/laws как target corpus section внутри /internal contour", async () => {
@@ -88,11 +99,12 @@ describe("internal target route skeletons", () => {
     expect(html).toContain("tester");
   });
 
-  it("рендерит /internal/security как skeleton route", async () => {
-    const html = renderToStaticMarkup(await InternalSecurityPage());
+  it("рендерит /internal/security как target admin security section внутри /internal contour", async () => {
+    const html = renderToStaticMarkup(await InternalSecurityPage({}));
 
-    expect(html).toContain("Admin Security");
-    expect(html).toContain("/account/security");
+    expect(html).toContain("Admin Account Security");
+    expect(html).toContain('action="/internal/security"');
+    expect(html).toContain("Super Admin");
   });
 
   it("рендерит /internal/health как skeleton route", async () => {

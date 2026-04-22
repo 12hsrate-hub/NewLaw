@@ -5,9 +5,15 @@ import type { AdminAccountSearchResult } from "@/server/admin-security/account-s
 
 type AdminSecuritySectionProps = {
   searchResult: AdminAccountSearchResult;
+  searchActionPath?: "/app/admin-security" | "/internal/security";
+  actionsReturnPath?: "/app/admin-security" | "/internal/security";
 };
 
-export function AdminSecuritySection({ searchResult }: AdminSecuritySectionProps) {
+export function AdminSecuritySection({
+  searchResult,
+  searchActionPath = "/app/admin-security",
+  actionsReturnPath = "/app/admin-security",
+}: AdminSecuritySectionProps) {
   return (
     <section className="space-y-6">
       <Card className="space-y-5">
@@ -23,7 +29,7 @@ export function AdminSecuritySection({ searchResult }: AdminSecuritySectionProps
           Поиск работает только по account-level идентификаторам: email, account login и account id. Character identifiers здесь намеренно не используются.
         </div>
 
-        <form action="/app/admin-security" className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+        <form action={searchActionPath} className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
           <div className="space-y-2">
             <label className="text-sm font-medium" htmlFor="identifier">
               Email, login или account id
@@ -86,6 +92,7 @@ export function AdminSecuritySection({ searchResult }: AdminSecuritySectionProps
             accountId={searchResult.account.id}
             accountLogin={searchResult.account.login}
             pendingEmail={searchResult.account.pendingEmail}
+            returnPath={actionsReturnPath}
           />
         </>
       ) : null}
