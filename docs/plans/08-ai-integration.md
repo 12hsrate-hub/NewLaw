@@ -6,6 +6,7 @@
 
 - public `server legal assistant` уже реализован как отдельный модуль
 - `11.3` добавляет первый document-AI block внутри existing document area
+- согласованный `v1` scope для `document field rewrite` уже реализован
 - chat UI, grounding по law corpus/precedents и broad drafting suite в этом плане не активируются
 
 ## Текущий реализованный scope
@@ -90,4 +91,4 @@
 - optional grounded rewrite для legal sections
 - broader drafting assist beyond field-level rewrite
 
-Но это уже не часть текущего v1 scope.
+Но это уже не часть текущего `v1` scope, который считается закрытым на уровне `field rewrite foundation`.

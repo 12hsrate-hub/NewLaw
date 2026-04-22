@@ -132,9 +132,14 @@
 - auth-gated `/servers/[serverSlug]`
 - server directory summary layer
 - server hub
+- account zone completion around:
+  - `/account`
+  - `/account/security`
+  - `/account/documents`
+  - `/account/characters`
 - `/account/characters` overview
-- account subnav
-- account-scoped character editor completion
+- shared account subnav
+- account-scoped character editor completion inside existing account route
 
 Это означает, что account zone и server-scoped entry zone уже ушли значительно дальше старой крупноблочной схемы.
 
@@ -206,18 +211,20 @@ Post-MVP policy для этой линии:
 - assistant как отдельный модуль
 - logging foundation
 - document field rewrite v1 внутри existing OGP/claims editors
+- agreed v1 scope для field-level rewrite уже реально закрыт
 
 Что не подтверждено как отдельный завершённый product block:
 
 - более широкий document-AI suite beyond field rewrite
 - grounding by law corpus / precedents inside document AI
 - consistency-check и broad drafting workflows
+- отдельное решение о том, нужно ли расширять document AI beyond current helper-level inside editor
 
 Поэтому:
 
 - assistant и AI infrastructure сильно продвинуты
 - первый document-AI block уже реально реализован
-- старый крупный AI-блок нельзя автоматически считать формально закрытым
+- но весь AI block нельзя автоматически считать формально закрытым только из-за assistant + rewrite v1
 
 #### `09-deploy-and-release`
 
@@ -293,7 +300,7 @@ Server-specific template documents остаются отдельной post-MVP 
 С учётом фактического repo остаются следующие честные открытые вопросы:
 
 1. Нужен ли отдельный цельный admin panel block как обязательная часть MVP, или текущих internal/admin foundations пока достаточно.
-2. Нужно ли расширять document AI дальше уже реализованного field rewrite v1, или для MVP достаточно текущего helper-уровня внутри editor.
+2. Нужно ли расширять document AI дальше уже реализованного field rewrite v1, или для текущего MVP достаточно helper-уровня внутри existing editors.
 3. Нужен ли отдельный formal deploy/release hardening block поверх уже работающего production release процесса.
 
 ## Спорные места, которые не стоит маскировать
@@ -319,6 +326,7 @@ Server-specific template documents остаются отдельной post-MVP 
 
 - assistant и AI infrastructure в repo уже сильно продвинуты
 - document field rewrite v1 уже реализован внутри document area
+- agreed v1 scope для document field rewrite уже закрыт
 - но большой AI-suite по-прежнему не должен притворяться закрытым только потому, что есть assistant и rewrite foundation
 
 ### Deploy / release hardening
