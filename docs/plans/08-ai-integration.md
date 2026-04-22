@@ -7,8 +7,9 @@
 - public `server legal assistant` уже реализован как отдельный модуль
 - `11.3` добавляет первый document-AI block внутри existing document area
 - согласованный `v1` scope для `document field rewrite` уже реализован
+- первый grounded `v2` rollout для supported legal sections уже реализован
 - текущий MVP AI scope уже не считается пустым или блокирующе незавершённым
-- chat UI, grounding по law corpus/precedents и broad drafting suite в этом плане не активируются
+- chat UI и broad drafting suite в этом плане не активируются
 
 ## Текущий реализованный scope
 
@@ -32,6 +33,32 @@
 - suggestion отдельно от final field
 - `Apply` меняет только local editor state
 - persistence идёт только через существующий save/autosave flow
+
+### 3. Grounded document AI v2
+
+Реализован как отдельный editor-centric helper поверх existing retrieval foundation:
+
+- owner-only server action `rewriteGroundedDocumentFieldAction({ documentId, sectionKey })`
+- reuse existing `searchAssistantCorpus(...)` как lower retrieval layer
+- laws-first policy сохраняется
+- grounded outcome ветки:
+  - `law_grounded`
+  - `precedent_grounded`
+  - `insufficient_corpus`
+- отдельный UI action `Улучшить с опорой на нормы`
+- suggestion по-прежнему остаётся suggestion
+- `Apply` по-прежнему меняет только local editor state
+- no silent overwrite
+- no silent save
+- no embedded chat UI
+
+Поддержанные секции первого grounded rollout:
+
+- OGP:
+  - `violation_summary`
+- Claims:
+  - `legal_basis_summary`
+  - `requested_relief`
 
 Поддержанные секции v1:
 
@@ -65,12 +92,16 @@
 - unsupported fields не получают AI affordance
 - trustor identity fields, evidence rows, titles, publication metadata и working notes не участвуют в AI rewrite
 - assistant и document AI остаются разными модулями
+- grounded document AI не превращает editor в embedded legal Q&A
+- precedent никогда не подаётся как норма закона
+- если retrieval support незащитим, grounded flow честно возвращает `insufficient_corpus`
 
 ## Logging and safety
 
 - используется existing proxy-only AI foundation
 - используется existing `ai_requests`
 - `featureKey = document_field_rewrite`
+- `featureKey = document_field_rewrite_grounded`
 - в request metadata логируются только safe поля:
   - `documentId`
   - `documentType`
@@ -82,17 +113,28 @@
   - `sourceLength`
   - `contextFieldKeys`
   - `contextLength`
+- в grounded flow дополнительно логируются только safe retrieval поля:
+  - `serverId`
+  - `groundingMode`
+  - `lawResultCount`
+  - `precedentResultCount`
+  - `hasCurrentLawCorpus`
+  - `hasUsablePrecedentCorpus`
+  - `combinedRetrievalRevision`
+  - `retrievalPromptBlockCount`
 - full raw document payload в логи не уходит
+- full retrieved block texts и full prompt в логи тоже не уходят
 
 ## Follow-up после текущего шага
 
 Отдельными будущими решениями остаются:
 
 - document consistency check
-- optional grounded rewrite для legal sections
 - broader drafting assist beyond field-level rewrite
+- grounded expansion beyond first supported legal sections
+- deeper document-AI UX поверх existing grounded rewrite foundation
 
-Но это уже не часть текущего `v1` scope, который считается закрытым на уровне `field rewrite foundation`.
+Но это уже не часть текущего agreed scope после `v1 + first grounded legal rollout`.
 
 Отдельно зафиксировано:
 

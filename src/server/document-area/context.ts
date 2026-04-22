@@ -1,4 +1,5 @@
 import { getCharactersByServer } from "@/db/repositories/character.repository";
+import { listTrustorsForAccountAndServer } from "@/db/repositories/trustor.repository";
 import {
   countDocumentsByAccountAndServerAndType,
   getDocumentByIdForAccount,
@@ -18,6 +19,7 @@ import {
 } from "@/server/document-area/persistence";
 import { readClaimsGeneratedArtifact } from "@/server/document-area/claims-rendering";
 import { buildAccountCharactersBridgeHref } from "@/lib/routes/account-characters";
+import type { TrustorRegistryPrefillOption } from "@/lib/trustors/registry-prefill";
 import type {
   ClaimDocumentType,
   ClaimsDraftPayload,
@@ -100,6 +102,8 @@ type SelectedCharacterSummary = SelectableCharacterSummary & {
   source: "last_used" | "first_available";
 };
 
+export type DocumentTrustorRegistrySummary = TrustorRegistryPrefillOption;
+
 type CharacterSummaryInput = {
   id: string;
   serverId: string;
@@ -122,6 +126,7 @@ type ReadyServerDocumentsRouteContext = {
   servers: DocumentAreaServerSummary[];
   characters: SelectableCharacterSummary[];
   selectedCharacter: SelectedCharacterSummary;
+  trustorRegistry: DocumentTrustorRegistrySummary[];
   ogpComplaintDocumentCount: number;
   claimsDocumentCount: number;
 };
@@ -247,6 +252,7 @@ type ClaimsEditorRouteContext =
           accessFlags: string[];
           isProfileComplete: boolean;
         };
+        trustorRegistry: DocumentTrustorRegistrySummary[];
         payload: ClaimsDraftPayload;
       };
     };
@@ -313,6 +319,7 @@ type OgpComplaintEditorRouteContext =
           accessFlags: string[];
           isProfileComplete: boolean;
         };
+        trustorRegistry: DocumentTrustorRegistrySummary[];
         payload: OgpComplaintDraftPayload;
       };
     };
@@ -371,6 +378,20 @@ function buildSelectedCharacterSummary(input: {
     ...buildSelectableCharacterSummary(firstCharacter),
     source: "first_available" as const,
   };
+}
+
+function buildDocumentTrustorRegistrySummary(
+  trustors: Awaited<ReturnType<typeof listTrustorsForAccountAndServer>>,
+) {
+  return trustors.map((trustor) => ({
+    id: trustor.id,
+    fullName: trustor.fullName,
+    passportNumber: trustor.passportNumber,
+    phone: trustor.phone,
+    note: trustor.note,
+    isRepresentativeReady:
+      trustor.fullName.trim().length > 0 && trustor.passportNumber.trim().length > 0,
+  })) satisfies DocumentTrustorRegistrySummary[];
 }
 
 function buildPersistedDocumentListItem(
@@ -546,8 +567,12 @@ export async function getServerDocumentsRouteContext(input: {
     };
   }
 
-  const [characters, ogpComplaintDocumentCount, rehabilitationDocumentCount, lawsuitDocumentCount] = await Promise.all([
+  const [characters, trustorRegistryRecords, ogpComplaintDocumentCount, rehabilitationDocumentCount, lawsuitDocumentCount] = await Promise.all([
     getCharactersByServer({
+      accountId: account.id,
+      serverId: server.id,
+    }),
+    listTrustorsForAccountAndServer({
       accountId: account.id,
       serverId: server.id,
     }),
@@ -572,6 +597,7 @@ export async function getServerDocumentsRouteContext(input: {
     characters,
     serverStates,
   });
+  const trustorRegistry = buildDocumentTrustorRegistrySummary(trustorRegistryRecords);
 
   if (!selectedCharacter) {
     return {
@@ -599,6 +625,7 @@ export async function getServerDocumentsRouteContext(input: {
     servers,
     characters: characters.map((character) => buildSelectableCharacterSummary(character)),
     selectedCharacter,
+    trustorRegistry,
     ogpComplaintDocumentCount,
     claimsDocumentCount: rehabilitationDocumentCount + lawsuitDocumentCount,
   };
@@ -782,6 +809,12 @@ export async function getClaimsEditorRouteContext(input: {
   const authorSnapshot = readDocumentAuthorSnapshot(document.authorSnapshotJson);
   const payload = readClaimsDraftPayload(document.documentType, document.formPayloadJson);
   const generatedArtifact = readClaimsGeneratedArtifact(document.generatedArtifactJson);
+  const trustorRegistry = buildDocumentTrustorRegistrySummary(
+    await listTrustorsForAccountAndServer({
+      accountId: account.id,
+      serverId: server.id,
+    }),
+  );
 
   return {
     status: "ready",
@@ -819,6 +852,7 @@ export async function getClaimsEditorRouteContext(input: {
         accessFlags: authorSnapshot.accessFlags,
         isProfileComplete: authorSnapshot.isProfileComplete,
       },
+      trustorRegistry,
       payload,
     },
   };
@@ -868,6 +902,12 @@ export async function getOgpComplaintEditorRouteContext(input: {
   const authorSnapshot = readDocumentAuthorSnapshot(document.authorSnapshotJson);
   const payload = readOgpComplaintDraftPayload(document.formPayloadJson);
   const forumConnection = await getAccountForumConnectionSummary(account.id);
+  const trustorRegistry = buildDocumentTrustorRegistrySummary(
+    await listTrustorsForAccountAndServer({
+      accountId: account.id,
+      serverId: server.id,
+    }),
+  );
 
   return {
     status: "ready",
@@ -913,6 +953,7 @@ export async function getOgpComplaintEditorRouteContext(input: {
         accessFlags: authorSnapshot.accessFlags,
         isProfileComplete: authorSnapshot.isProfileComplete,
       },
+      trustorRegistry,
       payload,
     },
   };

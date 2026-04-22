@@ -68,6 +68,16 @@ describe("/servers/[serverSlug]/documents/ogp-complaints/[documentId] page", () 
           accessFlags: ["advocate"],
           isProfileComplete: false,
         },
+        trustorRegistry: [
+          {
+            id: "trustor-1",
+            fullName: "Иван Доверителев",
+            passportNumber: "AA-001",
+            phone: null,
+            note: "Проверенный представитель",
+            isRepresentativeReady: true,
+          },
+        ],
         payload: {
           filingMode: "representative",
           appealNumber: "REP-001",

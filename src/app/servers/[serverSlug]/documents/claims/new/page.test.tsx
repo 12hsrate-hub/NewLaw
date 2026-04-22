@@ -46,6 +46,16 @@ describe("/servers/[serverSlug]/documents/claims/new page", () => {
         canUseRepresentative: true,
         source: "first_available",
       },
+      trustorRegistry: [
+        {
+          id: "trustor-1",
+          fullName: "Иван Доверителев",
+          passportNumber: "AA-001",
+          phone: null,
+          note: "Проверенный представитель",
+          isRepresentativeReady: true,
+        },
+      ],
       ogpComplaintDocumentCount: 0,
       claimsDocumentCount: 0,
     });
@@ -104,6 +114,7 @@ describe("/servers/[serverSlug]/documents/claims/new page", () => {
         canUseRepresentative: true,
         source: "first_available",
       },
+      trustorRegistry: [],
       ogpComplaintDocumentCount: 0,
       claimsDocumentCount: 0,
     });

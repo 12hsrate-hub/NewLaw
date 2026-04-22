@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/db/repositories/character.repository", () => ({
   getCharactersByServer: vi.fn(),
@@ -12,6 +12,10 @@ vi.mock("@/db/repositories/document.repository", () => ({
   listDocumentsByAccount: vi.fn(),
   listDocumentsByAccountAndServerAndType: vi.fn(),
   updateDocumentDraftRecord: vi.fn(),
+}));
+
+vi.mock("@/db/repositories/trustor.repository", () => ({
+  listTrustorsForAccountAndServer: vi.fn(),
 }));
 
 vi.mock("@/db/repositories/server.repository", () => ({
@@ -41,6 +45,7 @@ import {
   listDocumentsByAccount,
   listDocumentsByAccountAndServerAndType,
 } from "@/db/repositories/document.repository";
+import { listTrustorsForAccountAndServer } from "@/db/repositories/trustor.repository";
 import { getServerByCode, getServers } from "@/db/repositories/server.repository";
 import { getUserServerStates } from "@/db/repositories/user-server-state.repository";
 import {
@@ -86,6 +91,10 @@ const blackberryServer = {
 };
 
 describe("document area context", () => {
+  beforeEach(() => {
+    vi.mocked(listTrustorsForAccountAndServer).mockResolvedValue([]);
+  });
+
   it("строит /account/documents как persisted cross-server overview", async () => {
     vi.mocked(requireProtectedAccountContext).mockResolvedValue(accountContext);
     vi.mocked(getServers).mockResolvedValue([blackberryServer]);

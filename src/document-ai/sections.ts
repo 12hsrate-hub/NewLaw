@@ -6,6 +6,9 @@ import type {
 import type {
   ClaimsDocumentRewriteSectionKey,
   DocumentRewriteSectionKey,
+  GroundedClaimsDocumentRewriteSectionKey,
+  GroundedDocumentRewriteSectionKey,
+  GroundedOgpDocumentRewriteSectionKey,
   OgpDocumentRewriteSectionKey,
 } from "@/schemas/document-ai";
 
@@ -49,6 +52,18 @@ export function isClaimsRewriteSectionKey(
   );
 }
 
+export function isGroundedOgpRewriteSectionKey(
+  sectionKey: GroundedDocumentRewriteSectionKey,
+): sectionKey is GroundedOgpDocumentRewriteSectionKey {
+  return sectionKey === "violation_summary";
+}
+
+export function isGroundedClaimsRewriteSectionKey(
+  sectionKey: GroundedDocumentRewriteSectionKey,
+): sectionKey is GroundedClaimsDocumentRewriteSectionKey {
+  return sectionKey === "legal_basis_summary" || sectionKey === "requested_relief";
+}
+
 export function isRewriteSectionSupportedForDocumentType(
   documentType: "ogp_complaint" | ClaimDocumentType,
   sectionKey: DocumentRewriteSectionKey,
@@ -70,6 +85,17 @@ export function isRewriteSectionSupportedForDocumentType(
   }
 
   return sectionKey === "pretrial_summary";
+}
+
+export function isGroundedRewriteSectionSupportedForDocumentType(
+  documentType: "ogp_complaint" | ClaimDocumentType,
+  sectionKey: GroundedDocumentRewriteSectionKey,
+) {
+  if (documentType === "ogp_complaint") {
+    return isGroundedOgpRewriteSectionKey(sectionKey);
+  }
+
+  return isGroundedClaimsRewriteSectionKey(sectionKey);
 }
 
 export function getOgpRewriteSectionText(

@@ -36,12 +36,22 @@ import {
   publishOwnedOgpComplaintUpdate,
 } from "@/server/document-area/publication";
 import {
+  GroundedDocumentFieldRewriteBlockedError,
+  GroundedDocumentFieldRewriteInsufficientCorpusError,
+  GroundedDocumentFieldRewriteUnavailableError,
+  mapGroundedDocumentFieldRewriteBlockingReasonsToMessages,
+  rewriteOwnedGroundedDocumentField,
+} from "@/server/document-ai/grounded-rewrite";
+import {
   DocumentFieldRewriteBlockedError,
   DocumentFieldRewriteUnavailableError,
   mapDocumentFieldRewriteBlockingReasonsToMessages,
   rewriteOwnedDocumentField,
 } from "@/server/document-ai/rewrite";
-import { rewriteDocumentFieldActionInputSchema } from "@/schemas/document-ai";
+import {
+  rewriteDocumentFieldActionInputSchema,
+  rewriteGroundedDocumentFieldActionInputSchema,
+} from "@/schemas/document-ai";
 
 function buildStatusRedirect(path: string, status: string) {
   const [pathname, queryString] = path.split("?");
@@ -605,6 +615,74 @@ export async function rewriteDocumentFieldAction(input: {
     }
 
     if (error instanceof DocumentFieldRewriteUnavailableError) {
+      return {
+        ok: false as const,
+        error: "rewrite-unavailable" as const,
+        message: error.message,
+      };
+    }
+
+    if (error instanceof ZodError) {
+      return {
+        ok: false as const,
+        error: "invalid-input" as const,
+      };
+    }
+
+    throw error;
+  }
+}
+
+export async function rewriteGroundedDocumentFieldAction(input: {
+  documentId: string;
+  sectionKey: string;
+}) {
+  const { account } = await requireProtectedAccountContext("/account/documents", undefined, {
+    allowMustChangePassword: true,
+  });
+
+  try {
+    const parsed = rewriteGroundedDocumentFieldActionInputSchema.parse(input);
+    const result = await rewriteOwnedGroundedDocumentField({
+      accountId: account.id,
+      documentId: parsed.documentId,
+      sectionKey: parsed.sectionKey,
+    });
+
+    return {
+      ok: true as const,
+      sourceText: result.sourceText,
+      suggestionText: result.suggestionText,
+      basedOnUpdatedAt: result.basedOnUpdatedAt,
+      groundingMode: result.groundingMode,
+      references: result.references,
+      usageMeta: result.usageMeta,
+    };
+  } catch (error) {
+    if (error instanceof DocumentAccessDeniedError) {
+      return {
+        ok: false as const,
+        error: "document-access-denied" as const,
+      };
+    }
+
+    if (error instanceof GroundedDocumentFieldRewriteBlockedError) {
+      return {
+        ok: false as const,
+        error: "rewrite-blocked" as const,
+        reasons: mapGroundedDocumentFieldRewriteBlockingReasonsToMessages(error.reasons),
+      };
+    }
+
+    if (error instanceof GroundedDocumentFieldRewriteInsufficientCorpusError) {
+      return {
+        ok: false as const,
+        error: "insufficient-corpus" as const,
+        message: error.message,
+      };
+    }
+
+    if (error instanceof GroundedDocumentFieldRewriteUnavailableError) {
       return {
         ok: false as const,
         error: "rewrite-unavailable" as const,

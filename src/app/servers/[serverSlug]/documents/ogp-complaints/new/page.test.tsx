@@ -46,6 +46,16 @@ describe("/servers/[serverSlug]/documents/ogp-complaints/new page", () => {
         canUseRepresentative: true,
         source: "first_available",
       },
+      trustorRegistry: [
+        {
+          id: "trustor-1",
+          fullName: "Иван Доверителев",
+          passportNumber: "AA-001",
+          phone: null,
+          note: "Проверенный представитель",
+          isRepresentativeReady: true,
+        },
+      ],
       ogpComplaintDocumentCount: 0,
       claimsDocumentCount: 0,
     });

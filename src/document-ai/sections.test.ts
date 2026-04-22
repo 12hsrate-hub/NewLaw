@@ -5,6 +5,7 @@ import {
   applyOgpRewriteSuggestion,
   getClaimsRewriteSectionText,
   getOgpRewriteSectionText,
+  isGroundedRewriteSectionSupportedForDocumentType,
   isRewriteSectionSupportedForDocumentType,
 } from "@/document-ai/sections";
 
@@ -22,6 +23,21 @@ describe("document rewrite sections", () => {
     expect(isRewriteSectionSupportedForDocumentType("rehabilitation", "pretrial_summary")).toBe(false);
     expect(isRewriteSectionSupportedForDocumentType("lawsuit", "pretrial_summary")).toBe(true);
     expect(isRewriteSectionSupportedForDocumentType("lawsuit", "harm_summary")).toBe(false);
+  });
+
+  it("ограничивает grounded v2 только supported legal sections первого rollout", () => {
+    expect(isGroundedRewriteSectionSupportedForDocumentType("ogp_complaint", "violation_summary")).toBe(
+      true,
+    );
+    expect(
+      isGroundedRewriteSectionSupportedForDocumentType("rehabilitation", "legal_basis_summary"),
+    ).toBe(true);
+    expect(
+      isGroundedRewriteSectionSupportedForDocumentType("lawsuit", "requested_relief"),
+    ).toBe(true);
+    expect(
+      isGroundedRewriteSectionSupportedForDocumentType("ogp_complaint", "legal_basis_summary"),
+    ).toBe(false);
   });
 
   it("применяет suggestion только к целевому полю payload", () => {

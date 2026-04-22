@@ -53,6 +53,7 @@ export default async function OgpComplaintNewPage({
       characters={context.characters}
       selectedCharacter={context.selectedCharacter}
       server={context.server}
+      trustorRegistry={context.trustorRegistry}
       status={resolvedSearchParams?.status}
     />
   );

@@ -6,6 +6,8 @@ type DocumentFieldRewritePanelProps = {
   sourceText: string;
   suggestionText: string;
   basedOnUpdatedAt: string;
+  titlePrefix?: string;
+  supportingSummary?: string | null;
   onApply: () => void;
   onDismiss: () => void;
   onCopy: () => void;
@@ -16,12 +18,15 @@ export function DocumentFieldRewritePanel(props: DocumentFieldRewritePanelProps)
     <div className="space-y-4 rounded-2xl border border-[var(--border)] bg-white/80 p-4">
       <div className="space-y-1">
         <p className="text-sm font-medium text-[var(--foreground)]">
-          AI-предложение для секции {props.sectionLabel}
+          {props.titlePrefix ?? "AI-предложение"} для секции {props.sectionLabel}
         </p>
         <p className="text-xs leading-5 text-[var(--muted)]">
           Предложение собрано только из последнего persisted состояния документа от{" "}
           {new Date(props.basedOnUpdatedAt).toLocaleString("ru-RU")}.
         </p>
+        {props.supportingSummary ? (
+          <p className="text-xs leading-5 text-[var(--muted)]">{props.supportingSummary}</p>
+        ) : null}
       </div>
 
       <div className="space-y-2">

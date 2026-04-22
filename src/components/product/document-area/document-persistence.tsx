@@ -15,6 +15,7 @@ import { Card } from "@/components/ui/card";
 import type {
   DocumentAreaPersistedListItem,
   DocumentAreaServerSummary,
+  DocumentTrustorRegistrySummary,
 } from "@/server/document-area/context";
 import { getDocumentTitleForType } from "@/server/document-area/persistence";
 import type {
@@ -419,6 +420,7 @@ export function OgpComplaintDraftCreateEntry(props: {
     isProfileComplete: boolean;
     canUseRepresentative: boolean;
   };
+  trustorRegistry: DocumentTrustorRegistrySummary[];
   status?: string;
 }) {
   return (
@@ -459,6 +461,7 @@ export function OgpComplaintDraftCreateEntry(props: {
           initialTitle="Жалоба в ОГП"
           selectedCharacter={props.selectedCharacter}
           server={props.server}
+          trustorRegistry={props.trustorRegistry}
         />
       </Card>
     </div>
@@ -538,6 +541,7 @@ export function OgpComplaintPersistedEditor(props: {
       accessFlags: string[];
       isProfileComplete: boolean;
     };
+    trustorRegistry: DocumentTrustorRegistrySummary[];
     payload: OgpComplaintDraftPayload;
   };
   status?: string;
@@ -665,6 +669,7 @@ export function OgpComplaintPersistedEditor(props: {
           server={props.document.server}
           status={props.document.status}
           forumConnection={props.document.forumConnection}
+          trustorRegistry={props.document.trustorRegistry}
           updatedAt={props.document.updatedAt}
         />
       </Card>
@@ -759,6 +764,7 @@ export function ClaimsDraftCreateEntry(props: {
     isProfileComplete: boolean;
     canUseRepresentative: boolean;
   };
+  trustorRegistry: DocumentTrustorRegistrySummary[];
   status?: string;
 }) {
   return (
@@ -794,11 +800,12 @@ export function ClaimsDraftCreateEntry(props: {
           </p>
           <ClaimsDraftCreateClient
             characters={props.characters}
-            documentType={props.documentType}
-            initialPayload={buildInitialClaimsCreatePayload(props.documentType)}
-            initialTitle={getDocumentTitleForType(props.documentType)}
-            selectedCharacter={props.selectedCharacter}
-            server={props.server}
+          documentType={props.documentType}
+          initialPayload={buildInitialClaimsCreatePayload(props.documentType)}
+          initialTitle={getDocumentTitleForType(props.documentType)}
+          selectedCharacter={props.selectedCharacter}
+          server={props.server}
+          trustorRegistry={props.trustorRegistry}
         />
       </Card>
     </div>
@@ -833,6 +840,7 @@ export function ClaimsPersistedEditor(props: {
       accessFlags: string[];
       isProfileComplete: boolean;
     };
+    trustorRegistry: DocumentTrustorRegistrySummary[];
     payload: ClaimsDraftPayload;
   };
   status?: string;
@@ -917,6 +925,7 @@ export function ClaimsPersistedEditor(props: {
           initialTitle={props.document.title}
           server={props.document.server}
           status={props.document.status}
+          trustorRegistry={props.document.trustorRegistry}
           updatedAt={props.document.updatedAt}
         />
       </Card>

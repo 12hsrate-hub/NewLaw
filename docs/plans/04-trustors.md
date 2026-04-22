@@ -12,7 +12,7 @@ Standalone trustors registry не является обязательной ча
 - standalone registry остаётся optional convenience line
 - если later модуль всё же появится, его target route = `/account/trustors`
 - текущий реализованный post-MVP step = inline create/edit/soft-delete UX внутри `/account/trustors`
-- document-side choose-from-registry остаётся отдельным следующим шагом и не должен смешиваться с registry CRUD
+- поверх registry CRUD уже допускается отдельный optional choose-from-registry prefill inside OGP/claims
 - registry CRUD не должен добавлять `trustorId` dependency в `documents` и не должен менять snapshot-only document model
 
 ## Цель блока
@@ -51,12 +51,9 @@ Standalone trustors registry не является обязательной ча
 - grouped-by-server overview с честными empty states и `?server=<serverCode>` focus pattern
 - inline create/edit entry points внутри server groups
 - safe soft delete через `deletedAt` без hard delete
+- document-side choose-from-registry работает только как optional snapshot prefill для representative flows
 - readiness badge считается из `fullName + passportNumber`
 - soft-deleted trustors скрыты из default overview
-
-Следующий отдельный post-MVP step может later добавить:
-
-- optional choose-from-registry prefill inside OGP/claims
 
 При этом по-прежнему не должны появиться:
 
@@ -102,3 +99,4 @@ Standalone trustors registry не является обязательной ча
 - standalone registry описан как optional convenience line
 - target route для future registry зафиксирован как `/account/trustors`
 - registry CRUD внутри `/account/trustors` работает отдельно от document model
+- choose-from-registry остаётся только convenience prefill и не ломает snapshot-only документную модель

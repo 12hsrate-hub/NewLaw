@@ -46,6 +46,7 @@ describe("/servers/[serverSlug]/documents page", () => {
         canUseRepresentative: true,
         source: "last_used",
       },
+      trustorRegistry: [],
       ogpComplaintDocumentCount: 2,
       claimsDocumentCount: 0,
     });

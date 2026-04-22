@@ -52,6 +52,7 @@ describe("/servers/[serverSlug]/documents/claims/[documentId] page", () => {
           accessFlags: [],
           isProfileComplete: true,
         },
+        trustorRegistry: [],
         payload: {
           filingMode: "self",
           respondentName: "",

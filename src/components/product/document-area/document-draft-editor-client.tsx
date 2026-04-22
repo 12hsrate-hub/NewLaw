@@ -2,19 +2,29 @@
 
 import { startTransition, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
-import { applyOgpRewriteSuggestion, getOgpRewriteSectionText } from "@/document-ai/sections";
+import {
+  applyOgpRewriteSuggestion,
+  getOgpRewriteSectionText,
+  isGroundedRewriteSectionSupportedForDocumentType,
+} from "@/document-ai/sections";
 import { DocumentFieldRewritePanel } from "@/components/product/document-area/document-field-rewrite-panel";
+import { DocumentTrustorRegistryPrefill } from "@/components/product/document-area/document-trustor-registry-prefill";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  applyTrustorRegistryPrefill,
+  type TrustorRegistryPrefillOption,
+} from "@/lib/trustors/registry-prefill";
+import {
   createOgpComplaintDraftAction,
   generateOgpComplaintBbcodeAction,
   publishOgpComplaintCreateAction,
   publishOgpComplaintUpdateAction,
   rewriteDocumentFieldAction,
+  rewriteGroundedDocumentFieldAction,
   saveDocumentDraftAction,
   updateDocumentPublicationMetadataAction,
 } from "@/server/actions/documents";
@@ -25,7 +35,14 @@ import type {
   OgpComplaintEvidenceRow,
   OgpComplaintTrustorSnapshot,
 } from "@/schemas/document";
-import type { DocumentFieldRewriteUsageMeta, OgpDocumentRewriteSectionKey } from "@/schemas/document-ai";
+import type {
+  DocumentFieldRewriteUsageMeta,
+  GroundedDocumentFieldRewriteUsageMeta,
+  GroundedDocumentRewriteMode,
+  GroundedDocumentReference,
+  GroundedOgpDocumentRewriteSectionKey,
+  OgpDocumentRewriteSectionKey,
+} from "@/schemas/document-ai";
 import type { ForumConnectionSummary } from "@/schemas/forum-integration";
 
 type SharedCharacterContext = {
@@ -50,6 +67,7 @@ type OgpComplaintDraftCreateClientProps = {
   };
   initialTitle: string;
   initialPayload: OgpComplaintDraftPayload;
+  trustorRegistry: TrustorRegistryPrefillOption[];
 };
 
 type OgpComplaintDraftEditorClientProps = {
@@ -78,6 +96,7 @@ type OgpComplaintDraftEditorClientProps = {
   status: "draft" | "generated" | "published";
   forumConnection: ForumConnectionSummary;
   updatedAt: string;
+  trustorRegistry: TrustorRegistryPrefillOption[];
 };
 
 type OgpComplaintEditorState = {
@@ -112,6 +131,17 @@ type OgpRewriteSuggestionState = {
   usageMeta: DocumentFieldRewriteUsageMeta;
 };
 
+type OgpGroundedRewriteSuggestionState = {
+  sectionKey: GroundedOgpDocumentRewriteSectionKey;
+  sectionLabel: string;
+  sourceText: string;
+  suggestionText: string;
+  basedOnUpdatedAt: string;
+  groundingMode: GroundedDocumentRewriteMode;
+  references: GroundedDocumentReference[];
+  usageMeta: GroundedDocumentFieldRewriteUsageMeta;
+};
+
 function createEditorState(input: {
   title: string;
   payload: OgpComplaintDraftPayload;
@@ -143,6 +173,17 @@ function areStatesEqual(left: OgpComplaintEditorState, right: OgpComplaintEditor
 
 function filingModeLabel(mode: OgpComplaintDraftPayload["filingMode"]) {
   return mode === "representative" ? "Representative" : "Self";
+}
+
+function formatGroundedSupportSummary(
+  groundingMode: GroundedDocumentRewriteMode,
+  references: GroundedDocumentReference[],
+) {
+  if (groundingMode === "law_grounded") {
+    return `Опора: подтверждённые нормы закона (${references.length}). Suggestion остаётся локальным и не сохраняется автоматически.`;
+  }
+
+  return `Опора: подтверждённые судебные прецеденты (${references.length}). Норма закона по retrieval не найдена, поэтому suggestion остаётся precedent-grounded.`;
 }
 
 function formatForumConnectionState(state: ForumConnectionSummary["state"]) {
@@ -459,6 +500,8 @@ function ComplaintFormFields(props: {
   representativeAllowed: boolean;
   characterLabel: string;
   profileComplete: boolean;
+  serverCode: string;
+  trustorRegistry: TrustorRegistryPrefillOption[];
   routeStatus?: string | null;
   draftStatusLabel?: string;
   updatedAtLabel?: string;
@@ -683,10 +726,27 @@ function ComplaintFormFields(props: {
           <div className="space-y-1">
             <h3 className="text-lg font-semibold">Trustor snapshot</h3>
             <ComplaintFieldHint>
-              На этом шаге trustor сохраняется прямо внутри документа как snapshot. Отдельный trustor
-              registry потом можно подключить отдельно, не ломая этот flow.
+              На этом шаге trustor сохраняется прямо внутри документа как snapshot. Registry
+              используется только как optional prefill и не создаёт live-связь с документом.
             </ComplaintFieldHint>
           </div>
+
+          <DocumentTrustorRegistryPrefill
+            items={props.trustorRegistry}
+            onApply={(trustor) => {
+              props.onStateChange({
+                ...props.state,
+                payload: {
+                  ...payload,
+                  trustorSnapshot: applyTrustorRegistryPrefill(
+                    trustor,
+                    payload.trustorSnapshot ?? buildEmptyTrustorSnapshot(),
+                  ),
+                },
+              });
+            }}
+            serverCode={props.serverCode}
+          />
 
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
@@ -865,7 +925,9 @@ export function OgpComplaintDraftCreateClient(props: OgpComplaintDraftCreateClie
         onStateChange={setEditorState}
         profileComplete={selectedCharacter.isProfileComplete}
         representativeAllowed={selectedCharacter.canUseRepresentative}
+        serverCode={props.server.code}
         state={editorState}
+        trustorRegistry={props.trustorRegistry}
       />
 
       <div className="flex flex-wrap gap-3">
@@ -919,6 +981,14 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
   } | null>(null);
   const [rewritePendingSectionKey, setRewritePendingSectionKey] =
     useState<OgpDocumentRewriteSectionKey | null>(null);
+  const [groundedRewriteSuggestion, setGroundedRewriteSuggestion] =
+    useState<OgpGroundedRewriteSuggestionState | null>(null);
+  const [groundedRewriteFeedback, setGroundedRewriteFeedback] = useState<{
+    sectionKey: GroundedOgpDocumentRewriteSectionKey;
+    message: string;
+  } | null>(null);
+  const [groundedRewritePendingSectionKey, setGroundedRewritePendingSectionKey] =
+    useState<GroundedOgpDocumentRewriteSectionKey | null>(null);
   const lastAutoSaveKeyRef = useRef<string | null>(null);
 
   const representativeAllowed = props.authorSnapshot.canUseRepresentative;
@@ -947,6 +1017,21 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
       setRewriteSuggestion(null);
     }
   }, [editorState.payload, rewriteSuggestion]);
+
+  useEffect(() => {
+    if (!groundedRewriteSuggestion) {
+      return;
+    }
+
+    const currentSectionText = getOgpRewriteSectionText(
+      editorState.payload,
+      groundedRewriteSuggestion.sectionKey,
+    );
+
+    if (currentSectionText !== groundedRewriteSuggestion.sourceText) {
+      setGroundedRewriteSuggestion(null);
+    }
+  }, [editorState.payload, groundedRewriteSuggestion]);
 
   const isDirty = !areStatesEqual(editorState, savedState);
   const canGenerateFromPersistedState = !isDirty;
@@ -1238,6 +1323,113 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
     }
   }, [rewriteSuggestion]);
 
+  const handleGroundedRewriteRequest = useCallback(
+    async (sectionKey: GroundedOgpDocumentRewriteSectionKey, sectionLabel: string) => {
+      if (isDirty) {
+        setGroundedRewriteFeedback({
+          sectionKey,
+          message:
+            "Сначала сохраните черновик. Grounded AI suggestion всегда строится из persisted документа.",
+        });
+        setGroundedRewriteSuggestion(null);
+        return;
+      }
+
+      setGroundedRewritePendingSectionKey(sectionKey);
+      setGroundedRewriteFeedback(null);
+
+      try {
+        const result = await rewriteGroundedDocumentFieldAction({
+          documentId: props.documentId,
+          sectionKey,
+        });
+
+        if (!result.ok) {
+          if (result.error === "rewrite-blocked") {
+            setGroundedRewriteFeedback({
+              sectionKey,
+              message: result.reasons.join(" "),
+            });
+            setGroundedRewriteSuggestion(null);
+            return;
+          }
+
+          if (result.error === "insufficient-corpus" || result.error === "rewrite-unavailable") {
+            setGroundedRewriteFeedback({
+              sectionKey,
+              message: result.message,
+            });
+            setGroundedRewriteSuggestion(null);
+            return;
+          }
+
+          setGroundedRewriteFeedback({
+            sectionKey,
+            message:
+              "Получить grounded AI-предложение не удалось. Проверь доступ к документу и попробуй ещё раз.",
+          });
+          setGroundedRewriteSuggestion(null);
+          return;
+        }
+
+        setRewriteSuggestion(null);
+        setGroundedRewriteSuggestion({
+          sectionKey,
+          sectionLabel,
+          sourceText: result.sourceText,
+          suggestionText: result.suggestionText,
+          basedOnUpdatedAt: result.basedOnUpdatedAt,
+          groundingMode: result.groundingMode,
+          references: result.references,
+          usageMeta: result.usageMeta,
+        });
+      } finally {
+        setGroundedRewritePendingSectionKey(null);
+      }
+    },
+    [isDirty, props.documentId],
+  );
+
+  const handleGroundedRewriteApply = useCallback(() => {
+    if (!groundedRewriteSuggestion) {
+      return;
+    }
+
+    setEditorState((current) => ({
+      ...current,
+      payload: applyOgpRewriteSuggestion(
+        current.payload,
+        groundedRewriteSuggestion.sectionKey,
+        groundedRewriteSuggestion.suggestionText,
+      ),
+    }));
+    setGroundedRewriteFeedback({
+      sectionKey: groundedRewriteSuggestion.sectionKey,
+      message:
+        "Grounded AI-предложение применено локально. Сохраните черновик или дождитесь autosave.",
+    });
+    setGroundedRewriteSuggestion(null);
+  }, [groundedRewriteSuggestion]);
+
+  const handleGroundedRewriteCopy = useCallback(async () => {
+    if (!groundedRewriteSuggestion) {
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(groundedRewriteSuggestion.suggestionText);
+      setGroundedRewriteFeedback({
+        sectionKey: groundedRewriteSuggestion.sectionKey,
+        message: "Grounded AI-предложение скопировано в буфер обмена.",
+      });
+    } catch {
+      setGroundedRewriteFeedback({
+        sectionKey: groundedRewriteSuggestion.sectionKey,
+        message: "Не удалось скопировать grounded AI-предложение автоматически.",
+      });
+    }
+  }, [groundedRewriteSuggestion]);
+
   const renderRewriteControls = useCallback(
     (input: {
       sectionKey: OgpDocumentRewriteSectionKey;
@@ -1247,12 +1439,21 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
         rewriteFeedback?.sectionKey === input.sectionKey ? rewriteFeedback.message : null;
       const activeSuggestion =
         rewriteSuggestion?.sectionKey === input.sectionKey ? rewriteSuggestion : null;
+      const supportsGrounded =
+        input.sectionKey === "violation_summary" &&
+        isGroundedRewriteSectionSupportedForDocumentType("ogp_complaint", input.sectionKey);
+      const groundedSectionFeedback =
+        groundedRewriteFeedback?.sectionKey === input.sectionKey
+          ? groundedRewriteFeedback.message
+          : null;
+      const activeGroundedSuggestion =
+        groundedRewriteSuggestion?.sectionKey === input.sectionKey ? groundedRewriteSuggestion : null;
 
       return (
         <div className="space-y-3">
           <div className="flex flex-wrap items-center gap-3">
             <Button
-              disabled={rewritePendingSectionKey !== null}
+              disabled={rewritePendingSectionKey !== null || groundedRewritePendingSectionKey !== null}
               onClick={() => {
                 void handleRewriteRequest(input.sectionKey, input.sectionLabel);
               }}
@@ -1261,11 +1462,31 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
             >
               {rewritePendingSectionKey === input.sectionKey ? "AI обрабатывает..." : "Улучшить текст"}
             </Button>
+            {supportsGrounded ? (
+              <Button
+                disabled={rewritePendingSectionKey !== null || groundedRewritePendingSectionKey !== null}
+                onClick={() => {
+                  void handleGroundedRewriteRequest(
+                    input.sectionKey as GroundedOgpDocumentRewriteSectionKey,
+                    input.sectionLabel,
+                  );
+                }}
+                type="button"
+                variant="secondary"
+              >
+                {groundedRewritePendingSectionKey === input.sectionKey
+                  ? "AI обрабатывает..."
+                  : "Улучшить с опорой на нормы"}
+              </Button>
+            ) : null}
             <span className="text-xs leading-5 text-[var(--muted)]">
               AI использует только последнее persisted состояние секции.
             </span>
           </div>
           {sectionFeedback ? <p className="text-sm text-[var(--muted)]">{sectionFeedback}</p> : null}
+          {groundedSectionFeedback ? (
+            <p className="text-sm text-[var(--muted)]">{groundedSectionFeedback}</p>
+          ) : null}
           {activeSuggestion ? (
             <DocumentFieldRewritePanel
               basedOnUpdatedAt={activeSuggestion.basedOnUpdatedAt}
@@ -1281,10 +1502,36 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
               suggestionText={activeSuggestion.suggestionText}
             />
           ) : null}
+          {activeGroundedSuggestion ? (
+            <DocumentFieldRewritePanel
+              basedOnUpdatedAt={activeGroundedSuggestion.basedOnUpdatedAt}
+              onApply={handleGroundedRewriteApply}
+              onCopy={() => {
+                void handleGroundedRewriteCopy();
+              }}
+              onDismiss={() => {
+                setGroundedRewriteSuggestion(null);
+              }}
+              sectionLabel={activeGroundedSuggestion.sectionLabel}
+              sourceText={activeGroundedSuggestion.sourceText}
+              suggestionText={activeGroundedSuggestion.suggestionText}
+              supportingSummary={formatGroundedSupportSummary(
+                activeGroundedSuggestion.groundingMode,
+                activeGroundedSuggestion.references,
+              )}
+              titlePrefix="Grounded AI-предложение"
+            />
+          ) : null}
         </div>
       );
     },
     [
+      groundedRewriteFeedback,
+      groundedRewritePendingSectionKey,
+      groundedRewriteSuggestion,
+      handleGroundedRewriteApply,
+      handleGroundedRewriteCopy,
+      handleGroundedRewriteRequest,
       handleRewriteApply,
       handleRewriteCopy,
       handleRewriteRequest,
@@ -1453,7 +1700,9 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
         profileComplete={props.authorSnapshot.isProfileComplete}
         representativeAllowed={representativeAllowed}
         renderRewriteControls={renderRewriteControls}
+        serverCode={props.server.code}
         state={editorState}
+        trustorRegistry={props.trustorRegistry}
         updatedAtLabel={new Date(savedUpdatedAt).toLocaleString("ru-RU")}
       />
 

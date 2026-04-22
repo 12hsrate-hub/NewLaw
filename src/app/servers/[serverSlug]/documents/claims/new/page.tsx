@@ -77,6 +77,7 @@ export default async function ClaimsNewPage({
       documentType={selectedSubtype}
       selectedCharacter={context.selectedCharacter}
       server={context.server}
+      trustorRegistry={context.trustorRegistry}
       status={resolvedSearchParams?.status}
     />
   );
