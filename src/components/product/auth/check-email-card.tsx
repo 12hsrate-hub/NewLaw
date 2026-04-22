@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { defaultAuthenticatedLandingPath } from "@/lib/auth/email-auth";
 import { Card } from "@/components/ui/card";
 
 type AuthEmailFlow = "signup" | "recovery";
@@ -42,7 +43,7 @@ const flowContent: Record<
 
 export function CheckEmailCard({
   flow,
-  nextPath = "/app",
+  nextPath = defaultAuthenticatedLandingPath,
 }: CheckEmailCardProps) {
   const content = flowContent[flow];
 

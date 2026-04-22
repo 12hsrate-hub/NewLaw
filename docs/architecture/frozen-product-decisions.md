@@ -51,6 +51,7 @@ Frozen decision — это правило, которое уже согласо�
 - `/servers/[serverSlug]/documents/templates/...`
 - `/internal/...` — internal/super_admin contour
 - `/app` — transitional state, а не target-default для новых модулей
+- default authenticated landing без explicit `next` = `/account`
 - для server-scoped модулей server context берётся из URL
 - last-used state допустим только как UX-default, но не как source of truth
 

@@ -112,12 +112,18 @@ type SignUpResult =
       status: "placeholder";
     };
 
+export const defaultAuthenticatedLandingPath = "/account";
+
 export function sanitizeNextPath(nextPath: string | null | undefined) {
-  if (typeof nextPath === "string" && nextPath.startsWith("/")) {
+  if (
+    typeof nextPath === "string" &&
+    nextPath.startsWith("/") &&
+    !nextPath.startsWith("//")
+  ) {
     return nextPath;
   }
 
-  return "/app";
+  return defaultAuthenticatedLandingPath;
 }
 
 export function buildStatusPath(pathname: string, status: string, extraParams?: Record<string, string>) {

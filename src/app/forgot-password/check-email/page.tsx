@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 
+import { defaultAuthenticatedLandingPath } from "@/lib/auth/email-auth";
 import { CheckEmailCard } from "@/components/product/auth/check-email-card";
 import { PageContainer } from "@/components/ui/page-container";
 import { getCurrentUser } from "@/server/auth/helpers";
@@ -8,7 +9,7 @@ export default async function ForgotPasswordCheckEmailPage() {
   const user = await getCurrentUser();
 
   if (user) {
-    redirect("/app");
+    redirect(defaultAuthenticatedLandingPath);
   }
 
   return (

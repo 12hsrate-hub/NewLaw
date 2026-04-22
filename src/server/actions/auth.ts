@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { ZodError } from "zod";
 
+import { defaultAuthenticatedLandingPath } from "@/lib/auth/email-auth";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { hasLiveSupabaseRuntimeEnv } from "@/schemas/env";
 import { signInWithIdentifierPassword } from "@/server/auth/sign-in";
@@ -28,7 +29,10 @@ export async function signInAction(
 ): Promise<SignInActionState> {
   const identifier = typeof formData.get("identifier") === "string" ? String(formData.get("identifier")) : "";
   const password = typeof formData.get("password") === "string" ? String(formData.get("password")) : "";
-  const nextPath = typeof formData.get("nextPath") === "string" ? String(formData.get("nextPath")) : "/app";
+  const nextPath =
+    typeof formData.get("nextPath") === "string"
+      ? String(formData.get("nextPath"))
+      : defaultAuthenticatedLandingPath;
 
   if (!hasLiveSupabaseRuntimeEnv(getRuntimeConfig())) {
     return {

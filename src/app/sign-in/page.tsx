@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 
+import { sanitizeNextPath } from "@/lib/auth/email-auth";
 import { SignInForm } from "@/components/product/auth/sign-in-form";
 import { PageContainer } from "@/components/ui/page-container";
 import { getCurrentUser } from "@/server/auth/helpers";
@@ -35,17 +36,13 @@ const statusMessages: Record<string, string> = {
 };
 
 export default async function SignInPage({ searchParams }: SignInPageProps) {
+  const resolvedSearchParams = await searchParams;
+  const nextPath = sanitizeNextPath(resolvedSearchParams?.next);
   const user = await getCurrentUser();
 
   if (user) {
-    redirect("/app");
+    redirect(nextPath);
   }
-
-  const resolvedSearchParams = await searchParams;
-  const nextPath =
-    typeof resolvedSearchParams?.next === "string" && resolvedSearchParams.next.startsWith("/")
-      ? resolvedSearchParams.next
-      : "/app";
   const statusMessage =
     resolvedSearchParams?.status && statusMessages[resolvedSearchParams.status]
       ? statusMessages[resolvedSearchParams.status]

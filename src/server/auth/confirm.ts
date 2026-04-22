@@ -1,6 +1,9 @@
 import type { EmailOtpType } from "@supabase/supabase-js";
 
-import { parseEmailConfirmationInput } from "@/lib/auth/email-auth";
+import {
+  defaultAuthenticatedLandingPath,
+  parseEmailConfirmationInput,
+} from "@/lib/auth/email-auth";
 import { createAuditLog } from "@/db/repositories/audit-log.repository";
 import {
   buildRecoveryExpiredPath,
@@ -109,7 +112,7 @@ export function readAuthConfirmQuery(url: URL) {
   return parseEmailConfirmationInput({
     tokenHash: url.searchParams.get("token_hash"),
     type: url.searchParams.get("type"),
-    nextPath: url.searchParams.get("next") ?? "/app",
+    nextPath: url.searchParams.get("next") ?? defaultAuthenticatedLandingPath,
   });
 }
 

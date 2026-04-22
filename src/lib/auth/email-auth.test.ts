@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   buildEmailConfirmationRedirectUrl,
+  sanitizeNextPath,
   signInWithEmailPassword,
   signUpWithEmailPassword,
 } from "@/lib/auth/email-auth";
@@ -23,10 +24,23 @@ const liveRuntimeConfig = {
 };
 
 describe("email auth helpers", () => {
+  it("использует /account как default nextPath для missing и unsafe значений", () => {
+    expect(sanitizeNextPath(undefined)).toBe("/account");
+    expect(sanitizeNextPath(null)).toBe("/account");
+    expect(sanitizeNextPath("//evil.example")).toBe("/account");
+    expect(sanitizeNextPath("javascript:alert(1)")).toBe("/account");
+  });
+
   it("строит redirect URL подтверждения email", () => {
     expect(
       buildEmailConfirmationRedirectUrl("https://lawyer5rp.ru", "/app"),
     ).toBe("https://lawyer5rp.ru/auth/confirm?next=%2Fapp");
+  });
+
+  it("строит redirect URL подтверждения email с /account как default target", () => {
+    expect(buildEmailConfirmationRedirectUrl("https://lawyer5rp.ru")).toBe(
+      "https://lawyer5rp.ru/auth/confirm?next=%2Faccount",
+    );
   });
 
   it("возвращает placeholder-результат для signup без боевых env", async () => {
@@ -85,6 +99,33 @@ describe("email auth helpers", () => {
           login: "lawyer_user",
         },
       },
+    });
+  });
+
+  it("после успешного signup без explicit next сохраняет /account как fallback target", async () => {
+    const client = createAuthClientMock();
+
+    client.auth.signUp.mockResolvedValue({
+      data: {
+        session: null,
+      },
+      error: null,
+    });
+
+    const result = await signUpWithEmailPassword(
+      client,
+      {
+        login: "lawyer_user",
+        email: "user@example.com",
+        password: "password123",
+      },
+      liveRuntimeConfig,
+      "https://lawyer5rp.ru",
+    );
+
+    expect(result).toEqual({
+      status: "confirmation-required",
+      checkEmailPath: "/sign-up/check-email?status=signup-sent&next=%2Faccount",
     });
   });
 
@@ -159,6 +200,28 @@ describe("email auth helpers", () => {
     expect(result).toEqual({
       status: "success",
       nextPath: "/app",
+    });
+  });
+
+  it("возвращает /account как fallback для sign-in без explicit next", async () => {
+    const client = createAuthClientMock();
+
+    client.auth.signInWithPassword.mockResolvedValue({
+      error: null,
+    });
+
+    const result = await signInWithEmailPassword(
+      client,
+      {
+        email: "user@example.com",
+        password: "password123",
+      },
+      liveRuntimeConfig,
+    );
+
+    expect(result).toEqual({
+      status: "success",
+      nextPath: "/account",
     });
   });
 });

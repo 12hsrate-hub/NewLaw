@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 
+import { sanitizeNextPath } from "@/lib/auth/email-auth";
 import { ForgotPasswordForm } from "@/components/product/auth/forgot-password-form";
 import { PageContainer } from "@/components/ui/page-container";
 import { getCurrentUser } from "@/server/auth/helpers";
@@ -13,17 +14,13 @@ type ForgotPasswordPageProps = {
 export default async function ForgotPasswordPage({
   searchParams,
 }: ForgotPasswordPageProps) {
+  const resolvedSearchParams = await searchParams;
+  const nextPath = sanitizeNextPath(resolvedSearchParams?.next);
   const user = await getCurrentUser();
 
   if (user) {
-    redirect("/app");
+    redirect(nextPath);
   }
-
-  const resolvedSearchParams = await searchParams;
-  const nextPath =
-    typeof resolvedSearchParams?.next === "string" && resolvedSearchParams.next.startsWith("/")
-      ? resolvedSearchParams.next
-      : "/app";
 
   return (
     <PageContainer>

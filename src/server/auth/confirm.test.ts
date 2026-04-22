@@ -31,6 +31,18 @@ describe("auth confirm helpers", () => {
     });
   });
 
+  it("использует /account как fallback next без явного next query", () => {
+    const parsed = readAuthConfirmQuery(
+      new URL("https://lawyer5rp.ru/auth/confirm?token_hash=abc123&type=email"),
+    );
+
+    expect(parsed).toEqual({
+      tokenHash: "abc123",
+      type: "email",
+      nextPath: "/account",
+    });
+  });
+
   it("подтверждает email и возвращает redirect в защищённую часть", async () => {
     const client = createConfirmClientMock();
 

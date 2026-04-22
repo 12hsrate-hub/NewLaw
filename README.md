@@ -457,7 +457,7 @@ Operational notes:
 {{ .SiteURL }}/auth/confirm
 ```
 
-В текущем коде `emailRedirectTo` дополнительно передаёт `next`, поэтому после подтверждения пользователь уходит в нужный внутренний маршрут, по умолчанию в `/app`.
+В текущем коде `emailRedirectTo` дополнительно передаёт `next`, поэтому после подтверждения пользователь уходит в нужный внутренний маршрут, по умолчанию в `/account`.
 Но сам факт настроенного `emailRedirectTo` ещё не делает почтовый контур production-ready без `Supabase Custom SMTP`.
 
 Базовые проверки:
@@ -496,7 +496,7 @@ pnpm prisma:generate
 2. Убедиться, что в `Supabase Dashboard` настроены `Confirm email`, `Site URL`, `Redirect URL`, email template и `Custom SMTP`.
 3. Запустить `pnpm dev`.
 4. Открыть `/sign-up`, зарегистрировать аккаунт с `login`, email и паролем, затем проверить экран “проверьте почту”.
-5. Перейти по ссылке из письма и убедиться, что после `/auth/confirm` открывается защищённая часть `/app`.
+5. Перейти по ссылке из письма и убедиться, что после `/auth/confirm` без explicit `next` открывается `/account`, а explicit deep link сохраняется.
 6. Открыть `/forgot-password`, указать email или `login` и убедиться, что показывается нейтральный экран проверки почты.
 7. Перейти по recovery-ссылке из письма, открыть `/reset-password`, задать новый пароль и убедиться, что после этого происходит redirect на `/sign-in?status=password-reset-success`.
 8. После входа открыть `/app/security`, сменить пароль и убедиться, что сессия завершается, а sign-in возвращает статус `password-changed-success`.

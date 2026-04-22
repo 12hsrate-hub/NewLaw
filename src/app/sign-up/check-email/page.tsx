@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 
+import { sanitizeNextPath } from "@/lib/auth/email-auth";
 import { CheckEmailCard } from "@/components/product/auth/check-email-card";
 import { PageContainer } from "@/components/ui/page-container";
 import { getCurrentUser } from "@/server/auth/helpers";
@@ -11,17 +12,13 @@ type CheckEmailPageProps = {
 };
 
 export default async function CheckEmailPage({ searchParams }: CheckEmailPageProps) {
+  const resolvedSearchParams = await searchParams;
+  const nextPath = sanitizeNextPath(resolvedSearchParams?.next);
   const user = await getCurrentUser();
 
   if (user) {
-    redirect("/app");
+    redirect(nextPath);
   }
-
-  const resolvedSearchParams = await searchParams;
-  const nextPath =
-    typeof resolvedSearchParams?.next === "string" && resolvedSearchParams.next.startsWith("/")
-      ? resolvedSearchParams.next
-      : "/app";
 
   return (
     <PageContainer>
