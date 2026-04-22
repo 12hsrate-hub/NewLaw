@@ -17,7 +17,7 @@ export function InternalHealthSection({
           <h2 className="text-3xl font-semibold">Corpus, Assistant and Runtime Summary</h2>
           <p className="max-w-3xl text-sm leading-6 text-[#6f6258]">
             Это internal-only compact summary по состоянию corpus, assistant availability и runtime
-            readiness. Здесь нет full diagnostics suite, release dashboard или raw log explorer.
+            readiness. Здесь нет расширенного operational UI или raw internal explorers.
           </p>
         </div>
       </Card>
