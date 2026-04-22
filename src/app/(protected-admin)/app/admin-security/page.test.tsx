@@ -10,11 +10,11 @@ vi.mock("@/server/auth/protected", () => ({
   requireSuperAdminAccountContext: vi.fn(),
 }));
 
-import AdminLawsPage from "@/app/(protected-admin)/app/admin-laws/page";
+import AdminSecurityPage from "@/app/(protected-admin)/app/admin-security/page";
 import { redirect } from "next/navigation";
 import { requireSuperAdminAccountContext } from "@/server/auth/protected";
 
-describe("/app/admin-laws", () => {
+describe("/app/admin-security", () => {
   it("ведет super_admin в новый internal contour", async () => {
     vi.mocked(requireSuperAdminAccountContext).mockResolvedValue({
       account: {
@@ -30,10 +30,10 @@ describe("/app/admin-laws", () => {
       },
     } as never);
 
-    await expect(AdminLawsPage()).rejects.toThrowError("redirect:/internal/laws");
+    await expect(AdminSecurityPage()).rejects.toThrowError("redirect:/internal/security");
 
-    expect(requireSuperAdminAccountContext).toHaveBeenCalledWith("/app/admin-laws");
-    expect(redirect).toHaveBeenCalledWith("/internal/laws");
+    expect(requireSuperAdminAccountContext).toHaveBeenCalledWith("/app/admin-security");
+    expect(redirect).toHaveBeenCalledWith("/internal/security");
   });
 
   it("сохраняет существующий denied flow, если helper отклоняет доступ", async () => {
@@ -41,10 +41,10 @@ describe("/app/admin-laws", () => {
       new Error("redirect:/app/security?denied=admin-access"),
     );
 
-    await expect(AdminLawsPage()).rejects.toThrowError(
+    await expect(AdminSecurityPage()).rejects.toThrowError(
       "redirect:/app/security?denied=admin-access",
     );
 
-    expect(redirect).not.toHaveBeenCalledWith("/internal/laws");
+    expect(redirect).not.toHaveBeenCalledWith("/internal/security");
   });
 });
