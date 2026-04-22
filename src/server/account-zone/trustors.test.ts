@@ -81,6 +81,9 @@ describe("account-zone trustors", () => {
     expect(result.serverGroups[0]?.server.code).toBe("blackberry");
     expect(result.serverGroups[0]?.isFocused).toBe(true);
     expect(result.serverGroups[0]?.focusHref).toBe("/account/trustors?server=blackberry");
+    expect(result.serverGroups[0]?.createBridgeHref).toBe(
+      "/account/trustors?server=blackberry#create-trustor-blackberry",
+    );
     expect(result.serverGroups[0]?.trustorCount).toBe(2);
     expect(result.serverGroups[0]?.trustors[0]?.isRepresentativeReady).toBe(true);
     expect(result.serverGroups[0]?.trustors[1]?.isRepresentativeReady).toBe(false);

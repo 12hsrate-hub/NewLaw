@@ -27,6 +27,7 @@ describe("/account/trustors page", () => {
           },
           trustorCount: 1,
           focusHref: "/account/trustors?server=blackberry",
+          createBridgeHref: "/account/trustors?server=blackberry#create-trustor-blackberry",
           isFocused: true,
           trustors: [
             {
@@ -46,6 +47,7 @@ describe("/account/trustors page", () => {
       await AccountTrustorsPage({
         searchParams: Promise.resolve({
           server: "blackberry",
+          status: "trustor-created",
         }),
       }),
     );
@@ -56,6 +58,7 @@ describe("/account/trustors page", () => {
     });
     expect(html).toContain("Доверители аккаунта");
     expect(html).toContain("Blackberry");
+    expect(html).toContain("Trustor card сохранена");
   });
 
   it("следует auth guard и пробрасывает redirect при отсутствии доступа", async () => {

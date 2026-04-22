@@ -6,6 +6,7 @@ export const dynamic = "force-dynamic";
 type AccountTrustorsPageProps = {
   searchParams?: Promise<{
     server?: string;
+    status?: string;
   }>;
 };
 
@@ -18,5 +19,10 @@ export default async function AccountTrustorsPage({
     focusedServerCode: resolvedSearchParams?.server ?? null,
   });
 
-  return <AccountTrustorsOverview context={context} />;
+  return (
+    <AccountTrustorsOverview
+      context={context}
+      status={resolvedSearchParams?.status ?? null}
+    />
+  );
 }

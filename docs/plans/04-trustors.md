@@ -11,7 +11,9 @@ Standalone trustors registry не является обязательной ча
 - `trustor snapshots are enough for MVP`
 - standalone registry остаётся optional convenience line
 - если later модуль всё же появится, его target route = `/account/trustors`
-- первый post-MVP code-step уже реализован как registry foundation + owner-only grouped overview route без CRUD и без document integration
+- текущий реализованный post-MVP step = inline create/edit/soft-delete UX внутри `/account/trustors`
+- document-side choose-from-registry остаётся отдельным следующим шагом и не должен смешиваться с registry CRUD
+- registry CRUD не должен добавлять `trustorId` dependency в `documents` и не должен менять snapshot-only document model
 
 ## Цель блока
 
@@ -42,20 +44,25 @@ Standalone trustors registry не является обязательной ча
 
 ## Current post-MVP shape
 
-На текущем этапе уже существует только foundation-слой:
+На текущем этапе trusted baseline для registry такой:
 
 - отдельная `Trustor` entity как reusable account-owned и server-scoped registry record
 - owner-only route `/account/trustors` внутри existing account zone
 - grouped-by-server overview с честными empty states и `?server=<serverCode>` focus pattern
+- inline create/edit entry points внутри server groups
+- safe soft delete через `deletedAt` без hard delete
 - readiness badge считается из `fullName + passportNumber`
 - soft-deleted trustors скрыты из default overview
 
-При этом по-прежнему не реализованы:
+Следующий отдельный post-MVP step может later добавить:
 
-- create/edit UX
-- soft delete UI
-- choose-from-registry inside documents
+- optional choose-from-registry prefill inside OGP/claims
+
+При этом по-прежнему не должны появиться:
+
+- `trustorId` в document model
 - save-back из document snapshot в registry
+- live dependency уже созданных документов от registry
 
 ## Future shape, если registry later понадобится дальше
 
@@ -94,3 +101,4 @@ Standalone trustors registry не является обязательной ча
 - trustor snapshots признаны достаточными для MVP
 - standalone registry описан как optional convenience line
 - target route для future registry зафиксирован как `/account/trustors`
+- registry CRUD внутри `/account/trustors` работает отдельно от document model

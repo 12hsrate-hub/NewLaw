@@ -25,6 +25,7 @@ describe("account trustors overview", () => {
               },
               trustorCount: 2,
               focusHref: "/account/trustors?server=blackberry",
+              createBridgeHref: "/account/trustors?server=blackberry#create-trustor-blackberry",
               isFocused: true,
               trustors: [
                 {
@@ -54,16 +55,23 @@ describe("account trustors overview", () => {
               },
               trustorCount: 0,
               focusHref: "/account/trustors?server=rainbow",
+              createBridgeHref: "/account/trustors?server=rainbow#create-trustor-rainbow",
               isFocused: false,
               trustors: [],
             },
           ],
         },
+        status: "trustor-updated",
       }),
     );
 
     expect(html).toContain("Доверители аккаунта");
     expect(html).toContain("Route focus применён для сервера");
+    expect(html).toContain("Создать trustor card");
+    expect(html).toContain("Создать trustor card на этом сервере");
+    expect(html).toContain("Редактировать trustor card");
+    expect(html).toContain("Мягко удалить trustor card");
+    expect(html).toContain("Изменения trustor card сохранены");
     expect(html).toContain("Готов для representative flow");
     expect(html).toContain("Нужны обязательные поля");
     expect(html).toContain("Проверенный представитель");

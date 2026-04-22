@@ -4,11 +4,26 @@ import type {
   AccountTrustorsOverviewContext,
   AccountTrustorsServerGroup,
 } from "@/server/account-zone/trustors";
+import { softDeleteTrustorAction } from "@/server/actions/trustors";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { TrustorFormCard } from "@/components/product/trustors/trustor-form-card";
+
+const statusLabels: Record<string, string> = {
+  "trustor-created": "Trustor card сохранена в account zone.",
+  "trustor-updated": "Изменения trustor card сохранены.",
+  "trustor-deleted": "Trustor card мягко удалена и скрыта из default overview.",
+  "trustor-not-found": "Trustor card для редактирования или удаления не найдена.",
+  "trustor-create-error": "Не удалось сохранить trustor card. Проверь данные и попробуй ещё раз.",
+  "trustor-update-error": "Не удалось сохранить изменения trustor card. Попробуй ещё раз.",
+  "trustor-delete-error": "Не удалось мягко удалить trustor card. Попробуй ещё раз.",
+};
 
 function TrustorGroup(props: { group: AccountTrustorsServerGroup }) {
   const { group } = props;
+  const createDetailsId = `create-trustor-${group.server.code}`;
+  const accountRedirectTo = group.focusHref;
 
   return (
     <Card className={`space-y-4 ${group.isFocused ? "border-[var(--accent)]" : ""}`}>
@@ -29,25 +44,48 @@ function TrustorGroup(props: { group: AccountTrustorsServerGroup }) {
           </p>
         </div>
 
-        {!group.isFocused ? (
-          <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap gap-3">
+          {!group.isFocused ? (
             <Link
               className="inline-flex items-center rounded-2xl border border-[var(--border)] bg-white/70 px-4 py-2 text-sm font-medium transition hover:bg-white"
               href={group.focusHref}
             >
               Сфокусировать группу
             </Link>
-          </div>
-        ) : null}
+          ) : null}
+          <Link
+            className="inline-flex items-center rounded-2xl border border-[var(--border)] bg-white/70 px-4 py-2 text-sm font-medium transition hover:bg-white"
+            href={group.createBridgeHref}
+          >
+            Создать trustor card
+          </Link>
+        </div>
       </div>
+
+      <details
+        className="rounded-2xl border border-[var(--border)] bg-white/40 p-4"
+        id={createDetailsId}
+        open={group.isFocused}
+      >
+        <summary className="cursor-pointer text-sm font-medium">
+          Создать trustor card на этом сервере
+        </summary>
+        <div className="mt-4">
+          <TrustorFormCard
+            mode="create"
+            redirectTo={accountRedirectTo}
+            serverId={group.server.id}
+          />
+        </div>
+      </details>
 
       {!group.trustors.length ? (
         <div className="space-y-3 rounded-2xl border border-dashed border-[var(--border)] bg-white/50 p-4">
           <h3 className="text-lg font-semibold">Карточек доверителей пока нет</h3>
           <p className="text-sm leading-6 text-[var(--muted)]">
-            Registry foundation уже готов, но reusable trustor cards на этом сервере пока не
-            сохранены. Existing OGP/claims flows по-прежнему используют inline snapshot внутри
-            документа как обязательный fallback.
+            Registry route уже готов. Здесь можно создавать reusable trustor cards по серверу, но
+            эта account-zone страница не становится document workflow hub и не трогает existing
+            snapshots в уже созданных документах.
           </p>
         </div>
       ) : (
@@ -85,6 +123,34 @@ function TrustorGroup(props: { group: AccountTrustorsServerGroup }) {
                   </p>
                 ) : null}
               </div>
+
+              <details className="rounded-2xl border border-[var(--border)] bg-white/50 p-4">
+                <summary className="cursor-pointer text-sm font-medium">
+                  Редактировать trustor card
+                </summary>
+                <div className="mt-4 space-y-4">
+                  <TrustorFormCard
+                    defaultValues={{
+                      trustorId: trustor.id,
+                      fullName: trustor.fullName,
+                      passportNumber: trustor.passportNumber,
+                      phone: trustor.phone,
+                      note: trustor.note,
+                    }}
+                    mode="edit"
+                    redirectTo={accountRedirectTo}
+                    serverId={group.server.id}
+                  />
+
+                  <form action={softDeleteTrustorAction}>
+                    <input name="redirectTo" type="hidden" value={accountRedirectTo} />
+                    <input name="trustorId" type="hidden" value={trustor.id} />
+                    <Button type="submit" variant="secondary">
+                      Мягко удалить trustor card
+                    </Button>
+                  </form>
+                </div>
+              </details>
             </Card>
           ))}
         </div>
@@ -95,6 +161,7 @@ function TrustorGroup(props: { group: AccountTrustorsServerGroup }) {
 
 export function AccountTrustorsOverview(props: {
   context: AccountTrustorsOverviewContext;
+  status?: string | null;
 }) {
   return (
     <section className="space-y-6">
@@ -118,6 +185,12 @@ export function AccountTrustorsOverview(props: {
               {props.context.focusedServerCode}
             </span>
             . Это только account-zone focus pattern для grouped overview.
+          </p>
+        ) : null}
+
+        {props.status && statusLabels[props.status] ? (
+          <p className="rounded-2xl border border-[var(--border)] bg-white/60 px-4 py-3 text-sm leading-6 text-[var(--foreground)]">
+            {statusLabels[props.status]}
           </p>
         ) : null}
       </Card>

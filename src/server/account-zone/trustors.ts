@@ -1,6 +1,9 @@
 import { listTrustorsForAccount } from "@/db/repositories/trustor.repository";
 import { getServers } from "@/db/repositories/server.repository";
-import { buildAccountTrustorsFocusHref } from "@/lib/routes/account-trustors";
+import {
+  buildAccountTrustorsCreateHref,
+  buildAccountTrustorsFocusHref,
+} from "@/lib/routes/account-trustors";
 import { requireProtectedAccountContext } from "@/server/auth/protected";
 
 type AccountTrustorsViewerSummary = {
@@ -27,6 +30,7 @@ export type AccountTrustorsServerGroup = {
   };
   trustorCount: number;
   focusHref: string;
+  createBridgeHref: string;
   isFocused: boolean;
   trustors: AccountTrustorSummary[];
 };
@@ -80,6 +84,7 @@ export async function getAccountTrustorsOverviewContext(input: {
       },
       trustorCount: serverTrustors.length,
       focusHref: buildAccountTrustorsFocusHref(server.code),
+      createBridgeHref: buildAccountTrustorsCreateHref(server.code),
       isFocused: focusedServerCode === server.code.toLowerCase(),
       trustors: serverTrustors.map((trustor) => ({
         id: trustor.id,
