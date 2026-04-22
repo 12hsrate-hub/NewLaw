@@ -508,8 +508,10 @@ describe("document area context", () => {
     }
   });
 
-  it("строит временный bridge path для no-characters create flow", () => {
-    expect(buildCharactersBridgePath()).toBe("/app");
+  it("строит server-aware bridge path для no-characters create flow", () => {
+    expect(buildCharactersBridgePath("blackberry")).toBe(
+      "/account/characters?server=blackberry#create-character-blackberry",
+    );
   });
 
   it("строит /account/documents с persisted claims рядом с OGP", async () => {

@@ -67,15 +67,9 @@ function CharacterGroup(props: { group: AccountCharactersServerGroup }) {
         <div className="flex flex-wrap gap-3">
           <Link
             className="inline-flex items-center rounded-2xl border border-[var(--border)] bg-white/70 px-4 py-2 text-sm font-medium transition hover:bg-white"
-            href={`${group.focusHref}#${createDetailsId}`}
-          >
-            Создать персонажа
-          </Link>
-          <Link
-            className="inline-flex items-center rounded-2xl border border-[var(--border)] bg-white/70 px-4 py-2 text-sm font-medium transition hover:bg-white"
             href={group.createBridgeHref}
           >
-            Transitional `/app`
+            Создать персонажа
           </Link>
         </div>
       </div>
@@ -101,8 +95,8 @@ function CharacterGroup(props: { group: AccountCharactersServerGroup }) {
         <div className="space-y-3 rounded-2xl border border-dashed border-[var(--border)] bg-white/50 p-4">
           <h3 className="text-lg font-semibold">Персонажей пока нет</h3>
           <p className="text-sm leading-6 text-[var(--muted)]">
-            Server group уже видима в account zone. Персонажа можно создать прямо здесь, а
-            transitional `/app` остаётся только запасным bridge без route migration.
+            Server group уже видима в account zone. Focused bridge и inline form ведут прямо к
+            созданию персонажа в нужной server group без возврата в generic `/app`.
           </p>
         </div>
       ) : (

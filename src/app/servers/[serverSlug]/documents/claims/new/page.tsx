@@ -52,7 +52,7 @@ export default async function ClaimsNewPage({
   if (context.status === "no_characters") {
     return (
       <DocumentNoCharactersState
-        bridgeHref={buildCharactersBridgePath()}
+        bridgeHref={buildCharactersBridgePath(context.server.code)}
         server={context.server}
       />
     );

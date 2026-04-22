@@ -104,11 +104,12 @@ function AssistantCard(props: {
 }
 
 function DocumentsCard(props: {
+  serverCode: string;
   serverSlug: string;
   availability: ReturnType<typeof resolveDocumentsAvailabilityUi>;
   state: "available" | "needs_character" | "unavailable";
 }) {
-  const bridgeHref = buildCharactersBridgePath();
+  const bridgeHref = buildCharactersBridgePath(props.serverCode);
 
   return (
     <Card className="space-y-4">
@@ -126,7 +127,7 @@ function DocumentsCard(props: {
             <span className="inline-flex items-center rounded-2xl border border-dashed border-[var(--border)] px-4 py-2.5 text-sm font-medium text-[var(--muted)]">
               Documents пока недоступны
             </span>
-            <HubLink href={bridgeHref}>Временно открыть управление персонажами</HubLink>
+            <HubLink href={bridgeHref}>Создать персонажа на этом сервере</HubLink>
           </>
         ) : (
           <span className="inline-flex items-center rounded-2xl border border-dashed border-[var(--border)] px-4 py-2.5 text-sm font-medium text-[var(--muted)]">
@@ -202,6 +203,7 @@ export function AuthenticatedServerHub(props: {
         />
         <DocumentsCard
           availability={documentsUi}
+          serverCode={props.context.server.code}
           serverSlug={props.context.server.slug}
           state={props.context.documentsAvailabilityForViewer}
         />

@@ -158,12 +158,12 @@ export function DocumentNoCharactersState(props: {
           открыть. Это честный server-scoped empty state, а не deny или 404.
         </p>
         <p className="text-sm leading-6 text-[var(--muted)]">
-          Временный bridge сейчас ведёт в текущий transitional characters flow. Это не target
-          architecture document area, а только временная точка входа, пока `/account/characters`
-          ещё не вынесен отдельно.
+          Focused bridge ведёт в `/account/characters` сразу к группе нужного сервера и якорю
+          создания персонажа. Это не меняет server-scoped document area semantics, а только
+          убирает generic вход через transitional `/app`.
         </p>
         <div className="flex flex-wrap gap-3">
-          <FoundationLink href={props.bridgeHref}>Временно открыть управление персонажами</FoundationLink>
+          <FoundationLink href={props.bridgeHref}>Создать персонажа на этом сервере</FoundationLink>
           <FoundationLink href="/account/documents">Вернуться к обзору документов</FoundationLink>
         </div>
       </Card>

@@ -2,12 +2,15 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@/server/document-area/context", () => ({
-  buildCharactersBridgePath: vi.fn(() => "/app"),
+  buildCharactersBridgePath: vi.fn((serverCode: string) => `/account/characters?server=${serverCode}#create-character-${serverCode}`),
   getServerDocumentsRouteContext: vi.fn(),
 }));
 
 import ServerDocumentsPage from "@/app/servers/[serverSlug]/documents/page";
-import { getServerDocumentsRouteContext } from "@/server/document-area/context";
+import {
+  buildCharactersBridgePath,
+  getServerDocumentsRouteContext,
+} from "@/server/document-area/context";
 
 describe("/servers/[serverSlug]/documents page", () => {
   it("использует serverSlug как source of truth и рендерит server-scoped hub", async () => {
@@ -94,7 +97,8 @@ describe("/servers/[serverSlug]/documents page", () => {
     );
 
     expect(html).toContain("нет персонажей");
-    expect(html).toContain("/app");
+    expect(html).toContain("/account/characters?server=blackberry#create-character-blackberry");
+    expect(buildCharactersBridgePath).toHaveBeenCalledWith("blackberry");
   });
 
   it("показывает честный not-found state для неизвестного serverSlug", async () => {

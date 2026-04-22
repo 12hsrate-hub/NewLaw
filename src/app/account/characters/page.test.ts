@@ -33,7 +33,7 @@ describe("/account/characters page", () => {
           characterCount: 1,
           defaultCharacterId: "character-1",
           defaultCharacterLabel: "Игорь Юристов (AA-001)",
-          createBridgeHref: "/app",
+          createBridgeHref: "/account/characters?server=blackberry#create-character-blackberry",
           focusHref: "/account/characters?server=blackberry",
           isFocused: true,
           characters: [
@@ -63,7 +63,7 @@ describe("/account/characters page", () => {
           characterCount: 0,
           defaultCharacterId: null,
           defaultCharacterLabel: null,
-          createBridgeHref: "/app",
+          createBridgeHref: "/account/characters?server=rainbow#create-character-rainbow",
           focusHref: "/account/characters?server=rainbow",
           isFocused: false,
           characters: [],
@@ -92,7 +92,7 @@ describe("/account/characters page", () => {
     expect(html).toContain("Карточка персонажа сохранена в account zone");
     expect(html).toContain("Создать персонажа на этом сервере");
     expect(html).toContain("И. Юристов");
-    expect(html).toContain("Transitional `/app`");
+    expect(html).toContain('/account/characters?server=blackberry#create-character-blackberry');
     expect(html).not.toContain("OGP complaints");
     expect(html).not.toContain("Claims");
   });

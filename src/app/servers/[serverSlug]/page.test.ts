@@ -142,7 +142,7 @@ describe("/servers/[serverSlug] page", () => {
 
     expect(html).toContain("/assistant/blackberry");
     expect(html).toContain("Нужен персонаж");
-    expect(html).toContain("/app");
+    expect(html).toContain("/account/characters?server=blackberry#create-character-blackberry");
     expect(html).not.toContain("/servers/blackberry/documents");
   });
 

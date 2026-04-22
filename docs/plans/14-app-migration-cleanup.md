@@ -8,7 +8,8 @@
 
 - `14.1` — архитектурный cleanup plan зафиксирован
 - `14.2` — safe auth/default landing cleanup выполнен
-- дальнейшие шаги по character bridges, `/app/security` migration и global cleanup ещё не начаты
+- `14.3` — character bridge migration off `/app` выполнен
+- `/app/security` migration и global cleanup ещё не начаты
 
 ## Цель блока
 
@@ -47,11 +48,20 @@
   - `/app`, если это явно переданный bookmark/deep link
 - `/app` остаётся рабочим transitional surface, но больше не используется как default landing
 
+## Что зафиксировано после 14.3
+
+- `needs_character` bridges больше не ведут в generic `/app`
+- canonical focused bridge для server-scoped create-entry теперь такой:
+  - `/account/characters?server=<serverCode>#create-character-<serverCode>`
+- server hub и document-area empty states ведут в account zone сразу к нужной server group
+- `/account/characters` остаётся profile-management зоной и не превращается в server workflow hub
+- `/app/security` и global `/app` cleanup по-прежнему не входят в этот шаг
+
 ## Следующие code-steps
 
 ### 14.3 — Character bridge migration off `/app`
 
-Что должно войти:
+Что вошло:
 
 - перевод `needs_character` bridges с `/app` на focused `/account/characters`
 - server-aware bridge target с `?server=<code>` и focused create entry

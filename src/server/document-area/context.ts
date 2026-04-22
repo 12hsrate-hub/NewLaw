@@ -17,6 +17,7 @@ import {
   readOgpComplaintDraftPayload,
 } from "@/server/document-area/persistence";
 import { readClaimsGeneratedArtifact } from "@/server/document-area/claims-rendering";
+import { buildAccountCharactersBridgeHref } from "@/lib/routes/account-characters";
 import type {
   ClaimDocumentType,
   ClaimsDraftPayload,
@@ -917,6 +918,6 @@ export async function getOgpComplaintEditorRouteContext(input: {
   };
 }
 
-export function buildCharactersBridgePath() {
-  return "/app";
+export function buildCharactersBridgePath(serverCode: string) {
+  return buildAccountCharactersBridgeHref(serverCode);
 }

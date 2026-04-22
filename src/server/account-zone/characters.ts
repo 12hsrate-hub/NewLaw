@@ -1,6 +1,10 @@
 import { getServers } from "@/db/repositories/server.repository";
 import { listCharactersForAccount } from "@/db/repositories/character.repository";
 import { getUserServerStates } from "@/db/repositories/user-server-state.repository";
+import {
+  buildAccountCharactersBridgeHref,
+  buildAccountCharactersFocusHref,
+} from "@/lib/routes/account-characters";
 import { requireProtectedAccountContext } from "@/server/auth/protected";
 
 type AccountCharactersViewerSummary = {
@@ -166,8 +170,8 @@ export async function getAccountCharactersOverviewContext(input: {
       defaultCharacterLabel: defaultCharacter
         ? `${defaultCharacter.fullName} (${defaultCharacter.passportNumber})`
         : null,
-      createBridgeHref: "/app",
-      focusHref: `/account/characters?server=${encodeURIComponent(server.code)}`,
+      createBridgeHref: buildAccountCharactersBridgeHref(server.code),
+      focusHref: buildAccountCharactersFocusHref(server.code),
       isFocused: focusedServerCode === server.code.toLowerCase(),
       characters: serverCharacters.map((character) => {
         const profileDataSummary = buildCompactProfileSummary(character.profileDataJson);
