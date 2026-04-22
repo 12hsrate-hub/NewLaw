@@ -72,6 +72,12 @@
 - AI-сценарий улучшения описания для адвоката работает только с сервера и пишет лог в `ai_requests`.
 - Production deployment повторяем и документирован.
 
+Отдельно зафиксировано:
+
+- live forum automation не является обязательным критерием готовности MVP
+- реальная forum session / cookies не считаются обязательным пользовательским вводом для завершения OGP сценария
+- manual `publication_url` остаётся максимум optional metadata, а не обязательной пользовательской целью
+
 ## Что не должно случиться по пути
 
 - разрастание в monorepo
@@ -93,3 +99,10 @@
 - Базовые справочники и первый рабочий сервер поднимаются из репозитория.
 - Шаблоны AI prompt’ов хранятся в коде и репозитории, а не в БД.
 - Baseline проверок и дебага включает `GitHub Actions`, `pnpm lint`, `pnpm typecheck`, `pnpm prisma validate`, `pnpm prisma generate`, `Playwright` smoke tests, `trace`, `HTML report`, `/api/health`, runtime logs, `audit_logs`, `ai_requests`.
+
+## Product note по forum automation
+
+- техническая линия `09.x` не считается обязательной частью пользовательского MVP
+- её нужно трактовать как временную optional integration, а не как долгосрочную продуктовую опору
+- после MVP forum automation должна быть вырезана полностью
+- если позже снова понадобится forum integration, это должно оформляться как новое отдельное product decision

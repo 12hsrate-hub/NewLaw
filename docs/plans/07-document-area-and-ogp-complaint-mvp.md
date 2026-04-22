@@ -97,12 +97,25 @@ Create/edit contract:
 - generate `BBCode`
 - `publication_url` и manual forum sync metadata только для `ogp_complaint`
 
+Новая product policy для OGP:
+
+- OGP complaint MVP считается полноценным и без live forum automation
+- обязательный пользовательский путь заканчивается корректным persisted документом и generation result
+- manual `publication_url` может оставаться только как optional metadata / fallback
+- real forum session / cookies не считаются обязательным пользовательским вводом
+- live publish / update against `forum.gta5rp.com` не является blocking acceptance для этого блока
+
 Что не входит в этот блок сразу:
 
 - claims implementation
 - template documents module
 - forum automation beyond agreed MVP flow
 - precedents-aware document logic
+
+Post-MVP note:
+
+- даже если техническая линия forum automation уже существует, она не должна считаться долгосрочной продуктовой опорой
+- после MVP эта capability должна быть удалена, а не развиваться дальше по умолчанию
 
 ## Подшаги
 
