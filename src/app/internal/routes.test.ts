@@ -14,6 +14,10 @@ vi.mock("@/server/admin-security/account-search", () => ({
   findAccountForAdminSearch: vi.fn(),
 }));
 
+vi.mock("@/server/internal/health", () => ({
+  getInternalHealthContext: vi.fn(),
+}));
+
 import InternalHealthPage from "@/app/internal/health/page";
 import InternalLawsPage from "@/app/internal/laws/page";
 import InternalPrecedentsPage from "@/app/internal/precedents/page";
@@ -24,6 +28,7 @@ import {
   getInternalLawCorpusPageData,
   getInternalPrecedentCorpusPageData,
 } from "@/server/internal/corpus";
+import { getInternalHealthContext } from "@/server/internal/health";
 
 describe("internal target route skeletons", () => {
   beforeEach(() => {
@@ -66,6 +71,35 @@ describe("internal target route skeletons", () => {
       account: null,
       message: null,
     });
+    vi.mocked(getInternalHealthContext).mockResolvedValue({
+      runtime: {
+        status: "ok",
+        service: "lawyer5rp-mvp",
+        environment: "test",
+        timestamp: "2026-04-22T12:00:00.000Z",
+        checks: {
+          api: "ok",
+          prisma: "prepared",
+          database: "not-configured-yet",
+        },
+      },
+      serverSummaries: [
+        {
+          id: "server-1",
+          code: "blackberry",
+          slug: "blackberry",
+          name: "Blackberry",
+          assistantStatus: "current_corpus_ready",
+          currentPrimaryLawCount: 1,
+          enabledLawSourceCount: 1,
+          totalLawSourceCount: 1,
+          precedentTopicCount: 1,
+          currentPrecedentCount: 1,
+          warnings: [],
+        },
+      ],
+      warnings: [],
+    });
   });
 
   it("рендерит /internal/laws как target corpus section внутри /internal contour", async () => {
@@ -107,10 +141,11 @@ describe("internal target route skeletons", () => {
     expect(html).toContain("Super Admin");
   });
 
-  it("рендерит /internal/health как skeleton route", async () => {
+  it("рендерит /internal/health как real internal section внутри /internal contour", async () => {
     const html = renderToStaticMarkup(await InternalHealthPage());
 
-    expect(html).toContain("Health");
-    expect(html).toContain("full diagnostics suite");
+    expect(html).toContain("Application Health");
+    expect(html).toContain("Corpus, Assistant and Runtime Summary");
+    expect(html).toContain("Blackberry");
   });
 });
