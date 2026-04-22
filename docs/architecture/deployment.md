@@ -170,6 +170,10 @@ Operational note:
 
 Детальный порядок и checklist находятся в [docs/ops/release-runbook.md](../ops/release-runbook.md).
 
+Канонический server-side entry point для этого порядка:
+
+- `scripts/deploy-release.sh <target-sha-or-ref>`
+
 ## Health и наблюдаемость
 
 Для baseline production эксплуатации уже должны существовать:

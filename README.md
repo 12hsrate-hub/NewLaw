@@ -387,6 +387,7 @@ Operational notes:
 - локально вместо сырого `pnpm prisma generate` лучше использовать `pnpm prisma:generate`: этот script уже умеет автоматически повторить генерацию на Windows, если Prisma один раз упёрлась в типичный `EPERM` на rename engine file.
 - если `pnpm prisma generate` всё же запускается вручную и падает на `EPERM`, это обычно не продуктовая проблема, а Windows file-locking; повторный запуск или `pnpm prisma:generate` обычно снимают проблему.
 - в production `.env.production` переменная `DIRECT_URL` должна существовать заранее и не должна оставаться неявным fallback из deploy-команды.
+- канонический production deploy sequence теперь реализован отдельным server-side script: `scripts/deploy-release.sh <target-sha-or-ref>`.
 
 ## Ручная настройка Supabase Auth
 

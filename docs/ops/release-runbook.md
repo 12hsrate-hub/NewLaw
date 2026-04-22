@@ -15,6 +15,10 @@
 
 `docs/prod-access.md` остаётся только access/bootstrap note и не должен считаться основным release-процедурным документом.
 
+Каноническая server-side реализация этого порядка находится в:
+
+- `scripts/deploy-release.sh <target-sha-or-ref>`
+
 ## Canonical runtime model
 
 Для MVP production runtime считается таким:
@@ -87,6 +91,7 @@ Interpretation:
 
 - target SHA уже должен быть в `main`
 - production source checkout в `/srv/newlaw/app/repo` должен быть обновлён именно до этого SHA
+- канонический deterministic entry point для этого шага: `scripts/deploy-release.sh <target-sha-or-ref>`
 
 ### 3. Create fresh release
 
