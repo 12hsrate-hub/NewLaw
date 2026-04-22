@@ -18,6 +18,23 @@ export async function listTrustorsForAccount(accountId: string, db: PrismaLike =
   });
 }
 
+export async function listTrustorsForAccountAndServer(
+  input: {
+    accountId: string;
+    serverId: string;
+  },
+  db: PrismaLike = prisma,
+) {
+  return db.trustor.findMany({
+    where: {
+      accountId: input.accountId,
+      serverId: input.serverId,
+      deletedAt: null,
+    },
+    orderBy: [{ createdAt: "asc" }],
+  });
+}
+
 export async function getTrustorByIdForAccount(
   input: {
     accountId: string;
