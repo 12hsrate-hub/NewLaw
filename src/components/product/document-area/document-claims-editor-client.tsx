@@ -1,7 +1,9 @@
 "use client";
 
-import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { startTransition, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
+import { applyClaimsRewriteSuggestion, getClaimsRewriteSectionText } from "@/document-ai/sections";
+import { DocumentFieldRewritePanel } from "@/components/product/document-area/document-field-rewrite-panel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,6 +13,7 @@ import {
   createClaimDraftAction,
   generateClaimsStructuredCheckpointAction,
   generateClaimsStructuredPreviewAction,
+  rewriteDocumentFieldAction,
   saveDocumentDraftAction,
 } from "@/server/actions/documents";
 import type {
@@ -21,6 +24,7 @@ import type {
   OgpComplaintEvidenceRow,
   OgpComplaintTrustorSnapshot,
 } from "@/schemas/document";
+import type { ClaimsDocumentRewriteSectionKey, DocumentFieldRewriteUsageMeta } from "@/schemas/document-ai";
 
 type SharedCharacterContext = {
   fullName: string;
@@ -81,6 +85,15 @@ type ClaimsGenerationState = {
 type ClaimsEditorState = {
   title: string;
   payload: ClaimsDraftPayload;
+};
+
+type ClaimsRewriteSuggestionState = {
+  sectionKey: ClaimsDocumentRewriteSectionKey;
+  sectionLabel: string;
+  sourceText: string;
+  suggestionText: string;
+  basedOnUpdatedAt: string;
+  usageMeta: DocumentFieldRewriteUsageMeta;
 };
 
 function createLocalId(prefix: string) {
@@ -375,6 +388,10 @@ function ClaimsFormFields(props: {
   routeStatus?: string | null;
   draftStatusLabel?: string;
   updatedAtLabel?: string;
+  renderRewriteControls?: (input: {
+    sectionKey: ClaimsDocumentRewriteSectionKey;
+    sectionLabel: string;
+  }) => ReactNode;
 }) {
   const payload = props.state.payload;
 
@@ -532,9 +549,9 @@ function ClaimsFormFields(props: {
               <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`${props.mode}-rehabilitation-basis`}>
                 Rehabilitation basis
               </label>
-              <Textarea
-                id={`${props.mode}-rehabilitation-basis`}
-                onChange={(event) => {
+            <Textarea
+              id={`${props.mode}-rehabilitation-basis`}
+              onChange={(event) => {
                   props.onStateChange({
                     ...props.state,
                     payload: {
@@ -543,12 +560,18 @@ function ClaimsFormFields(props: {
                     } as ClaimsDraftPayload,
                   });
                 }}
-                placeholder="Основание для реабилитации"
-                value={"rehabilitationBasis" in payload ? payload.rehabilitationBasis : ""}
-              />
-            </div>
+              placeholder="Основание для реабилитации"
+              value={"rehabilitationBasis" in payload ? payload.rehabilitationBasis : ""}
+            />
+            {"rehabilitationBasis" in payload
+              ? props.renderRewriteControls?.({
+                  sectionKey: "rehabilitation_basis",
+                  sectionLabel: "Rehabilitation basis",
+                })
+              : null}
           </div>
-          <div className="space-y-2">
+        </div>
+        <div className="space-y-2">
             <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`${props.mode}-rehabilitation-harm-summary`}>
               Harm summary
             </label>
@@ -563,10 +586,16 @@ function ClaimsFormFields(props: {
                   } as ClaimsDraftPayload,
                 });
               }}
-              placeholder="Краткое описание причинённого вреда"
-              value={"harmSummary" in payload ? payload.harmSummary : ""}
-            />
-          </div>
+            placeholder="Краткое описание причинённого вреда"
+            value={"harmSummary" in payload ? payload.harmSummary : ""}
+          />
+          {"harmSummary" in payload
+            ? props.renderRewriteControls?.({
+                sectionKey: "harm_summary",
+                sectionLabel: "Harm summary",
+              })
+            : null}
+        </div>
         </div>
       ) : (
         <div className="space-y-4 rounded-3xl border border-[var(--border)] bg-white/70 p-4">
@@ -654,12 +683,18 @@ function ClaimsFormFields(props: {
                     } as ClaimsDraftPayload,
                   });
                 }}
-                placeholder="Что уже делалось до обращения в суд"
-                value={"pretrialSummary" in payload ? payload.pretrialSummary : ""}
-              />
-            </div>
+              placeholder="Что уже делалось до обращения в суд"
+              value={"pretrialSummary" in payload ? payload.pretrialSummary : ""}
+            />
+            {"pretrialSummary" in payload
+              ? props.renderRewriteControls?.({
+                  sectionKey: "pretrial_summary",
+                  sectionLabel: "Pretrial summary",
+                })
+              : null}
           </div>
         </div>
+      </div>
       )}
 
       <div className="space-y-2">
@@ -680,6 +715,10 @@ function ClaimsFormFields(props: {
           placeholder="Фактические обстоятельства и хронология"
           value={payload.factualBackground}
         />
+        {props.renderRewriteControls?.({
+          sectionKey: "factual_background",
+          sectionLabel: "Factual background",
+        })}
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
@@ -701,6 +740,10 @@ function ClaimsFormFields(props: {
             placeholder="Ключевые правовые основания и аргументы"
             value={payload.legalBasisSummary}
           />
+          {props.renderRewriteControls?.({
+            sectionKey: "legal_basis_summary",
+            sectionLabel: "Legal basis summary",
+          })}
         </div>
         <div className="space-y-2">
           <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`${props.mode}-claim-requested-relief`}>
@@ -720,6 +763,10 @@ function ClaimsFormFields(props: {
             placeholder="Что именно просит заявитель"
             value={payload.requestedRelief}
           />
+          {props.renderRewriteControls?.({
+            sectionKey: "requested_relief",
+            sectionLabel: "Requested relief",
+          })}
         </div>
       </div>
 
@@ -951,6 +998,13 @@ export function ClaimsDraftEditorClient(props: ClaimsDraftEditorClientProps) {
   const [isPreviewStale, setIsPreviewStale] = useState(
     props.generatedArtifact ? props.isModifiedAfterGeneration : false,
   );
+  const [rewriteSuggestion, setRewriteSuggestion] = useState<ClaimsRewriteSuggestionState | null>(null);
+  const [rewriteFeedback, setRewriteFeedback] = useState<{
+    sectionKey: ClaimsDocumentRewriteSectionKey;
+    message: string;
+  } | null>(null);
+  const [rewritePendingSectionKey, setRewritePendingSectionKey] =
+    useState<ClaimsDocumentRewriteSectionKey | null>(null);
   const lastAutoSaveKeyRef = useRef<string | null>(null);
   const representativeAllowed = props.authorSnapshot.canUseRepresentative;
   const isDirty = !areStatesEqual(editorState, savedState);
@@ -967,6 +1021,18 @@ export function ClaimsDraftEditorClient(props: ClaimsDraftEditorClientProps) {
       }));
     }
   }, [editorState.payload.filingMode, representativeAllowed]);
+
+  useEffect(() => {
+    if (!rewriteSuggestion) {
+      return;
+    }
+
+    const currentSectionText = getClaimsRewriteSectionText(editorState.payload, rewriteSuggestion.sectionKey);
+
+    if (currentSectionText !== rewriteSuggestion.sourceText) {
+      setRewriteSuggestion(null);
+    }
+  }, [editorState.payload, rewriteSuggestion]);
 
   const performSave = useCallback(
     async (mode: "autosave" | "manual") => {
@@ -1117,6 +1183,163 @@ export function ClaimsDraftEditorClient(props: ClaimsDraftEditorClientProps) {
     }
   }, [previewState]);
 
+  const handleRewriteRequest = useCallback(
+    async (sectionKey: ClaimsDocumentRewriteSectionKey, sectionLabel: string) => {
+      if (isDirty) {
+        setRewriteFeedback({
+          sectionKey,
+          message: "Сначала сохраните черновик. AI suggestion всегда строится из persisted документа.",
+        });
+        setRewriteSuggestion(null);
+        return;
+      }
+
+      setRewritePendingSectionKey(sectionKey);
+      setRewriteFeedback(null);
+
+      try {
+        const result = await rewriteDocumentFieldAction({
+          documentId: props.documentId,
+          sectionKey,
+        });
+
+        if (!result.ok) {
+          if (result.error === "rewrite-blocked") {
+            setRewriteFeedback({
+              sectionKey,
+              message: result.reasons.join(" "),
+            });
+            setRewriteSuggestion(null);
+            return;
+          }
+
+          if (result.error === "rewrite-unavailable") {
+            setRewriteFeedback({
+              sectionKey,
+              message: result.message,
+            });
+            setRewriteSuggestion(null);
+            return;
+          }
+
+          setRewriteFeedback({
+            sectionKey,
+            message: "Получить AI-предложение не удалось. Проверь доступ к документу и попробуй ещё раз.",
+          });
+          setRewriteSuggestion(null);
+          return;
+        }
+
+        setRewriteSuggestion({
+          sectionKey,
+          sectionLabel,
+          sourceText: result.sourceText,
+          suggestionText: result.suggestionText,
+          basedOnUpdatedAt: result.basedOnUpdatedAt,
+          usageMeta: result.usageMeta,
+        });
+      } finally {
+        setRewritePendingSectionKey(null);
+      }
+    },
+    [isDirty, props.documentId],
+  );
+
+  const handleRewriteApply = useCallback(() => {
+    if (!rewriteSuggestion) {
+      return;
+    }
+
+    setEditorState((current) => ({
+      ...current,
+      payload: applyClaimsRewriteSuggestion(
+        current.payload,
+        rewriteSuggestion.sectionKey,
+        rewriteSuggestion.suggestionText,
+      ),
+    }));
+    setRewriteFeedback({
+      sectionKey: rewriteSuggestion.sectionKey,
+      message: "AI-предложение применено локально. Сохраните черновик или дождитесь autosave.",
+    });
+    setRewriteSuggestion(null);
+  }, [rewriteSuggestion]);
+
+  const handleRewriteCopy = useCallback(async () => {
+    if (!rewriteSuggestion) {
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(rewriteSuggestion.suggestionText);
+      setRewriteFeedback({
+        sectionKey: rewriteSuggestion.sectionKey,
+        message: "AI-предложение скопировано в буфер обмена.",
+      });
+    } catch {
+      setRewriteFeedback({
+        sectionKey: rewriteSuggestion.sectionKey,
+        message: "Не удалось скопировать AI-предложение автоматически.",
+      });
+    }
+  }, [rewriteSuggestion]);
+
+  const renderRewriteControls = useCallback(
+    (input: {
+      sectionKey: ClaimsDocumentRewriteSectionKey;
+      sectionLabel: string;
+    }) => {
+      const sectionFeedback =
+        rewriteFeedback?.sectionKey === input.sectionKey ? rewriteFeedback.message : null;
+      const activeSuggestion =
+        rewriteSuggestion?.sectionKey === input.sectionKey ? rewriteSuggestion : null;
+
+      return (
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <Button
+              disabled={rewritePendingSectionKey !== null}
+              onClick={() => {
+                void handleRewriteRequest(input.sectionKey, input.sectionLabel);
+              }}
+              type="button"
+              variant="secondary"
+            >
+              {rewritePendingSectionKey === input.sectionKey ? "AI обрабатывает..." : "Улучшить текст"}
+            </Button>
+            <span className="text-xs leading-5 text-[var(--muted)]">
+              AI использует только последнее persisted состояние секции.
+            </span>
+          </div>
+          {sectionFeedback ? <p className="text-sm text-[var(--muted)]">{sectionFeedback}</p> : null}
+          {activeSuggestion ? (
+            <DocumentFieldRewritePanel
+              basedOnUpdatedAt={activeSuggestion.basedOnUpdatedAt}
+              onApply={handleRewriteApply}
+              onCopy={() => {
+                void handleRewriteCopy();
+              }}
+              onDismiss={() => {
+                setRewriteSuggestion(null);
+              }}
+              sectionLabel={activeSuggestion.sectionLabel}
+              sourceText={activeSuggestion.sourceText}
+              suggestionText={activeSuggestion.suggestionText}
+            />
+          ) : null}
+        </div>
+      );
+    },
+    [
+      handleRewriteApply,
+      handleRewriteCopy,
+      handleRewriteRequest,
+      rewriteFeedback,
+      rewritePendingSectionKey,
+      rewriteSuggestion,
+    ],
+  );
+
   return (
     <div className="space-y-6">
       <ClaimsFormFields
@@ -1127,6 +1350,7 @@ export function ClaimsDraftEditorClient(props: ClaimsDraftEditorClientProps) {
         onStateChange={setEditorState}
         profileComplete={props.authorSnapshot.isProfileComplete}
         representativeAllowed={representativeAllowed}
+        renderRewriteControls={renderRewriteControls}
         state={editorState}
         updatedAtLabel={new Date(savedUpdatedAt).toLocaleString("ru-RU")}
       />

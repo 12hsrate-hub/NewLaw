@@ -35,6 +35,13 @@ import {
   publishOwnedOgpComplaintCreate,
   publishOwnedOgpComplaintUpdate,
 } from "@/server/document-area/publication";
+import {
+  DocumentFieldRewriteBlockedError,
+  DocumentFieldRewriteUnavailableError,
+  mapDocumentFieldRewriteBlockingReasonsToMessages,
+  rewriteOwnedDocumentField,
+} from "@/server/document-ai/rewrite";
+import { rewriteDocumentFieldActionInputSchema } from "@/schemas/document-ai";
 
 function buildStatusRedirect(path: string, status: string) {
   const [pathname, queryString] = path.split("?");
@@ -555,5 +562,63 @@ export async function publishOgpComplaintUpdateAction(input: {
           ? error.message
           : "Обновить forum publication для OGP complaint не удалось.",
     };
+  }
+}
+
+export async function rewriteDocumentFieldAction(input: {
+  documentId: string;
+  sectionKey: string;
+}) {
+  const { account } = await requireProtectedAccountContext("/account/documents", undefined, {
+    allowMustChangePassword: true,
+  });
+
+  try {
+    const parsed = rewriteDocumentFieldActionInputSchema.parse(input);
+    const result = await rewriteOwnedDocumentField({
+      accountId: account.id,
+      documentId: parsed.documentId,
+      sectionKey: parsed.sectionKey,
+    });
+
+    return {
+      ok: true as const,
+      sourceText: result.sourceText,
+      suggestionText: result.suggestionText,
+      basedOnUpdatedAt: result.basedOnUpdatedAt,
+      usageMeta: result.usageMeta,
+    };
+  } catch (error) {
+    if (error instanceof DocumentAccessDeniedError) {
+      return {
+        ok: false as const,
+        error: "document-access-denied" as const,
+      };
+    }
+
+    if (error instanceof DocumentFieldRewriteBlockedError) {
+      return {
+        ok: false as const,
+        error: "rewrite-blocked" as const,
+        reasons: mapDocumentFieldRewriteBlockingReasonsToMessages(error.reasons),
+      };
+    }
+
+    if (error instanceof DocumentFieldRewriteUnavailableError) {
+      return {
+        ok: false as const,
+        error: "rewrite-unavailable" as const,
+        message: error.message,
+      };
+    }
+
+    if (error instanceof ZodError) {
+      return {
+        ok: false as const,
+        error: "invalid-input" as const,
+      };
+    }
+
+    throw error;
   }
 }

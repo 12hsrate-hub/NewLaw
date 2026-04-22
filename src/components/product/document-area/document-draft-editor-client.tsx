@@ -1,7 +1,9 @@
 "use client";
 
-import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { startTransition, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
+import { applyOgpRewriteSuggestion, getOgpRewriteSectionText } from "@/document-ai/sections";
+import { DocumentFieldRewritePanel } from "@/components/product/document-area/document-field-rewrite-panel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +14,7 @@ import {
   generateOgpComplaintBbcodeAction,
   publishOgpComplaintCreateAction,
   publishOgpComplaintUpdateAction,
+  rewriteDocumentFieldAction,
   saveDocumentDraftAction,
   updateDocumentPublicationMetadataAction,
 } from "@/server/actions/documents";
@@ -22,6 +25,7 @@ import type {
   OgpComplaintEvidenceRow,
   OgpComplaintTrustorSnapshot,
 } from "@/schemas/document";
+import type { DocumentFieldRewriteUsageMeta, OgpDocumentRewriteSectionKey } from "@/schemas/document-ai";
 import type { ForumConnectionSummary } from "@/schemas/forum-integration";
 
 type SharedCharacterContext = {
@@ -97,6 +101,15 @@ type OgpComplaintGenerationState = {
   forumPublishedBbcodeHash: string | null;
   forumLastPublishedAt: string | null;
   forumLastSyncError: string | null;
+};
+
+type OgpRewriteSuggestionState = {
+  sectionKey: OgpDocumentRewriteSectionKey;
+  sectionLabel: string;
+  sourceText: string;
+  suggestionText: string;
+  basedOnUpdatedAt: string;
+  usageMeta: DocumentFieldRewriteUsageMeta;
 };
 
 function createEditorState(input: {
@@ -449,6 +462,10 @@ function ComplaintFormFields(props: {
   routeStatus?: string | null;
   draftStatusLabel?: string;
   updatedAtLabel?: string;
+  renderRewriteControls?: (input: {
+    sectionKey: OgpDocumentRewriteSectionKey;
+    sectionLabel: string;
+  }) => ReactNode;
 }) {
   const payload = props.state.payload;
 
@@ -631,6 +648,10 @@ function ComplaintFormFields(props: {
           placeholder="Опиши, что произошло и в каком контексте."
           value={payload.situationDescription}
         />
+        {props.renderRewriteControls?.({
+          sectionKey: "situation_description",
+          sectionLabel: "Situation description",
+        })}
       </div>
 
       <div className="space-y-2">
@@ -651,6 +672,10 @@ function ComplaintFormFields(props: {
           placeholder="Коротко сформулируй, в чём именно состоит нарушение."
           value={payload.violationSummary}
         />
+        {props.renderRewriteControls?.({
+          sectionKey: "violation_summary",
+          sectionLabel: "Violation summary",
+        })}
       </div>
 
       {payload.filingMode === "representative" ? (
@@ -887,6 +912,13 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [generationMessage, setGenerationMessage] = useState<string | null>(null);
   const [publicationMessage, setPublicationMessage] = useState<string | null>(null);
+  const [rewriteSuggestion, setRewriteSuggestion] = useState<OgpRewriteSuggestionState | null>(null);
+  const [rewriteFeedback, setRewriteFeedback] = useState<{
+    sectionKey: OgpDocumentRewriteSectionKey;
+    message: string;
+  } | null>(null);
+  const [rewritePendingSectionKey, setRewritePendingSectionKey] =
+    useState<OgpDocumentRewriteSectionKey | null>(null);
   const lastAutoSaveKeyRef = useRef<string | null>(null);
 
   const representativeAllowed = props.authorSnapshot.canUseRepresentative;
@@ -903,6 +935,18 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
       }));
     }
   }, [editorState.payload.filingMode, representativeAllowed]);
+
+  useEffect(() => {
+    if (!rewriteSuggestion) {
+      return;
+    }
+
+    const currentSectionText = getOgpRewriteSectionText(editorState.payload, rewriteSuggestion.sectionKey);
+
+    if (currentSectionText !== rewriteSuggestion.sourceText) {
+      setRewriteSuggestion(null);
+    }
+  }, [editorState.payload, rewriteSuggestion]);
 
   const isDirty = !areStatesEqual(editorState, savedState);
   const canGenerateFromPersistedState = !isDirty;
@@ -1093,6 +1137,163 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
     }
   }, [generationState.lastGeneratedBbcode]);
 
+  const handleRewriteRequest = useCallback(
+    async (sectionKey: OgpDocumentRewriteSectionKey, sectionLabel: string) => {
+      if (isDirty) {
+        setRewriteFeedback({
+          sectionKey,
+          message: "Сначала сохраните черновик. AI suggestion всегда строится из persisted документа.",
+        });
+        setRewriteSuggestion(null);
+        return;
+      }
+
+      setRewritePendingSectionKey(sectionKey);
+      setRewriteFeedback(null);
+
+      try {
+        const result = await rewriteDocumentFieldAction({
+          documentId: props.documentId,
+          sectionKey,
+        });
+
+        if (!result.ok) {
+          if (result.error === "rewrite-blocked") {
+            setRewriteFeedback({
+              sectionKey,
+              message: result.reasons.join(" "),
+            });
+            setRewriteSuggestion(null);
+            return;
+          }
+
+          if (result.error === "rewrite-unavailable") {
+            setRewriteFeedback({
+              sectionKey,
+              message: result.message,
+            });
+            setRewriteSuggestion(null);
+            return;
+          }
+
+          setRewriteFeedback({
+            sectionKey,
+            message: "Получить AI-предложение не удалось. Проверь доступ к документу и попробуй ещё раз.",
+          });
+          setRewriteSuggestion(null);
+          return;
+        }
+
+        setRewriteSuggestion({
+          sectionKey,
+          sectionLabel,
+          sourceText: result.sourceText,
+          suggestionText: result.suggestionText,
+          basedOnUpdatedAt: result.basedOnUpdatedAt,
+          usageMeta: result.usageMeta,
+        });
+      } finally {
+        setRewritePendingSectionKey(null);
+      }
+    },
+    [isDirty, props.documentId],
+  );
+
+  const handleRewriteApply = useCallback(() => {
+    if (!rewriteSuggestion) {
+      return;
+    }
+
+    setEditorState((current) => ({
+      ...current,
+      payload: applyOgpRewriteSuggestion(
+        current.payload,
+        rewriteSuggestion.sectionKey,
+        rewriteSuggestion.suggestionText,
+      ),
+    }));
+    setRewriteFeedback({
+      sectionKey: rewriteSuggestion.sectionKey,
+      message: "AI-предложение применено локально. Сохраните черновик или дождитесь autosave.",
+    });
+    setRewriteSuggestion(null);
+  }, [rewriteSuggestion]);
+
+  const handleRewriteCopy = useCallback(async () => {
+    if (!rewriteSuggestion) {
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(rewriteSuggestion.suggestionText);
+      setRewriteFeedback({
+        sectionKey: rewriteSuggestion.sectionKey,
+        message: "AI-предложение скопировано в буфер обмена.",
+      });
+    } catch {
+      setRewriteFeedback({
+        sectionKey: rewriteSuggestion.sectionKey,
+        message: "Не удалось скопировать AI-предложение автоматически.",
+      });
+    }
+  }, [rewriteSuggestion]);
+
+  const renderRewriteControls = useCallback(
+    (input: {
+      sectionKey: OgpDocumentRewriteSectionKey;
+      sectionLabel: string;
+    }) => {
+      const sectionFeedback =
+        rewriteFeedback?.sectionKey === input.sectionKey ? rewriteFeedback.message : null;
+      const activeSuggestion =
+        rewriteSuggestion?.sectionKey === input.sectionKey ? rewriteSuggestion : null;
+
+      return (
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <Button
+              disabled={rewritePendingSectionKey !== null}
+              onClick={() => {
+                void handleRewriteRequest(input.sectionKey, input.sectionLabel);
+              }}
+              type="button"
+              variant="secondary"
+            >
+              {rewritePendingSectionKey === input.sectionKey ? "AI обрабатывает..." : "Улучшить текст"}
+            </Button>
+            <span className="text-xs leading-5 text-[var(--muted)]">
+              AI использует только последнее persisted состояние секции.
+            </span>
+          </div>
+          {sectionFeedback ? <p className="text-sm text-[var(--muted)]">{sectionFeedback}</p> : null}
+          {activeSuggestion ? (
+            <DocumentFieldRewritePanel
+              basedOnUpdatedAt={activeSuggestion.basedOnUpdatedAt}
+              onApply={handleRewriteApply}
+              onCopy={() => {
+                void handleRewriteCopy();
+              }}
+              onDismiss={() => {
+                setRewriteSuggestion(null);
+              }}
+              sectionLabel={activeSuggestion.sectionLabel}
+              sourceText={activeSuggestion.sourceText}
+              suggestionText={activeSuggestion.suggestionText}
+            />
+          ) : null}
+        </div>
+      );
+    },
+    [
+      handleRewriteApply,
+      handleRewriteCopy,
+      handleRewriteRequest,
+      rewriteFeedback,
+      rewritePendingSectionKey,
+      rewriteSuggestion,
+    ],
+  );
+
   const handlePublicationSave = useCallback(async () => {
     const result = await updateDocumentPublicationMetadataAction({
       documentId: props.documentId,
@@ -1251,6 +1452,7 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
         onStateChange={setEditorState}
         profileComplete={props.authorSnapshot.isProfileComplete}
         representativeAllowed={representativeAllowed}
+        renderRewriteControls={renderRewriteControls}
         state={editorState}
         updatedAtLabel={new Date(savedUpdatedAt).toLocaleString("ru-RU")}
       />
