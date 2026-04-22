@@ -11,6 +11,20 @@
 
 Если старые блоковые планы отстают по формулировкам или порядку этапов, этот документ фиксирует актуальную картину и не пытается подгонять репозиторий под устаревшую линейную схему.
 
+## Closure Snapshot
+
+По текущему согласованному scope этот MVP теперь можно считать формально закрытым.
+
+Это означает:
+
+- обязательных `pending`-блоков для достижения current agreed MVP больше не осталось
+- remaining work больше не трактуется как “ещё нужно для достижения MVP”
+- дальнейшее развитие должно оформляться только как:
+  - future expansion
+  - optional capability
+  - post-MVP line
+  - operational maturity
+
 ## Как читать статусы
 
 - `done` — крупный блок реально реализован и может считаться закрытым на уровне текущего согласованного scope
@@ -321,9 +335,26 @@ Server-specific template documents остаются отдельной post-MVP 
 
 ## Что ещё остаётся до более формального MVP closure
 
-С учётом фактического repo остаются следующие честные открытые вопросы:
+С учётом фактического repo обязательных блокеров для current agreed MVP больше не осталось.
+
+Дальше остаются только future expansion вопросы:
 
 1. Нужно ли расширять document AI дальше уже реализованного field rewrite v1, если текущий MVP AI scope уже покрыт helper-уровнем внутри existing editors.
+
+## What Comes After MVP
+
+После formal MVP closure следующими кандидатами могут быть только отдельные future-линии, а не обязательные blocker-этапы:
+
+- grounded document AI v2
+- optional standalone trustors registry
+- post-MVP template documents
+- deeper operational/admin maturity beyond current proven release flow
+
+Важно:
+
+- эти линии не должны трактоваться как недоделанная часть уже закрытого MVP
+- forum automation не возвращается в required scope
+- `/app` не возвращается как primary product zone
 
 ## Спорные места, которые не стоит маскировать
 

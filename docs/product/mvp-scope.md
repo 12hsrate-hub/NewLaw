@@ -1,5 +1,15 @@
 # Scope MVP
 
+## Closure Status
+
+Текущий agreed MVP можно считать формально закрытым.
+
+Это означает:
+
+- обязательных продуктовых блокеров для достижения current agreed MVP больше не осталось
+- remaining work больше не должен описываться как “ещё нужно, чтобы дойти до MVP”
+- всё дальнейшее развитие должно оформляться как future expansion, optional capability, post-MVP line или operational maturity
+
 ## Что входит в MVP
 
 ### Общая рамка
@@ -103,6 +113,12 @@
 - document AI в MVP не превращает editor в chat
 - document AI в MVP не делает silent overwrite или silent save
 
+Отдельно зафиксировано:
+
+- current MVP AI scope уже считается достаточно покрытым
+- `AI partial` дальше означает только future expansion beyond current MVP AI scope
+- отсутствие большого document-AI suite не считается незакрытым MVP-блокером
+
 ## Что не входит в MVP
 
 - monorepo
@@ -124,3 +140,19 @@
 - forum automation для `ogp_complaint`, даже если технически реализована, не считается обязательной частью MVP и не является критерием пользовательской полноты сценария
 - после MVP forum automation должна быть удалена из продукта как временная capability, а не развиваться дальше как core user feature
 - standalone trustors registry не считается обязательным MVP-модулем; trustor snapshots уже достаточно покрывают текущие representative flows
+- `/app` не считается primary product zone и остаётся только compatibility surface
+
+## What Comes After MVP
+
+Следующие кандидаты относятся уже не к закрытию текущего MVP, а к следующей фазе:
+
+- grounded document AI v2
+- optional standalone trustors registry
+- post-MVP template documents
+- deeper operational/admin maturity
+
+Важно:
+
+- это future options, а не недоделанные обязательные части текущего MVP
+- forum automation не возвращается в required scope
+- trustors registry не возвращается в required scope
