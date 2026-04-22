@@ -2,7 +2,7 @@
 
 ## Статус блока
 
-Блок остаётся в работе.
+Блок закрыт на уровне текущего agreed scope.
 
 Текущее состояние:
 
@@ -103,3 +103,13 @@
 - shared corpus/admin defaults теперь смотрят в `/internal/laws`
 - compatibility routes `/app`, `/app/security`, `/app/admin-laws`, `/app/admin-security` сохранены как controlled compatibility surfaces
 - `/app` cleanup block закрыт на уровне текущего agreed scope без hard removal `/app`
+
+## Итог после 14.6
+
+На текущем уровне reconciliation этого достаточно, чтобы считать `/app` cleanup line закрытой enough-for-MVP:
+
+- `/app` больше не primary user-facing workspace
+- `/account` выполняет роль self-service zone
+- `/servers` выполняет роль entry в server-scoped zone
+- `/internal` выполняет роль canonical admin/internal contour
+- surviving `/app*` routes остаются только как compatibility layer

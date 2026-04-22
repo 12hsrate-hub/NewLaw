@@ -169,6 +169,45 @@
 - они сохраняются только как transitional bridge routes к `/internal/*`
 - это закрывает текущий agreed admin-panel scope, но не означает global `/app` cleanup
 
+#### `09-deploy-and-release`
+
+Статус: `done`
+
+Фактически реализованы и уже доказаны на production:
+
+- канонический MVP runtime model:
+  - `systemd`
+  - immutable `release directories`
+  - `current` symlink
+  - shared production env
+- deterministic release sequence через canonical deploy script
+- explicit env loading и explicit `PATH`
+- `prisma generate` / `migrate deploy` / `build` как фиксированная часть release flow
+- env preflight helper с required/optional classification
+- reusable mandatory smoke helper
+- rollback helper и рабочий rollback path
+- repeated production releases по этой схеме
+
+Важно:
+
+- это закрывает текущий agreed hardening scope enough-for-MVP
+- future operational maturity вроде release dashboard, full observability platform или Docker Compose migration не является blocker для formal done
+
+#### `/app` migration / cleanup
+
+Статус: `done`
+
+Зафиксировано:
+
+- `/app` больше не является primary workspace и остаётся только controlled compatibility surface
+- default self-service target = `/account`
+- canonical self-service security route = `/account/security`
+- canonical character-management route = `/account/characters`
+- canonical admin/internal contour = `/internal/*`
+- `/account`, `/servers` и `/internal` реально выступают target zones
+- `/app/security`, `/app/admin-laws` и `/app/admin-security` сохраняются как compatibility routes, а не как primary targets
+- global hard removal `/app` не требуется для закрытия текущего agreed cleanup scope
+
 ### Optional / Temporary
 
 #### `09-ogp-forum-automation`
@@ -240,37 +279,6 @@ Post-MVP policy для этой линии:
 - current MVP-level AI scope можно считать покрытым существующим assistant module + document field rewrite v1
 - но весь AI block нельзя автоматически считать формально закрытым только из-за assistant + rewrite v1
 
-#### `09-deploy-and-release`
-
-Статус: `partial`
-
-Фактически в repo и текущем процессе уже есть:
-
-- повторяемые локальные проверки
-- реальные production releases
-- smoke-check discipline
-- `/api/health`
-- runtime checks
-
-Но как отдельный формально закрытый блок всё ещё остаются вопросы:
-
-- старый план deploy/release не полностью совпадает с текущей фактической operational схемой
-- release hardening и финальная формализация процесса ещё не сведены в честный “formal done”
-
-#### `/app` migration / cleanup
-
-Статус: `done`
-
-Зафиксировано:
-
-- `/app` больше не является primary workspace и остаётся только controlled compatibility surface
-- default self-service target = `/account`
-- canonical self-service security route = `/account/security`
-- canonical character-management route = `/account/characters`
-- canonical admin/internal contour = `/internal/*`
-- `/app/security`, `/app/admin-laws` и `/app/admin-security` сохраняются как compatibility routes, а не как primary targets
-- global hard removal `/app` не требуется для закрытия текущего agreed cleanup scope
-
 ### Post-MVP
 
 #### `12-post-mvp-template-documents`
@@ -316,7 +324,6 @@ Server-specific template documents остаются отдельной post-MVP 
 С учётом фактического repo остаются следующие честные открытые вопросы:
 
 1. Нужно ли расширять document AI дальше уже реализованного field rewrite v1, если текущий MVP AI scope уже покрыт helper-уровнем внутри existing editors.
-2. Нужен ли отдельный formal deploy/release hardening block поверх уже работающего production release процесса.
 
 ## Спорные места, которые не стоит маскировать
 
@@ -340,7 +347,8 @@ Server-specific template documents остаются отдельной post-MVP 
 
 ### Deploy / release hardening
 
-Спорное место:
+Больше не считается открытым продуктовым blocker:
 
-- operational release flow фактически существует
-- но старый deploy-plan документ и формальная стадия release hardening ещё не сведены к одному честному status
+- operational release flow уже формализован и production-proven
+- helper layer для preflight / smoke / rollback уже существует
+- дальнейшая operational maturity возможна позже, но не нужна для текущего MVP closure
