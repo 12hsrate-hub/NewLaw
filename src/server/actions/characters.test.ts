@@ -102,6 +102,7 @@ describe("character actions", () => {
       accountId: "21631886-7b4d-4be2-b6e9-95322d0dca41",
       serverId: "server-1",
       fullName: "Alice Stone",
+      nickname: "",
       passportNumber: "A-001",
       roleKeys: ["lawyer"],
       accessFlags: ["advocate", "tester"],
@@ -168,6 +169,7 @@ describe("character actions", () => {
       accountId: "21631886-7b4d-4be2-b6e9-95322d0dca41",
       serverId: "server-1",
       fullName: "Bob Stone",
+      nickname: "",
       passportNumber: "B-001",
       roleKeys: [],
       accessFlags: [],
@@ -185,6 +187,7 @@ describe("character actions", () => {
     const formData = new FormData();
     formData.set("serverId", "server-1");
     formData.set("fullName", "Alice Stone");
+    formData.set("nickname", "alice.stone");
     formData.set("passportNumber", "A-010");
     formData.set("profileSignature", "А. Стоун");
     formData.set("profileNote", "Профиль для server group");
@@ -201,6 +204,7 @@ describe("character actions", () => {
       accountId: "21631886-7b4d-4be2-b6e9-95322d0dca41",
       serverId: "server-1",
       fullName: "Alice Stone",
+      nickname: "alice.stone",
       passportNumber: "A-010",
       roleKeys: [],
       accessFlags: [],
@@ -225,6 +229,7 @@ describe("character actions", () => {
     const formData = new FormData();
     formData.set("serverId", "server-1");
     formData.set("fullName", "First Person");
+    formData.set("nickname", "first.person");
     formData.set("passportNumber", "F-001");
     formData.set("selectionBehavior", "account_zone");
     formData.set("redirectTo", "/account/characters?server=blackberry");
@@ -252,6 +257,7 @@ describe("character actions", () => {
     formData.set("serverId", "server-1");
     formData.set("characterId", "character-1");
     formData.set("fullName", "Alice Stone");
+    formData.set("nickname", "alice.stone.updated");
     formData.set("passportNumber", "A-777");
     formData.append("roleKeys", "lawyer");
     formData.append("accessFlags", "advocate");
@@ -265,6 +271,7 @@ describe("character actions", () => {
       serverId: "server-1",
       characterId: "character-1",
       fullName: "Alice Stone",
+      nickname: "alice.stone.updated",
       passportNumber: "A-777",
       roleKeys: ["lawyer"],
       accessFlags: ["advocate", "tester"],

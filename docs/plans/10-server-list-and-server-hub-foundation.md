@@ -2,15 +2,16 @@
 
 ## Статус блока
 
-Блок открыт.
+Блок реализован в согласованном scope.
 
 Зафиксировано:
 
 - `/servers` — public server directory
-- `/servers/[serverSlug]` — future auth-gated server hub
+- `/servers/[serverSlug]` — auth-gated server hub
 - source of truth по серверу — только `serverSlug` из URL
 - новые user-facing модули не должны возвращаться в `/app`
 - server list / hub не должны ломать уже работающие `/assistant` и `/servers/[serverSlug]/documents/...`
+- account zone уже дополнена через `/account/characters`, shared account subnav и account-scoped character editor completion
 
 ## Цель блока
 
@@ -28,11 +29,11 @@
 - `/servers`
 - `/servers/[serverSlug]`
 
-На текущем подшаге реализуется только:
+Текущее фактическое состояние:
 
-- `/servers`
-
-`/servers/[serverSlug]` остаётся следующим шагом и не должен появляться раньше времени как half-ready hub.
+- `/servers` уже реализован
+- `/servers/[serverSlug]` уже реализован
+- follow-up линии `10.5` и `10.6` тоже закрыты и больше не считаются только future notes
 
 ### Visibility policy
 
@@ -180,21 +181,20 @@ Operational note текущего шага:
 
 ## Acceptance criteria
 
-### Архитектура готова
+### Архитектура реализована
 
 - `/servers` зафиксирован как public entry point
-- `/servers/[serverSlug]` зафиксирован как future auth-gated hub
+- `/servers/[serverSlug]` уже реализован как auth-gated hub
 - source of truth по серверу — URL, а не active shell server
 - directory summary отделён от private document data
 - claims и OGP остаются внутри `Documents`, а не превращаются в top-level module cards
 
-### Можно идти в code-step
+### Что осталось вне блока
 
-- route contract для `/servers` и `/servers/[serverSlug]` уже зафиксирован
-- summary contract server directory уже определён
-- access policy для guest/auth viewer уже зафиксирована
-- relation с `/assistant` и `/servers/[serverSlug]/documents` уже описана
-- health/status vocabulary уже согласован на user-facing уровне
+- route migration старого `/app`
+- public laws viewer
+- новые top-level module cards beyond `Assistant + Documents`
+- internal corpus refactor
 
 ## Follow-up: 10.5 — `/account/characters` overview + account nav
 
@@ -250,6 +250,7 @@ Operational note текущего шага:
   - edit entry points для существующих персонажей
 - character editor внутри account zone теперь включает:
   - `fullName`
+  - `nickname`
   - `passportNumber`
   - `roles`
   - `accessFlags`

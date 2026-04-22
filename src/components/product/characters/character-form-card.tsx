@@ -25,6 +25,7 @@ type CharacterFormValues = {
   characterId?: string;
   fullName: string;
   isProfileComplete?: boolean;
+  nickname?: string;
   profileNote?: string | null;
   profileSignature?: string | null;
   passportNumber: string;
@@ -103,6 +104,20 @@ export function CharacterFormCard({
             required
           />
         </div>
+
+        {surface === "account_zone" ? (
+          <div className="space-y-2">
+            <label className="text-sm font-medium" htmlFor={`${mode}-nickname`}>
+              Nickname
+            </label>
+            <Input
+              defaultValue={defaultValues?.nickname ?? ""}
+              id={`${mode}-nickname`}
+              name="nickname"
+              placeholder="Например: Игорь Юристов"
+            />
+          </div>
+        ) : null}
 
         <fieldset className="space-y-3">
           <legend className="text-sm font-medium">Роли персонажа</legend>

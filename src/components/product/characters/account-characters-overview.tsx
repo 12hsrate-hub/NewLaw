@@ -178,6 +178,7 @@ function CharacterGroup(props: { group: AccountCharactersServerGroup }) {
                       characterId: character.id,
                       fullName: character.fullName,
                       isProfileComplete: character.isProfileComplete,
+                      nickname: character.nickname,
                       passportNumber: character.passportNumber,
                       profileNote: character.profileNote,
                       profileSignature: character.profileSignature,

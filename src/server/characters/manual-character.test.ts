@@ -28,10 +28,11 @@ describe("createCharacterManually", () => {
     await expect(
       createCharacterManually(
         {
-          accountId: "21631886-7b4d-4be2-b6e9-95322d0dca41",
-          serverId: "server-1",
-          fullName: "ivan ivanov",
-          passportNumber: "pass-1",
+        accountId: "21631886-7b4d-4be2-b6e9-95322d0dca41",
+        serverId: "server-1",
+        fullName: "ivan ivanov",
+        nickname: "",
+        passportNumber: "pass-1",
           roleKeys: ["citizen"],
           accessFlags: [],
           isProfileComplete: false,
@@ -53,10 +54,11 @@ describe("createCharacterManually", () => {
     await expect(
       createCharacterManually(
         {
-          accountId: "21631886-7b4d-4be2-b6e9-95322d0dca41",
-          serverId: "server-1",
-          fullName: "ivan ivanov",
-          passportNumber: "pass-1",
+        accountId: "21631886-7b4d-4be2-b6e9-95322d0dca41",
+        serverId: "server-1",
+        fullName: "ivan ivanov",
+        nickname: "",
+        passportNumber: "pass-1",
           roleKeys: ["citizen"],
           accessFlags: [],
           isProfileComplete: false,
@@ -67,7 +69,7 @@ describe("createCharacterManually", () => {
     ).rejects.toBeInstanceOf(CharacterPassportConflictError);
   });
 
-  it("создает персонажа вручную с nickname равным fullName", async () => {
+  it("создает персонажа вручную с отдельным nickname, если он передан явно", async () => {
     const repository = createRepositoryMock();
 
     repository.countCharactersByServer.mockResolvedValue(1);
@@ -75,7 +77,7 @@ describe("createCharacterManually", () => {
     repository.createCharacterRecord.mockResolvedValue({
       id: "character-1",
       fullName: "Ivan Ivanov",
-      nickname: "Ivan Ivanov",
+      nickname: "ivan.ivanov",
       passportNumber: "PASS-1",
     });
 
@@ -84,6 +86,7 @@ describe("createCharacterManually", () => {
         accountId: "21631886-7b4d-4be2-b6e9-95322d0dca41",
         serverId: "server-1",
         fullName: "ivan ivanov",
+        nickname: "ivan.ivanov",
         passportNumber: "pass-1",
         roleKeys: ["citizen", "citizen"],
         accessFlags: ["tester", "tester"],
@@ -101,7 +104,7 @@ describe("createCharacterManually", () => {
       accountId: "21631886-7b4d-4be2-b6e9-95322d0dca41",
       serverId: "server-1",
       fullName: "Ivan Ivanov",
-      nickname: "Ivan Ivanov",
+      nickname: "ivan.ivanov",
       passportNumber: "PASS-1",
       isProfileComplete: true,
       profileDataJson: {
@@ -130,6 +133,7 @@ describe("createCharacterManually", () => {
         accountId: "21631886-7b4d-4be2-b6e9-95322d0dca41",
         serverId: "server-1",
         fullName: "ivan ivanov",
+        nickname: "",
         passportNumber: "pass-77",
         roleKeys: [],
         accessFlags: [],
@@ -145,6 +149,46 @@ describe("createCharacterManually", () => {
       fullName: "Ivan Ivanov",
       nickname: "Ivan Ivanov",
       passportNumber: "PASS-77",
+      isProfileComplete: false,
+      profileDataJson: null,
+      roleKeys: [],
+      accessFlags: [],
+    });
+  });
+
+  it("fallback-ит nickname к normalized fullName, если nickname не передан", async () => {
+    const repository = createRepositoryMock();
+
+    repository.countCharactersByServer.mockResolvedValue(0);
+    repository.findCharacterByPassport.mockResolvedValue(null);
+    repository.createCharacterRecord.mockResolvedValue({
+      id: "character-fallback",
+      fullName: "Ivan Smirnov",
+      nickname: "Ivan Smirnov",
+      passportNumber: "PASS-88",
+    });
+
+    await createCharacterManually(
+      {
+        accountId: "21631886-7b4d-4be2-b6e9-95322d0dca41",
+        serverId: "server-1",
+        fullName: "ivan smirnov",
+        nickname: "",
+        passportNumber: "pass-88",
+        roleKeys: [],
+        accessFlags: [],
+        isProfileComplete: false,
+        profileDataJson: null,
+      },
+      repository,
+    );
+
+    expect(repository.createCharacterRecord).toHaveBeenCalledWith({
+      accountId: "21631886-7b4d-4be2-b6e9-95322d0dca41",
+      serverId: "server-1",
+      fullName: "Ivan Smirnov",
+      nickname: "Ivan Smirnov",
+      passportNumber: "PASS-88",
       isProfileComplete: false,
       profileDataJson: null,
       roleKeys: [],
@@ -168,11 +212,12 @@ describe("updateCharacterManually", () => {
     await expect(
       updateCharacterManually(
         {
-          accountId: "21631886-7b4d-4be2-b6e9-95322d0dca41",
-          serverId: "server-1",
-          characterId: "character-1",
-          fullName: "ivan ivanov",
-          passportNumber: "pass-2",
+        accountId: "21631886-7b4d-4be2-b6e9-95322d0dca41",
+        serverId: "server-1",
+        characterId: "character-1",
+        fullName: "ivan ivanov",
+        nickname: "",
+        passportNumber: "pass-2",
           roleKeys: ["lawyer"],
           accessFlags: ["advocate"],
           isProfileComplete: false,
@@ -191,11 +236,12 @@ describe("updateCharacterManually", () => {
     await expect(
       updateCharacterManually(
         {
-          accountId: "21631886-7b4d-4be2-b6e9-95322d0dca41",
-          serverId: "server-1",
-          characterId: "missing-character",
-          fullName: "ivan ivanov",
-          passportNumber: "pass-2",
+        accountId: "21631886-7b4d-4be2-b6e9-95322d0dca41",
+        serverId: "server-1",
+        characterId: "missing-character",
+        fullName: "ivan ivanov",
+        nickname: "",
+        passportNumber: "pass-2",
           roleKeys: ["lawyer"],
           accessFlags: ["advocate"],
           isProfileComplete: false,
@@ -225,6 +271,7 @@ describe("updateCharacterManually", () => {
         serverId: "server-1",
         characterId: "character-1",
         fullName: "ivan petrov",
+        nickname: "petrov.law",
         passportNumber: "pass-9",
         roleKeys: ["lawyer", "lawyer"],
         accessFlags: ["advocate", "tester", "tester"],
@@ -242,7 +289,7 @@ describe("updateCharacterManually", () => {
       serverId: "server-1",
       characterId: "character-1",
       fullName: "Ivan Petrov",
-      nickname: "Ivan Petrov",
+      nickname: "petrov.law",
       passportNumber: "PASS-9",
       isProfileComplete: true,
       profileDataJson: {

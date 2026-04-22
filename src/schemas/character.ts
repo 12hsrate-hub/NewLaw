@@ -21,6 +21,7 @@ export const characterSelectionBehaviorSchema = z
 
 export const characterFormSchema = z.object({
   fullName: z.string().trim().min(3).max(120),
+  nickname: z.string().trim().max(120).default(""),
   passportNumber: z.string().trim().min(1).max(64),
 });
 

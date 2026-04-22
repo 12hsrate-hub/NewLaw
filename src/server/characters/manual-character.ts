@@ -62,6 +62,15 @@ function normalizeFullName(fullName: string) {
     .join(" ");
 }
 
+function normalizeNickname(input: {
+  nickname: string;
+  fallbackFullName: string;
+}) {
+  const normalizedNickname = input.nickname.trim().replace(/\s+/g, " ");
+
+  return normalizedNickname.length > 0 ? normalizedNickname : input.fallbackFullName;
+}
+
 function normalizePassportNumber(passportNumber: string) {
   return passportNumber.trim().toUpperCase();
 }
@@ -134,6 +143,10 @@ export async function createCharacterManually(
 ) {
   const parsed = createCharacterInputSchema.parse(input);
   const fullName = normalizeFullName(parsed.fullName);
+  const nickname = normalizeNickname({
+    nickname: parsed.nickname,
+    fallbackFullName: fullName,
+  });
   const passportNumber = normalizePassportNumber(parsed.passportNumber);
 
   await ensureCharacterLimit(
@@ -157,7 +170,7 @@ export async function createCharacterManually(
     accountId: parsed.accountId,
     serverId: parsed.serverId,
     fullName,
-    nickname: fullName,
+    nickname,
     passportNumber,
     isProfileComplete: parsed.isProfileComplete,
     profileDataJson: normalizeProfileData(parsed.profileDataJson),
@@ -181,6 +194,10 @@ export async function updateCharacterManually(
   }
 
   const fullName = normalizeFullName(parsed.fullName);
+  const nickname = normalizeNickname({
+    nickname: parsed.nickname,
+    fallbackFullName: fullName,
+  });
   const passportNumber = normalizePassportNumber(parsed.passportNumber);
 
   await ensurePassportIsUnique(
@@ -198,7 +215,7 @@ export async function updateCharacterManually(
     serverId: parsed.serverId,
     characterId: parsed.characterId,
     fullName,
-    nickname: fullName,
+    nickname,
     passportNumber,
     isProfileComplete: parsed.isProfileComplete,
     profileDataJson: normalizeProfileData(parsed.profileDataJson),

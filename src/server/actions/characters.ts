@@ -55,6 +55,7 @@ function buildStatusRedirect(path: string, status: string) {
 function readCharacterFormFields(formData: FormData) {
   return characterFormSchema.parse({
     fullName: String(formData.get("fullName") ?? ""),
+    nickname: String(formData.get("nickname") ?? ""),
     passportNumber: String(formData.get("passportNumber") ?? ""),
   });
 }
@@ -157,6 +158,7 @@ export async function createCharacterAction(formData: FormData) {
       accountId: account.id,
       serverId,
       fullName: characterFormFields.fullName,
+      nickname: characterFormFields.nickname,
       passportNumber: characterFormFields.passportNumber,
       roleKeys: readRoleKeys(formData),
       accessFlags: readAccessFlags(formData),
@@ -205,6 +207,7 @@ export async function updateCharacterAction(formData: FormData) {
       serverId,
       characterId,
       fullName: characterFormFields.fullName,
+      nickname: characterFormFields.nickname,
       passportNumber: characterFormFields.passportNumber,
       roleKeys: readRoleKeys(formData),
       accessFlags: readAccessFlags(formData),
