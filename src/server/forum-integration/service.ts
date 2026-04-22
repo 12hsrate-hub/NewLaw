@@ -23,6 +23,7 @@ import {
 
 export class ForumIntegrationUnavailableError extends Error {}
 export class ForumConnectionNotFoundError extends Error {}
+export class ForumConnectionStateError extends Error {}
 
 function buildForumConnectionSummary(record: {
   providerKey: string;
@@ -319,4 +320,53 @@ export async function disableAccountForumConnection(input: {
   });
 
   return buildForumConnectionSummary(updatedConnection);
+}
+
+export async function getValidatedAccountForumSessionForAutomation(
+  input: {
+    accountId: string;
+  },
+  dependencies: {
+    getForumSessionConnectionByAccount?: typeof getForumSessionConnectionByAccount;
+    decryptForumSessionPayload?: typeof decryptForumSessionPayload;
+  } = {},
+) {
+  const loadConnection =
+    dependencies.getForumSessionConnectionByAccount ?? getForumSessionConnectionByAccount;
+  const decryptPayload =
+    dependencies.decryptForumSessionPayload ?? decryptForumSessionPayload;
+
+  assertForumIntegrationConfigured();
+
+  const connection = await loadConnection({
+    accountId: input.accountId,
+    providerKey: FORUM_GTA5RP_PROVIDER_KEY,
+  });
+
+  if (!connection) {
+    throw new ForumConnectionNotFoundError("Forum session ещё не подключена.");
+  }
+
+  if (connection.state !== "valid" || !connection.encryptedSessionPayload) {
+    throw new ForumConnectionStateError(
+      "Для automation publish нужна валидная account-scoped forum session.",
+    );
+  }
+
+  try {
+    const payload = decryptPayload(connection.encryptedSessionPayload);
+
+    return {
+      connectionId: connection.id,
+      providerKey: connection.providerKey,
+      forumUserId: connection.forumUserId,
+      forumUsername: connection.forumUsername,
+      validatedAt: connection.validatedAt,
+      payload,
+    };
+  } catch {
+    throw new ForumConnectionStateError(
+      "Сохранённую forum session не удалось расшифровать текущим server-side ключом.",
+    );
+  }
 }

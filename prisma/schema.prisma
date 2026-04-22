@@ -136,6 +136,24 @@ enum ForumConnectionState {
   disabled
 }
 
+enum OgpForumSyncState {
+  not_published
+  current
+  outdated
+  failed
+  manual_untracked
+}
+
+enum OgpForumPublicationOperation {
+  publish_create
+}
+
+enum OgpForumPublicationAttemptStatus {
+  started
+  succeeded
+  failed
+}
+
 enum AIRequestStatus {
   success
   failure
@@ -166,6 +184,7 @@ model Account {
   aiRequests              AIRequest[]
   documents               Document[]
   forumSessionConnections ForumSessionConnection[]
+  ogpForumPublicationAttempts OgpForumPublicationAttempt[]
   createdAt               DateTime               @default(now())
   updatedAt               DateTime               @updatedAt
 }
@@ -292,17 +311,25 @@ model Document {
   generatedFormSchemaVersion String?
   publicationUrl             String?
   isSiteForumSynced          Boolean        @default(false)
+  forumSyncState             OgpForumSyncState @default(not_published)
+  forumThreadId              String?
+  forumPostId                String?
+  forumPublishedBbcodeHash   String?
+  forumLastPublishedAt       DateTime?
+  forumLastSyncError         String?
   isModifiedAfterGeneration  Boolean        @default(false)
   deletedAt                  DateTime?
   account                    Account        @relation(fields: [accountId], references: [id], onDelete: Cascade)
   server                     Server         @relation(fields: [serverId], references: [id], onDelete: Restrict)
   character                  Character      @relation(fields: [characterId], references: [id], onDelete: Restrict)
+  ogpForumPublicationAttempts OgpForumPublicationAttempt[]
   createdAt                  DateTime       @default(now())
   updatedAt                  DateTime       @updatedAt
 
   @@index([accountId, createdAt])
   @@index([accountId, serverId, documentType, createdAt])
   @@index([serverId, documentType, status, createdAt])
+  @@index([documentType, forumSyncState, createdAt])
 }
 
 model ForumSessionConnection {
@@ -322,6 +349,26 @@ model ForumSessionConnection {
 
   @@unique([accountId, providerKey])
   @@index([providerKey, state])
+}
+
+model OgpForumPublicationAttempt {
+  id           String                           @id @default(cuid())
+  documentId   String
+  accountId    String                           @db.Uuid
+  operation    OgpForumPublicationOperation
+  status       OgpForumPublicationAttemptStatus
+  forumThreadId String?
+  forumPostId  String?
+  errorCode    String?
+  errorSummary String?
+  document     Document                         @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  account      Account                          @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  createdAt    DateTime                         @default(now())
+  updatedAt    DateTime                         @updatedAt
+
+  @@index([documentId, createdAt])
+  @@index([accountId, createdAt])
+  @@index([operation, status, createdAt])
 }
 
 model LawSourceIndex {

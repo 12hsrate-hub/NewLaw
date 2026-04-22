@@ -10,6 +10,7 @@ import {
   documentGeneratedOutputFormatSchema,
   documentGeneratedRendererVersionSchema,
   documentPublicationUrlSchema,
+  ogpForumSyncStateSchema,
   type DocumentType,
   updateDocumentDraftInputSchema,
 } from "@/schemas/document";
@@ -157,6 +158,15 @@ export async function updateDocumentDraftRecord(
   const touchedGeneratedDocument =
     (existingDocument.status === "generated" || existingDocument.status === "published") &&
     (payloadChanged || titleChanged);
+  const nextForumSyncState = touchedGeneratedDocument
+    ? existingDocument.documentType === "ogp_complaint" &&
+      existingDocument.forumThreadId &&
+      existingDocument.forumPostId
+      ? "outdated"
+      : existingDocument.documentType === "ogp_complaint" && existingDocument.publicationUrl
+        ? "manual_untracked"
+        : existingDocument.forumSyncState
+    : existingDocument.forumSyncState;
 
   return db.document.update({
     where: {
@@ -169,6 +179,7 @@ export async function updateDocumentDraftRecord(
         ? true
         : existingDocument.isModifiedAfterGeneration,
       isSiteForumSynced: touchedGeneratedDocument ? false : existingDocument.isSiteForumSynced,
+      forumSyncState: nextForumSyncState,
     },
     include: {
       server: true,
@@ -208,7 +219,15 @@ export async function markDocumentGeneratedRecord(
     return null;
   }
 
+  const hasAutomationOwnedPublication = Boolean(
+    existingDocument.forumThreadId && existingDocument.forumPostId,
+  );
   const nextStatus = existingDocument.publicationUrl ? "published" : "generated";
+  const nextForumSyncState = hasAutomationOwnedPublication
+    ? "outdated"
+    : existingDocument.publicationUrl
+      ? "manual_untracked"
+      : "not_published";
 
   return db.document.update({
     where: {
@@ -223,6 +242,8 @@ export async function markDocumentGeneratedRecord(
       generatedFormSchemaVersion: parsedGeneratedFormSchemaVersion,
       isModifiedAfterGeneration: false,
       isSiteForumSynced: false,
+      forumSyncState: nextForumSyncState,
+      forumLastSyncError: null,
     },
     include: {
       server: true,
@@ -282,6 +303,8 @@ export async function markClaimsDocumentGeneratedRecord(
       isModifiedAfterGeneration: false,
       publicationUrl: null,
       isSiteForumSynced: false,
+      forumSyncState: "not_published",
+      forumLastSyncError: null,
     },
     include: {
       server: true,
@@ -315,6 +338,17 @@ export async function updateDocumentPublicationMetadataRecord(
     : existingDocument.generatedAt
       ? "generated"
       : existingDocument.status;
+  const nextForumSyncState = nextPublicationUrl
+    ? existingDocument.documentType === "ogp_complaint" &&
+      existingDocument.forumThreadId &&
+      existingDocument.forumPostId
+      ? existingDocument.forumSyncState
+      : "manual_untracked"
+    : existingDocument.documentType === "ogp_complaint" &&
+        existingDocument.forumThreadId &&
+        existingDocument.forumPostId
+      ? existingDocument.forumSyncState
+      : "not_published";
 
   return db.document.update({
     where: {
@@ -324,6 +358,70 @@ export async function updateDocumentPublicationMetadataRecord(
       publicationUrl: nextPublicationUrl,
       status: nextStatus,
       isSiteForumSynced: nextPublicationUrl ? input.isSiteForumSynced : false,
+      forumSyncState: nextForumSyncState,
+      forumLastSyncError: nextForumSyncState === "manual_untracked" ? null : existingDocument.forumLastSyncError,
+    },
+    include: {
+      server: true,
+    },
+  });
+}
+
+export async function markOgpDocumentPublishedViaAutomationRecord(
+  input: {
+    documentId: string;
+    publicationUrl: string;
+    forumThreadId: string;
+    forumPostId: string;
+    forumPublishedBbcodeHash: string;
+    forumLastPublishedAt: Date;
+  },
+  db: PrismaLike = prisma,
+) {
+  const parsedDocumentId = documentIdSchema.parse(input.documentId);
+  const parsedPublicationUrl = documentPublicationUrlSchema.parse(input.publicationUrl);
+  const parsedForumSyncState = ogpForumSyncStateSchema.parse("current");
+
+  return db.document.update({
+    where: {
+      id: parsedDocumentId,
+    },
+    data: {
+      status: "published",
+      publicationUrl: parsedPublicationUrl,
+      isSiteForumSynced: true,
+      forumSyncState: parsedForumSyncState,
+      forumThreadId: input.forumThreadId,
+      forumPostId: input.forumPostId,
+      forumPublishedBbcodeHash: input.forumPublishedBbcodeHash,
+      forumLastPublishedAt: input.forumLastPublishedAt,
+      forumLastSyncError: null,
+      isModifiedAfterGeneration: false,
+    },
+    include: {
+      server: true,
+    },
+  });
+}
+
+export async function markOgpDocumentPublishFailedRecord(
+  input: {
+    documentId: string;
+    errorSummary: string;
+  },
+  db: PrismaLike = prisma,
+) {
+  const parsedDocumentId = documentIdSchema.parse(input.documentId);
+  const parsedForumSyncState = ogpForumSyncStateSchema.parse("failed");
+
+  return db.document.update({
+    where: {
+      id: parsedDocumentId,
+    },
+    data: {
+      forumSyncState: parsedForumSyncState,
+      forumLastSyncError: input.errorSummary,
+      isSiteForumSynced: false,
     },
     include: {
       server: true,

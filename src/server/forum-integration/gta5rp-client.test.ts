@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { parseGta5RpForumIdentity, validateGta5RpForumSession } from "@/server/forum-integration/gta5rp-client";
+import {
+  createGta5RpForumThreadFromBbcode,
+  parseGta5RpForumIdentity,
+  validateGta5RpForumSession,
+} from "@/server/forum-integration/gta5rp-client";
 
 describe("gta5rp forum client foundation", () => {
   it("извлекает forum identity и подтверждает валидную session без publish flow", async () => {
@@ -56,5 +60,97 @@ describe("gta5rp forum client foundation", () => {
     expect(result.isValid).toBe(false);
     expect(result.errorSummary).toContain("Форум не подтвердил авторизованную session");
     expect(result.errorSummary).not.toContain("xf_session=secret");
+  });
+
+  it("создаёт thread из BBCode и извлекает external identity", async () => {
+    const fetch = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        text: vi.fn().mockResolvedValue(`
+          <html>
+            <body data-logged-in="true">
+              <form class="message-form" action="/forums/ogp/post-thread">
+                <input type="hidden" name="_xfToken" value="token-1" />
+                <input type="hidden" name="_xfRequestUri" value="/forums/ogp/post-thread" />
+                <input type="text" name="title" />
+                <textarea name="message"></textarea>
+              </form>
+              <div data-user-id="501" data-username="Forum User"></div>
+            </body>
+          </html>
+        `),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        headers: new Headers(),
+        text: vi.fn().mockResolvedValue(
+          JSON.stringify({
+            redirect: "https://forum.gta5rp.com/threads/test-thread.100/",
+          }),
+        ),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        text: vi.fn().mockResolvedValue(`
+          <html>
+            <body data-logged-in="true">
+              <div data-user-id="501" data-username="Forum User"></div>
+              <article id="js-post-200"></article>
+            </body>
+          </html>
+        `),
+      });
+
+    const result = await createGta5RpForumThreadFromBbcode(
+      {
+        sessionPayload: {
+          cookieHeader: "xf_user=501; xf_session=secret",
+        },
+        threadFormUrl: "https://forum.gta5rp.com/forums/ogp/post-thread",
+        title: "Жалоба в ОГП",
+        bbcode: "[b]ЖАЛОБА[/b]",
+      },
+      {
+        fetch: fetch as unknown as typeof globalThis.fetch,
+      },
+    );
+
+    expect(result).toEqual({
+      publicationUrl: "https://forum.gta5rp.com/threads/test-thread.100/",
+      forumThreadId: "100",
+      forumPostId: "200",
+    });
+  });
+
+  it("без publish form token возвращает безопасную ошибку", async () => {
+    await expect(
+      createGta5RpForumThreadFromBbcode(
+        {
+          sessionPayload: {
+            cookieHeader: "xf_user=501; xf_session=secret",
+          },
+          threadFormUrl: "https://forum.gta5rp.com/forums/ogp/post-thread",
+          title: "Жалоба в ОГП",
+          bbcode: "[b]ЖАЛОБА[/b]",
+        },
+        {
+          fetch: vi.fn().mockResolvedValue({
+            ok: true,
+            status: 200,
+            text: vi.fn().mockResolvedValue(`
+              <html>
+                <body data-logged-in="true">
+                  <form class="message-form" action="/forums/ogp/post-thread"></form>
+                </body>
+              </html>
+            `),
+          }) as unknown as typeof globalThis.fetch,
+        },
+      ),
+    ).rejects.toThrow("Форум не отдал publish form action или _xfToken.");
   });
 });

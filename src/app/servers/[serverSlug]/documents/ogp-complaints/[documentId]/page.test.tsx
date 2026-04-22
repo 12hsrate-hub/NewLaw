@@ -40,6 +40,12 @@ describe("/servers/[serverSlug]/documents/ogp-complaints/[documentId] page", () 
         generatedFormSchemaVersion: null,
         publicationUrl: null,
         isSiteForumSynced: false,
+        forumSyncState: "not_published",
+        forumThreadId: null,
+        forumPostId: null,
+        forumPublishedBbcodeHash: null,
+        forumLastPublishedAt: null,
+        forumLastSyncError: null,
         isModifiedAfterGeneration: false,
         forumConnection: {
           providerKey: "forum.gta5rp.com",
@@ -99,5 +105,6 @@ describe("/servers/[serverSlug]/documents/ogp-complaints/[documentId] page", () 
     expect(html).toContain("BBCode preview");
     expect(html).toContain("Forum integration");
     expect(html).toContain("Forum session state");
+    expect(html).toContain("Опубликовать на форуме");
   });
 });

@@ -10,10 +10,12 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   createOgpComplaintDraftAction,
   generateOgpComplaintBbcodeAction,
+  publishOgpComplaintCreateAction,
   saveDocumentDraftAction,
   updateDocumentPublicationMetadataAction,
 } from "@/server/actions/documents";
 import type {
+  OgpForumSyncState,
   OgpComplaintDraftPayload,
   OgpComplaintEvidenceGroup,
   OgpComplaintEvidenceRow,
@@ -62,6 +64,12 @@ type OgpComplaintDraftEditorClientProps = {
   initialPublicationUrl: string | null;
   initialIsSiteForumSynced: boolean;
   initialIsModifiedAfterGeneration: boolean;
+  initialForumSyncState: OgpForumSyncState;
+  initialForumThreadId: string | null;
+  initialForumPostId: string | null;
+  initialForumPublishedBbcodeHash: string | null;
+  initialForumLastPublishedAt: string | null;
+  initialForumLastSyncError: string | null;
   status: "draft" | "generated" | "published";
   forumConnection: ForumConnectionSummary;
   updatedAt: string;
@@ -82,6 +90,12 @@ type OgpComplaintGenerationState = {
   publicationUrl: string | null;
   isSiteForumSynced: boolean;
   isModifiedAfterGeneration: boolean;
+  forumSyncState: OgpForumSyncState;
+  forumThreadId: string | null;
+  forumPostId: string | null;
+  forumPublishedBbcodeHash: string | null;
+  forumLastPublishedAt: string | null;
+  forumLastSyncError: string | null;
 };
 
 function createEditorState(input: {
@@ -137,6 +151,26 @@ function formatForumConnectionState(state: ForumConnectionSummary["state"]) {
   return "disabled";
 }
 
+function formatForumSyncState(state: OgpForumSyncState) {
+  if (state === "not_published") {
+    return "not_published";
+  }
+
+  if (state === "current") {
+    return "current";
+  }
+
+  if (state === "outdated") {
+    return "outdated";
+  }
+
+  if (state === "failed") {
+    return "failed";
+  }
+
+  return "manual_untracked";
+}
+
 function buildEmptyEvidenceGroup(): OgpComplaintEvidenceGroup {
   return {
     id: createLocalId("evidence_group"),
@@ -173,6 +207,12 @@ function createGenerationState(input: {
   publicationUrl: string | null;
   isSiteForumSynced: boolean;
   isModifiedAfterGeneration: boolean;
+  forumSyncState: OgpForumSyncState;
+  forumThreadId: string | null;
+  forumPostId: string | null;
+  forumPublishedBbcodeHash: string | null;
+  forumLastPublishedAt: string | null;
+  forumLastSyncError: string | null;
 }): OgpComplaintGenerationState {
   return {
     status: input.status,
@@ -184,6 +224,12 @@ function createGenerationState(input: {
     publicationUrl: input.publicationUrl,
     isSiteForumSynced: input.isSiteForumSynced,
     isModifiedAfterGeneration: input.isModifiedAfterGeneration,
+    forumSyncState: input.forumSyncState,
+    forumThreadId: input.forumThreadId,
+    forumPostId: input.forumPostId,
+    forumPublishedBbcodeHash: input.forumPublishedBbcodeHash,
+    forumLastPublishedAt: input.forumLastPublishedAt,
+    forumLastSyncError: input.forumLastSyncError,
   };
 }
 
@@ -827,6 +873,12 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
       publicationUrl: props.initialPublicationUrl,
       isSiteForumSynced: props.initialIsSiteForumSynced,
       isModifiedAfterGeneration: props.initialIsModifiedAfterGeneration,
+      forumSyncState: props.initialForumSyncState,
+      forumThreadId: props.initialForumThreadId,
+      forumPostId: props.initialForumPostId,
+      forumPublishedBbcodeHash: props.initialForumPublishedBbcodeHash,
+      forumLastPublishedAt: props.initialForumLastPublishedAt,
+      forumLastSyncError: props.initialForumLastSyncError,
     }),
   );
   const [savedUpdatedAt, setSavedUpdatedAt] = useState(props.updatedAt);
@@ -884,6 +936,13 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
         status: result.status,
         isModifiedAfterGeneration: result.isModifiedAfterGeneration,
         isSiteForumSynced: result.isModifiedAfterGeneration ? false : current.isSiteForumSynced,
+        forumSyncState: result.isModifiedAfterGeneration
+          ? current.publicationUrl && !current.forumThreadId && !current.forumPostId
+            ? "manual_untracked"
+            : current.forumThreadId && current.forumPostId
+              ? "outdated"
+              : current.forumSyncState
+          : current.forumSyncState,
       }));
       setSaveMessage(
         mode === "autosave"
@@ -948,12 +1007,31 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
       publicationUrl: result.publicationUrl,
       isSiteForumSynced: result.isSiteForumSynced,
       isModifiedAfterGeneration: result.isModifiedAfterGeneration,
+      forumSyncState:
+        result.publicationUrl && !generationState.forumThreadId && !generationState.forumPostId
+          ? "manual_untracked"
+          : generationState.forumThreadId && generationState.forumPostId
+            ? "outdated"
+            : generationState.forumSyncState,
+      forumThreadId: generationState.forumThreadId,
+      forumPostId: generationState.forumPostId,
+      forumPublishedBbcodeHash: generationState.forumPublishedBbcodeHash,
+      forumLastPublishedAt: generationState.forumLastPublishedAt,
+      forumLastSyncError: null,
     });
     setPublicationUrlInput(result.publicationUrl ?? "");
     setGenerationMessage(
       `BBCode сгенерирован: ${result.generatedAt ? new Date(result.generatedAt).toLocaleString("ru-RU") : "время недоступно"}.`,
     );
-  }, [canGenerateFromPersistedState, props.documentId]);
+  }, [
+    canGenerateFromPersistedState,
+    generationState.forumLastPublishedAt,
+    generationState.forumPostId,
+    generationState.forumPublishedBbcodeHash,
+    generationState.forumSyncState,
+    generationState.forumThreadId,
+    props.documentId,
+  ]);
 
   const handleCopyBbcode = useCallback(async () => {
     if (!generationState.lastGeneratedBbcode) {
@@ -996,10 +1074,74 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
       status: result.status,
       publicationUrl: result.publicationUrl,
       isSiteForumSynced: result.isSiteForumSynced,
+      forumSyncState:
+        result.publicationUrl && !current.forumThreadId && !current.forumPostId
+          ? "manual_untracked"
+          : result.publicationUrl
+            ? current.forumSyncState
+            : current.forumThreadId && current.forumPostId
+              ? current.forumSyncState
+              : "not_published",
+      forumLastSyncError:
+        result.publicationUrl && !current.forumThreadId && !current.forumPostId
+          ? null
+          : current.forumLastSyncError,
     }));
     setPublicationUrlInput(result.publicationUrl ?? "");
     setPublicationMessage("Publication metadata обновлены.");
   }, [generationState.isSiteForumSynced, props.documentId, publicationUrlInput]);
+
+  const handlePublishCreate = useCallback(async () => {
+    if (isDirty) {
+      setPublicationMessage(
+        "Сначала сохраните черновик. Publish create всегда использует latest persisted generated BBCode.",
+      );
+      return;
+    }
+
+    const result = await publishOgpComplaintCreateAction({
+      documentId: props.documentId,
+    });
+
+    if (!result.ok) {
+      if (result.error === "publication-blocked") {
+        setPublicationMessage(result.reasons.join(" "));
+        return;
+      }
+
+      if (result.error === "publication-failed") {
+        setGenerationState((current) => ({
+          ...current,
+          forumSyncState: "failed",
+          forumLastSyncError: result.message,
+          isSiteForumSynced: false,
+        }));
+        setPublicationMessage(result.message);
+        return;
+      }
+
+      setPublicationMessage("Выполнить publish create не удалось. Проверьте доступ к документу.");
+      return;
+    }
+
+    setSavedUpdatedAt(result.updatedAt);
+    setGenerationState((current) => ({
+      ...current,
+      status: result.status,
+      publicationUrl: result.publicationUrl,
+      isSiteForumSynced: result.isSiteForumSynced,
+      isModifiedAfterGeneration: result.isModifiedAfterGeneration,
+      generatedAt: result.generatedAt,
+      forumSyncState: result.forumSyncState,
+      forumThreadId: result.forumThreadId,
+      forumPostId: result.forumPostId,
+      forumPublishedBbcodeHash: result.forumPublishedBbcodeHash,
+      forumLastPublishedAt: result.forumLastPublishedAt,
+      forumLastSyncError: result.forumLastSyncError,
+    }));
+    setPublicationUrlInput(result.publicationUrl ?? "");
+    setPublicationMessage("Документ опубликован на форуме через automation create-step.");
+  }, [isDirty, props.documentId]);
 
   return (
     <div className="space-y-6">
@@ -1068,6 +1210,13 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
           <li>
             Modified after generation: {generationState.isModifiedAfterGeneration ? "да" : "нет"}
           </li>
+          <li>Forum sync state: {formatForumSyncState(generationState.forumSyncState)}</li>
+          <li>
+            Forum last published at:{" "}
+            {generationState.forumLastPublishedAt
+              ? new Date(generationState.forumLastPublishedAt).toLocaleString("ru-RU")
+              : "ещё не публиковался"}
+          </li>
         </ul>
       </div>
 
@@ -1076,7 +1225,7 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
           <div className="space-y-1">
             <h3 className="text-lg font-semibold">BBCode preview</h3>
             <ComplaintFieldHint>
-              Здесь показывается deterministic результат generation. Forum automation в этот шаг не входит.
+              Здесь показывается deterministic результат generation. Publish create использует только этот persisted generated BBCode.
             </ComplaintFieldHint>
           </div>
           <Button
@@ -1133,8 +1282,56 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
               Требуется переподключение: {props.forumConnection.lastValidationError}
             </p>
           ) : null}
+          <p className="mt-2">Само подключение session управляется отдельно через `/account/security`.</p>
+        </div>
+        <div className="rounded-2xl border border-[var(--border)] bg-white/80 px-4 py-3 text-sm leading-6 text-[var(--muted)]">
+          <p>
+            Publication readiness:{" "}
+            <span className="font-medium text-[var(--foreground)]">
+              {!generationState.generatedAt || !generationState.lastGeneratedBbcode
+                ? "не готово к публикации"
+                : generationState.isModifiedAfterGeneration
+                  ? "нужна регенерация перед публикацией"
+                  : generationState.forumThreadId && generationState.forumPostId
+                    ? "уже опубликовано"
+                    : generationState.publicationUrl &&
+                        !generationState.forumThreadId &&
+                        !generationState.forumPostId
+                      ? "manual publication url without automation tracking"
+                      : props.forumConnection.state === "valid"
+                        ? "готово к публикации"
+                        : "нужна валидная forum session"}
+            </span>
+          </p>
+          <p>
+            Forum sync state:{" "}
+            <span className="font-medium text-[var(--foreground)]">
+              {formatForumSyncState(generationState.forumSyncState)}
+            </span>
+          </p>
+          <p>
+            Automation-owned identity:{" "}
+            <span className="font-medium text-[var(--foreground)]">
+              {generationState.forumThreadId && generationState.forumPostId
+                ? `${generationState.forumThreadId} / ${generationState.forumPostId}`
+                : "ещё не сохранена"}
+            </span>
+          </p>
+          <p>
+            Published at:{" "}
+            <span className="font-medium text-[var(--foreground)]">
+              {generationState.forumLastPublishedAt
+                ? new Date(generationState.forumLastPublishedAt).toLocaleString("ru-RU")
+                : "ещё не публиковался"}
+            </span>
+          </p>
+          {generationState.forumLastSyncError ? (
+            <p className="mt-2 text-[#8a2d1d]">
+              Последняя ошибка publish create: {generationState.forumLastSyncError}
+            </p>
+          ) : null}
           <p className="mt-2">
-            Само подключение session управляется отдельно через `/account/security`. Publish button на этом шаге ещё не активирован.
+            Этот шаг покрывает только first publish create для `ogp_complaint`. Update/resync здесь ещё нет.
           </p>
         </div>
         <div className="space-y-2">
@@ -1166,6 +1363,17 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
         </label>
         <div className="flex flex-wrap items-center gap-3">
           <Button
+            disabled={isDirty}
+            onClick={() => {
+              startTransition(() => {
+                void handlePublishCreate();
+              });
+            }}
+            type="button"
+          >
+            Опубликовать на форуме
+          </Button>
+          <Button
             onClick={() => {
               startTransition(() => {
                 void handlePublicationSave();
@@ -1177,7 +1385,8 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
             Сохранить publication metadata
           </Button>
           <span className="text-sm text-[var(--muted)]">
-            Текущий forum sync: {generationState.isSiteForumSynced ? "да" : "нет"}
+            Текущий forum sync: {generationState.isSiteForumSynced ? "да" : "нет"} /{" "}
+            {formatForumSyncState(generationState.forumSyncState)}
           </span>
         </div>
         {publicationMessage ? <p className="text-sm text-[var(--muted)]">{publicationMessage}</p> : null}

@@ -28,6 +28,15 @@ const forumIntegrationRuntimeEnvSchema = z.object({
   FORUM_SESSION_ENCRYPTION_KEY: z.string().trim().min(32),
 });
 
+const ogpForumAutomationRuntimeEnvSchema = z.object({
+  OGP_FORUM_THREAD_FORM_URL: z
+    .string()
+    .url()
+    .refine((value) => value.startsWith("https://forum.gta5rp.com/"), {
+      message: "OGP_FORUM_THREAD_FORM_URL должен указывать на https://forum.gta5rp.com/...",
+    }),
+});
+
 export function getAppRuntimeEnv() {
   return appRuntimeEnvSchema.parse({
     APP_URL: process.env.APP_URL,
@@ -66,6 +75,12 @@ export function getAssistantInternalProxyEnv() {
 export function getForumIntegrationRuntimeEnv() {
   return forumIntegrationRuntimeEnvSchema.parse({
     FORUM_SESSION_ENCRYPTION_KEY: process.env.FORUM_SESSION_ENCRYPTION_KEY,
+  });
+}
+
+export function getOgpForumAutomationRuntimeEnv() {
+  return ogpForumAutomationRuntimeEnvSchema.parse({
+    OGP_FORUM_THREAD_FORM_URL: process.env.OGP_FORUM_THREAD_FORM_URL,
   });
 }
 
@@ -171,6 +186,27 @@ export function hasLiveForumIntegrationRuntimeEnv(
     encryptionKey.includes("your-") ||
     encryptionKey.includes("placeholder") ||
     encryptionKey.includes("example")
+  ) {
+    return false;
+  }
+
+  return true;
+}
+
+export function hasLiveOgpForumAutomationRuntimeEnv(
+  env: Partial<z.infer<typeof ogpForumAutomationRuntimeEnvSchema>>,
+) {
+  const threadFormUrl = env.OGP_FORUM_THREAD_FORM_URL?.trim() ?? "";
+
+  if (!threadFormUrl) {
+    return false;
+  }
+
+  if (
+    !threadFormUrl.startsWith("https://forum.gta5rp.com/") ||
+    threadFormUrl.includes("your-") ||
+    threadFormUrl.includes("placeholder") ||
+    threadFormUrl.includes("example")
   ) {
     return false;
   }

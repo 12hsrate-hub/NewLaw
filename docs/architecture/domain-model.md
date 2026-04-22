@@ -216,6 +216,10 @@
 - account-scoped forum session хранится отдельно от документа
 - документ не хранит raw cookies/token форума
 - claims не наследуют автоматически OGP publication capability
+- automation publish create доступен только для `ogp_complaint`
+- publish create всегда использует только latest generated `BBCode`
+- если документ изменён после generation, publish блокируется до regenerate
+- successful OGP automation publish фиксирует внешнюю forum identity и переводит документ в `published`
 
 ## Неполный профиль персонажа
 

@@ -1,6 +1,8 @@
 import {
   FORUM_GTA5RP_PROVIDER_KEY,
+  forumPublishCreateResultSchema,
   forumValidationResultSchema,
+  type ForumPublishCreateResult,
   type ForumSessionPayload,
   type ForumValidationResult,
 } from "@/schemas/forum-integration";
@@ -78,6 +80,72 @@ function buildInvalidSummary(input: {
   return "Форум не подтвердил авторизованную session. Подключите новую Cookie header заново.";
 }
 
+function resolveForumUrl(input: string, baseUrl: string) {
+  return new URL(input, baseUrl).toString();
+}
+
+function extractFormAction(html: string, baseUrl: string) {
+  const rawAction =
+    html.match(/<form[^>]+action="([^"]+)"[^>]*class="[^"]*message-form[^"]*"/i)?.[1] ??
+    html.match(/<form[^>]+class="[^"]*message-form[^"]*"[^>]+action="([^"]+)"/i)?.[1] ??
+    html.match(/<form[^>]+action="([^"]+add-thread[^"]*)"/i)?.[1] ??
+    null;
+
+  return rawAction ? resolveForumUrl(rawAction, baseUrl) : null;
+}
+
+function extractHiddenInputValue(html: string, inputName: string) {
+  const escapedName = inputName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+  return (
+    html.match(new RegExp(`<input[^>]+name="${escapedName}"[^>]+value="([^"]*)"`, "i"))?.[1] ??
+    html.match(new RegExp(`<input[^>]+value="([^"]*)"[^>]+name="${escapedName}"`, "i"))?.[1] ??
+    null
+  );
+}
+
+function extractTextareaFieldName(html: string) {
+  return (
+    html.match(/<textarea[^>]+name="([^"]+)"[^>]*class="[^"]*input[^"]*"/i)?.[1] ??
+    html.match(/<textarea[^>]+name="([^"]+)"/i)?.[1] ??
+    "message"
+  );
+}
+
+function extractTitleFieldName(html: string) {
+  return (
+    html.match(/<input[^>]+name="([^"]+)"[^>]+type="text"[^>]*placeholder="[^"]*title/i)?.[1] ??
+    html.match(/<input[^>]+name="([^"]+)"[^>]+name="title"/i)?.[1] ??
+    "title"
+  );
+}
+
+function extractJsonRedirect(text: string, baseUrl: string) {
+  try {
+    const parsed = JSON.parse(text) as { redirect?: string; url?: string };
+    const rawRedirect = parsed.redirect ?? parsed.url ?? null;
+
+    return rawRedirect ? resolveForumUrl(rawRedirect, baseUrl) : null;
+  } catch {
+    return null;
+  }
+}
+
+function extractThreadIdFromUrl(url: string) {
+  const parsed = url.match(/\/threads\/(?:[^/.]+\.)?([0-9]+)(?:\/|$|\?)/i)?.[1];
+
+  return parsed ?? null;
+}
+
+function extractPostIdFromHtml(html: string) {
+  return (
+    html.match(/id="js-post-([0-9]+)"/i)?.[1] ??
+    html.match(/data-content="post-([0-9]+)"/i)?.[1] ??
+    html.match(/href="#post-([0-9]+)"/i)?.[1] ??
+    null
+  );
+}
+
 export function parseGta5RpForumIdentity(html: string) {
   return {
     forumUserId: extractForumUserId(html),
@@ -134,4 +202,114 @@ export async function validateGta5RpForumSession(
       }),
     });
   }
+}
+
+export async function createGta5RpForumThreadFromBbcode(
+  input: {
+    sessionPayload: ForumSessionPayload;
+    threadFormUrl: string;
+    title: string;
+    bbcode: string;
+  },
+  dependencies: {
+    fetch?: FetchLike;
+  } = {},
+): Promise<ForumPublishCreateResult> {
+  const fetcher = dependencies.fetch ?? fetch;
+  const userAgent = "Lawyer5RP Forum Publisher/1.0";
+
+  const formResponse = await fetcher(input.threadFormUrl, {
+    headers: {
+      Cookie: input.sessionPayload.cookieHeader,
+      "User-Agent": userAgent,
+    },
+    redirect: "follow",
+    cache: "no-store",
+  });
+  const formHtml = await formResponse.text();
+  const identity = parseGta5RpForumIdentity(formHtml);
+
+  if (!formResponse.ok || !isAuthenticatedForumHtml(formHtml, identity)) {
+    throw new Error("Forum session недействительна для publish create.");
+  }
+
+  const actionUrl = extractFormAction(formHtml, input.threadFormUrl);
+  const xfToken = extractHiddenInputValue(formHtml, "_xfToken");
+
+  if (!actionUrl || !xfToken) {
+    throw new Error("Форум не отдал publish form action или _xfToken.");
+  }
+
+  const titleFieldName = extractTitleFieldName(formHtml);
+  const messageFieldName = extractTextareaFieldName(formHtml);
+  const formBody = new URLSearchParams();
+
+  formBody.set(titleFieldName, input.title);
+  formBody.set(messageFieldName, input.bbcode);
+  formBody.set("_xfToken", xfToken);
+  formBody.set("_xfResponseType", "json");
+
+  const requestUri = extractHiddenInputValue(formHtml, "_xfRequestUri");
+  const withData = extractHiddenInputValue(formHtml, "_xfWithData");
+
+  if (requestUri) {
+    formBody.set("_xfRequestUri", requestUri);
+  }
+
+  if (withData) {
+    formBody.set("_xfWithData", withData);
+  }
+
+  const publishResponse = await fetcher(actionUrl, {
+    method: "POST",
+    headers: {
+      Cookie: input.sessionPayload.cookieHeader,
+      "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+      "User-Agent": userAgent,
+      Referer: input.threadFormUrl,
+      "X-Requested-With": "XMLHttpRequest",
+    },
+    body: formBody.toString(),
+    redirect: "manual",
+    cache: "no-store",
+  });
+  const publishText = await publishResponse.text();
+  const publicationUrl =
+    publishResponse.headers.get("location") ??
+    extractJsonRedirect(publishText, FORUM_BASE_URL) ??
+    null;
+
+  if (!publicationUrl) {
+    throw new Error("Форум не вернул publication URL после create publish.");
+  }
+
+  const normalizedPublicationUrl = resolveForumUrl(publicationUrl, FORUM_BASE_URL);
+  const threadIdFromUrl = extractThreadIdFromUrl(normalizedPublicationUrl);
+  const threadPageResponse = await fetcher(normalizedPublicationUrl, {
+    headers: {
+      Cookie: input.sessionPayload.cookieHeader,
+      "User-Agent": userAgent,
+    },
+    redirect: "follow",
+    cache: "no-store",
+  });
+  const threadPageHtml = await threadPageResponse.text();
+  const threadIdentity = parseGta5RpForumIdentity(threadPageHtml);
+
+  if (!threadPageResponse.ok || !isAuthenticatedForumHtml(threadPageHtml, threadIdentity)) {
+    throw new Error("Форум не подтвердил опубликованный thread после create publish.");
+  }
+
+  const forumThreadId = threadIdFromUrl ?? extractThreadIdFromUrl(threadPageResponse.url);
+  const forumPostId = extractPostIdFromHtml(threadPageHtml);
+
+  if (!forumThreadId || !forumPostId) {
+    throw new Error("Не удалось извлечь forum thread/post identity после create publish.");
+  }
+
+  return forumPublishCreateResultSchema.parse({
+    publicationUrl: normalizedPublicationUrl,
+    forumThreadId,
+    forumPostId,
+  });
 }

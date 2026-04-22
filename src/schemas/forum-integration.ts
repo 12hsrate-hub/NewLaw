@@ -56,6 +56,13 @@ export const forumValidationResultSchema = z.object({
 });
 export type ForumValidationResult = z.infer<typeof forumValidationResultSchema>;
 
+export const forumPublishCreateResultSchema = z.object({
+  publicationUrl: z.string().url(),
+  forumThreadId: z.string().trim().min(1),
+  forumPostId: z.string().trim().min(1),
+});
+export type ForumPublishCreateResult = z.infer<typeof forumPublishCreateResultSchema>;
+
 export function normalizeForumSessionInput(rawInput: string): ForumSessionPayload {
   const parsed = forumSessionConnectionInputSchema.parse({
     rawSessionInput: rawInput,

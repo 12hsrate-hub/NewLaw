@@ -157,6 +157,12 @@ Identity-источник:
 - `publication_status`
 - `publication_url`
 - `is_site_forum_synced`
+- `forum_sync_state`
+- `forum_thread_id`
+- `forum_post_id`
+- `forum_published_bbcode_hash`
+- `forum_last_published_at`
+- `forum_last_sync_error`
 - `law_version`
 - `template_version`
 - `form_schema_version`
@@ -182,6 +188,7 @@ Identity-источник:
 - `trustor_snapshot_json` внутри документа живет отдельно от карточки доверителя
 - `publication_url` допускается только одна
 - `publication_url` должен валидироваться по домену `forum.gta5rp.com`
+- OGP automation-owned publication identity хранится отдельно от manual `publication_url`
 - `appeal_number` в полезной нагрузке или отдельных полях не проверяется на уникальность
 - soft delete обязателен
 
@@ -211,6 +218,31 @@ Account-scoped foundation для будущей OGP forum automation.
 - `provider_key` в текущем foundation фиксирован как `forum.gta5rp.com`
 - одна account-scoped connection на provider
 - claims и другие document families не получают доступ к этому publication capability автоматически
+
+### ogp_forum_publication_attempts
+
+OGP-specific attempt log для forum publish automation.
+
+Основные поля:
+
+- `id`
+- `document_id`
+- `account_id`
+- `operation`
+- `status`
+- `forum_thread_id`
+- `forum_post_id`
+- `error_code`
+- `error_summary`
+- `created_at`
+- `updated_at`
+
+Правила:
+
+- attempt log относится только к `ogp_complaint`
+- raw cookies/session не логируются
+- failed attempt может существовать даже если external forum identity не была сохранена в документе
+- это не universal publication subsystem для всех document families
 
 Зафиксированные значения `document_type`:
 

@@ -6,6 +6,13 @@ export const ogpComplaintFilingModes = ["self", "representative"] as const;
 export const trustorSnapshotSourceTypes = ["inline_manual"] as const;
 export const claimDocumentTypes = ["rehabilitation", "lawsuit"] as const;
 export const claimsStructuredPreviewFormat = "claims_structured_preview_v1" as const;
+export const ogpForumSyncStates = [
+  "not_published",
+  "current",
+  "outdated",
+  "failed",
+  "manual_untracked",
+] as const;
 
 const datetimeLocalPattern = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
 
@@ -41,6 +48,7 @@ export const documentIdSchema = z.string().trim().min(1);
 export const documentTypeSchema = z.enum(documentTypes);
 export const claimDocumentTypeSchema = z.enum(claimDocumentTypes);
 export const documentStatusSchema = z.enum(documentStatuses);
+export const ogpForumSyncStateSchema = z.enum(ogpForumSyncStates);
 export const ogpComplaintFilingModeSchema = z.enum(ogpComplaintFilingModes);
 export const trustorSnapshotSourceTypeSchema = z.enum(trustorSnapshotSourceTypes);
 export const documentTitleSchema = z.string().trim().min(3).max(160);
@@ -182,6 +190,10 @@ export const generateClaimsStructuredCheckpointActionInputSchema = z.object({
   documentId: documentIdSchema,
 });
 
+export const publishOgpComplaintCreateActionInputSchema = z.object({
+  documentId: documentIdSchema,
+});
+
 export const updateDocumentPublicationMetadataActionInputSchema = z.object({
   documentId: documentIdSchema,
   publicationUrl: documentPublicationUrlSchema,
@@ -220,6 +232,7 @@ export const claimsRenderedOutputSchema = z.object({
 
 export type DocumentType = z.infer<typeof documentTypeSchema>;
 export type DocumentStatus = z.infer<typeof documentStatusSchema>;
+export type OgpForumSyncState = z.infer<typeof ogpForumSyncStateSchema>;
 export type ClaimDocumentType = z.infer<typeof claimDocumentTypeSchema>;
 export type OgpComplaintFilingMode = z.infer<typeof ogpComplaintFilingModeSchema>;
 export type DocumentAuthorSnapshot = z.infer<typeof documentAuthorSnapshotSchema>;

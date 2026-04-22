@@ -21,6 +21,7 @@ import type {
   ClaimDocumentType,
   ClaimsDraftPayload,
   ClaimsRenderedOutput,
+  OgpForumSyncState,
   OgpComplaintDraftPayload,
 } from "@/schemas/document";
 import type { ForumConnectionSummary } from "@/schemas/forum-integration";
@@ -94,6 +95,14 @@ function formatForumConnectionState(state: ForumConnectionSummary["state"]) {
   return "disabled";
 }
 
+function formatForumSyncState(state: OgpForumSyncState | null) {
+  if (!state) {
+    return null;
+  }
+
+  return state;
+}
+
 function formatDocumentStatus(status: DocumentAreaPersistedListItem["status"]) {
   if (status === "draft") {
     return "draft";
@@ -149,6 +158,9 @@ function PersistedDocumentList(props: {
                 <Badge>{formatDocumentType(document.documentType)}</Badge>
               )}
               <Badge>{formatDocumentStatus(document.status)}</Badge>
+              {document.documentType === "ogp_complaint" && formatForumSyncState(document.forumSyncState) ? (
+                <Badge>forum: {formatForumSyncState(document.forumSyncState)}</Badge>
+              ) : null}
               {formatFilingMode(document.filingMode) ? (
                 <Badge>filing mode: {formatFilingMode(document.filingMode)}</Badge>
               ) : null}
@@ -189,6 +201,12 @@ function PersistedDocumentList(props: {
             {document.publicationUrl ? (
               <p className="text-sm leading-6 text-[var(--muted)]">
                 Publication URL: {document.publicationUrl}. Forum sync: {document.isSiteForumSynced ? "да" : "нет"}.
+                {document.forumSyncState ? ` State: ${document.forumSyncState}.` : ""}
+              </p>
+            ) : null}
+            {document.documentType === "ogp_complaint" && document.forumLastSyncError ? (
+              <p className="text-sm leading-6 text-[#8a2d1d]">
+                Последняя ошибка публикации: {document.forumLastSyncError}
               </p>
             ) : null}
             {document.workingNotesPreview ? (
@@ -432,8 +450,8 @@ export function OgpComplaintDraftCreateEntry(props: {
         <h2 className="text-2xl font-semibold">Complaint create entry</h2>
         <p className="text-sm leading-6 text-[var(--muted)]">
           На этом route создаётся persisted complaint draft и фиксируется immutable author snapshot.
-          BBCode generation и manual publication metadata появятся после first save уже в owner-only
-          route `[documentId]`.
+          BBCode generation, publish create и manual publication metadata появляются после first
+          save уже в owner-only route `[documentId]`.
         </p>
         <OgpComplaintDraftCreateClient
           characters={props.characters}
@@ -500,6 +518,12 @@ export function OgpComplaintPersistedEditor(props: {
         generatedFormSchemaVersion: string | null;
         publicationUrl: string | null;
         isSiteForumSynced: boolean;
+        forumSyncState: OgpForumSyncState;
+        forumThreadId: string | null;
+        forumPostId: string | null;
+        forumPublishedBbcodeHash: string | null;
+        forumLastPublishedAt: string | null;
+        forumLastSyncError: string | null;
         isModifiedAfterGeneration: boolean;
         forumConnection: ForumConnectionSummary;
         server: {
@@ -532,7 +556,8 @@ export function OgpComplaintPersistedEditor(props: {
         <h1 className="text-3xl font-semibold">{props.document.title}</h1>
         <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
           Это уже реальный OGP complaint editor route. Здесь грузится persisted payload, работает
-          owner-only access, manual/autosave и deterministic BBCode generation без forum automation.
+          owner-only access, manual/autosave, deterministic BBCode generation и первый automation
+          create-step публикации на форум.
         </p>
         <div className="flex flex-wrap items-center gap-2 text-sm leading-6 text-[var(--muted)]">
           <Badge>serverSlug: {props.document.server.code}</Badge>
@@ -565,14 +590,29 @@ export function OgpComplaintPersistedEditor(props: {
             Generation status: {props.document.generatedAt ? "есть generated BBCode" : "ещё не генерировался"}.
           </li>
           <li>Forum integration state: {formatForumConnectionState(props.document.forumConnection.state)}.</li>
+          <li>Forum sync state: {props.document.forumSyncState}.</li>
+          <li>
+            Automation-owned publication:{" "}
+            {props.document.forumThreadId && props.document.forumPostId ? "да" : "нет"}
+          </li>
+          <li>
+            Forum last published at:{" "}
+            {props.document.forumLastPublishedAt
+              ? new Date(props.document.forumLastPublishedAt).toLocaleString("ru-RU")
+              : "ещё не публиковался"}
+          </li>
+          {props.document.forumLastSyncError ? (
+            <li>Последняя ошибка публикации: {props.document.forumLastSyncError}</li>
+          ) : null}
         </ul>
       </Card>
 
       <Card className="space-y-4">
         <h2 className="text-2xl font-semibold">Forum integration</h2>
         <p className="text-sm leading-6 text-[var(--muted)]">
-          OGP editor уже умеет читать account-scoped forum connection state, но actual publish
-          action пока не включён. Подключение и validate session живут в `/account/security`.
+          OGP editor уже умеет читать account-scoped forum connection state и запускать first
+          publish create только из latest generated BBCode. Подключение и validate session живут в
+          `/account/security`.
         </p>
         <ul className="space-y-2 text-sm leading-6 text-[var(--muted)]">
           <li>Provider: {props.document.forumConnection.providerKey}</li>
@@ -613,6 +653,12 @@ export function OgpComplaintPersistedEditor(props: {
           initialIsModifiedAfterGeneration={props.document.isModifiedAfterGeneration}
           initialIsSiteForumSynced={props.document.isSiteForumSynced}
           initialLastGeneratedBbcode={props.document.lastGeneratedBbcode}
+          initialForumLastPublishedAt={props.document.forumLastPublishedAt}
+          initialForumLastSyncError={props.document.forumLastSyncError}
+          initialForumPostId={props.document.forumPostId}
+          initialForumPublishedBbcodeHash={props.document.forumPublishedBbcodeHash}
+          initialForumSyncState={props.document.forumSyncState}
+          initialForumThreadId={props.document.forumThreadId}
           initialPublicationUrl={props.document.publicationUrl}
           initialPayload={props.document.payload}
           initialTitle={props.document.title}

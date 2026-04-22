@@ -21,6 +21,7 @@ import type {
   ClaimDocumentType,
   ClaimsDraftPayload,
   ClaimsRenderedOutput,
+  OgpForumSyncState,
   OgpComplaintDraftPayload,
 } from "@/schemas/document";
 import type { ForumConnectionSummary } from "@/schemas/forum-integration";
@@ -63,6 +64,11 @@ export type DocumentAreaPersistedListItem = {
   generatedAt: string | null;
   publicationUrl: string | null;
   isSiteForumSynced: boolean;
+  forumSyncState: OgpForumSyncState | null;
+  forumThreadId: string | null;
+  forumPostId: string | null;
+  forumLastPublishedAt: string | null;
+  forumLastSyncError: string | null;
   isModifiedAfterGeneration: boolean;
   snapshotCapturedAt: string;
   updatedAt: string;
@@ -286,6 +292,12 @@ type OgpComplaintEditorRouteContext =
         generatedFormSchemaVersion: string | null;
         publicationUrl: string | null;
         isSiteForumSynced: boolean;
+        forumSyncState: OgpForumSyncState;
+        forumThreadId: string | null;
+        forumPostId: string | null;
+        forumPublishedBbcodeHash: string | null;
+        forumLastPublishedAt: string | null;
+        forumLastSyncError: string | null;
         isModifiedAfterGeneration: boolean;
         forumConnection: ForumConnectionSummary;
         server: {
@@ -392,6 +404,11 @@ function buildPersistedDocumentListItem(
       generatedAt: document.generatedAt?.toISOString() ?? null,
       publicationUrl: document.publicationUrl,
       isSiteForumSynced: document.isSiteForumSynced,
+      forumSyncState: null,
+      forumThreadId: null,
+      forumPostId: null,
+      forumLastPublishedAt: null,
+      forumLastSyncError: null,
       isModifiedAfterGeneration: document.isModifiedAfterGeneration,
       snapshotCapturedAt: document.snapshotCapturedAt.toISOString(),
       updatedAt: document.updatedAt.toISOString(),
@@ -424,6 +441,11 @@ function buildPersistedDocumentListItem(
     generatedAt: document.generatedAt?.toISOString() ?? null,
     publicationUrl: document.publicationUrl,
     isSiteForumSynced: document.isSiteForumSynced,
+    forumSyncState: document.forumSyncState,
+    forumThreadId: document.forumThreadId,
+    forumPostId: document.forumPostId,
+    forumLastPublishedAt: document.forumLastPublishedAt?.toISOString() ?? null,
+    forumLastSyncError: document.forumLastSyncError,
     isModifiedAfterGeneration: document.isModifiedAfterGeneration,
     snapshotCapturedAt: document.snapshotCapturedAt.toISOString(),
     updatedAt: document.updatedAt.toISOString(),
@@ -870,6 +892,12 @@ export async function getOgpComplaintEditorRouteContext(input: {
       generatedFormSchemaVersion: document.generatedFormSchemaVersion,
       publicationUrl: document.publicationUrl,
       isSiteForumSynced: document.isSiteForumSynced,
+      forumSyncState: document.forumSyncState,
+      forumThreadId: document.forumThreadId,
+      forumPostId: document.forumPostId,
+      forumPublishedBbcodeHash: document.forumPublishedBbcodeHash,
+      forumLastPublishedAt: document.forumLastPublishedAt?.toISOString() ?? null,
+      forumLastSyncError: document.forumLastSyncError,
       isModifiedAfterGeneration: document.isModifiedAfterGeneration,
       forumConnection,
       server: {
