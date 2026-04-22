@@ -41,7 +41,8 @@ Production email delivery для auth-писем зафиксирован чер
 - `Supabase Storage` остается частью платформы, но не нужен на этапе bootstrap MVP
 - AI вызывается только с сервера
 - Шаблоны AI prompt’ов хранятся в коде, а не в БД
-- Deployment на VPS целится в `Docker Compose`
+- Канонический MVP runtime на VPS: `systemd + release directories + current symlink`
+- `Docker Compose` остаётся future target и не считается текущим blocker для production release hardening
 
 ## Основная модель
 

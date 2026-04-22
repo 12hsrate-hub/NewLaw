@@ -10,36 +10,50 @@
 
 ## Поток разработки
 
-Зафиксированный поток:
+Зафиксированный MVP-поток:
 
 1. Локальная разработка и локальная проверка.
-2. Коммит в GitHub.
-3. Выкладка на VPS production.
+2. Push в GitHub.
+3. Ручной production release на VPS.
 
-На старте MVP это допускает ручной deployment.
-Автоматический CI в виде baseline-проверок через `GitHub Actions` входит в целевой контур MVP.
+Автоматический CI уже используется как baseline-проверка, но сам production rollout пока остаётся ручным операционным процессом.
 
-## Production-платформа
+## Каноническая production model для MVP
 
-Production разворачивается на `Ubuntu 24.04 LTS VPS`.
-
-Плановая production-схема:
+Текущая и каноническая для MVP runtime-схема:
 
 - `Nginx` как reverse proxy
-- `Docker Compose` как базовый способ развертывания на VPS
-- контейнер приложения `Next.js`
-- контейнерный или внешний reverse proxy в согласованной схеме
-- `Let's Encrypt` для HTTPS
+- `systemd` service для приложения
+- immutable release directories
+- `current` symlink на активный release
+- shared production env вне release-каталогов
 
-## Текущий production-статус
+Эта модель уже соответствует фактическому production state и считается enough-for-MVP.
 
-На данный момент production уже используется как техническая площадка:
+Важно:
 
-- домен `lawyer5rp.ru` настроен
-- HTTPS поднят
-- временно отдается maintenance page
+- `Docker Compose` остаётся future target для later operational maturity
+- migration на `Docker Compose` не является текущим blocker для formal done по deploy/release hardening
 
-Это не финальная схема приложения, а подготовленный baseline под дальнейший rollout.
+## Canonical server paths
+
+Для production canonical paths должны быть такими:
+
+- source checkout: `/srv/newlaw/app/repo`
+- release directories: `/srv/newlaw/app/releases/<sha>`
+- active symlink: `/srv/newlaw/app/current`
+- shared production env: `/srv/newlaw/app/shared/.env.production`
+
+Дополнительно:
+
+- `systemd WorkingDirectory` должен быть `/srv/newlaw/app/current`
+- `systemd EnvironmentFile` должен быть `/srv/newlaw/app/shared/.env.production`
+
+Operational note:
+
+- любые path-artefacts вроде source checkout в каталоге с именем `\/` не считаются нормой
+- такие пути нужно трактовать как historical operational debt, а не как допустимый canonical deployment pattern
+- новые releases должны собираться только в normal canonical paths без encoded slash/backslash artefacts
 
 ## Разделение окружений
 
@@ -53,8 +67,8 @@ Production разворачивается на `Ubuntu 24.04 LTS VPS`.
 
 Требования:
 
-- отдельные локальные `env`-переменные
-- отдельный `Supabase`-проект или локальный режим разработки по согласованной схеме
+- отдельные локальные `env`
+- отдельный `Supabase`-проект или согласованный local режим
 
 ### staging
 
@@ -65,92 +79,121 @@ Production разворачивается на `Ubuntu 24.04 LTS VPS`.
 
 Требования:
 
-- тот же VPS
-- отдельный процесс или сервис приложения
-- отдельные `env`-переменные
+- отдельный процесс или отдельный сервис
+- отдельные `env`
 - отдельный домен или поддомен
 - отдельный `Supabase` project или отдельная staging БД
-- отдельные ключи Supabase и OpenAI
 
 ### production
 
 Назначение:
 
-- реальная эксплуатация проекта
+- реальная эксплуатация приложения
 
 Требования:
 
 - отдельная production БД
-- production ключи Supabase и OpenAI
+- production ключи и production env
 - production домен
 - безопасное хранение секретов на сервере
 
-## Target deployment для приложения
+## Env / runtime hygiene
 
-После появления прикладного кода production rollout должен включать:
+### Required env
 
-1. Получение актуального кода из GitHub.
-2. Сборку и запуск через `Docker Compose`.
-3. Прогон Prisma-миграций.
-4. Проверку `/api/health`.
-5. Проверку обратного проксирования и runtime logs.
+Эти переменные считаются blocking для release/runtime:
 
-## Target структура production
-
-Рекомендуемые элементы:
-
-- каталог приложения, например `/srv/lawyer5rp/app`
-- `docker-compose.yml`
-- отдельный `nginx` site config
-- production `.env`
-- каталоги логов
-
-## Секреты и ключи
-
-В production должны храниться отдельные значения:
-
+- `APP_ENV`
+- `APP_URL`
 - `DATABASE_URL`
 - `DIRECT_URL`
-- `SUPABASE_URL`
-- `SUPABASE_ANON_KEY`
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
+- `AI_PROXY_CONFIGS_JSON`
+- `AI_PROXY_INTERNAL_TOKEN`
 - `OPENAI_API_KEY`
-- `APP_URL`
 
-Для Prisma есть отдельное operational правило:
+Правило:
 
-- `DIRECT_URL` должен быть задан в `production` и `staging` явно, а не рассчитываться как скрытый fallback во время deploy
-- временное emergency-решение `DIRECT_URL=DATABASE_URL` допустимо только как разовый bootstrap workaround
-- целевой production-вариант — отдельный direct connection string для Prisma migrations
+- missing required env = whole-app release blocker
+- placeholder/non-live значения в required env тоже считаются blocker для production release
 
-Секреты не должны попадать:
+### Optional feature env
 
-- в клиентский код
-- в публичные markdown-файлы
-- в Git-репозиторий
+Эти переменные считаются feature-scoped и не должны блокировать whole-app release:
 
-## Особое правило для OpenAI
+- `FORUM_SESSION_ENCRYPTION_KEY`
+- `OGP_FORUM_THREAD_FORM_URL`
+- `AI_PROXY_ACTIVE_KEY`
 
-В production любые AI-запросы допускаются только через серверную часть приложения.
-Клиентский прямой вызов `OpenAI API` запрещен.
+Правило:
+
+- missing optional env = соответствующая feature считается disabled или operationally unavailable
+- отсутствие optional env не должно автоматически валить весь production release
+
+### Prisma-specific правило
+
+- `DIRECT_URL` должен быть задан явно
+- скрытый fallback `DIRECT_URL=DATABASE_URL` нельзя считать нормальной production-схемой
+- `pnpm prisma:generate` должен выполняться перед `build`
+
+## Release sequence
+
+Канонический release order для MVP:
+
+1. Локальный baseline:
+   - `pnpm prisma validate`
+   - `pnpm prisma generate`
+   - `pnpm test:ci`
+   - `pnpm lint`
+   - `pnpm typecheck`
+   - `pnpm build`
+2. Обновить source checkout до target SHA.
+3. Создать fresh release dir.
+4. Явно загрузить production env.
+5. Явно задать predictable `PATH`.
+6. Выполнить:
+   - `pnpm install --frozen-lockfile`
+   - `pnpm prisma:generate`
+   - `pnpm exec prisma migrate deploy`
+   - `pnpm build`
+7. Только после этого переключить `current`.
+8. Перезапустить `systemd` service.
+9. Проверить `/api/health`.
+10. Выполнить mandatory smoke.
+
+Ключевое правило:
+
+- symlink switch допустим только после успешных `install + generate + migrate + build`
+- если release ломается уже после switch, rollback обязателен
+
+Детальный порядок и checklist находятся в [docs/ops/release-runbook.md](../ops/release-runbook.md).
 
 ## Health и наблюдаемость
 
-Для baseline эксплуатации должны существовать:
+Для baseline production эксплуатации уже должны существовать:
 
 - `/api/health`
 - runtime logs
 - `audit_logs`
 - `ai_requests`
-- smoke-check после деплоя
+- ручной smoke-check после deploy
 
-Подробные правила проверки и дебага описаны в [testing-and-debug.md](./testing-and-debug.md).
+Это не означает наличие полноценной observability platform, dashboard или log explorer.
 
-## Отдельное замечание про Storage
+## Что не входит в current deploy/release hardening scope
 
-Несмотря на наличие `Supabase Storage` в платформе, MVP document flow работает на ссылках.
-Это означает:
+В текущий MVP hardening block не входят:
 
-- bootstrap приложения не зависит от подключения пользовательского сценария `Storage`
-- загрузка файлов не является обязательной частью релиза MVP
-- production deployment не должен зависеть от готовности файлового UI
+- `Docker Compose` migration
+- release dashboard
+- full observability platform
+- log explorer UI
+- global `/app` cleanup
+
+## Связанные документы
+
+- [testing-and-debug.md](./testing-and-debug.md)
+- [../ops/release-runbook.md](../ops/release-runbook.md)
+- [../prod-access.md](../prod-access.md)

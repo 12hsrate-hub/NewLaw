@@ -1,5 +1,8 @@
 # Production Access
 
+Этот документ описывает только SSH/access/bootstrap notes.
+Основной release procedure зафиксирован в [docs/ops/release-runbook.md](./ops/release-runbook.md).
+
 Локальный доступ к прод-серверу для проекта `NewLaw` настроен через отдельный SSH-алиас:
 
 - `Host`: `newlaw-prod`
@@ -34,6 +37,11 @@ powershell -ExecutionPolicy Bypass -File .\scripts\deploy-prod.ps1
 2. Обновляет `nginx`-конфиг из `deploy/nginx/newlaw.conf`.
 3. Проверяет конфигурацию и перезапускает `nginx`.
 4. Делает smoke-check по `https://lawyer5rp.ru`.
+
+Важно:
+
+- этот script относится только к maintenance/static site rollout
+- он не является source of truth для current application release procedure
 
 Что важно дальше:
 
