@@ -162,7 +162,7 @@ Post-MVP policy для этой линии:
 - она не должна развиваться дальше как core product capability
 - после MVP она подлежит удалению из продукта
 
-### Partial / Pending
+### Optional / Future
 
 #### `04-trustors`
 
@@ -179,6 +179,8 @@ Post-MVP policy для этой линии:
 - inline document trustor usage = уже есть и достаточно для MVP
 - standalone trustor registry = optional convenience line
 - если registry позже появится, его target route = `/account/trustors`
+
+### Partial
 
 #### `07-admin-panel`
 
@@ -203,14 +205,18 @@ Post-MVP policy для этой линии:
 - серверный AI-layer
 - assistant как отдельный модуль
 - logging foundation
+- document field rewrite v1 внутри existing OGP/claims editors
 
 Что не подтверждено как отдельный завершённый product block:
 
-- самостоятельный document-flow AI-сценарий уровня “улучшение описания для адвоката”, если он всё ещё считается отдельным MVP-блоком
+- более широкий document-AI suite beyond field rewrite
+- grounding by law corpus / precedents inside document AI
+- consistency-check и broad drafting workflows
 
 Поэтому:
 
 - assistant и AI infrastructure сильно продвинуты
+- первый document-AI block уже реально реализован
 - старый крупный AI-блок нельзя автоматически считать формально закрытым
 
 #### `09-deploy-and-release`
@@ -229,6 +235,8 @@ Post-MVP policy для этой линии:
 
 - старый план deploy/release не полностью совпадает с текущей фактической operational схемой
 - release hardening и финальная формализация процесса ещё не сведены в честный “formal done”
+
+### Pending
 
 #### `/app` migration / cleanup
 
@@ -285,7 +293,7 @@ Server-specific template documents остаются отдельной post-MVP 
 С учётом фактического repo остаются следующие честные открытые вопросы:
 
 1. Нужен ли отдельный цельный admin panel block как обязательная часть MVP, или текущих internal/admin foundations пока достаточно.
-2. Нужен ли отдельный document-AI block помимо уже существующего assistant, если старый AI plan всё ещё числится в MVP.
+2. Нужно ли расширять document AI дальше уже реализованного field rewrite v1, или для MVP достаточно текущего helper-уровня внутри editor.
 3. Нужен ли отдельный formal deploy/release hardening block поверх уже работающего production release процесса.
 
 ## Спорные места, которые не стоит маскировать
@@ -310,7 +318,8 @@ Server-specific template documents остаются отдельной post-MVP 
 Спорное место:
 
 - assistant и AI infrastructure в repo уже сильно продвинуты
-- но старый “один AI-сценарий MVP” не совпадает один в один с текущей фактической продуктовой картиной
+- document field rewrite v1 уже реализован внутри document area
+- но большой AI-suite по-прежнему не должен притворяться закрытым только потому, что есть assistant и rewrite foundation
 
 ### Deploy / release hardening
 
