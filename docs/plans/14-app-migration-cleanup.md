@@ -10,6 +10,7 @@
 - `14.2` — safe auth/default landing cleanup выполнен
 - `14.3` — character bridge migration off `/app` выполнен
 - `14.4` — `/app/security` migration выполнен
+- `14.5` — `/app` root degradation выполнен
 - global cleanup ещё не начат
 
 ## Цель блока
@@ -78,8 +79,24 @@
 
 ### 14.5+ — Long-tail `/app` cleanup
 
+### 14.5 — `/app` root degradation
+
+Что вошло:
+
+- `/app` больше не позиционируется как primary workspace
+- route остаётся protected и не уходит в hard redirect
+- `/app` теперь работает как honest compatibility surface с safe links в:
+  - `/account`
+  - `/account/characters`
+  - `/servers`
+  - `/internal` только для `super_admin`
+- active server / active character summary и `UserServerState` не удаляются, но остаются только как compatibility context
+- `/app` больше не рендерит character-management block как основной рабочий центр
+
+### 14.6+ — Long-tail `/app` cleanup
+
 Что должно войти позже:
 
-- деградация `/app` root до honest compatibility shell
+- финальная зачистка оставшегося `/app` после уже выполненной деградации root до compatibility shell
 - уборка remaining `/app/admin-*` fallback defaults внутри shared internal code
 - финальный reconciliation snapshot по surviving `/app` routes

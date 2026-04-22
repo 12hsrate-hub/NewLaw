@@ -1,4 +1,3 @@
-import { CharacterManagementSection } from "@/components/product/characters/character-management-section";
 import { ProtectedShellOverviewSection } from "@/components/product/shell/protected-shell-overview-section";
 import { getAppShellContext } from "@/server/app-shell/context";
 
@@ -25,30 +24,12 @@ export default async function ProtectedAppPage({
           fullName: character.fullName,
           passportNumber: character.passportNumber,
         }))}
+        isSuperAdmin={shellContext.account.isSuperAdmin}
         status={resolvedSearchParams?.status}
         servers={shellContext.servers.map((server) => ({
           id: server.id,
           name: server.name,
         }))}
-      />
-
-      <CharacterManagementSection
-        activeCharacterId={shellContext.activeCharacter?.id ?? null}
-        activeServerId={shellContext.activeServer?.id ?? null}
-        activeServerName={shellContext.activeServer?.name ?? null}
-        characters={shellContext.characters.map((character) => ({
-          accessFlags: character.accessFlags.map((flag) => ({
-            flagKey: flag.flagKey,
-          })),
-          id: character.id,
-          fullName: character.fullName,
-          nickname: character.nickname,
-          passportNumber: character.passportNumber,
-          roles: character.roles.map((role) => ({
-            roleKey: role.roleKey,
-          })),
-        }))}
-        status={resolvedSearchParams?.status}
       />
     </div>
   );

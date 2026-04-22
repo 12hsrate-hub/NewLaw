@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 
@@ -17,6 +19,7 @@ type ProtectedShellOverviewSectionProps = {
   activeCharacterName: string | null;
   activeServerName: string | null;
   characters: CharacterItem[];
+  isSuperAdmin?: boolean;
   status?: string;
   servers: ServerItem[];
 };
@@ -32,6 +35,7 @@ export function ProtectedShellOverviewSection({
   activeCharacterName,
   activeServerName,
   characters,
+  isSuperAdmin = false,
   status,
   servers,
 }: ProtectedShellOverviewSectionProps) {
@@ -42,13 +46,14 @@ export function ProtectedShellOverviewSection({
     <section className="space-y-6">
       <Card className="space-y-3">
         <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">
-          Protected Shell Foundation
+          Transitional Compatibility Route
         </p>
-        <h2 className="text-2xl font-semibold">Read-only контур `/app`</h2>
+        <h2 className="text-2xl font-semibold">`/app` больше не основной рабочий контур</h2>
         <p className="text-sm leading-6 text-[var(--muted)]">
-          Overview-экран остаётся read-only, но в header уже доступны выбор активного сервера и
-          выбор активного персонажа. Ниже в этом же shell теперь доступно базовое ручное создание,
-          редактирование карточек и минимальный слой ролей и access flags.
+          Этот маршрут сохранён как безопасная compatibility surface для старых bookmark и
+          surrounding protected flows. Основные user сценарии теперь живут в account zone,
+          server-scoped routes и internal contour, а `/app` больше не должен восприниматься как
+          canonical workspace.
         </p>
         {status && statusLabels[status] ? (
           <p className="rounded-2xl border border-[var(--border)] bg-white/60 px-4 py-3 text-sm text-[var(--foreground)]">
@@ -57,12 +62,63 @@ export function ProtectedShellOverviewSection({
         ) : null}
       </Card>
 
+      <Card className="space-y-4">
+        <div className="space-y-2">
+          <h3 className="text-xl font-semibold">Куда идти дальше</h3>
+          <p className="text-sm leading-6 text-[var(--muted)]">
+            Основные точки входа уже вынесены из `/app`. Ниже собраны безопасные primary links без
+            hard redirect и без скрытого изменения твоего текущего server state.
+          </p>
+        </div>
+
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <Link
+            className="rounded-2xl border border-[var(--border)] bg-white/70 px-4 py-3 transition hover:bg-white"
+            href="/account"
+          >
+            <p className="text-sm font-medium text-[var(--foreground)]">/account</p>
+            <p className="mt-1 text-sm leading-6 text-[var(--muted)]">
+              Self-service zone для overview и настроек аккаунта.
+            </p>
+          </Link>
+          <Link
+            className="rounded-2xl border border-[var(--border)] bg-white/70 px-4 py-3 transition hover:bg-white"
+            href="/account/characters"
+          >
+            <p className="text-sm font-medium text-[var(--foreground)]">/account/characters</p>
+            <p className="mt-1 text-sm leading-6 text-[var(--muted)]">
+              Управление персонажами и profile-level карточками вне generic `/app`.
+            </p>
+          </Link>
+          <Link
+            className="rounded-2xl border border-[var(--border)] bg-white/70 px-4 py-3 transition hover:bg-white"
+            href="/servers"
+          >
+            <p className="text-sm font-medium text-[var(--foreground)]">/servers</p>
+            <p className="mt-1 text-sm leading-6 text-[var(--muted)]">
+              Entry point в server-scoped hub и document work area.
+            </p>
+          </Link>
+          {isSuperAdmin ? (
+            <Link
+              className="rounded-2xl border border-[var(--border)] bg-white/70 px-4 py-3 transition hover:bg-white"
+              href="/internal"
+            >
+              <p className="text-sm font-medium text-[var(--foreground)]">/internal</p>
+              <p className="mt-1 text-sm leading-6 text-[var(--muted)]">
+                Internal zone для admin и super_admin сценариев.
+              </p>
+            </Link>
+          ) : null}
+        </div>
+      </Card>
+
       {!hasServers ? (
         <Card className="space-y-3">
           <h3 className="text-xl font-semibold">Доступных серверов пока нет</h3>
           <p className="text-sm leading-6 text-[var(--muted)]">
-            Защищённый shell загрузился корректно, но в системе пока нет активных серверов.
-            Следующий доменный поток начнётся сразу после появления серверов в конфигурации.
+            Transitional `/app` загрузился корректно, но в системе пока нет активных серверов.
+            Как только серверы появятся, основной вход останется через `/servers`, а не через `/app`.
           </p>
         </Card>
       ) : (
@@ -71,8 +127,8 @@ export function ProtectedShellOverviewSection({
             <div className="space-y-2">
               <h3 className="text-xl font-semibold">Серверный контекст</h3>
               <p className="text-sm leading-6 text-[var(--muted)]">
-                Shell использует SSR context и безопасный fallback, если в `UserServerState` ещё нет
-                сохранённого выбора.
+                Сводка ниже остаётся только compatibility-слоем. `UserServerState` и SSR fallback не
+                убираются, но сам `/app` больше не считается владельцем основного server workflow.
               </p>
             </div>
 
@@ -104,11 +160,11 @@ export function ProtectedShellOverviewSection({
                 <span className="font-medium text-[var(--foreground)]">
                   {activeServerName ?? "без выбранного названия"}
                 </span>{" "}
-                ещё нет персонажей. Выбор активного сервера уже работает, а форма создания доступна
-                ниже в блоке управления персонажами.
+                ещё нет персонажей. Создание и редактирование карточек уже вынесены в
+                `/account/characters`, а `/app` больше не выступает character workspace.
               </p>
               <div className="rounded-2xl border border-dashed border-[var(--border)] bg-white/55 px-4 py-3 text-sm font-medium text-[var(--foreground)]">
-                Следующий шаг после этого блока: роли и access flags
+                Для focused character management используй `/account/characters`.
               </div>
             </Card>
           ) : (
@@ -116,8 +172,8 @@ export function ProtectedShellOverviewSection({
               <div className="space-y-2">
                 <h3 className="text-xl font-semibold">Персонажи выбранного сервера</h3>
                 <p className="text-sm leading-6 text-[var(--muted)]">
-                  Ниже показан read-only список персонажей активного сервера. Пока без форм, ролей и
-                  access flags.
+                  Ниже остаётся только read-only summary выбранного server context. Полноценное
+                  profile-management редактирование теперь должно начинаться из `/account/characters`.
                 </p>
               </div>
 
@@ -150,8 +206,8 @@ export function ProtectedShellOverviewSection({
                 <span className="font-medium text-[var(--foreground)]">
                   {activeCharacterName ?? "пока не определён"}
                 </span>
-                . Переключение уже доступно в header, а базовое редактирование карточек вынесено в
-                отдельный блок ниже.
+                . Переключение и сохранённый state остаются доступными, но `/app` больше не должен
+                восприниматься как основной workspace для character или document сценариев.
               </div>
             </Card>
           )}
