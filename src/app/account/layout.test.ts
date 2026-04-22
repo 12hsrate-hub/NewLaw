@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import AccountLayout from "@/app/account/layout";
 
 describe("account layout", () => {
-  it("рендерит shared account subnav для overview, security, characters и documents", () => {
+  it("рендерит shared account subnav для overview, security, characters, documents и trustors", () => {
     const html = renderToStaticMarkup(
       createElement(
         AccountLayout,
@@ -19,5 +19,6 @@ describe("account layout", () => {
     expect(html).toContain('href="/account/security"');
     expect(html).toContain('href="/account/characters"');
     expect(html).toContain('href="/account/documents"');
+    expect(html).toContain('href="/account/trustors"');
   });
 });

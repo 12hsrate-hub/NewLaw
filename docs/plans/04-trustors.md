@@ -11,6 +11,7 @@ Standalone trustors registry не является обязательной ча
 - `trustor snapshots are enough for MVP`
 - standalone registry остаётся optional convenience line
 - если later модуль всё же появится, его target route = `/account/trustors`
+- первый post-MVP code-step уже реализован как registry foundation + owner-only grouped overview route без CRUD и без document integration
 
 ## Цель блока
 
@@ -39,7 +40,24 @@ Standalone trustors registry не является обязательной ча
 - уже созданный документ всегда опирается на свой trustor snapshot, а не на live registry entity
 - отсутствие standalone registry не делает OGP/claims MVP неполным
 
-## Future shape, если registry later понадобится
+## Current post-MVP shape
+
+На текущем этапе уже существует только foundation-слой:
+
+- отдельная `Trustor` entity как reusable account-owned и server-scoped registry record
+- owner-only route `/account/trustors` внутри existing account zone
+- grouped-by-server overview с честными empty states и `?server=<serverCode>` focus pattern
+- readiness badge считается из `fullName + passportNumber`
+- soft-deleted trustors скрыты из default overview
+
+При этом по-прежнему не реализованы:
+
+- create/edit UX
+- soft delete UI
+- choose-from-registry inside documents
+- save-back из document snapshot в registry
+
+## Future shape, если registry later понадобится дальше
 
 ### Route policy
 
@@ -54,6 +72,7 @@ Standalone trustors registry не является обязательной ча
 - `manual inline entry` остаётся обязательным fallback
 - после выбора из registry данные копируются в document snapshot
 - после сохранения документа snapshot живёт автономно
+- document flow не получает `trustorId` dependency
 
 ### Data policy
 

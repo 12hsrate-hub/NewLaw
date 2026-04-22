@@ -49,6 +49,12 @@ export default function AccountLayout({ children }: AccountLayoutProps) {
               >
                 Documents
               </Link>
+              <Link
+                className="rounded-2xl border border-[var(--border)] bg-white/70 px-4 py-2 text-sm font-medium transition hover:bg-white"
+                href="/account/trustors"
+              >
+                Trustors
+              </Link>
             </nav>
           </Card>
           {children}
