@@ -51,6 +51,20 @@ export async function getCharactersByServer(input: CharacterQueryInput, db: Pris
   });
 }
 
+export async function listCharactersForAccount(accountId: string, db: PrismaLike = prisma) {
+  return db.character.findMany({
+    where: {
+      accountId,
+      deletedAt: null,
+    },
+    include: {
+      roles: true,
+      accessFlags: true,
+    },
+    orderBy: [{ serverId: "asc" }, { createdAt: "asc" }],
+  });
+}
+
 export async function getCharacterByIdForAccount(
   input: {
     accountId: string;

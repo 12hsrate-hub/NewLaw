@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 
+import Link from "next/link";
+
 import { Card } from "@/components/ui/card";
 import { PageContainer } from "@/components/ui/page-container";
 
@@ -19,6 +21,35 @@ export default function AccountLayout({ children }: AccountLayoutProps) {
               Это foundation-level account zone. Рабочие document-модули живут отдельно в
               server-scoped routes, а `/account` остаётся зоной кабинета и overview-маршрутов.
             </p>
+            <nav
+              aria-label="Account navigation"
+              className="flex flex-wrap gap-3 border-t border-[var(--border)] pt-3"
+            >
+              <Link
+                className="rounded-2xl border border-[var(--border)] bg-white/70 px-4 py-2 text-sm font-medium transition hover:bg-white"
+                href="/account"
+              >
+                Overview
+              </Link>
+              <Link
+                className="rounded-2xl border border-[var(--border)] bg-white/70 px-4 py-2 text-sm font-medium transition hover:bg-white"
+                href="/account/security"
+              >
+                Security
+              </Link>
+              <Link
+                className="rounded-2xl border border-[var(--border)] bg-white/70 px-4 py-2 text-sm font-medium transition hover:bg-white"
+                href="/account/characters"
+              >
+                Characters
+              </Link>
+              <Link
+                className="rounded-2xl border border-[var(--border)] bg-white/70 px-4 py-2 text-sm font-medium transition hover:bg-white"
+                href="/account/documents"
+              >
+                Documents
+              </Link>
+            </nav>
           </Card>
           {children}
         </div>

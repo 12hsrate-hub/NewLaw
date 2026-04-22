@@ -195,3 +195,42 @@ Operational note текущего шага:
 - access policy для guest/auth viewer уже зафиксирована
 - relation с `/assistant` и `/servers/[serverSlug]/documents` уже описана
 - health/status vocabulary уже согласован на user-facing уровне
+
+## Follow-up: 10.5 — `/account/characters` overview + account nav
+
+Этот follow-up не меняет server list / hub policy, но завершает account zone так, чтобы она не конкурировала с server-scoped routes.
+
+Текущий результат шага:
+
+- в общем `account layout` теперь есть shared subnav:
+  - `Overview`
+  - `Security`
+  - `Characters`
+  - `Documents`
+- появился owner-only маршрут `/account/characters`
+- route не зависит от active shell server из `/app`
+- страница показывает account-wide grouped overview персонажей по серверам
+- для каждой server group теперь видны:
+  - `server name`
+  - `server code / slug`
+  - `character count`
+  - informational `default character`
+  - список персонажей текущего аккаунта
+- на character card показываются:
+  - `fullName`
+  - `nickname`
+  - `passportNumber`
+  - `roles`
+  - `accessFlags`
+  - `isProfileComplete`
+  - `hasProfileData` как compact profile summary
+  - `isDefaultForServer`
+- серверы без персонажей остаются видимыми как отдельные empty-state groups
+- create CTA пока ведёт только во временный transitional bridge и не считается migration off `/app`
+
+Что шаг сознательно не делает:
+
+- не переносит full create/edit flows из `/app`
+- не превращает `/account/characters` в server hub
+- не переносит documents или assistant в account zone
+- не меняет route policy для `/servers/[serverSlug]` и `/servers/[serverSlug]/documents/...`
