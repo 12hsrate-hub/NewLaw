@@ -80,6 +80,7 @@ type PrecedentSourceFoundationSectionProps = {
   sourceIndexes: LawSourceIndexItem[];
   sourceTopics: PrecedentSourceTopicItem[];
   status?: string;
+  redirectTo?: string;
 };
 
 function resolveStatusMessage(status?: string) {
@@ -180,6 +181,7 @@ export function PrecedentSourceFoundationSection({
   sourceIndexes,
   sourceTopics,
   status,
+  redirectTo = "/app/admin-laws",
 }: PrecedentSourceFoundationSectionProps) {
   const statusMessage = resolveStatusMessage(status);
 
@@ -252,7 +254,7 @@ export function PrecedentSourceFoundationSection({
                           Статус source index: {sourceIndex.isEnabled ? "enabled" : "disabled"}
                         </p>
                         <form action={runPrecedentSourceDiscoveryAction}>
-                          <input name="redirectTo" type="hidden" value="/app/admin-laws" />
+                          <input name="redirectTo" type="hidden" value={redirectTo} />
                           <input name="sourceIndexId" type="hidden" value={sourceIndex.id} />
                           <Button disabled={!sourceIndex.isEnabled} type="submit" variant="secondary">
                             Запустить precedent discovery
@@ -321,7 +323,7 @@ export function PrecedentSourceFoundationSection({
                       </div>
 
                       <form action={updatePrecedentSourceTopicAction} className="space-y-3">
-                        <input name="redirectTo" type="hidden" value="/app/admin-laws" />
+                        <input name="redirectTo" type="hidden" value={redirectTo} />
                         <input name="sourceTopicId" type="hidden" value={sourceTopic.id} />
 
                         <div className="grid gap-3 lg:grid-cols-2">
@@ -374,7 +376,7 @@ export function PrecedentSourceFoundationSection({
 
                       <div className="flex flex-wrap gap-3">
                         <form action={runPrecedentSourceTopicImportAction}>
-                          <input name="redirectTo" type="hidden" value="/app/admin-laws" />
+                          <input name="redirectTo" type="hidden" value={redirectTo} />
                           <input name="sourceTopicId" type="hidden" value={sourceTopic.id} />
                           <Button disabled={sourceTopic.isExcluded} type="submit" variant="secondary">
                             Импортировать source topic
@@ -431,7 +433,7 @@ export function PrecedentSourceFoundationSection({
                                   </div>
 
                                   <form action={updatePrecedentValidityStatusAction} className="space-y-2">
-                                    <input name="redirectTo" type="hidden" value="/app/admin-laws" />
+                                    <input name="redirectTo" type="hidden" value={redirectTo} />
                                     <input name="precedentId" type="hidden" value={precedent.id} />
                                     <label className="space-y-2">
                                       <span className="text-sm font-medium text-[var(--foreground)]">
@@ -511,7 +513,7 @@ export function PrecedentSourceFoundationSection({
                                         <div className="flex flex-wrap gap-3">
                                           {version.status === "imported_draft" ? (
                                             <form action={confirmCurrentPrecedentVersionAction}>
-                                              <input name="redirectTo" type="hidden" value="/app/admin-laws" />
+                                              <input name="redirectTo" type="hidden" value={redirectTo} />
                                               <input name="precedentVersionId" type="hidden" value={version.id} />
                                               <Button type="submit" variant="secondary">
                                                 Подтвердить как current
@@ -521,7 +523,7 @@ export function PrecedentSourceFoundationSection({
 
                                           {version.status === "superseded" ? (
                                             <form action={rollbackPrecedentCurrentVersionAction}>
-                                              <input name="redirectTo" type="hidden" value="/app/admin-laws" />
+                                              <input name="redirectTo" type="hidden" value={redirectTo} />
                                               <input name="precedentVersionId" type="hidden" value={version.id} />
                                               <Button type="submit" variant="secondary">
                                                 Rollback на эту версию
@@ -547,7 +549,7 @@ export function PrecedentSourceFoundationSection({
                 action={createPrecedentSourceTopicAction}
                 className="space-y-3 rounded-2xl border border-[var(--border)] bg-white/55 px-4 py-4"
               >
-                <input name="redirectTo" type="hidden" value="/app/admin-laws" />
+                <input name="redirectTo" type="hidden" value={redirectTo} />
 
                 <div className="space-y-1">
                   <h4 className="text-sm font-medium text-[var(--foreground)]">

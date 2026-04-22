@@ -104,6 +104,7 @@ type LawSourceManagementSectionProps = {
   selectedPreviewServerId?: string | null;
   previewQuery?: string | null;
   retrievalPreview?: RetrievalPreview | null;
+  redirectTo?: string;
 };
 
 function formatDateTime(value: Date | null) {
@@ -336,6 +337,7 @@ export function LawSourceManagementSection({
   selectedPreviewServerId,
   previewQuery,
   retrievalPreview,
+  redirectTo = "/app/admin-laws",
 }: LawSourceManagementSectionProps) {
   const statusMessage = resolveStatusMessage(status);
 
@@ -453,7 +455,7 @@ export function LawSourceManagementSection({
 
                       <div className="flex flex-wrap gap-3">
                         <form action={toggleLawSourceIndexAction}>
-                          <input name="redirectTo" type="hidden" value="/app/admin-laws" />
+                          <input name="redirectTo" type="hidden" value={redirectTo} />
                           <input name="sourceIndexId" type="hidden" value={sourceIndex.id} />
                           <input
                             name="isEnabled"
@@ -466,7 +468,7 @@ export function LawSourceManagementSection({
                         </form>
 
                         <form action={runLawSourceDiscoveryAction}>
-                          <input name="redirectTo" type="hidden" value="/app/admin-laws" />
+                          <input name="redirectTo" type="hidden" value={redirectTo} />
                           <input name="sourceIndexId" type="hidden" value={sourceIndex.id} />
                           <Button disabled={!sourceIndex.isEnabled} type="submit" variant="secondary">
                             Запустить discovery
@@ -482,7 +484,7 @@ export function LawSourceManagementSection({
                 action={createLawSourceIndexAction}
                 className="space-y-3 rounded-2xl border border-[var(--border)] bg-white/55 px-4 py-4"
               >
-                <input name="redirectTo" type="hidden" value="/app/admin-laws" />
+                <input name="redirectTo" type="hidden" value={redirectTo} />
                 <input name="serverId" type="hidden" value={server.id} />
 
                 <div className="space-y-1">
@@ -559,7 +561,7 @@ export function LawSourceManagementSection({
 
                         <div className="flex flex-wrap gap-3">
                           <form action={runLawTopicImportAction}>
-                            <input name="redirectTo" type="hidden" value="/app/admin-laws" />
+                            <input name="redirectTo" type="hidden" value={redirectTo} />
                             <input name="lawId" type="hidden" value={law.id} />
                             <Button
                               disabled={resolveLawKindLabel(law) === "ignored"}
@@ -621,7 +623,7 @@ export function LawSourceManagementSection({
 
                                   {version.status === "imported_draft" ? (
                                     <form action={confirmCurrentLawVersionAction}>
-                                      <input name="redirectTo" type="hidden" value="/app/admin-laws" />
+                                      <input name="redirectTo" type="hidden" value={redirectTo} />
                                       <input name="lawVersionId" type="hidden" value={version.id} />
                                       <Button type="submit">Подтвердить как current</Button>
                                     </form>

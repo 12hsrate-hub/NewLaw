@@ -1,21 +1,33 @@
-import {
-  InternalAccessDeniedState,
-  InternalSectionSkeleton,
-} from "@/components/product/internal/internal-shell";
+import { PrecedentSourceFoundationSection } from "@/components/product/precedent-sources/precedent-source-foundation-section";
+import { InternalAccessDeniedState } from "@/components/product/internal/internal-shell";
 import { getInternalAccessContext } from "@/server/internal/access";
+import { getInternalPrecedentCorpusPageData } from "@/server/internal/corpus";
 
-export default async function InternalPrecedentsPage() {
+type InternalPrecedentsPageProps = {
+  searchParams?: Promise<{
+    status?: string;
+  }>;
+};
+
+export default async function InternalPrecedentsPage({
+  searchParams,
+}: InternalPrecedentsPageProps) {
   const accessContext = await getInternalAccessContext("/internal/precedents");
 
   if (accessContext.status === "denied") {
     return <InternalAccessDeniedState accountLogin={accessContext.viewer.login} />;
   }
 
+  const resolvedSearchParams = await searchParams;
+  const precedentCorpusPageData = await getInternalPrecedentCorpusPageData();
+
   return (
-    <InternalSectionSkeleton
-      eyebrow="Internal precedents"
-      title="Precedents Corpus"
-      description="Здесь later переедут precedent source topics, import workflow и current/validity review из transitional `/app/admin-laws`."
+    <PrecedentSourceFoundationSection
+      redirectTo="/internal/precedents"
+      servers={precedentCorpusPageData.servers}
+      sourceIndexes={precedentCorpusPageData.sourceIndexes}
+      sourceTopics={precedentCorpusPageData.sourceTopics}
+      status={resolvedSearchParams?.status}
     />
   );
 }
