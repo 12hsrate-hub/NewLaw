@@ -1,4 +1,3 @@
-import { PrismaClient } from "@prisma/client";
 import { promises as fs } from "node:fs";
 
 import {
@@ -13,7 +12,6 @@ import {
   hasLiveOgpForumAutomationRuntimeEnv,
   isPlaceholderRuntimeValue,
 } from "../../schemas/env";
-import { getInternalHealthContext } from "../internal/health";
 
 export type ReleaseFailureClassification =
   | "code_regression"
@@ -559,6 +557,7 @@ export function buildMandatoryRouteTargets(appUrl: string, knownServerSlug: stri
 }
 
 export async function runReadOnlyDbSmoke() {
+  const { PrismaClient } = await import("@prisma/client");
   const prisma = new PrismaClient({
     log: ["warn", "error"],
   });
@@ -586,6 +585,7 @@ export async function runReadOnlyDbSmoke() {
 
 export async function runAppContextDbSmoke() {
   try {
+    const { getInternalHealthContext } = await import("../internal/health");
     const context = await getInternalHealthContext();
 
     if (context.runtime.status !== "ok") {
