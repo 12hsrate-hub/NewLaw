@@ -9,6 +9,7 @@ import { getServerByCode, getServers } from "@/db/repositories/server.repository
 import { getUserServerStates } from "@/db/repositories/user-server-state.repository";
 import { requireProtectedAccountContext } from "@/server/auth/protected";
 import { resolveActiveCharacterId } from "@/server/app-shell/state";
+import { getAccountForumConnectionSummary } from "@/server/forum-integration/service";
 import {
   readDocumentAuthorSnapshot,
   readClaimsDraftPayload,
@@ -22,6 +23,7 @@ import type {
   ClaimsRenderedOutput,
   OgpComplaintDraftPayload,
 } from "@/schemas/document";
+import type { ForumConnectionSummary } from "@/schemas/forum-integration";
 
 type AccountDocumentRecord = Awaited<ReturnType<typeof listDocumentsByAccount>>[number];
 type ServerDocumentRecord = Awaited<ReturnType<typeof listDocumentsByAccountAndServerAndType>>[number];
@@ -285,6 +287,7 @@ type OgpComplaintEditorRouteContext =
         publicationUrl: string | null;
         isSiteForumSynced: boolean;
         isModifiedAfterGeneration: boolean;
+        forumConnection: ForumConnectionSummary;
         server: {
           code: string;
           name: string;
@@ -841,6 +844,7 @@ export async function getOgpComplaintEditorRouteContext(input: {
 
   const authorSnapshot = readDocumentAuthorSnapshot(document.authorSnapshotJson);
   const payload = readOgpComplaintDraftPayload(document.formPayloadJson);
+  const forumConnection = await getAccountForumConnectionSummary(account.id);
 
   return {
     status: "ready",
@@ -867,6 +871,7 @@ export async function getOgpComplaintEditorRouteContext(input: {
       publicationUrl: document.publicationUrl,
       isSiteForumSynced: document.isSiteForumSynced,
       isModifiedAfterGeneration: document.isModifiedAfterGeneration,
+      forumConnection,
       server: {
         code: document.server.code,
         name: document.server.name,

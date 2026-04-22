@@ -23,6 +23,7 @@ import type {
   ClaimsRenderedOutput,
   OgpComplaintDraftPayload,
 } from "@/schemas/document";
+import type { ForumConnectionSummary } from "@/schemas/forum-integration";
 
 function DocumentLink({
   href,
@@ -71,6 +72,26 @@ function formatDocumentSubtype(documentType: DocumentAreaPersistedListItem["docu
 
 function formatClaimSubtype(documentType: ClaimDocumentType) {
   return documentType === "rehabilitation" ? "Rehabilitation" : "Lawsuit";
+}
+
+function formatForumConnectionState(state: ForumConnectionSummary["state"]) {
+  if (state === "not_connected") {
+    return "not_connected";
+  }
+
+  if (state === "connected_unvalidated") {
+    return "connected_unvalidated";
+  }
+
+  if (state === "valid") {
+    return "valid";
+  }
+
+  if (state === "invalid") {
+    return "invalid";
+  }
+
+  return "disabled";
 }
 
 function formatDocumentStatus(status: DocumentAreaPersistedListItem["status"]) {
@@ -480,6 +501,7 @@ export function OgpComplaintPersistedEditor(props: {
         publicationUrl: string | null;
         isSiteForumSynced: boolean;
         isModifiedAfterGeneration: boolean;
+        forumConnection: ForumConnectionSummary;
         server: {
           code: string;
           name: string;
@@ -542,6 +564,35 @@ export function OgpComplaintPersistedEditor(props: {
           <li>
             Generation status: {props.document.generatedAt ? "есть generated BBCode" : "ещё не генерировался"}.
           </li>
+          <li>Forum integration state: {formatForumConnectionState(props.document.forumConnection.state)}.</li>
+        </ul>
+      </Card>
+
+      <Card className="space-y-4">
+        <h2 className="text-2xl font-semibold">Forum integration</h2>
+        <p className="text-sm leading-6 text-[var(--muted)]">
+          OGP editor уже умеет читать account-scoped forum connection state, но actual publish
+          action пока не включён. Подключение и validate session живут в `/account/security`.
+        </p>
+        <ul className="space-y-2 text-sm leading-6 text-[var(--muted)]">
+          <li>Provider: {props.document.forumConnection.providerKey}</li>
+          <li>State: {formatForumConnectionState(props.document.forumConnection.state)}</li>
+          <li>
+            Forum identity:{" "}
+            {props.document.forumConnection.forumUsername ?? "ещё не извлечена"}
+            {props.document.forumConnection.forumUserId
+              ? ` (${props.document.forumConnection.forumUserId})`
+              : ""}
+          </li>
+          <li>
+            Validated at:{" "}
+            {props.document.forumConnection.validatedAt
+              ? new Date(props.document.forumConnection.validatedAt).toLocaleString("ru-RU")
+              : "ещё не подтверждалась"}
+          </li>
+          {props.document.forumConnection.lastValidationError ? (
+            <li>Последняя безопасная ошибка: {props.document.forumConnection.lastValidationError}</li>
+          ) : null}
         </ul>
       </Card>
 
@@ -567,6 +618,7 @@ export function OgpComplaintPersistedEditor(props: {
           initialTitle={props.document.title}
           server={props.document.server}
           status={props.document.status}
+          forumConnection={props.document.forumConnection}
           updatedAt={props.document.updatedAt}
         />
       </Card>

@@ -19,6 +19,7 @@ import type {
   OgpComplaintEvidenceRow,
   OgpComplaintTrustorSnapshot,
 } from "@/schemas/document";
+import type { ForumConnectionSummary } from "@/schemas/forum-integration";
 
 type SharedCharacterContext = {
   fullName: string;
@@ -62,6 +63,7 @@ type OgpComplaintDraftEditorClientProps = {
   initialIsSiteForumSynced: boolean;
   initialIsModifiedAfterGeneration: boolean;
   status: "draft" | "generated" | "published";
+  forumConnection: ForumConnectionSummary;
   updatedAt: string;
 };
 
@@ -113,6 +115,26 @@ function areStatesEqual(left: OgpComplaintEditorState, right: OgpComplaintEditor
 
 function filingModeLabel(mode: OgpComplaintDraftPayload["filingMode"]) {
   return mode === "representative" ? "Representative" : "Self";
+}
+
+function formatForumConnectionState(state: ForumConnectionSummary["state"]) {
+  if (state === "not_connected") {
+    return "not_connected";
+  }
+
+  if (state === "connected_unvalidated") {
+    return "connected_unvalidated";
+  }
+
+  if (state === "valid") {
+    return "valid";
+  }
+
+  if (state === "invalid") {
+    return "invalid";
+  }
+
+  return "disabled";
 }
 
 function buildEmptyEvidenceGroup(): OgpComplaintEvidenceGroup {
@@ -1083,6 +1105,37 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
           <ComplaintFieldHint>
             Publication URL и manual forum sync marker относятся только к `ogp_complaint`. Автопубликации и проверки форума тут нет.
           </ComplaintFieldHint>
+        </div>
+        <div className="rounded-2xl border border-[var(--border)] bg-white/80 px-4 py-3 text-sm leading-6 text-[var(--muted)]">
+          <p>
+            Forum session state:{" "}
+            <span className="font-medium text-[var(--foreground)]">
+              {formatForumConnectionState(props.forumConnection.state)}
+            </span>
+          </p>
+          <p>
+            Forum identity:{" "}
+            <span className="font-medium text-[var(--foreground)]">
+              {props.forumConnection.forumUsername ?? "ещё не извлечена"}
+              {props.forumConnection.forumUserId ? ` (${props.forumConnection.forumUserId})` : ""}
+            </span>
+          </p>
+          <p>
+            Validate status:{" "}
+            <span className="font-medium text-[var(--foreground)]">
+              {props.forumConnection.validatedAt
+                ? new Date(props.forumConnection.validatedAt).toLocaleString("ru-RU")
+                : "ещё не подтверждалась"}
+            </span>
+          </p>
+          {props.forumConnection.lastValidationError ? (
+            <p className="mt-2 text-[#8a2d1d]">
+              Требуется переподключение: {props.forumConnection.lastValidationError}
+            </p>
+          ) : null}
+          <p className="mt-2">
+            Само подключение session управляется отдельно через `/account/security`. Publish button на этом шаге ещё не активирован.
+          </p>
         </div>
         <div className="space-y-2">
           <label className="text-sm font-medium text-[var(--foreground)]" htmlFor="publication-url">

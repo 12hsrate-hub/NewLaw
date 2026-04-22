@@ -20,6 +20,7 @@
 - связь с `Supabase Auth`
 - глобальные пользовательские настройки
 - признак `super_admin`
+- account-scoped integration credentials и session foundation для будущей OGP forum automation
 
 Зафиксированный `user_access_flag` уровня аккаунта:
 
@@ -209,6 +210,12 @@
 - ссылка публикации должна принадлежать домену `https://forum.gta5rp.com/`
 - публикационный статус для MVP — `Опубликован на форуме`
 - для опубликованного документа есть ручная отметка синхронизации сайта и форума
+
+Отдельная note по forum automation foundation:
+
+- account-scoped forum session хранится отдельно от документа
+- документ не хранит raw cookies/token форума
+- claims не наследуют автоматически OGP publication capability
 
 ## Неполный профиль персонажа
 

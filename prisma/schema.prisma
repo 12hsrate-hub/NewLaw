@@ -34,6 +34,9 @@ enum AuditActionKey {
   email_change_completed
   email_changed_admin
   recovery_email_sent_admin
+  forum_connection_saved
+  forum_connection_validated
+  forum_connection_disabled
 }
 
 enum AuditLogStatus {
@@ -126,6 +129,13 @@ enum DocumentStatus {
   published
 }
 
+enum ForumConnectionState {
+  connected_unvalidated
+  valid
+  invalid
+  disabled
+}
+
 enum AIRequestStatus {
   success
   failure
@@ -155,6 +165,7 @@ model Account {
   targetAuditLogs         AuditLog[]             @relation("AuditTarget")
   aiRequests              AIRequest[]
   documents               Document[]
+  forumSessionConnections ForumSessionConnection[]
   createdAt               DateTime               @default(now())
   updatedAt               DateTime               @updatedAt
 }
@@ -292,6 +303,25 @@ model Document {
   @@index([accountId, createdAt])
   @@index([accountId, serverId, documentType, createdAt])
   @@index([serverId, documentType, status, createdAt])
+}
+
+model ForumSessionConnection {
+  id                      String               @id @default(cuid())
+  accountId               String               @db.Uuid
+  providerKey             String
+  state                   ForumConnectionState
+  encryptedSessionPayload String?
+  forumUserId             String?
+  forumUsername           String?
+  validatedAt             DateTime?
+  lastValidationError     String?
+  disabledAt              DateTime?
+  account                 Account              @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  createdAt               DateTime             @default(now())
+  updatedAt               DateTime             @updatedAt
+
+  @@unique([accountId, providerKey])
+  @@index([providerKey, state])
 }
 
 model LawSourceIndex {

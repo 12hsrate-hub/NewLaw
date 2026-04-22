@@ -185,6 +185,33 @@ Identity-источник:
 - `appeal_number` в полезной нагрузке или отдельных полях не проверяется на уникальность
 - soft delete обязателен
 
+### forum_session_connections
+
+Account-scoped foundation для будущей OGP forum automation.
+
+Основные поля:
+
+- `id`
+- `account_id`
+- `provider_key`
+- `state`
+- `encrypted_session_payload`
+- `forum_user_id`
+- `forum_username`
+- `validated_at`
+- `last_validation_error`
+- `disabled_at`
+- `created_at`
+- `updated_at`
+
+Правила:
+
+- connection принадлежит аккаунту, а не документу и не персонажу
+- raw session/cookies хранятся только в зашифрованном виде
+- `provider_key` в текущем foundation фиксирован как `forum.gta5rp.com`
+- одна account-scoped connection на provider
+- claims и другие document families не получают доступ к этому publication capability автоматически
+
 Зафиксированные значения `document_type`:
 
 - `ogp_complaint`

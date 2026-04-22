@@ -41,6 +41,15 @@ describe("/servers/[serverSlug]/documents/ogp-complaints/[documentId] page", () 
         publicationUrl: null,
         isSiteForumSynced: false,
         isModifiedAfterGeneration: false,
+        forumConnection: {
+          providerKey: "forum.gta5rp.com",
+          state: "valid",
+          forumUserId: "501",
+          forumUsername: "Forum User",
+          validatedAt: "2026-04-22T09:00:00.000Z",
+          lastValidationError: null,
+          disabledAt: null,
+        },
         server: {
           code: "blackberry",
           name: "Blackberry",
@@ -88,5 +97,7 @@ describe("/servers/[serverSlug]/documents/ogp-complaints/[documentId] page", () 
     expect(html).toContain("OGP complaint editor");
     expect(html).toContain("filing mode: representative");
     expect(html).toContain("BBCode preview");
+    expect(html).toContain("Forum integration");
+    expect(html).toContain("Forum session state");
   });
 });

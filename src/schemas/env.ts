@@ -24,6 +24,10 @@ const assistantInternalProxyEnvSchema = z.object({
   AI_PROXY_INTERNAL_TOKEN: z.string().trim().min(1),
 });
 
+const forumIntegrationRuntimeEnvSchema = z.object({
+  FORUM_SESSION_ENCRYPTION_KEY: z.string().trim().min(32),
+});
+
 export function getAppRuntimeEnv() {
   return appRuntimeEnvSchema.parse({
     APP_URL: process.env.APP_URL,
@@ -56,6 +60,12 @@ export function getAssistantInternalProxyEnv() {
   return assistantInternalProxyEnvSchema.parse({
     OPENAI_API_KEY: process.env.OPENAI_API_KEY,
     AI_PROXY_INTERNAL_TOKEN: process.env.AI_PROXY_INTERNAL_TOKEN,
+  });
+}
+
+export function getForumIntegrationRuntimeEnv() {
+  return forumIntegrationRuntimeEnvSchema.parse({
+    FORUM_SESSION_ENCRYPTION_KEY: process.env.FORUM_SESSION_ENCRYPTION_KEY,
   });
 }
 
@@ -141,6 +151,26 @@ export function hasLiveAssistantInternalProxyEnv(
     openAIKey.includes("placeholder") ||
     internalToken.includes("your-") ||
     internalToken.includes("placeholder")
+  ) {
+    return false;
+  }
+
+  return true;
+}
+
+export function hasLiveForumIntegrationRuntimeEnv(
+  env: Partial<z.infer<typeof forumIntegrationRuntimeEnvSchema>>,
+) {
+  const encryptionKey = env.FORUM_SESSION_ENCRYPTION_KEY?.trim() ?? "";
+
+  if (encryptionKey.length < 32) {
+    return false;
+  }
+
+  if (
+    encryptionKey.includes("your-") ||
+    encryptionKey.includes("placeholder") ||
+    encryptionKey.includes("example")
   ) {
     return false;
   }

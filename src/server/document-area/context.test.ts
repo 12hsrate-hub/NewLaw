@@ -30,6 +30,10 @@ vi.mock("@/server/auth/protected", () => ({
   requireProtectedAccountContext: vi.fn(),
 }));
 
+vi.mock("@/server/forum-integration/service", () => ({
+  getAccountForumConnectionSummary: vi.fn(),
+}));
+
 import { getCharactersByServer } from "@/db/repositories/character.repository";
 import {
   countDocumentsByAccountAndServerAndType,
@@ -49,6 +53,7 @@ import {
   getServerDocumentsRouteContext,
 } from "@/server/document-area/context";
 import { requireProtectedAccountContext } from "@/server/auth/protected";
+import { getAccountForumConnectionSummary } from "@/server/forum-integration/service";
 
 const accountContext = {
   user: {
@@ -355,6 +360,15 @@ describe("document area context", () => {
 
   it("editor route отдаёт только owner-account документ с persisted complaint payload", async () => {
     vi.mocked(requireProtectedAccountContext).mockResolvedValue(accountContext);
+    vi.mocked(getAccountForumConnectionSummary).mockResolvedValue({
+      providerKey: "forum.gta5rp.com",
+      state: "valid",
+      forumUserId: "501",
+      forumUsername: "Forum User",
+      validatedAt: "2026-04-22T09:00:00.000Z",
+      lastValidationError: null,
+      disabledAt: null,
+    });
     vi.mocked(getServers).mockResolvedValue([blackberryServer]);
     vi.mocked(getServerByCode).mockResolvedValue(blackberryServer);
     vi.mocked(getCharactersByServer).mockResolvedValue([]);
@@ -458,6 +472,15 @@ describe("document area context", () => {
       expect(result.document.id).toBe("document-1");
       expect(result.document.authorSnapshot.fullName).toBe("Игорь Юристов");
       expect(result.document.authorSnapshot.isProfileComplete).toBe(false);
+      expect(result.document.forumConnection).toEqual({
+        providerKey: "forum.gta5rp.com",
+        state: "valid",
+        forumUserId: "501",
+        forumUsername: "Forum User",
+        validatedAt: "2026-04-22T09:00:00.000Z",
+        lastValidationError: null,
+        disabledAt: null,
+      });
       expect(result.document.payload).toEqual(
         expect.objectContaining({
           filingMode: "representative",
