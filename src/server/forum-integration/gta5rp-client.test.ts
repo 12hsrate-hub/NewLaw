@@ -63,6 +63,35 @@ describe("gta5rp forum client foundation", () => {
     expect(result.errorSummary).not.toContain("xf_session=secret");
   });
 
+  it("не принимает public homepage identity-маркеры за валидную авторизацию", async () => {
+    const result = await validateGta5RpForumSession(
+      {
+        cookieHeader: "xf_user=0; xf_session=invalid",
+      },
+      {
+        fetch: vi.fn().mockResolvedValue({
+          ok: true,
+          status: 200,
+          text: vi.fn().mockResolvedValue(`
+            <html data-logged-in="false">
+              <body>
+                <a href="/members/ilya-victorovich.527/">I</a>
+                <div data-user-id="527"></div>
+              </body>
+            </html>
+          `),
+        }) as unknown as typeof fetch,
+      },
+    );
+
+    expect(result).toEqual({
+      isValid: false,
+      forumUserId: null,
+      forumUsername: null,
+      errorSummary: "Форум не подтвердил авторизованную session. Подключите новую Cookie header заново.",
+    });
+  });
+
   it("создаёт thread из BBCode и извлекает external identity", async () => {
     const fetch = vi
       .fn()

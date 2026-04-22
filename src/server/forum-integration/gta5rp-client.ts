@@ -54,17 +54,23 @@ function extractForumUsername(html: string) {
   return normalized.length > 0 ? normalized : null;
 }
 
-function isAuthenticatedForumHtml(html: string, identity: { forumUserId: string | null; forumUsername: string | null }) {
-  if (identity.forumUserId || identity.forumUsername) {
-    return true;
-  }
-
+function hasAuthenticatedForumUiMarkers(html: string) {
   return [
     /href="\/logout\//i,
     /data-logged-in="true"/i,
     /p-navgroup-link--user/i,
     /href="\/account\//i,
   ].some((pattern) => pattern.test(html));
+}
+
+function isAuthenticatedForumHtml(html: string, identity: { forumUserId: string | null; forumUsername: string | null }) {
+  const hasAuthenticatedUi = hasAuthenticatedForumUiMarkers(html);
+
+  if (!hasAuthenticatedUi) {
+    return false;
+  }
+
+  return hasAuthenticatedUi || Boolean(identity.forumUserId || identity.forumUsername);
 }
 
 function buildInvalidSummary(input: {
@@ -231,8 +237,8 @@ export async function validateGta5RpForumSession(
     if (!response.ok) {
       return forumValidationResultSchema.parse({
         isValid: false,
-        forumUserId: identity.forumUserId,
-        forumUsername: identity.forumUsername,
+        forumUserId: null,
+        forumUsername: null,
         errorSummary: buildInvalidSummary({
           responseStatus: response.status,
         }),
@@ -243,8 +249,8 @@ export async function validateGta5RpForumSession(
 
     return forumValidationResultSchema.parse({
       isValid,
-      forumUserId: identity.forumUserId,
-      forumUsername: identity.forumUsername,
+      forumUserId: isValid ? identity.forumUserId : null,
+      forumUsername: isValid ? identity.forumUsername : null,
       errorSummary: isValid ? null : buildInvalidSummary({ responseStatus: response.status }),
     });
   } catch {
