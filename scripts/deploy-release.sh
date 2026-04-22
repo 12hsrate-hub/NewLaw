@@ -148,9 +148,11 @@ run_read_only_db_check() {
   local script_path="$RELEASE_DIR/.deploy-read-db.mts"
 
   cat > "$script_path" <<'EOF'
-import * as prismaModule from "./src/db/prisma.ts";
+import { PrismaClient } from "@prisma/client";
 
-const { prisma } = prismaModule;
+const prisma = new PrismaClient({
+  log: ["warn", "error"],
+});
 
 const server = await prisma.server.findFirst({
   orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
@@ -179,9 +181,15 @@ run_app_context_db_check() {
   local script_path="$RELEASE_DIR/.deploy-app-context.mts"
 
   cat > "$script_path" <<'EOF'
-import * as internalHealthModule from "./src/server/internal/health.ts";
+const internalHealthModule = await import("./src/server/internal/health.ts");
 
-const { getInternalHealthContext } = internalHealthModule;
+const getInternalHealthContext =
+  internalHealthModule.getInternalHealthContext ??
+  internalHealthModule.default?.getInternalHealthContext;
+
+if (typeof getInternalHealthContext !== "function") {
+  throw new Error("getInternalHealthContext export is unavailable");
+}
 
 const context = await getInternalHealthContext();
 
