@@ -1,8 +1,10 @@
 import {
   FORUM_GTA5RP_PROVIDER_KEY,
   forumPublishCreateResultSchema,
+  forumPublishUpdateResultSchema,
   forumValidationResultSchema,
   type ForumPublishCreateResult,
+  type ForumPublishUpdateResult,
   type ForumSessionPayload,
   type ForumValidationResult,
 } from "@/schemas/forum-integration";
@@ -84,11 +86,21 @@ function resolveForumUrl(input: string, baseUrl: string) {
   return new URL(input, baseUrl).toString();
 }
 
-function extractFormAction(html: string, baseUrl: string) {
+function extractFormAction(
+  html: string,
+  baseUrl: string,
+  options: {
+    actionPattern?: RegExp;
+  } = {},
+) {
   const rawAction =
+    (options.actionPattern
+      ? html.match(options.actionPattern)?.[1]
+      : null) ??
     html.match(/<form[^>]+action="([^"]+)"[^>]*class="[^"]*message-form[^"]*"/i)?.[1] ??
     html.match(/<form[^>]+class="[^"]*message-form[^"]*"[^>]+action="([^"]+)"/i)?.[1] ??
     html.match(/<form[^>]+action="([^"]+add-thread[^"]*)"/i)?.[1] ??
+    html.match(/<form[^>]+action="([^"]+)"[^>]*>[\s\S]*?<textarea/i)?.[1] ??
     null;
 
   return rawAction ? resolveForumUrl(rawAction, baseUrl) : null;
@@ -115,7 +127,8 @@ function extractTextareaFieldName(html: string) {
 function extractTitleFieldName(html: string) {
   return (
     html.match(/<input[^>]+name="([^"]+)"[^>]+type="text"[^>]*placeholder="[^"]*title/i)?.[1] ??
-    html.match(/<input[^>]+name="([^"]+)"[^>]+name="title"/i)?.[1] ??
+    html.match(/<input[^>]+name="([^"]+)"[^>]*value="[^"]*"[^>]*>/i)?.[1] ??
+    html.match(/<input[^>]+name="title"/i)?.[0]?.match(/name="([^"]+)"/i)?.[1] ??
     "title"
   );
 }
@@ -144,6 +157,48 @@ function extractPostIdFromHtml(html: string) {
     html.match(/href="#post-([0-9]+)"/i)?.[1] ??
     null
   );
+}
+
+function buildForumMessageFormBody(input: {
+  html: string;
+  title: string;
+  bbcode: string;
+  requireTitleField?: boolean;
+}) {
+  const actionUrl = extractFormAction(input.html, FORUM_BASE_URL);
+  const xfToken = extractHiddenInputValue(input.html, "_xfToken");
+
+  if (!actionUrl || !xfToken) {
+    throw new Error("Форум не отдал publish form action или _xfToken.");
+  }
+
+  const titleFieldName = extractTitleFieldName(input.html);
+  const messageFieldName = extractTextareaFieldName(input.html);
+  const formBody = new URLSearchParams();
+
+  if (input.requireTitleField !== false || titleFieldName) {
+    formBody.set(titleFieldName, input.title);
+  }
+
+  formBody.set(messageFieldName, input.bbcode);
+  formBody.set("_xfToken", xfToken);
+  formBody.set("_xfResponseType", "json");
+
+  const requestUri = extractHiddenInputValue(input.html, "_xfRequestUri");
+  const withData = extractHiddenInputValue(input.html, "_xfWithData");
+
+  if (requestUri) {
+    formBody.set("_xfRequestUri", requestUri);
+  }
+
+  if (withData) {
+    formBody.set("_xfWithData", withData);
+  }
+
+  return {
+    actionUrl,
+    formBody,
+  };
 }
 
 export function parseGta5RpForumIdentity(html: string) {
@@ -233,32 +288,11 @@ export async function createGta5RpForumThreadFromBbcode(
     throw new Error("Forum session недействительна для publish create.");
   }
 
-  const actionUrl = extractFormAction(formHtml, input.threadFormUrl);
-  const xfToken = extractHiddenInputValue(formHtml, "_xfToken");
-
-  if (!actionUrl || !xfToken) {
-    throw new Error("Форум не отдал publish form action или _xfToken.");
-  }
-
-  const titleFieldName = extractTitleFieldName(formHtml);
-  const messageFieldName = extractTextareaFieldName(formHtml);
-  const formBody = new URLSearchParams();
-
-  formBody.set(titleFieldName, input.title);
-  formBody.set(messageFieldName, input.bbcode);
-  formBody.set("_xfToken", xfToken);
-  formBody.set("_xfResponseType", "json");
-
-  const requestUri = extractHiddenInputValue(formHtml, "_xfRequestUri");
-  const withData = extractHiddenInputValue(formHtml, "_xfWithData");
-
-  if (requestUri) {
-    formBody.set("_xfRequestUri", requestUri);
-  }
-
-  if (withData) {
-    formBody.set("_xfWithData", withData);
-  }
+  const { actionUrl, formBody } = buildForumMessageFormBody({
+    html: formHtml,
+    title: input.title,
+    bbcode: input.bbcode,
+  });
 
   const publishResponse = await fetcher(actionUrl, {
     method: "POST",
@@ -308,6 +342,96 @@ export async function createGta5RpForumThreadFromBbcode(
   }
 
   return forumPublishCreateResultSchema.parse({
+    publicationUrl: normalizedPublicationUrl,
+    forumThreadId,
+    forumPostId,
+  });
+}
+
+export async function updateGta5RpForumPostFromBbcode(
+  input: {
+    sessionPayload: ForumSessionPayload;
+    publicationUrl: string;
+    forumThreadId: string;
+    forumPostId: string;
+    title: string;
+    bbcode: string;
+  },
+  dependencies: {
+    fetch?: FetchLike;
+  } = {},
+): Promise<ForumPublishUpdateResult> {
+  const fetcher = dependencies.fetch ?? fetch;
+  const userAgent = "Lawyer5RP Forum Publisher/1.0";
+  const editFormUrl = resolveForumUrl(`/posts/${input.forumPostId}/edit`, FORUM_BASE_URL);
+
+  const editResponse = await fetcher(editFormUrl, {
+    headers: {
+      Cookie: input.sessionPayload.cookieHeader,
+      "User-Agent": userAgent,
+    },
+    redirect: "follow",
+    cache: "no-store",
+  });
+  const editHtml = await editResponse.text();
+  const identity = parseGta5RpForumIdentity(editHtml);
+
+  if (!editResponse.ok || !isAuthenticatedForumHtml(editHtml, identity)) {
+    throw new Error("Forum session недействительна для publish update.");
+  }
+
+  const { actionUrl, formBody } = buildForumMessageFormBody({
+    html: editHtml,
+    title: input.title,
+    bbcode: input.bbcode,
+  });
+
+  const updateResponse = await fetcher(actionUrl, {
+    method: "POST",
+    headers: {
+      Cookie: input.sessionPayload.cookieHeader,
+      "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+      "User-Agent": userAgent,
+      Referer: editFormUrl,
+      "X-Requested-With": "XMLHttpRequest",
+    },
+    body: formBody.toString(),
+    redirect: "manual",
+    cache: "no-store",
+  });
+  const updateText = await updateResponse.text();
+  const publicationUrl =
+    updateResponse.headers.get("location") ??
+    extractJsonRedirect(updateText, FORUM_BASE_URL) ??
+    input.publicationUrl;
+  const normalizedPublicationUrl = resolveForumUrl(publicationUrl, FORUM_BASE_URL);
+
+  const threadPageResponse = await fetcher(normalizedPublicationUrl, {
+    headers: {
+      Cookie: input.sessionPayload.cookieHeader,
+      "User-Agent": userAgent,
+    },
+    redirect: "follow",
+    cache: "no-store",
+  });
+  const threadPageHtml = await threadPageResponse.text();
+  const threadIdentity = parseGta5RpForumIdentity(threadPageHtml);
+
+  if (!threadPageResponse.ok || !isAuthenticatedForumHtml(threadPageHtml, threadIdentity)) {
+    throw new Error("Форум не подтвердил опубликованный thread после update publish.");
+  }
+
+  const forumThreadId =
+    extractThreadIdFromUrl(normalizedPublicationUrl) ??
+    extractThreadIdFromUrl(threadPageResponse.url) ??
+    input.forumThreadId;
+  const forumPostId = extractPostIdFromHtml(threadPageHtml) ?? input.forumPostId;
+
+  if (!forumThreadId || !forumPostId) {
+    throw new Error("Не удалось извлечь forum thread/post identity после update publish.");
+  }
+
+  return forumPublishUpdateResultSchema.parse({
     publicationUrl: normalizedPublicationUrl,
     forumThreadId,
     forumPostId,

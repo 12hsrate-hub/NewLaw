@@ -11,6 +11,7 @@ import {
   createOgpComplaintDraftAction,
   generateOgpComplaintBbcodeAction,
   publishOgpComplaintCreateAction,
+  publishOgpComplaintUpdateAction,
   saveDocumentDraftAction,
   updateDocumentPublicationMetadataAction,
 } from "@/server/actions/documents";
@@ -905,6 +906,52 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
 
   const isDirty = !areStatesEqual(editorState, savedState);
   const canGenerateFromPersistedState = !isDirty;
+  const hasAutomationOwnedIdentity = Boolean(
+    generationState.forumThreadId && generationState.forumPostId,
+  );
+  const canPublishCreate =
+    !hasAutomationOwnedIdentity && generationState.forumSyncState !== "manual_untracked";
+  const canPublishUpdate =
+    hasAutomationOwnedIdentity &&
+    (generationState.forumSyncState === "outdated" || generationState.forumSyncState === "failed");
+  const publicationReadinessLabel = useMemo(() => {
+    if (!generationState.generatedAt || !generationState.lastGeneratedBbcode) {
+      return "не готово к публикации";
+    }
+
+    if (generationState.forumSyncState === "manual_untracked") {
+      return "manual publication url without automation tracking";
+    }
+
+    if (generationState.forumSyncState === "failed" && hasAutomationOwnedIdentity) {
+      return "ошибка публикации, можно повторить sync";
+    }
+
+    if (generationState.forumSyncState === "outdated" && hasAutomationOwnedIdentity) {
+      return "требуется update/resync";
+    }
+
+    if (generationState.forumSyncState === "current" && hasAutomationOwnedIdentity) {
+      return "опубликовано и актуально";
+    }
+
+    if (generationState.isModifiedAfterGeneration) {
+      return "нужна регенерация перед публикацией";
+    }
+
+    if (props.forumConnection.state === "valid") {
+      return "готово к публикации";
+    }
+
+    return "нужна валидная forum session";
+  }, [
+    generationState.forumSyncState,
+    generationState.generatedAt,
+    generationState.isModifiedAfterGeneration,
+    generationState.lastGeneratedBbcode,
+    hasAutomationOwnedIdentity,
+    props.forumConnection.state,
+  ]);
 
   const performSave = useCallback(
     async (mode: "autosave" | "manual") => {
@@ -1143,6 +1190,58 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
     setPublicationMessage("Документ опубликован на форуме через automation create-step.");
   }, [isDirty, props.documentId]);
 
+  const handlePublishUpdate = useCallback(async () => {
+    if (isDirty) {
+      setPublicationMessage(
+        "Сначала сохраните черновик. Update/resync всегда использует latest persisted generated BBCode.",
+      );
+      return;
+    }
+
+    const result = await publishOgpComplaintUpdateAction({
+      documentId: props.documentId,
+    });
+
+    if (!result.ok) {
+      if (result.error === "publication-blocked") {
+        setPublicationMessage(result.reasons.join(" "));
+        return;
+      }
+
+      if (result.error === "publication-failed") {
+        setGenerationState((current) => ({
+          ...current,
+          forumSyncState: "failed",
+          forumLastSyncError: result.message,
+          isSiteForumSynced: false,
+        }));
+        setPublicationMessage(result.message);
+        return;
+      }
+
+      setPublicationMessage("Выполнить publish update не удалось. Проверьте доступ к документу.");
+      return;
+    }
+
+    setSavedUpdatedAt(result.updatedAt);
+    setGenerationState((current) => ({
+      ...current,
+      status: result.status,
+      publicationUrl: result.publicationUrl,
+      isSiteForumSynced: result.isSiteForumSynced,
+      isModifiedAfterGeneration: result.isModifiedAfterGeneration,
+      generatedAt: result.generatedAt,
+      forumSyncState: result.forumSyncState,
+      forumThreadId: result.forumThreadId,
+      forumPostId: result.forumPostId,
+      forumPublishedBbcodeHash: result.forumPublishedBbcodeHash,
+      forumLastPublishedAt: result.forumLastPublishedAt,
+      forumLastSyncError: result.forumLastSyncError,
+    }));
+    setPublicationUrlInput(result.publicationUrl ?? "");
+    setPublicationMessage("Forum publication обновлена через automation update/resync.");
+  }, [isDirty, props.documentId]);
+
   return (
     <div className="space-y-6">
       <ComplaintFormFields
@@ -1252,7 +1351,8 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
         <div className="space-y-1">
           <h3 className="text-lg font-semibold">Publication metadata</h3>
           <ComplaintFieldHint>
-            Publication URL и manual forum sync marker относятся только к `ogp_complaint`. Автопубликации и проверки форума тут нет.
+            Publication URL и forum sync marker относятся только к `ogp_complaint`. Здесь уже есть
+            create/update automation для forum publication, но claims этот workflow не наследуют.
           </ComplaintFieldHint>
         </div>
         <div className="rounded-2xl border border-[var(--border)] bg-white/80 px-4 py-3 text-sm leading-6 text-[var(--muted)]">
@@ -1288,19 +1388,7 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
           <p>
             Publication readiness:{" "}
             <span className="font-medium text-[var(--foreground)]">
-              {!generationState.generatedAt || !generationState.lastGeneratedBbcode
-                ? "не готово к публикации"
-                : generationState.isModifiedAfterGeneration
-                  ? "нужна регенерация перед публикацией"
-                  : generationState.forumThreadId && generationState.forumPostId
-                    ? "уже опубликовано"
-                    : generationState.publicationUrl &&
-                        !generationState.forumThreadId &&
-                        !generationState.forumPostId
-                      ? "manual publication url without automation tracking"
-                      : props.forumConnection.state === "valid"
-                        ? "готово к публикации"
-                        : "нужна валидная forum session"}
+              {publicationReadinessLabel}
             </span>
           </p>
           <p>
@@ -1327,11 +1415,12 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
           </p>
           {generationState.forumLastSyncError ? (
             <p className="mt-2 text-[#8a2d1d]">
-              Последняя ошибка publish create: {generationState.forumLastSyncError}
+              Последняя ошибка forum sync: {generationState.forumLastSyncError}
             </p>
           ) : null}
           <p className="mt-2">
-            Этот шаг покрывает только first publish create для `ogp_complaint`. Update/resync здесь ещё нет.
+            Automation доступна только для `ogp_complaint`: create работает для first publish, а update/resync
+            возвращает automation-owned публикацию из `outdated` или `failed` обратно в `current`.
           </p>
         </div>
         <div className="space-y-2">
@@ -1362,17 +1451,32 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
           Пометить как вручную синхронизированный с форумом
         </label>
         <div className="flex flex-wrap items-center gap-3">
-          <Button
-            disabled={isDirty}
-            onClick={() => {
-              startTransition(() => {
-                void handlePublishCreate();
-              });
-            }}
-            type="button"
-          >
-            Опубликовать на форуме
-          </Button>
+          {canPublishCreate ? (
+            <Button
+              disabled={isDirty}
+              onClick={() => {
+                startTransition(() => {
+                  void handlePublishCreate();
+                });
+              }}
+              type="button"
+            >
+              Опубликовать на форуме
+            </Button>
+          ) : null}
+          {canPublishUpdate ? (
+            <Button
+              disabled={isDirty}
+              onClick={() => {
+                startTransition(() => {
+                  void handlePublishUpdate();
+                });
+              }}
+              type="button"
+            >
+              Обновить публикацию
+            </Button>
+          ) : null}
           <Button
             onClick={() => {
               startTransition(() => {

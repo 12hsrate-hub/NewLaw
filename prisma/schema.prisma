@@ -146,6 +146,7 @@ enum OgpForumSyncState {
 
 enum OgpForumPublicationOperation {
   publish_create
+  publish_update
 }
 
 enum OgpForumPublicationAttemptStatus {

@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   OgpPublicationBlockedError,
   publishOwnedOgpComplaintCreate,
+  publishOwnedOgpComplaintUpdate,
 } from "@/server/document-area/publication";
 import { DocumentAccessDeniedError } from "@/server/document-area/persistence";
 import { ForumConnectionStateError } from "@/server/forum-integration/service";
@@ -130,6 +131,7 @@ describe("ogp publication", () => {
           forumThreadId: "100",
           forumPostId: "200",
         }),
+        updateGta5RpForumPostFromBbcode: vi.fn(),
         createOgpForumPublicationAttemptRecord: createAttempt,
         updateOgpForumPublicationAttemptRecord: updateAttempt,
         markOgpDocumentPublishedViaAutomationRecord: markPublished,
@@ -187,6 +189,7 @@ describe("ogp publication", () => {
           }),
           getValidatedAccountForumSessionForAutomation: vi.fn(),
           createGta5RpForumThreadFromBbcode: vi.fn(),
+          updateGta5RpForumPostFromBbcode: vi.fn(),
           createOgpForumPublicationAttemptRecord: createAttempt,
           updateOgpForumPublicationAttemptRecord: vi.fn(),
           markOgpDocumentPublishedViaAutomationRecord: vi.fn(),
@@ -221,6 +224,7 @@ describe("ogp publication", () => {
           }),
           getValidatedAccountForumSessionForAutomation: vi.fn(),
           createGta5RpForumThreadFromBbcode: vi.fn(),
+          updateGta5RpForumPostFromBbcode: vi.fn(),
           createOgpForumPublicationAttemptRecord: vi.fn().mockResolvedValue({ id: "attempt-1" }),
           updateOgpForumPublicationAttemptRecord: vi.fn(),
           markOgpDocumentPublishedViaAutomationRecord: vi.fn(),
@@ -252,6 +256,7 @@ describe("ogp publication", () => {
           }),
           getValidatedAccountForumSessionForAutomation: vi.fn(),
           createGta5RpForumThreadFromBbcode: vi.fn(),
+          updateGta5RpForumPostFromBbcode: vi.fn(),
           createOgpForumPublicationAttemptRecord: vi.fn().mockResolvedValue({ id: "attempt-1" }),
           updateOgpForumPublicationAttemptRecord: vi.fn(),
           markOgpDocumentPublishedViaAutomationRecord: vi.fn(),
@@ -293,6 +298,7 @@ describe("ogp publication", () => {
           createGta5RpForumThreadFromBbcode: vi
             .fn()
             .mockRejectedValue(new Error("Форум не принял сообщение.")),
+          updateGta5RpForumPostFromBbcode: vi.fn(),
           createOgpForumPublicationAttemptRecord: vi
             .fn()
             .mockResolvedValue({ id: "attempt-1" }),
@@ -334,6 +340,7 @@ describe("ogp publication", () => {
           getDocumentByIdForAccount: vi.fn().mockResolvedValue(null),
           getValidatedAccountForumSessionForAutomation: vi.fn(),
           createGta5RpForumThreadFromBbcode: vi.fn(),
+          updateGta5RpForumPostFromBbcode: vi.fn(),
           createOgpForumPublicationAttemptRecord: vi.fn(),
           updateOgpForumPublicationAttemptRecord: vi.fn(),
           markOgpDocumentPublishedViaAutomationRecord: vi.fn(),
@@ -356,6 +363,7 @@ describe("ogp publication", () => {
             .fn()
             .mockRejectedValue(new ForumConnectionStateError("invalid")),
           createGta5RpForumThreadFromBbcode: vi.fn(),
+          updateGta5RpForumPostFromBbcode: vi.fn(),
           createOgpForumPublicationAttemptRecord: vi.fn().mockResolvedValue({ id: "attempt-1" }),
           updateOgpForumPublicationAttemptRecord: vi.fn(),
           markOgpDocumentPublishedViaAutomationRecord: vi.fn(),
@@ -365,5 +373,229 @@ describe("ogp publication", () => {
         },
       ),
     ).rejects.toBeInstanceOf(OgpPublicationBlockedError);
+  });
+
+  it("успешный publish update переводит outdated обратно в current", async () => {
+    const baseDocument = {
+      ...createBaseDocument(),
+      status: "published" as const,
+      publicationUrl: "https://forum.gta5rp.com/threads/test.100/",
+      forumSyncState: "outdated" as const,
+      forumThreadId: "100",
+      forumPostId: "200",
+      isModifiedAfterGeneration: false,
+    };
+    const createAttempt = vi.fn().mockResolvedValue({
+      id: "attempt-update-1",
+    });
+    const updateAttempt = vi.fn().mockResolvedValue({
+      id: "attempt-update-1",
+      status: "succeeded",
+    });
+    const markPublished = vi.fn().mockResolvedValue({
+      ...baseDocument,
+      forumSyncState: "current",
+      forumPublishedBbcodeHash: "hash",
+      forumLastPublishedAt: new Date("2026-04-22T05:00:00.000Z"),
+      isModifiedAfterGeneration: false,
+    });
+
+    const result = await publishOwnedOgpComplaintUpdate(
+      {
+        accountId: "00000000-0000-0000-0000-000000000001",
+        documentId: "document-1",
+      },
+      {
+        getDocumentByIdForAccount: vi.fn().mockResolvedValue(baseDocument),
+        getValidatedAccountForumSessionForAutomation: vi.fn().mockResolvedValue({
+          payload: {
+            cookieHeader: "xf_user=1; xf_session=secret",
+          },
+        }),
+        createGta5RpForumThreadFromBbcode: vi.fn(),
+        updateGta5RpForumPostFromBbcode: vi.fn().mockResolvedValue({
+          publicationUrl: "https://forum.gta5rp.com/threads/test.100/",
+          forumThreadId: "100",
+          forumPostId: "200",
+        }),
+        createOgpForumPublicationAttemptRecord: createAttempt,
+        updateOgpForumPublicationAttemptRecord: updateAttempt,
+        markOgpDocumentPublishedViaAutomationRecord: markPublished,
+        markOgpDocumentPublishFailedRecord: vi.fn(),
+        now: () => new Date("2026-04-22T05:00:00.000Z"),
+        runTransaction: async (callback) => callback({} as never),
+      },
+    );
+
+    expect(createAttempt).toHaveBeenCalledWith({
+      documentId: "document-1",
+      accountId: "00000000-0000-0000-0000-000000000001",
+      operation: "publish_update",
+      status: "started",
+    });
+    expect(markPublished).toHaveBeenCalledWith(
+      expect.objectContaining({
+        documentId: "document-1",
+        publicationUrl: "https://forum.gta5rp.com/threads/test.100/",
+        forumThreadId: "100",
+        forumPostId: "200",
+      }),
+      expect.anything(),
+    );
+    expect(updateAttempt).toHaveBeenCalledWith(
+      {
+        attemptId: "attempt-update-1",
+        status: "succeeded",
+        forumThreadId: "100",
+        forumPostId: "200",
+      },
+      expect.anything(),
+    );
+    expect(result.forumSyncState).toBe("current");
+  });
+
+  it("не допускает publish update без automation-owned external identity", async () => {
+    const createAttempt = vi.fn().mockResolvedValue({
+      id: "attempt-update-blocked",
+    });
+
+    await expect(
+      publishOwnedOgpComplaintUpdate(
+        {
+          accountId: "00000000-0000-0000-0000-000000000001",
+          documentId: "document-1",
+        },
+        {
+          getDocumentByIdForAccount: vi.fn().mockResolvedValue({
+            ...createBaseDocument(),
+            status: "published",
+            publicationUrl: null,
+            forumThreadId: null,
+            forumPostId: null,
+            forumSyncState: "not_published",
+          }),
+          getValidatedAccountForumSessionForAutomation: vi.fn(),
+          createGta5RpForumThreadFromBbcode: vi.fn(),
+          updateGta5RpForumPostFromBbcode: vi.fn(),
+          createOgpForumPublicationAttemptRecord: createAttempt,
+          updateOgpForumPublicationAttemptRecord: vi.fn(),
+          markOgpDocumentPublishedViaAutomationRecord: vi.fn(),
+          markOgpDocumentPublishFailedRecord: vi.fn(),
+          now: () => new Date("2026-04-22T05:00:00.000Z"),
+          runTransaction: async (callback) => callback({} as never),
+        },
+      ),
+    ).rejects.toMatchObject({
+      reasons: expect.arrayContaining(["create_required"]),
+    });
+
+    expect(createAttempt).toHaveBeenCalledWith(
+      expect.objectContaining({
+        operation: "publish_update",
+        status: "failed",
+      }),
+    );
+  });
+
+  it("не делает update, если sync уже current и документ не stale", async () => {
+    await expect(
+      publishOwnedOgpComplaintUpdate(
+        {
+          accountId: "00000000-0000-0000-0000-000000000001",
+          documentId: "document-1",
+        },
+        {
+          getDocumentByIdForAccount: vi.fn().mockResolvedValue({
+            ...createBaseDocument(),
+            status: "published",
+            publicationUrl: "https://forum.gta5rp.com/threads/test.100/",
+            forumThreadId: "100",
+            forumPostId: "200",
+            forumSyncState: "current",
+            isModifiedAfterGeneration: false,
+          }),
+          getValidatedAccountForumSessionForAutomation: vi.fn(),
+          createGta5RpForumThreadFromBbcode: vi.fn(),
+          updateGta5RpForumPostFromBbcode: vi.fn(),
+          createOgpForumPublicationAttemptRecord: vi.fn().mockResolvedValue({ id: "attempt-1" }),
+          updateOgpForumPublicationAttemptRecord: vi.fn(),
+          markOgpDocumentPublishedViaAutomationRecord: vi.fn(),
+          markOgpDocumentPublishFailedRecord: vi.fn(),
+          now: () => new Date("2026-04-22T05:00:00.000Z"),
+          runTransaction: async (callback) => callback({} as never),
+        },
+      ),
+    ).rejects.toMatchObject({
+      reasons: expect.arrayContaining(["already_current"]),
+    });
+  });
+
+  it("failed update сохраняет external identity и пишет attempt log", async () => {
+    const baseDocument = {
+      ...createBaseDocument(),
+      status: "published" as const,
+      publicationUrl: "https://forum.gta5rp.com/threads/test.100/",
+      forumSyncState: "outdated" as const,
+      forumThreadId: "100",
+      forumPostId: "200",
+    };
+    const markFailed = vi.fn().mockResolvedValue({
+      ...baseDocument,
+      forumSyncState: "failed",
+      forumLastSyncError: "Форум не принял update.",
+      isSiteForumSynced: false,
+    });
+    const updateAttempt = vi.fn().mockResolvedValue({
+      id: "attempt-update-2",
+      status: "failed",
+    });
+
+    await expect(
+      publishOwnedOgpComplaintUpdate(
+        {
+          accountId: "00000000-0000-0000-0000-000000000001",
+          documentId: "document-1",
+        },
+        {
+          getDocumentByIdForAccount: vi.fn().mockResolvedValue(baseDocument),
+          getValidatedAccountForumSessionForAutomation: vi.fn().mockResolvedValue({
+            payload: {
+              cookieHeader: "xf_user=1; xf_session=secret",
+            },
+          }),
+          createGta5RpForumThreadFromBbcode: vi.fn(),
+          updateGta5RpForumPostFromBbcode: vi
+            .fn()
+            .mockRejectedValue(new Error("Форум не принял update.")),
+          createOgpForumPublicationAttemptRecord: vi
+            .fn()
+            .mockResolvedValue({ id: "attempt-update-2" }),
+          updateOgpForumPublicationAttemptRecord: updateAttempt,
+          markOgpDocumentPublishedViaAutomationRecord: vi.fn(),
+          markOgpDocumentPublishFailedRecord: markFailed,
+          now: () => new Date("2026-04-22T05:00:00.000Z"),
+          runTransaction: async (callback) => callback({} as never),
+        },
+      ),
+    ).rejects.toThrow("Форум не принял update.");
+
+    expect(markFailed).toHaveBeenCalledWith(
+      {
+        documentId: "document-1",
+        errorSummary: "Форум не принял update.",
+      },
+      expect.anything(),
+    );
+    expect(updateAttempt).toHaveBeenCalledWith(
+      {
+        attemptId: "attempt-update-2",
+        status: "failed",
+        forumThreadId: "100",
+        forumPostId: "200",
+        errorCode: "publish_failed",
+        errorSummary: "Форум не принял update.",
+      },
+      expect.anything(),
+    );
   });
 });

@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   createGta5RpForumThreadFromBbcode,
   parseGta5RpForumIdentity,
+  updateGta5RpForumPostFromBbcode,
   validateGta5RpForumSession,
 } from "@/server/forum-integration/gta5rp-client";
 
@@ -152,5 +153,97 @@ describe("gta5rp forum client foundation", () => {
         },
       ),
     ).rejects.toThrow("Форум не отдал publish form action или _xfToken.");
+  });
+
+  it("обновляет уже опубликованный post и сохраняет external identity", async () => {
+    const fetch = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        text: vi.fn().mockResolvedValue(`
+          <html>
+            <body data-logged-in="true">
+              <form class="message-form" action="/posts/200/edit">
+                <input type="hidden" name="_xfToken" value="token-2" />
+                <input type="hidden" name="_xfRequestUri" value="/posts/200/edit" />
+                <input type="text" name="title" value="Жалоба в ОГП" />
+                <textarea name="message">old message</textarea>
+              </form>
+              <div data-user-id="501" data-username="Forum User"></div>
+            </body>
+          </html>
+        `),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        headers: new Headers(),
+        text: vi.fn().mockResolvedValue(
+          JSON.stringify({
+            redirect: "https://forum.gta5rp.com/threads/test-thread.100/",
+          }),
+        ),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        url: "https://forum.gta5rp.com/threads/test-thread.100/",
+        text: vi.fn().mockResolvedValue(`
+          <html>
+            <body data-logged-in="true">
+              <div data-user-id="501" data-username="Forum User"></div>
+              <article id="js-post-200"></article>
+            </body>
+          </html>
+        `),
+      });
+
+    const result = await updateGta5RpForumPostFromBbcode(
+      {
+        sessionPayload: {
+          cookieHeader: "xf_user=501; xf_session=secret",
+        },
+        publicationUrl: "https://forum.gta5rp.com/threads/test-thread.100/",
+        forumThreadId: "100",
+        forumPostId: "200",
+        title: "Обновлённая жалоба в ОГП",
+        bbcode: "[b]UPDATED[/b]",
+      },
+      {
+        fetch: fetch as unknown as typeof globalThis.fetch,
+      },
+    );
+
+    expect(result).toEqual({
+      publicationUrl: "https://forum.gta5rp.com/threads/test-thread.100/",
+      forumThreadId: "100",
+      forumPostId: "200",
+    });
+    expect(fetch).toHaveBeenCalledTimes(3);
+  });
+
+  it("на невалидной session для update возвращает безопасную ошибку", async () => {
+    await expect(
+      updateGta5RpForumPostFromBbcode(
+        {
+          sessionPayload: {
+            cookieHeader: "xf_user=501; xf_session=secret",
+          },
+          publicationUrl: "https://forum.gta5rp.com/threads/test-thread.100/",
+          forumThreadId: "100",
+          forumPostId: "200",
+          title: "Жалоба в ОГП",
+          bbcode: "[b]UPDATED[/b]",
+        },
+        {
+          fetch: vi.fn().mockResolvedValue({
+            ok: true,
+            status: 200,
+            text: vi.fn().mockResolvedValue("<html><body><a href=\"/login/\">Login</a></body></html>"),
+          }) as unknown as typeof globalThis.fetch,
+        },
+      ),
+    ).rejects.toThrow("Forum session недействительна для publish update.");
   });
 });

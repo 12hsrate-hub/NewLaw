@@ -33,6 +33,7 @@ import {
   mapPublicationBlockingReasonsToMessages,
   OgpPublicationBlockedError,
   publishOwnedOgpComplaintCreate,
+  publishOwnedOgpComplaintUpdate,
 } from "@/server/document-area/publication";
 
 function buildStatusRedirect(path: string, status: string) {
@@ -493,6 +494,66 @@ export async function publishOgpComplaintCreateAction(input: {
         error instanceof Error
           ? error.message
           : "Создать forum publication для OGP complaint не удалось.",
+    };
+  }
+}
+
+export async function publishOgpComplaintUpdateAction(input: {
+  documentId: string;
+}) {
+  const { account } = await requireProtectedAccountContext("/account/documents", undefined, {
+    allowMustChangePassword: true,
+  });
+
+  try {
+    const document = await publishOwnedOgpComplaintUpdate({
+      accountId: account.id,
+      documentId: input.documentId,
+    });
+
+    revalidatePath("/account/documents");
+    revalidatePath(`/servers/${document.server.code}/documents`);
+    revalidatePath(`/servers/${document.server.code}/documents/ogp-complaints`);
+    revalidatePath(`/servers/${document.server.code}/documents/ogp-complaints/${document.id}`);
+
+    return {
+      ok: true as const,
+      status: document.status,
+      updatedAt: document.updatedAt.toISOString(),
+      publicationUrl: document.publicationUrl,
+      isSiteForumSynced: document.isSiteForumSynced,
+      forumSyncState: document.forumSyncState,
+      forumThreadId: document.forumThreadId,
+      forumPostId: document.forumPostId,
+      forumPublishedBbcodeHash: document.forumPublishedBbcodeHash,
+      forumLastPublishedAt: document.forumLastPublishedAt?.toISOString() ?? null,
+      forumLastSyncError: document.forumLastSyncError,
+      generatedAt: document.generatedAt?.toISOString() ?? null,
+      isModifiedAfterGeneration: document.isModifiedAfterGeneration,
+    };
+  } catch (error) {
+    if (error instanceof DocumentAccessDeniedError) {
+      return {
+        ok: false as const,
+        error: "document-access-denied" as const,
+      };
+    }
+
+    if (error instanceof OgpPublicationBlockedError) {
+      return {
+        ok: false as const,
+        error: "publication-blocked" as const,
+        reasons: mapPublicationBlockingReasonsToMessages(error.reasons),
+      };
+    }
+
+    return {
+      ok: false as const,
+      error: "publication-failed" as const,
+      message:
+        error instanceof Error
+          ? error.message
+          : "Обновить forum publication для OGP complaint не удалось.",
     };
   }
 }

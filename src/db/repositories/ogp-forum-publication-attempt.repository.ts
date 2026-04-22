@@ -8,7 +8,7 @@ export async function createOgpForumPublicationAttemptRecord(
   input: {
     documentId: string;
     accountId: string;
-    operation: "publish_create";
+    operation: "publish_create" | "publish_update";
     status: "started" | "succeeded" | "failed";
     forumThreadId?: string | null;
     forumPostId?: string | null;

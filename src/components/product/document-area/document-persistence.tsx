@@ -450,8 +450,8 @@ export function OgpComplaintDraftCreateEntry(props: {
         <h2 className="text-2xl font-semibold">Complaint create entry</h2>
         <p className="text-sm leading-6 text-[var(--muted)]">
           На этом route создаётся persisted complaint draft и фиксируется immutable author snapshot.
-          BBCode generation, publish create и manual publication metadata появляются после first
-          save уже в owner-only route `[documentId]`.
+          BBCode generation, publish create/update и manual publication metadata появляются после
+          first save уже в owner-only route `[documentId]`.
         </p>
         <OgpComplaintDraftCreateClient
           characters={props.characters}
@@ -557,7 +557,7 @@ export function OgpComplaintPersistedEditor(props: {
         <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
           Это уже реальный OGP complaint editor route. Здесь грузится persisted payload, работает
           owner-only access, manual/autosave, deterministic BBCode generation и первый automation
-          create-step публикации на форум.
+          create/update flow публикации на форум.
         </p>
         <div className="flex flex-wrap items-center gap-2 text-sm leading-6 text-[var(--muted)]">
           <Badge>serverSlug: {props.document.server.code}</Badge>
@@ -610,9 +610,9 @@ export function OgpComplaintPersistedEditor(props: {
       <Card className="space-y-4">
         <h2 className="text-2xl font-semibold">Forum integration</h2>
         <p className="text-sm leading-6 text-[var(--muted)]">
-          OGP editor уже умеет читать account-scoped forum connection state и запускать first
-          publish create только из latest generated BBCode. Подключение и validate session живут в
-          `/account/security`.
+          OGP editor уже умеет читать account-scoped forum connection state, запускать first
+          publish create и owner-only update/resync только из latest generated BBCode. Подключение
+          и validate session живут в `/account/security`.
         </p>
         <ul className="space-y-2 text-sm leading-6 text-[var(--muted)]">
           <li>Provider: {props.document.forumConnection.providerKey}</li>
