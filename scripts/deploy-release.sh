@@ -148,7 +148,9 @@ run_read_only_db_check() {
   local script_path="$RELEASE_DIR/.deploy-read-db.mts"
 
   cat > "$script_path" <<'EOF'
-import { prisma } from "./src/db/prisma";
+import * as prismaModule from "./src/db/prisma.ts";
+
+const { prisma } = prismaModule;
 
 const server = await prisma.server.findFirst({
   orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
@@ -177,7 +179,9 @@ run_app_context_db_check() {
   local script_path="$RELEASE_DIR/.deploy-app-context.mts"
 
   cat > "$script_path" <<'EOF'
-import { getInternalHealthContext } from "./src/server/internal/health";
+import * as internalHealthModule from "./src/server/internal/health.ts";
+
+const { getInternalHealthContext } = internalHealthModule;
 
 const context = await getInternalHealthContext();
 
