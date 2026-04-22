@@ -1,4 +1,4 @@
-import type { PrismaClient } from "@prisma/client";
+import { Prisma, type PrismaClient } from "@prisma/client";
 
 import { prisma } from "@/db/prisma";
 import {
@@ -26,6 +26,8 @@ type CreateCharacterRecordInput = {
   fullName: string;
   nickname: string;
   passportNumber: string;
+  isProfileComplete: boolean;
+  profileDataJson: Record<string, string> | null;
   roleKeys: CharacterRoleKey[];
   accessFlags: CharacterAccessFlagKey[];
 };
@@ -129,6 +131,8 @@ export async function createCharacterRecord(
       fullName: input.fullName,
       nickname: input.nickname,
       passportNumber: input.passportNumber,
+      isProfileComplete: input.isProfileComplete,
+      profileDataJson: input.profileDataJson ?? Prisma.JsonNull,
       roles: {
         createMany: {
           data: input.roleKeys.map((roleKey) => ({ roleKey })),
@@ -159,6 +163,8 @@ export async function updateCharacterRecord(
       fullName: input.fullName,
       nickname: input.nickname,
       passportNumber: input.passportNumber,
+      isProfileComplete: input.isProfileComplete,
+      profileDataJson: input.profileDataJson ?? Prisma.JsonNull,
       roles: {
         deleteMany: {},
         createMany: {

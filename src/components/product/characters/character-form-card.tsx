@@ -6,6 +6,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 
 const roleLabels: Record<(typeof characterRoleKeys)[number], string> = {
   citizen: "Гражданин",
@@ -23,6 +24,9 @@ type CharacterFormValues = {
   accessFlags?: string[];
   characterId?: string;
   fullName: string;
+  isProfileComplete?: boolean;
+  profileNote?: string | null;
+  profileSignature?: string | null;
   passportNumber: string;
   roleKeys?: string[];
 };
@@ -30,21 +34,32 @@ type CharacterFormValues = {
 type CharacterFormCardProps = {
   defaultValues?: CharacterFormValues;
   mode: "create" | "edit";
+  redirectTo?: string;
+  selectionBehavior?: "app_shell" | "account_zone";
   serverId: string;
+  surface?: "app_shell" | "account_zone";
 };
 
 export function CharacterFormCard({
   defaultValues,
   mode,
+  redirectTo = "/app",
+  selectionBehavior = "app_shell",
   serverId,
+  surface = "app_shell",
 }: CharacterFormCardProps) {
   const action = mode === "create" ? createCharacterAction : updateCharacterAction;
   const submitLabel = mode === "create" ? "Создать персонажа" : "Сохранить изменения";
   const title = mode === "create" ? "Новый персонаж" : "Редактирование персонажа";
-  const description =
+  const appShellDescription =
     mode === "create"
       ? "Персонаж создаётся вручную. Минимально обязательны ФИО и паспорт, а роли и access flags можно оставить пустыми."
       : "Обновление карточки персонажа в текущем серверном контексте без выхода в отдельный permission-центр.";
+  const accountZoneDescription =
+    mode === "create"
+      ? "Новая карточка создаётся прямо внутри account zone. Это profile-management сценарий: он не превращает страницу в server workflow center и не тянет active server из `/app`."
+      : "Редактирование остаётся в account zone и не должно скрыто менять active selection для transitional `/app`.";
+  const description = surface === "account_zone" ? accountZoneDescription : appShellDescription;
   const selectedRoleKeys = new Set(defaultValues?.roleKeys ?? []);
   const selectedAccessFlags = new Set(defaultValues?.accessFlags ?? []);
 
@@ -56,7 +71,8 @@ export function CharacterFormCard({
       </div>
 
       <form action={action} className="space-y-4">
-        <input name="redirectTo" type="hidden" value="/app" />
+        <input name="redirectTo" type="hidden" value={redirectTo} />
+        <input name="selectionBehavior" type="hidden" value={selectionBehavior} />
         <input name="serverId" type="hidden" value={serverId} />
         {mode === "edit" ? (
           <input name="characterId" type="hidden" value={defaultValues?.characterId ?? ""} />
@@ -134,6 +150,48 @@ export function CharacterFormCard({
                 </span>
               </label>
             ))}
+          </div>
+        </fieldset>
+
+        <fieldset className="space-y-3 rounded-2xl border border-[var(--border)] bg-white/40 p-4">
+          <legend className="px-1 text-sm font-medium">Компактный профиль персонажа</legend>
+          <p className="text-xs leading-5 text-[var(--muted)]">
+            Это account-level profile subsection поверх уже существующего `profileDataJson`. Здесь
+            нет document payload и нет server-scoped workflow логики.
+          </p>
+
+          <label className="flex items-center gap-3 rounded-2xl border border-[var(--border)] bg-white/70 px-4 py-3 text-sm">
+            <input
+              defaultChecked={defaultValues?.isProfileComplete ?? false}
+              name="isProfileComplete"
+              type="checkbox"
+            />
+            <span>Профиль персонажа заполнен и готов к server-scoped document flows</span>
+          </label>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium" htmlFor={`${mode}-profileSignature`}>
+              Подпись персонажа
+            </label>
+            <Input
+              defaultValue={defaultValues?.profileSignature ?? ""}
+              id={`${mode}-profileSignature`}
+              name="profileSignature"
+              placeholder="И. Иванов"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium" htmlFor={`${mode}-profileNote`}>
+              Краткая profile note
+            </label>
+            <Textarea
+              defaultValue={defaultValues?.profileNote ?? ""}
+              id={`${mode}-profileNote`}
+              name="profileNote"
+              placeholder="Короткая server-specific заметка или уточнение по профилю."
+              rows={3}
+            />
           </div>
         </fieldset>
 

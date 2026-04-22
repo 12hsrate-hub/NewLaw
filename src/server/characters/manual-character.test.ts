@@ -34,6 +34,8 @@ describe("createCharacterManually", () => {
           passportNumber: "pass-1",
           roleKeys: ["citizen"],
           accessFlags: [],
+          isProfileComplete: false,
+          profileDataJson: null,
         },
         repository,
       ),
@@ -57,6 +59,8 @@ describe("createCharacterManually", () => {
           passportNumber: "pass-1",
           roleKeys: ["citizen"],
           accessFlags: [],
+          isProfileComplete: false,
+          profileDataJson: null,
         },
         repository,
       ),
@@ -83,6 +87,11 @@ describe("createCharacterManually", () => {
         passportNumber: "pass-1",
         roleKeys: ["citizen", "citizen"],
         accessFlags: ["tester", "tester"],
+        isProfileComplete: true,
+        profileDataJson: {
+          signature: "И. Иванов",
+          note: "Полный профиль",
+        },
       },
       repository,
     );
@@ -94,6 +103,11 @@ describe("createCharacterManually", () => {
       fullName: "Ivan Ivanov",
       nickname: "Ivan Ivanov",
       passportNumber: "PASS-1",
+      isProfileComplete: true,
+      profileDataJson: {
+        signature: "И. Иванов",
+        note: "Полный профиль",
+      },
       roleKeys: ["citizen"],
       accessFlags: ["tester"],
     });
@@ -119,6 +133,8 @@ describe("createCharacterManually", () => {
         passportNumber: "pass-77",
         roleKeys: [],
         accessFlags: [],
+        isProfileComplete: false,
+        profileDataJson: null,
       },
       repository,
     );
@@ -129,6 +145,8 @@ describe("createCharacterManually", () => {
       fullName: "Ivan Ivanov",
       nickname: "Ivan Ivanov",
       passportNumber: "PASS-77",
+      isProfileComplete: false,
+      profileDataJson: null,
       roleKeys: [],
       accessFlags: [],
     });
@@ -157,6 +175,8 @@ describe("updateCharacterManually", () => {
           passportNumber: "pass-2",
           roleKeys: ["lawyer"],
           accessFlags: ["advocate"],
+          isProfileComplete: false,
+          profileDataJson: null,
         },
         repository,
       ),
@@ -178,6 +198,8 @@ describe("updateCharacterManually", () => {
           passportNumber: "pass-2",
           roleKeys: ["lawyer"],
           accessFlags: ["advocate"],
+          isProfileComplete: false,
+          profileDataJson: null,
         },
         repository,
       ),
@@ -206,6 +228,11 @@ describe("updateCharacterManually", () => {
         passportNumber: "pass-9",
         roleKeys: ["lawyer", "lawyer"],
         accessFlags: ["advocate", "tester", "tester"],
+        isProfileComplete: true,
+        profileDataJson: {
+          signature: "И. Петров",
+          note: "Account editor updated",
+        },
       },
       repository,
     );
@@ -217,6 +244,11 @@ describe("updateCharacterManually", () => {
       fullName: "Ivan Petrov",
       nickname: "Ivan Petrov",
       passportNumber: "PASS-9",
+      isProfileComplete: true,
+      profileDataJson: {
+        signature: "И. Петров",
+        note: "Account editor updated",
+      },
       roleKeys: ["lawyer"],
       accessFlags: ["advocate", "tester"],
     });

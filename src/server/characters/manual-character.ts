@@ -74,6 +74,22 @@ function uniqueAccessFlags(accessFlags: CharacterAccessFlagKey[]) {
   return [...new Set<CharacterAccessFlagKey>(accessFlags)];
 }
 
+function normalizeProfileData(profileDataJson: Record<string, string> | null) {
+  if (!profileDataJson) {
+    return null;
+  }
+
+  const normalizedEntries = Object.entries(profileDataJson).filter((entry) => entry[1].trim().length > 0);
+
+  if (!normalizedEntries.length) {
+    return null;
+  }
+
+  return Object.fromEntries(
+    normalizedEntries.map(([key, value]) => [key, value.trim()]),
+  );
+}
+
 export async function ensureCharacterLimit(
   input: {
     accountId: string;
@@ -143,6 +159,8 @@ export async function createCharacterManually(
     fullName,
     nickname: fullName,
     passportNumber,
+    isProfileComplete: parsed.isProfileComplete,
+    profileDataJson: normalizeProfileData(parsed.profileDataJson),
     roleKeys: uniqueRoleKeys(parsed.roleKeys),
     accessFlags: uniqueAccessFlags(parsed.accessFlags),
   });
@@ -182,6 +200,8 @@ export async function updateCharacterManually(
     fullName,
     nickname: fullName,
     passportNumber,
+    isProfileComplete: parsed.isProfileComplete,
+    profileDataJson: normalizeProfileData(parsed.profileDataJson),
     roleKeys: uniqueRoleKeys(parsed.roleKeys),
     accessFlags: uniqueAccessFlags(parsed.accessFlags),
   });

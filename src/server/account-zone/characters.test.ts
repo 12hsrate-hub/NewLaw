@@ -95,10 +95,13 @@ describe("getAccountCharactersOverviewContext", () => {
     expect(context.serverGroups[0].characterCount).toBe(1);
     expect(context.serverGroups[0].defaultCharacterId).toBe("character-1");
     expect(context.serverGroups[0].defaultCharacterLabel).toContain("Игорь Юристов");
+    expect(context.serverGroups[0].focusHref).toBe("/account/characters?server=blackberry");
     expect(context.serverGroups[0].characters[0].roleKeys).toEqual(["lawyer"]);
     expect(context.serverGroups[0].characters[0].accessFlagKeys).toEqual(["advocate"]);
     expect(context.serverGroups[0].characters[0].hasProfileData).toBe(true);
     expect(context.serverGroups[0].characters[0].compactProfileSummary).toContain("2");
+    expect(context.serverGroups[0].characters[0].profileSignature).toBe("И. Юристов");
+    expect(context.serverGroups[0].characters[0].profileNote).toBeNull();
     expect(context.serverGroups[0].characters[0].isDefaultForServer).toBe(true);
     expect(context.serverGroups[1].server.code).toBe("rainbow");
     expect(context.serverGroups[1].characterCount).toBe(0);

@@ -9,10 +9,14 @@ import {
   characterAccessFlagKeySchema,
   characterAccessFlagSelectionSchema,
   characterFormSchema,
+  characterProfileFormSchema,
   type CharacterRoleKey,
   characterRoleKeySchema,
   characterRoleSelectionSchema,
+  type CharacterSelectionBehavior,
+  characterSelectionBehaviorSchema,
 } from "@/schemas/character";
+import { countCharactersByServer } from "@/db/repositories/character.repository";
 import {
   CharacterLimitExceededError,
   CharacterNotFoundError,
@@ -25,6 +29,7 @@ import {
   setActiveCharacterSelection,
   setActiveServerSelection,
 } from "@/server/app-shell/selection";
+import { setInitialDefaultCharacterIfMissing } from "@/db/repositories/user-server-state.repository";
 
 function getRedirectTarget(formData: FormData) {
   const redirectTo = formData.get("redirectTo");
@@ -74,6 +79,71 @@ function readAccessFlags(formData: FormData): CharacterAccessFlagKey[] {
   );
 }
 
+function readProfileDetails(formData: FormData) {
+  return characterProfileFormSchema.parse({
+    isProfileComplete: formData.get("isProfileComplete") === "on",
+    profileSignature: String(formData.get("profileSignature") ?? ""),
+    profileNote: String(formData.get("profileNote") ?? ""),
+  });
+}
+
+function buildProfileDataJson(input: {
+  profileSignature: string;
+  profileNote: string;
+}) {
+  const profileDataJson = {
+    signature: input.profileSignature.trim(),
+    note: input.profileNote.trim(),
+  };
+
+  return Object.values(profileDataJson).some((value) => value.length > 0)
+    ? profileDataJson
+    : null;
+}
+
+function readSelectionBehavior(formData: FormData): CharacterSelectionBehavior {
+  return characterSelectionBehaviorSchema.parse(String(formData.get("selectionBehavior") ?? "app_shell"));
+}
+
+async function handlePostCreateSelection(input: {
+  accountId: string;
+  serverId: string;
+  characterId: string;
+  selectionBehavior: CharacterSelectionBehavior;
+}) {
+  if (input.selectionBehavior === "app_shell") {
+    await setActiveServerSelection(input.accountId, {
+      serverId: input.serverId,
+    });
+    await setActiveCharacterSelection(input.accountId, {
+      serverId: input.serverId,
+      characterId: input.characterId,
+    });
+
+    return;
+  }
+
+  const characterCount = await countCharactersByServer({
+    accountId: input.accountId,
+    serverId: input.serverId,
+  });
+
+  if (characterCount === 1) {
+    await setInitialDefaultCharacterIfMissing({
+      accountId: input.accountId,
+      serverId: input.serverId,
+      characterId: input.characterId,
+    });
+  }
+}
+
+function revalidateCharacterRoutes(redirectTo: string) {
+  revalidatePath("/app");
+  revalidatePath("/account");
+  revalidatePath("/account/characters");
+  revalidatePath(redirectTo);
+}
+
 export async function createCharacterAction(formData: FormData) {
   const redirectTo = getRedirectTarget(formData);
   const { account } = await requireProtectedAccountContext(redirectTo);
@@ -81,6 +151,8 @@ export async function createCharacterAction(formData: FormData) {
   try {
     const serverId = String(formData.get("serverId") ?? "");
     const characterFormFields = readCharacterFormFields(formData);
+    const profileDetails = readProfileDetails(formData);
+    const selectionBehavior = readSelectionBehavior(formData);
     const createdCharacter = await createCharacterManually({
       accountId: account.id,
       serverId,
@@ -88,17 +160,18 @@ export async function createCharacterAction(formData: FormData) {
       passportNumber: characterFormFields.passportNumber,
       roleKeys: readRoleKeys(formData),
       accessFlags: readAccessFlags(formData),
+      isProfileComplete: profileDetails.isProfileComplete,
+      profileDataJson: buildProfileDataJson(profileDetails),
     });
 
-    await setActiveServerSelection(account.id, {
-      serverId,
-    });
-    await setActiveCharacterSelection(account.id, {
+    await handlePostCreateSelection({
+      accountId: account.id,
       serverId,
       characterId: createdCharacter.id,
+      selectionBehavior,
     });
 
-    revalidatePath("/app");
+    revalidateCharacterRoutes(redirectTo);
     redirect(buildStatusRedirect(redirectTo, "character-created"));
   } catch (error) {
     if (isRedirectError(error)) {
@@ -125,6 +198,7 @@ export async function updateCharacterAction(formData: FormData) {
     const serverId = String(formData.get("serverId") ?? "");
     const characterId = String(formData.get("characterId") ?? "");
     const characterFormFields = readCharacterFormFields(formData);
+    const profileDetails = readProfileDetails(formData);
 
     await updateCharacterManually({
       accountId: account.id,
@@ -134,9 +208,11 @@ export async function updateCharacterAction(formData: FormData) {
       passportNumber: characterFormFields.passportNumber,
       roleKeys: readRoleKeys(formData),
       accessFlags: readAccessFlags(formData),
+      isProfileComplete: profileDetails.isProfileComplete,
+      profileDataJson: buildProfileDataJson(profileDetails),
     });
 
-    revalidatePath("/app");
+    revalidateCharacterRoutes(redirectTo);
     redirect(buildStatusRedirect(redirectTo, "character-updated"));
   } catch (error) {
     if (isRedirectError(error)) {

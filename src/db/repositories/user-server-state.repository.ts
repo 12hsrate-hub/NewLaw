@@ -124,3 +124,48 @@ export async function selectActiveCharacter(
     },
   });
 }
+
+export async function setInitialDefaultCharacterIfMissing(
+  input: {
+    accountId: string;
+    serverId: string;
+    characterId: string;
+  },
+  db: PrismaLike = prisma,
+) {
+  const parsedAccountId = accountIdSchema.parse(input.accountId);
+  const parsedServerId = activeServerSelectionSchema.shape.serverId.parse(input.serverId);
+  const parsedCharacterId = characterIdSchema.parse(input.characterId);
+
+  const existingState = await db.userServerState.findUnique({
+    where: {
+      accountId_serverId: {
+        accountId: parsedAccountId,
+        serverId: parsedServerId,
+      },
+    },
+  });
+
+  if (existingState?.activeCharacterId) {
+    return existingState;
+  }
+
+  if (existingState) {
+    return db.userServerState.update({
+      where: {
+        id: existingState.id,
+      },
+      data: {
+        activeCharacterId: parsedCharacterId,
+      },
+    });
+  }
+
+  return db.userServerState.create({
+    data: {
+      accountId: parsedAccountId,
+      serverId: parsedServerId,
+      activeCharacterId: parsedCharacterId,
+    },
+  });
+}

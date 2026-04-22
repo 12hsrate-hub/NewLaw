@@ -19,6 +19,8 @@ export type AccountCharactersCharacterSummary = {
   isProfileComplete: boolean;
   hasProfileData: boolean;
   compactProfileSummary: string | null;
+  profileNote: string | null;
+  profileSignature: string | null;
   isDefaultForServer: boolean;
 };
 
@@ -33,6 +35,7 @@ export type AccountCharactersServerGroup = {
   defaultCharacterId: string | null;
   defaultCharacterLabel: string | null;
   createBridgeHref: string;
+  focusHref: string;
   isFocused: boolean;
   characters: AccountCharactersCharacterSummary[];
 };
@@ -76,13 +79,29 @@ function countProfileDataFields(input: unknown): number {
 function buildCompactProfileSummary(profileDataJson: unknown): {
   hasProfileData: boolean;
   compactProfileSummary: string | null;
+  profileNote: string | null;
+  profileSignature: string | null;
 } {
   const fieldCount = countProfileDataFields(profileDataJson);
+  const profileRecord =
+    profileDataJson && typeof profileDataJson === "object" && !Array.isArray(profileDataJson)
+      ? (profileDataJson as Record<string, unknown>)
+      : null;
+  const profileSignature =
+    typeof profileRecord?.signature === "string" && profileRecord.signature.trim().length > 0
+      ? profileRecord.signature.trim()
+      : null;
+  const profileNote =
+    typeof profileRecord?.note === "string" && profileRecord.note.trim().length > 0
+      ? profileRecord.note.trim()
+      : null;
 
   if (fieldCount === 0) {
     return {
       hasProfileData: false,
       compactProfileSummary: null,
+      profileNote,
+      profileSignature,
     };
   }
 
@@ -92,6 +111,8 @@ function buildCompactProfileSummary(profileDataJson: unknown): {
       fieldCount === 1
         ? "Сохранено 1 дополнительное поле профиля"
         : `Сохранено ${fieldCount} дополнительных полей профиля`,
+    profileNote,
+    profileSignature,
   };
 }
 
@@ -146,6 +167,7 @@ export async function getAccountCharactersOverviewContext(input: {
         ? `${defaultCharacter.fullName} (${defaultCharacter.passportNumber})`
         : null,
       createBridgeHref: "/app",
+      focusHref: `/account/characters?server=${encodeURIComponent(server.code)}`,
       isFocused: focusedServerCode === server.code.toLowerCase(),
       characters: serverCharacters.map((character) => {
         const profileDataSummary = buildCompactProfileSummary(character.profileDataJson);
@@ -160,6 +182,8 @@ export async function getAccountCharactersOverviewContext(input: {
           isProfileComplete: character.isProfileComplete,
           hasProfileData: profileDataSummary.hasProfileData,
           compactProfileSummary: profileDataSummary.compactProfileSummary,
+          profileNote: profileDataSummary.profileNote,
+          profileSignature: profileDataSummary.profileSignature,
           isDefaultForServer: defaultCharacter?.id === character.id,
         };
       }),

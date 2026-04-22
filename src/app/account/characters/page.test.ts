@@ -5,6 +5,11 @@ vi.mock("@/server/account-zone/characters", () => ({
   getAccountCharactersOverviewContext: vi.fn(),
 }));
 
+vi.mock("@/components/product/characters/character-form-card", () => ({
+  CharacterFormCard: (props: { mode: string; surface?: string }) =>
+    `CharacterFormCard:${props.mode}:${props.surface ?? "app_shell"}`,
+}));
+
 import AccountCharactersPage from "@/app/account/characters/page";
 import { getAccountCharactersOverviewContext } from "@/server/account-zone/characters";
 
@@ -29,6 +34,7 @@ describe("/account/characters page", () => {
           defaultCharacterId: "character-1",
           defaultCharacterLabel: "Игорь Юристов (AA-001)",
           createBridgeHref: "/app",
+          focusHref: "/account/characters?server=blackberry",
           isFocused: true,
           characters: [
             {
@@ -41,6 +47,8 @@ describe("/account/characters page", () => {
               isProfileComplete: true,
               hasProfileData: true,
               compactProfileSummary: "Сохранено 2 дополнительных полей профиля",
+              profileNote: "Профиль для account zone",
+              profileSignature: "И. Юристов",
               isDefaultForServer: true,
             },
           ],
@@ -56,6 +64,7 @@ describe("/account/characters page", () => {
           defaultCharacterId: null,
           defaultCharacterLabel: null,
           createBridgeHref: "/app",
+          focusHref: "/account/characters?server=rainbow",
           isFocused: false,
           characters: [],
         },
@@ -66,6 +75,7 @@ describe("/account/characters page", () => {
       await AccountCharactersPage({
         searchParams: Promise.resolve({
           server: "blackberry",
+          status: "character-created",
         }),
       }),
     );
@@ -79,7 +89,10 @@ describe("/account/characters page", () => {
     expect(html).toContain("Default for server");
     expect(html).toContain("Адвокатский доступ");
     expect(html).toContain("Сохранено 2 дополнительных полей профиля");
-    expect(html).toContain("Временно открыть characters flow");
+    expect(html).toContain("Карточка персонажа сохранена в account zone");
+    expect(html).toContain("Создать персонажа на этом сервере");
+    expect(html).toContain("И. Юристов");
+    expect(html).toContain("Transitional `/app`");
     expect(html).not.toContain("OGP complaints");
     expect(html).not.toContain("Claims");
   });

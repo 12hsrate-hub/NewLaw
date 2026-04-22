@@ -6,6 +6,7 @@ export const dynamic = "force-dynamic";
 type AccountCharactersPageProps = {
   searchParams?: Promise<{
     server?: string;
+    status?: string;
   }>;
 };
 
@@ -18,5 +19,10 @@ export default async function AccountCharactersPage({
     focusedServerCode: resolvedSearchParams?.server ?? null,
   });
 
-  return <AccountCharactersOverview context={context} />;
+  return (
+    <AccountCharactersOverview
+      context={context}
+      status={resolvedSearchParams?.status ?? null}
+    />
+  );
 }

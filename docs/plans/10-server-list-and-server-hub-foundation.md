@@ -234,3 +234,41 @@ Operational note текущего шага:
 - не превращает `/account/characters` в server hub
 - не переносит documents или assistant в account zone
 - не меняет route policy для `/servers/[serverSlug]` и `/servers/[serverSlug]/documents/...`
+
+## Follow-up: 10.6 — account-scoped character editor completion
+
+Этот follow-up по-прежнему не меняет server list / hub policy, а только доводит account zone до полноценного character-management уровня.
+
+Текущий результат шага:
+
+- `/account/characters` больше не ограничен read-only overview
+- create/edit character UX теперь доступен прямо внутри grouped-by-server account route
+- основной экран остаётся account-scoped grouped list, без обязательного nested detail route
+- для каждой server group теперь есть:
+  - empty state
+  - create entry point
+  - edit entry points для существующих персонажей
+- character editor внутри account zone теперь включает:
+  - `fullName`
+  - `passportNumber`
+  - `roles`
+  - `accessFlags`
+  - compact profile subsection поверх существующего `profileDataJson`
+  - `isProfileComplete`
+  - informational default-character badge
+- `/account/characters` по-прежнему не зависит от active shell server из `/app`
+- create/edit в account zone не делают silent active-selection mutation
+- реализовано только одно безопасное исключение:
+  - если на сервере создаётся первый персонаж
+  - и default для этого сервера ещё отсутствует
+  - system может сохранить initial default character без скрытого перетягивания active server в transitional `/app`
+- focus pattern `/account/characters?server=...` сохранён и пригоден для future bridge CTA
+- transitional `/app` characters flow остаётся working и не удаляется
+
+Что шаг сознательно не делает:
+
+- не выполняет route migration старого `/app`
+- не удаляет текущий `/app` character flow
+- не превращает `/account/characters` в assistant/documents hub
+- не меняет document flow logic
+- не меняет assistant routes

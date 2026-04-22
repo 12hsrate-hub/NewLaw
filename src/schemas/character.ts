@@ -15,15 +15,28 @@ export const characterRoleSelectionSchema = z.array(characterRoleKeySchema).defa
 export const characterAccessFlagSelectionSchema = z
   .array(characterAccessFlagKeySchema)
   .default([]);
+export const characterSelectionBehaviorSchema = z
+  .enum(["app_shell", "account_zone"])
+  .default("app_shell");
 
 export const characterFormSchema = z.object({
   fullName: z.string().trim().min(3).max(120),
   passportNumber: z.string().trim().min(1).max(64),
 });
 
+export const characterProfileFormSchema = z.object({
+  isProfileComplete: z.boolean().default(false),
+  profileSignature: z.string().trim().max(160).default(""),
+  profileNote: z.string().trim().max(500).default(""),
+});
+
+export const characterProfileDataSchema = z.record(z.string(), z.string()).nullable().default(null);
+
 const characterDetailsSchema = characterFormSchema.extend({
   roleKeys: characterRoleSelectionSchema,
   accessFlags: characterAccessFlagSelectionSchema,
+  isProfileComplete: z.boolean().default(false),
+  profileDataJson: characterProfileDataSchema,
 });
 
 export const createCharacterInputSchema = characterDetailsSchema.extend({
@@ -44,6 +57,7 @@ export const characterSelectionSchema = z.object({
 
 export type CharacterRoleKey = z.infer<typeof characterRoleKeySchema>;
 export type CharacterAccessFlagKey = z.infer<typeof characterAccessFlagKeySchema>;
+export type CharacterSelectionBehavior = z.infer<typeof characterSelectionBehaviorSchema>;
 export type CreateCharacterInput = z.infer<typeof createCharacterInputSchema>;
 export type UpdateCharacterInput = z.infer<typeof updateCharacterInputSchema>;
 export type CharacterSelectionInput = z.infer<typeof characterSelectionSchema>;

@@ -24,6 +24,14 @@ vi.mock("@/server/auth/protected", () => ({
   requireProtectedAccountContext: vi.fn(),
 }));
 
+vi.mock("@/db/repositories/character.repository", () => ({
+  countCharactersByServer: vi.fn(),
+}));
+
+vi.mock("@/db/repositories/user-server-state.repository", () => ({
+  setInitialDefaultCharacterIfMissing: vi.fn(),
+}));
+
 vi.mock("@/server/characters/manual-character", () => ({
   CharacterLimitExceededError: class CharacterLimitExceededError extends Error {},
   CharacterNotFoundError: class CharacterNotFoundError extends Error {},
@@ -53,6 +61,8 @@ import {
   setActiveServerSelection,
 } from "@/server/app-shell/selection";
 import { requireProtectedAccountContext } from "@/server/auth/protected";
+import { countCharactersByServer } from "@/db/repositories/character.repository";
+import { setInitialDefaultCharacterIfMissing } from "@/db/repositories/user-server-state.repository";
 
 function expectRedirect(promise: Promise<unknown>, path: string) {
   return expect(promise).rejects.toThrow(`NEXT_REDIRECT:${path}`);
@@ -75,6 +85,7 @@ describe("character actions", () => {
     } as never);
     vi.mocked(setActiveServerSelection).mockResolvedValue({} as never);
     vi.mocked(setActiveCharacterSelection).mockResolvedValue({} as never);
+    vi.mocked(countCharactersByServer).mockResolvedValue(1 as never);
 
     const formData = new FormData();
     formData.set("serverId", "server-1");
@@ -94,6 +105,8 @@ describe("character actions", () => {
       passportNumber: "A-001",
       roleKeys: ["lawyer"],
       accessFlags: ["advocate", "tester"],
+      isProfileComplete: false,
+      profileDataJson: null,
     });
     expect(setActiveServerSelection).toHaveBeenCalledWith(
       "21631886-7b4d-4be2-b6e9-95322d0dca41",
@@ -108,6 +121,7 @@ describe("character actions", () => {
         characterId: "character-1",
       },
     );
+    expect(setInitialDefaultCharacterIfMissing).not.toHaveBeenCalled();
   });
 
   it("корректно показывает лимит персонажей", async () => {
@@ -140,6 +154,7 @@ describe("character actions", () => {
     } as never);
     vi.mocked(setActiveServerSelection).mockResolvedValue({} as never);
     vi.mocked(setActiveCharacterSelection).mockResolvedValue({} as never);
+    vi.mocked(countCharactersByServer).mockResolvedValue(1 as never);
 
     const formData = new FormData();
     formData.set("serverId", "server-1");
@@ -156,7 +171,76 @@ describe("character actions", () => {
       passportNumber: "B-001",
       roleKeys: [],
       accessFlags: [],
+      isProfileComplete: false,
+      profileDataJson: null,
     });
+  });
+
+  it("в account zone не меняет active selection молча и возвращает пользователя в focused group", async () => {
+    vi.mocked(createCharacterManually).mockResolvedValue({
+      id: "character-3",
+    } as never);
+    vi.mocked(countCharactersByServer).mockResolvedValue(2 as never);
+
+    const formData = new FormData();
+    formData.set("serverId", "server-1");
+    formData.set("fullName", "Alice Stone");
+    formData.set("passportNumber", "A-010");
+    formData.set("profileSignature", "А. Стоун");
+    formData.set("profileNote", "Профиль для server group");
+    formData.set("isProfileComplete", "on");
+    formData.set("selectionBehavior", "account_zone");
+    formData.set("redirectTo", "/account/characters?server=blackberry");
+
+    await expectRedirect(
+      createCharacterAction(formData),
+      "/account/characters?server=blackberry&status=character-created",
+    );
+
+    expect(createCharacterManually).toHaveBeenCalledWith({
+      accountId: "21631886-7b4d-4be2-b6e9-95322d0dca41",
+      serverId: "server-1",
+      fullName: "Alice Stone",
+      passportNumber: "A-010",
+      roleKeys: [],
+      accessFlags: [],
+      isProfileComplete: true,
+      profileDataJson: {
+        signature: "А. Стоун",
+        note: "Профиль для server group",
+      },
+    });
+    expect(setActiveServerSelection).not.toHaveBeenCalled();
+    expect(setActiveCharacterSelection).not.toHaveBeenCalled();
+    expect(setInitialDefaultCharacterIfMissing).not.toHaveBeenCalled();
+  });
+
+  it("в account zone безопасно выставляет default только для первого персонажа на сервере", async () => {
+    vi.mocked(createCharacterManually).mockResolvedValue({
+      id: "character-first",
+    } as never);
+    vi.mocked(countCharactersByServer).mockResolvedValue(1 as never);
+    vi.mocked(setInitialDefaultCharacterIfMissing).mockResolvedValue({} as never);
+
+    const formData = new FormData();
+    formData.set("serverId", "server-1");
+    formData.set("fullName", "First Person");
+    formData.set("passportNumber", "F-001");
+    formData.set("selectionBehavior", "account_zone");
+    formData.set("redirectTo", "/account/characters?server=blackberry");
+
+    await expectRedirect(
+      createCharacterAction(formData),
+      "/account/characters?server=blackberry&status=character-created",
+    );
+
+    expect(setInitialDefaultCharacterIfMissing).toHaveBeenCalledWith({
+      accountId: "21631886-7b4d-4be2-b6e9-95322d0dca41",
+      serverId: "server-1",
+      characterId: "character-first",
+    });
+    expect(setActiveServerSelection).not.toHaveBeenCalled();
+    expect(setActiveCharacterSelection).not.toHaveBeenCalled();
   });
 
   it("сохраняет выбранные roles и access flags при редактировании своего персонажа", async () => {
@@ -184,6 +268,8 @@ describe("character actions", () => {
       passportNumber: "A-777",
       roleKeys: ["lawyer"],
       accessFlags: ["advocate", "tester"],
+      isProfileComplete: false,
+      profileDataJson: null,
     });
     expect(setActiveServerSelection).not.toHaveBeenCalled();
     expect(setActiveCharacterSelection).not.toHaveBeenCalled();
