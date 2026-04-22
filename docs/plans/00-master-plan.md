@@ -212,6 +212,7 @@ Post-MVP policy для этой линии:
 - logging foundation
 - document field rewrite v1 внутри existing OGP/claims editors
 - agreed v1 scope для field-level rewrite уже реально закрыт
+- текущий согласованный MVP AI scope больше не выглядит пустым или недоделанным
 
 Что не подтверждено как отдельный завершённый product block:
 
@@ -224,6 +225,7 @@ Post-MVP policy для этой линии:
 
 - assistant и AI infrastructure сильно продвинуты
 - первый document-AI block уже реально реализован
+- current MVP-level AI scope можно считать покрытым существующим assistant module + document field rewrite v1
 - но весь AI block нельзя автоматически считать формально закрытым только из-за assistant + rewrite v1
 
 #### `09-deploy-and-release`
@@ -300,7 +302,7 @@ Server-specific template documents остаются отдельной post-MVP 
 С учётом фактического repo остаются следующие честные открытые вопросы:
 
 1. Нужен ли отдельный цельный admin panel block как обязательная часть MVP, или текущих internal/admin foundations пока достаточно.
-2. Нужно ли расширять document AI дальше уже реализованного field rewrite v1, или для текущего MVP достаточно helper-уровня внутри existing editors.
+2. Нужно ли расширять document AI дальше уже реализованного field rewrite v1, если текущий MVP AI scope уже покрыт helper-уровнем внутри existing editors.
 3. Нужен ли отдельный formal deploy/release hardening block поверх уже работающего production release процесса.
 
 ## Спорные места, которые не стоит маскировать
@@ -327,6 +329,7 @@ Server-specific template documents остаются отдельной post-MVP 
 - assistant и AI infrastructure в repo уже сильно продвинуты
 - document field rewrite v1 уже реализован внутри document area
 - agreed v1 scope для document field rewrite уже закрыт
+- текущий MVP AI scope больше не должен описываться как незакрытый blocker
 - но большой AI-suite по-прежнему не должен притворяться закрытым только потому, что есть assistant и rewrite foundation
 
 ### Deploy / release hardening

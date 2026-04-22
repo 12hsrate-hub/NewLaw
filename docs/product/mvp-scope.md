@@ -97,7 +97,11 @@
 
 - `OpenAI API` вызывается только с сервера
 - все AI-вызовы логируются в `ai_requests`
-- MVP AI-сценарий: улучшение описания для адвоката
+- current MVP AI scope уже покрывается двумя линиями:
+  - `server legal assistant` как отдельный модуль
+  - `document field rewrite v1` как helper внутри existing editors
+- document AI в MVP не превращает editor в chat
+- document AI в MVP не делает silent overwrite или silent save
 
 ## Что не входит в MVP
 

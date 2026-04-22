@@ -7,6 +7,7 @@
 - public `server legal assistant` уже реализован как отдельный модуль
 - `11.3` добавляет первый document-AI block внутри existing document area
 - согласованный `v1` scope для `document field rewrite` уже реализован
+- текущий MVP AI scope уже не считается пустым или блокирующе незавершённым
 - chat UI, grounding по law corpus/precedents и broad drafting suite в этом плане не активируются
 
 ## Текущий реализованный scope
@@ -92,3 +93,9 @@
 - broader drafting assist beyond field-level rewrite
 
 Но это уже не часть текущего `v1` scope, который считается закрытым на уровне `field rewrite foundation`.
+
+Отдельно зафиксировано:
+
+- assistant и document AI остаются разными product lines
+- current MVP AI scope покрывается существующим assistant module + document field rewrite v1
+- поэтому `partial` здесь означает не “AI для MVP ещё не существует”, а только то, что future expansion beyond current scope ещё не закрыта
