@@ -38,11 +38,11 @@ describe("/app/admin-laws", () => {
 
   it("сохраняет существующий denied flow, если helper отклоняет доступ", async () => {
     vi.mocked(requireSuperAdminAccountContext).mockRejectedValue(
-      new Error("redirect:/app/security?denied=admin-access"),
+      new Error("redirect:/account/security?status=admin-access-denied"),
     );
 
     await expect(AdminLawsPage()).rejects.toThrowError(
-      "redirect:/app/security?denied=admin-access",
+      "redirect:/account/security?status=admin-access-denied",
     );
 
     expect(redirect).not.toHaveBeenCalledWith("/internal/laws");

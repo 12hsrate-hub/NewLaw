@@ -87,11 +87,11 @@ describe("law corpus actions", () => {
     formData.set("lawId", "law-1");
 
     vi.mocked(requireSuperAdminAccountContext).mockRejectedValue(
-      new Error("NEXT_REDIRECT:/app/security?status=admin-access-denied"),
+      new Error("NEXT_REDIRECT:/account/security?status=admin-access-denied"),
     );
 
     await expect(runLawTopicImportAction(formData)).rejects.toThrow(
-      "NEXT_REDIRECT:/app/security?status=admin-access-denied",
+      "NEXT_REDIRECT:/account/security?status=admin-access-denied",
     );
 
     expect(runLawTopicImport).not.toHaveBeenCalled();
@@ -136,11 +136,11 @@ describe("law corpus actions", () => {
     formData.set("lawVersionId", "version-draft");
 
     vi.mocked(requireSuperAdminAccountContext).mockRejectedValue(
-      new Error("NEXT_REDIRECT:/app/security?status=admin-access-denied"),
+      new Error("NEXT_REDIRECT:/account/security?status=admin-access-denied"),
     );
 
     await expect(confirmCurrentLawVersionAction(formData)).rejects.toThrow(
-      "NEXT_REDIRECT:/app/security?status=admin-access-denied",
+      "NEXT_REDIRECT:/account/security?status=admin-access-denied",
     );
 
     expect(confirmImportedDraftLawVersionAsCurrent).not.toHaveBeenCalled();

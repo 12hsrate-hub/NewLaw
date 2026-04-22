@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-import { buildStatusPath } from "@/lib/auth/email-auth";
+import { buildAccountSecurityPath } from "@/lib/routes/account-security";
 import { syncAccountFromSupabaseUser } from "@/server/auth/account";
 import { getCurrentUser } from "@/server/auth/helpers";
 
@@ -30,11 +30,11 @@ export function buildSignInRedirectPath(nextPath: string) {
 }
 
 export function buildMustChangePasswordRedirectPath() {
-  return buildStatusPath("/app/security", "must-change-password");
+  return buildAccountSecurityPath("must-change-password");
 }
 
 export function buildAdminAccessDeniedRedirectPath() {
-  return buildStatusPath("/app/security", "admin-access-denied");
+  return buildAccountSecurityPath("admin-access-denied");
 }
 
 type ProtectedAccessOptions = {

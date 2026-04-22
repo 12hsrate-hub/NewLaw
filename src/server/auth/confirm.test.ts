@@ -120,7 +120,7 @@ describe("auth confirm helpers", () => {
 
     expect(result).toEqual({
       status: "success",
-      redirectPath: "/app/security?status=email-change-confirmed",
+      redirectPath: "/account/security?status=email-change-confirmed",
     });
     expect(syncAccountFromSupabaseUser).toHaveBeenCalledWith({
       id: "f4e09227-1e8f-470d-8c4e-c61ad16d8d58",

@@ -57,7 +57,7 @@ describe("protected auth helpers", () => {
     });
   });
 
-  it("переводит пользователя на /app/security, если аккаунт требует смены пароля", async () => {
+  it("переводит пользователя на /account/security, если аккаунт требует смены пароля", async () => {
     const redirectMock = vi.fn((path: string) => {
       throw new Error(`redirect:${path}`);
     });
@@ -83,9 +83,9 @@ describe("protected auth helpers", () => {
     expect(redirectMock).toHaveBeenCalledWith(buildMustChangePasswordRedirectPath());
   });
 
-  it("разрешает доступ к /app/security при mustChangePassword=true", async () => {
+  it("разрешает доступ к /account/security при mustChangePassword=true", async () => {
     const result = await requireProtectedAccountContext(
-      "/app/security",
+      "/account/security",
       {
         getCurrentUser: vi.fn().mockResolvedValue({
           id: "21631886-7b4d-4be2-b6e9-95322d0dca41",

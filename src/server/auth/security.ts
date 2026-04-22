@@ -1,4 +1,5 @@
 import { buildEmailConfirmationRedirectUrl, buildStatusPath } from "@/lib/auth/email-auth";
+import { buildAccountSecurityPath } from "@/lib/routes/account-security";
 import { createAuditLog } from "@/db/repositories/audit-log.repository";
 import {
   updateMustChangePasswordState,
@@ -105,11 +106,7 @@ async function reauthenticateCurrentPassword(
 }
 
 export function buildProtectedSecurityPath(status?: string) {
-  if (!status) {
-    return "/app/security";
-  }
-
-  return buildStatusPath("/app/security", status);
+  return buildAccountSecurityPath(status);
 }
 
 export function buildPasswordChangedSuccessPath() {
@@ -248,7 +245,7 @@ export async function requestEmailChangeSelfService(
       email: parsed.newEmail,
     },
     {
-      emailRedirectTo: buildEmailConfirmationRedirectUrl(appUrl, "/app/security"),
+      emailRedirectTo: buildEmailConfirmationRedirectUrl(appUrl, "/account/security"),
     },
   );
 

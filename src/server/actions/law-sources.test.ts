@@ -74,12 +74,12 @@ describe("law source actions", () => {
     formData.set("indexUrl", "https://forum.gta5rp.com/forums/laws");
 
     vi.mocked(requireSuperAdminAccountContext).mockRejectedValue(
-      new Error("NEXT_REDIRECT:/app/security?status=admin-access-denied"),
+      new Error("NEXT_REDIRECT:/account/security?status=admin-access-denied"),
     );
 
     await expect(
       createLawSourceIndexAction(formData),
-    ).rejects.toThrow("NEXT_REDIRECT:/app/security?status=admin-access-denied");
+    ).rejects.toThrow("NEXT_REDIRECT:/account/security?status=admin-access-denied");
 
     expect(addLawSourceIndexForServer).not.toHaveBeenCalled();
   });

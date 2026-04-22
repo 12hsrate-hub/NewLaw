@@ -39,7 +39,7 @@ export async function changePasswordAction(
   formData: FormData,
 ): Promise<ChangePasswordActionState> {
   const { account } = await requireProtectedAccountContext(
-    "/app/security",
+    "/account/security",
     undefined,
     {
       allowMustChangePassword: true,
@@ -98,6 +98,7 @@ export async function changePasswordAction(
   }
 
   revalidatePath("/app");
+  revalidatePath("/account/security");
   revalidatePath("/app/security");
   redirect(result.redirectPath);
 }
@@ -107,7 +108,7 @@ export async function changeEmailAction(
   formData: FormData,
 ): Promise<ChangeEmailActionState> {
   const { account } = await requireProtectedAccountContext(
-    "/app/security",
+    "/account/security",
     undefined,
     {
       allowMustChangePassword: true,
@@ -162,6 +163,7 @@ export async function changeEmailAction(
   }
 
   revalidatePath("/app");
+  revalidatePath("/account/security");
   revalidatePath("/app/security");
   redirect(result.redirectPath);
 }

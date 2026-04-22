@@ -85,7 +85,7 @@ export function AppShellHeader({
         <div className="flex flex-wrap gap-2">
           <Link
             className="inline-flex items-center justify-center rounded-2xl border border-[var(--border)] bg-white/70 px-4 py-2.5 text-sm font-medium text-[var(--foreground)] transition hover:bg-white"
-            href="/app/security"
+            href="/account/security"
           >
             Безопасность
           </Link>

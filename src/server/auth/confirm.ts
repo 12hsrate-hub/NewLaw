@@ -4,6 +4,7 @@ import {
   defaultAuthenticatedLandingPath,
   parseEmailConfirmationInput,
 } from "@/lib/auth/email-auth";
+import { buildAccountSecurityPath } from "@/lib/routes/account-security";
 import { createAuditLog } from "@/db/repositories/audit-log.repository";
 import {
   buildRecoveryExpiredPath,
@@ -74,7 +75,7 @@ function buildEmailChangeExpiredPath() {
 }
 
 function buildEmailChangeSuccessPath() {
-  return buildStatusPath("/app/security", "email-change-confirmed");
+  return buildAccountSecurityPath("email-change-confirmed");
 }
 
 function mapConfirmErrorToStatus(error: {

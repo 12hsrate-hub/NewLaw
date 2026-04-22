@@ -153,7 +153,7 @@ describe("protected account security helpers", () => {
         email: "new@example.com",
       },
       {
-        emailRedirectTo: "https://lawyer5rp.ru/auth/confirm?next=%2Fapp%2Fsecurity",
+        emailRedirectTo: "https://lawyer5rp.ru/auth/confirm?next=%2Faccount%2Fsecurity",
       },
     );
     expect(updatePendingEmailState).toHaveBeenCalledWith({

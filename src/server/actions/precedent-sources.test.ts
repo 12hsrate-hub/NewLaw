@@ -78,11 +78,11 @@ describe("precedent source actions", () => {
     formData.set("title", "Судебный прецедент");
 
     vi.mocked(requireSuperAdminAccountContext).mockRejectedValue(
-      new Error("NEXT_REDIRECT:/app/security?status=admin-access-denied"),
+      new Error("NEXT_REDIRECT:/account/security?status=admin-access-denied"),
     );
 
     await expect(createPrecedentSourceTopicAction(formData)).rejects.toThrow(
-      "NEXT_REDIRECT:/app/security?status=admin-access-denied",
+      "NEXT_REDIRECT:/account/security?status=admin-access-denied",
     );
 
     expect(addPrecedentSourceTopic).not.toHaveBeenCalled();

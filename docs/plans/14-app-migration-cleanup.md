@@ -9,7 +9,8 @@
 - `14.1` — архитектурный cleanup plan зафиксирован
 - `14.2` — safe auth/default landing cleanup выполнен
 - `14.3` — character bridge migration off `/app` выполнен
-- `/app/security` migration и global cleanup ещё не начаты
+- `14.4` — `/app/security` migration выполнен
+- global cleanup ещё не начат
 
 ## Цель блока
 
@@ -68,11 +69,12 @@
 
 ### 14.4 — `/app/security` migration
 
-Что должно войти:
+Что вошло:
 
-- перевод self-service security flows на `/account/security`
-- сохранение `must-change-password`, `email-change-confirm` и denied semantics
-- превращение `/app/security` в compatibility route
+- canonical self-service security target теперь `/account/security`
+- `must-change-password`, `email-change-confirmed`, `email-change-requested` и `admin-access-denied` continuations больше не используют `/app/security` как primary route
+- `/app/security` теперь работает как compatibility redirect на `/account/security` с сохранением статуса и legacy query semantics
+- `/app` root cleanup и другие `/app` migration steps в этот шаг не входят
 
 ### 14.5+ — Long-tail `/app` cleanup
 
