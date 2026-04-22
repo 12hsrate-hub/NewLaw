@@ -1,108 +1,320 @@
-# Master Plan
+# 00 — Master Plan
 
-## Цель
+## Назначение
 
-Собрать `Lawyer5RP MVP` как один full-stack проект на зафиксированном стеке без расширения scope сверх согласованных сценариев.
+Этот файл больше не трактуется как старая линейная очередь крупных этапов.
+Теперь это актуальный master snapshot по состоянию репозитория:
 
-## Этапы
+- source of truth = текущий repo
+- source of truth = уже существующие `docs/plans/*`
+- source of truth = реально реализованные маршруты, модули, миграции и release-поток
 
-1. `01-bootstrap` — каркас приложения и базовая инженерная настройка.
-2. `02-database-and-auth` — база данных, Prisma, Supabase Auth.
-3. `03-auth-shell-and-character-management` — account-security, protected shell и базовое управление персонажами.
-4. `04-characters-and-roles` — active server / active character selection, роли и access flags персонажа.
-5. `05-law-corpus-and-server-legal-assistant` — law corpus, версии законов и foundation для будущего server legal assistant.
-6. `06-trustors` — карточки доверителей и их жизненный цикл.
-7. `07-ogp-complaint-wizard` — основной документный мастер MVP.
-8. `08-bbcode-generation` — генерация, просмотр и копирование BBCode.
-9. `09-admin-panel` — встроенная админка внутри того же приложения.
-10. `10-ai-integration` — серверный AI-сценарий улучшения описания.
-11. `11-deploy-and-release` — production deployment и первый релиз.
-12. `12-post-mvp-template-documents` — отдельный модуль сервер-специфичных шаблонных документов после MVP и первого релиза.
+Если старые блоковые планы отстают по формулировкам или порядку этапов, этот документ фиксирует актуальную картину и не пытается подгонять репозиторий под устаревшую линейную схему.
 
-## Сквозные правила
+## Как читать статусы
 
-- Вся документация, планы и описания изменений только на русском языке.
-- Все machine keys, route names, таблицы, поля и переменные только на английском языке.
-- Один full-stack проект без monorepo.
-- Без отдельного backend-сервиса и без Python backend.
-- Админка живет в том же приложении.
-- Базовый UI-стек MVP: `Tailwind CSS` и `shadcn/ui`.
-- Внутренние UI-мутирующие действия идут через `Server Actions`.
-- Технические endpoint’ы реализуются через `Route Handlers`.
-- Единый слой валидации: `Zod`.
-- Главный документный сценарий MVP — жалоба в ОГП.
-- Документы живут по модели слепков.
-- BBCode в MVP только для просмотра и копирования.
-- В document flow MVP используются ссылки, а не загрузка файлов.
-- Cross-cutting product decisions зафиксированы отдельно в [../architecture/frozen-product-decisions.md](../architecture/frozen-product-decisions.md).
+- `done` — крупный блок реально реализован и может считаться закрытым на уровне текущего согласованного scope
+- `partial` — в репозитории уже есть заметная реализация, но блок как отдельная продуктовая единица ещё не закрыт
+- `pending` — блок остаётся плановым и не подтверждён как реализованный
+- `optional / temporary` — линия технически существует, но не является обязательной продуктовой capability
+- `post-MVP` — намеренно вынесено за рамки MVP
 
-## Module placement policy
+## Progress Snapshot
 
-- Личный кабинет — это отдельная зона `/account`, а не универсальный контейнер для всех рабочих модулей.
-- Новые крупные server-scoped пользовательские модули должны ориентироваться на маршруты вида `/servers/[serverSlug]/...` и использовать `serverSlug` из URL как source of truth контекста сервера.
-- `assistant` должен оставаться отдельным модулем вне кабинета в своей route-zone.
-- Внутренние `super_admin` и platform tools должны ориентироваться на `/internal/...`, а не на account zone.
-- Текущие уже реализованные маршруты внутри `/app` нужно считать transitional состоянием реализации, а не долгосрочным ориентиром для новых крупных модулей.
-- Будущая migration из `/app` в target route structure должна оформляться отдельным плановым блоком, а не стихийным refactor по пути.
+### Done
 
-## Главные зависимости между этапами
+#### `01-bootstrap`
 
-- Без `01-bootstrap` нельзя начинать прикладную реализацию.
-- Без `02-database-and-auth` нельзя стабильно строить персонажей, доверителей и документы.
-- `03-characters-and-roles` и `04-trustors` нужны до полного сценария жалобы в ОГП.
-- `05-law-corpus-and-server-legal-assistant` должен быть завершен до server legal assistant и до документных сценариев, которые будут опираться на актуальные редакции законов.
-- `07-ogp-complaint-wizard` должен быть завершен до `08-bbcode-generation`.
-- `10-ai-integration` зависит от готовности формы жалобы и логирования.
-- `11-deploy-and-release` опирается на все предыдущие этапы.
-- `12-post-mvp-template-documents` не блокирует MVP и начинается только после первого релиза в production.
-- `12-post-mvp-template-documents` опирается на уже существующие основы: `Server`, `Character`, роли и `access_flags`, выбранный контекст сервера, данные профиля персонажа и модель документных слепков.
+Статус: `done`
 
-## Критерии готовности MVP
+Репозиторий давно ушёл дальше bootstrap-стадии:
 
-- Пользователь может войти в систему и выбрать сервер.
-- Пользователь может завести персонажей в рамках всех ограничений.
-- Пользователь может выбрать активного персонажа.
-- `super_admin` может завести server-scoped источники законодательной базы.
-- система хранит law corpus по серверам, версиям и логическим блокам.
-- Пользователь может создать и редактировать доверителей.
-- Пользователь может пройти мастер жалобы в ОГП.
-- Документ сохраняет слепок при первом сохранении черновика.
-- Система может сгенерировать BBCode и показать его для копирования.
-- После публикации можно сохранить одну ссылку форума и вручную отметить синхронизацию.
-- AI-сценарий улучшения описания для адвоката работает только с сервера и пишет лог в `ai_requests`.
-- Production deployment повторяем и документирован.
+- базовая структура проекта существует
+- `Next.js + TypeScript + App Router` уже используются как рабочая основа
+- dev/build/test pipeline реально используется в текущей разработке
 
-Отдельно зафиксировано:
+#### `02-database-and-auth`
 
-- live forum automation не является обязательным критерием готовности MVP
-- реальная forum session / cookies не считаются обязательным пользовательским вводом для завершения OGP сценария
-- manual `publication_url` остаётся максимум optional metadata, а не обязательной пользовательской целью
+Статус: `done`
 
-## Что не должно случиться по пути
+Реально присутствуют:
 
-- разрастание в monorepo
-- появление отдельного backend
-- расширение на дополнительные документные сценарии без отдельного согласования
-- смешивание отдельного модуля сервер-специфичных шаблонных документов после MVP с MVP-сценариями жалобы в ОГП, исками и генерацией `BBCode`
-- автоматическое проектирование новых document-модулей, assistant и internal corpus tools внутрь `/app` как в универсальный контейнер
-- появление editable BBCode
-- добавление публичного API
+- `Prisma`
+- рабочая модель данных
+- `Supabase Auth`
+- protected flows
+- account-level guards и security foundation
 
-## Зафиксированные технические решения
+#### `03-auth-shell-and-character-management` + `03-characters-and-roles`
 
-- `Supabase Storage` остается частью платформы, но не используется в document flow MVP и не нужен на этапе bootstrap.
-- Минимальный набор `access_flags` уже зафиксирован: `advocate`, `server_editor`, `server_admin`, `tester`.
-- `super_admin` зафиксирован как `user_access_flag` уровня аккаунта.
-- Серверное состояние пользователя хранится в `user_server_state` в БД.
-- `staging` для MVP размещается на том же VPS, но как отдельный процесс или сервис приложения, с отдельным доменом или поддоменом, отдельными `env` и отдельным `Supabase` project либо отдельной staging БД.
-- Deployment на VPS идет через `Docker Compose`.
-- Базовые справочники и первый рабочий сервер поднимаются из репозитория.
-- Шаблоны AI prompt’ов хранятся в коде и репозитории, а не в БД.
-- Baseline проверок и дебага включает `GitHub Actions`, `pnpm lint`, `pnpm typecheck`, `pnpm prisma validate`, `pnpm prisma generate`, `Playwright` smoke tests, `trace`, `HTML report`, `/api/health`, runtime logs, `audit_logs`, `ai_requests`.
+Статус: `done`
 
-## Product note по forum automation
+Фактически реализованы:
 
-- техническая линия `09.x` не считается обязательной частью пользовательского MVP
-- её нужно трактовать как временную optional integration, а не как долгосрочную продуктовую опору
-- после MVP forum automation должна быть вырезана полностью
-- если позже снова понадобится forum integration, это должно оформляться как новое отдельное product decision
+- transitional protected shell в `/app`
+- active server / active character
+- character create/edit flow
+- roles / `access_flags`
+- owner-only character management
+- account/security foundation
+
+Важно:
+
+- `/app` остаётся transitional
+- это не меняет согласованную target route/module policy
+
+#### `05-law-corpus-and-server-legal-assistant`
+
+Статус: `done`
+
+Фактически реализованы:
+
+- law corpus import/storage/current-version foundation
+- retrieval layer
+- server legal assistant
+
+#### `06-judicial-precedents-corpus`
+
+Статус: `done`
+
+Фактически реализованы:
+
+- precedents corpus
+- review/current selection
+- интеграция precedents в assistant-линию
+
+#### `07-document-area-and-ogp-complaint-mvp`
+
+Статус: `done`
+
+Фактически реализованы:
+
+- document area
+- `/account/documents` как агрегатор
+- server-scoped document routes
+- OGP complaint editor
+- persisted draft flow
+- snapshot foundation
+- `BBCode` generation
+- generation metadata
+- optional manual publication metadata
+
+Важно:
+
+- OGP complaint MVP считается полноценным и без live forum automation
+- user success state не зависит от факта реальной публикации на форуме
+
+#### `08-claims-document-family`
+
+Статус: `done`
+
+Фактически реализованы:
+
+- claims family routes
+- persisted claims drafts
+- shared editor для `rehabilitation` и `lawsuit`
+- claims structured renderer
+- generated checkpoint
+- status integration inside document area
+
+Важно:
+
+- claims не смешиваются с OGP `BBCode` / publication model
+- claims не используют forum/publication workflow как default capability
+
+#### `10-server-list-and-server-hub-foundation`
+
+Статус: `done`
+
+Фактически реализованы:
+
+- public `/servers`
+- auth-gated `/servers/[serverSlug]`
+- server directory summary layer
+- server hub
+- `/account/characters` overview
+- account subnav
+- account-scoped character editor completion
+
+Это означает, что account zone и server-scoped entry zone уже ушли значительно дальше старой крупноблочной схемы.
+
+### Optional / Temporary
+
+#### `09-ogp-forum-automation`
+
+Статус: `optional / temporary`
+
+Важно разделять технический и продуктовый статус:
+
+- линия `09.x` технически реализована
+- существуют account-scoped forum integration foundation, publish create и resync/update flow
+- но это больше не считается обязательной пользовательской частью MVP
+
+Зафиксировано:
+
+- forum automation не является обязательным user-facing OGP сценарием
+- cookies / forum session не считаются обязательным пользовательским вводом
+- live create/update against `forum.gta5rp.com` не является blocking acceptance для MVP
+- `manual publication_url` может оставаться только как optional metadata / fallback
+
+Post-MVP policy для этой линии:
+
+- она не должна развиваться дальше как core product capability
+- после MVP она подлежит удалению из продукта
+
+### Partial / Pending
+
+#### `04-trustors`
+
+Статус: `pending`
+
+Честная картина по repo:
+
+- trustor snapshot уже используется внутри `OGP complaints` и claims representative flow
+- но отдельный полноценный trustors-модуль как самостоятельный user-facing блок не подтверждён как реализованный
+
+Поэтому:
+
+- inline document trustor usage = уже есть
+- standalone trustor registry block = пока не закрыт
+
+#### `07-admin-panel`
+
+Статус: `partial`
+
+В repo есть признаки internal/admin foundation:
+
+- transitional admin-related routes
+- отдельные internal/admin куски для security и laws
+
+Но пока не подтверждён как завершённый цельный product block:
+
+- единый `/internal/...` contour ещё не оформлен как законченная пользовательская/административная зона
+- старый крупный план админки нельзя честно считать закрытым
+
+#### `08-ai-integration`
+
+Статус: `partial`
+
+Что уже есть по факту:
+
+- серверный AI-layer
+- assistant как отдельный модуль
+- logging foundation
+
+Что не подтверждено как отдельный завершённый product block:
+
+- самостоятельный document-flow AI-сценарий уровня “улучшение описания для адвоката”, если он всё ещё считается отдельным MVP-блоком
+
+Поэтому:
+
+- assistant и AI infrastructure сильно продвинуты
+- старый крупный AI-блок нельзя автоматически считать формально закрытым
+
+#### `09-deploy-and-release`
+
+Статус: `partial`
+
+Фактически в repo и текущем процессе уже есть:
+
+- повторяемые локальные проверки
+- реальные production releases
+- smoke-check discipline
+- `/api/health`
+- runtime checks
+
+Но как отдельный формально закрытый блок всё ещё остаются вопросы:
+
+- старый план deploy/release не полностью совпадает с текущей фактической operational схемой
+- release hardening и финальная формализация процесса ещё не сведены в честный “formal done”
+
+#### `/app` migration / cleanup
+
+Статус: `pending`
+
+Зафиксировано:
+
+- `/app` остаётся transitional
+- новые крупные user-facing модули больше не должны строиться вокруг `/app`
+- но отдельный cleanup / migration block ещё не выполнен
+
+### Post-MVP
+
+#### `12-post-mvp-template-documents`
+
+Статус: `post-MVP`
+
+Server-specific template documents остаются отдельной post-MVP линией и не смешиваются с текущим MVP.
+
+#### Post-MVP cleanup: forum automation removal
+
+Статус: `post-MVP`
+
+Так как `09.x` больше не считается обязательной продуктовой частью MVP, после MVP эта capability должна удаляться, а не продолжать расти как “раз уже реализовано, значит остаётся”.
+
+## Почему старая линейная схема больше не отражает repo
+
+Старая версия master plan отставала от фактической разработки по нескольким причинам:
+
+- assistant, document area и claims развивались отдельными шагами быстрее, чем это отражала старая крупноблочная цепочка
+- server directory и server hub появились как отдельная линия позже старого linear plan
+- account zone существенно изменилась после появления `/account/security`, `/account/documents` и `/account/characters`
+- OGP forum automation была технически реализована, но затем получила новый product status: optional / temporary instead of required MVP capability
+
+Поэтому актуальный master plan дальше должен читаться как reconciliation snapshot, а не как историческая линейка “слева направо”.
+
+## Актуальная route / module policy
+
+На текущий момент согласованная целевая карта маршрутов выглядит так:
+
+- `/account` — account zone
+- `/account/security` — account security / integrations
+- `/account/characters` — account-scoped character management
+- `/account/documents` — document aggregator
+- `/assistant` и `/assistant/[serverSlug]` — отдельный assistant module вне кабинета
+- `/servers` — public server directory
+- `/servers/[serverSlug]` — auth-gated server hub
+- `/servers/[serverSlug]/documents/...` — server-scoped document area
+- `/internal/...` — целевой internal / super-admin contour
+- `/app` — transitional shell, а не target-zone для новых крупных модулей
+
+## Что ещё остаётся до более формального MVP closure
+
+С учётом фактического repo остаются следующие честные открытые вопросы:
+
+1. Нужен ли standalone trustors module как обязательная часть MVP, если representative flows уже работают на document snapshots.
+2. Нужен ли отдельный цельный admin panel block как обязательная часть MVP, или текущих internal/admin foundations пока достаточно.
+3. Нужен ли отдельный document-AI block помимо уже существующего assistant, если старый AI plan всё ещё числится в MVP.
+4. Нужен ли отдельный formal deploy/release hardening block поверх уже работающего production release процесса.
+
+## Спорные места, которые не стоит маскировать
+
+### Trustors
+
+Спорное место:
+
+- standalone trustors module остаётся в старом плане как MVP-блок
+- но реальные document flows уже используют trustor snapshots без отдельного завершённого trustors registry
+
+Это требует либо отдельной реализации, либо явного product decision по scope.
+
+### Admin panel
+
+Спорное место:
+
+- internal/admin foundations уже есть
+- но законченный admin panel block по старому плану явно не оформлен
+
+### AI integration
+
+Спорное место:
+
+- assistant и AI infrastructure в repo уже сильно продвинуты
+- но старый “один AI-сценарий MVP” не совпадает один в один с текущей фактической продуктовой картиной
+
+### Deploy / release hardening
+
+Спорное место:
+
+- operational release flow фактически существует
+- но старый deploy-plan документ и формальная стадия release hardening ещё не сведены к одному честному status
