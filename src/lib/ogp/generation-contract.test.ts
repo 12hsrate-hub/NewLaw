@@ -62,7 +62,35 @@ describe("OGP generation validation contract", () => {
     expect(validation.documentIssues).toEqual([
       expect.objectContaining({
         fieldKey: "evidenceItems",
-        message: "Ссылки на доказательства должны начинаться с http или https.",
+        message: "Ссылка в доказательстве №1 должна начинаться с http или https.",
+      }),
+    ]);
+  });
+
+  it("показывает номер evidence item с пустым названием", () => {
+    const validation = buildOgpGenerationValidationResult({
+      characterProfile: completeCharacterProfile,
+      trustorProfile: null,
+      documentPayload: {
+        ...completeDocumentPayload,
+        evidenceItems: [
+          {
+            labelSnapshot: "Запись с бодикамеры",
+            url: "https://example.com/bodycam",
+          },
+          {
+            labelSnapshot: "",
+            url: "https://example.com/second",
+          },
+        ],
+      },
+    });
+
+    expect(validation.readyState).toBe("blocked_by_document_payload");
+    expect(validation.documentIssues).toEqual([
+      expect.objectContaining({
+        fieldKey: "evidenceItems",
+        message: "Заполните название доказательства №2.",
       }),
     ]);
   });

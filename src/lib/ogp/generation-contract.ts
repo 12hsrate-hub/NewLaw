@@ -221,6 +221,13 @@ export function validateOgpDocumentPayload(input: OgpDocumentGenerationPayload) 
     labelSnapshot: normalizeText(item.labelSnapshot),
     url: normalizeSafeUrl(item.url),
   }));
+  const firstMissingEvidenceLabelIndex = evidenceItems.findIndex(
+    (item) => item.labelSnapshot.length === 0,
+  );
+  const firstMissingEvidenceUrlIndex = evidenceItems.findIndex((item) => item.url.length === 0);
+  const firstInvalidEvidenceUrlIndex = evidenceItems.findIndex(
+    (item) => item.url.length > 0 && !isSafeUrl(item.url),
+  );
 
   if (appealNumber.length === 0) {
     issues.push(issue("appealNumber", "Номер обращения", "Укажите номер обращения."));
@@ -250,12 +257,30 @@ export function validateOgpDocumentPayload(input: OgpDocumentGenerationPayload) 
 
   if (evidenceItems.length === 0) {
     issues.push(issue("evidenceItems", "Доказательства", "Добавьте хотя бы один элемент в список доказательств."));
-  } else if (evidenceItems.some((item) => item.labelSnapshot.length === 0)) {
-    issues.push(issue("evidenceItems", "Доказательства", "Заполните название каждого доказательства."));
-  } else if (evidenceItems.some((item) => item.url.length === 0)) {
-    issues.push(issue("evidenceItems", "Доказательства", "Укажите ссылку для каждого доказательства."));
-  } else if (evidenceItems.some((item) => !isSafeUrl(item.url))) {
-    issues.push(issue("evidenceItems", "Доказательства", "Ссылки на доказательства должны начинаться с http или https."));
+  } else if (firstMissingEvidenceLabelIndex >= 0) {
+    issues.push(
+      issue(
+        "evidenceItems",
+        "Доказательства",
+        `Заполните название доказательства №${firstMissingEvidenceLabelIndex + 1}.`,
+      ),
+    );
+  } else if (firstMissingEvidenceUrlIndex >= 0) {
+    issues.push(
+      issue(
+        "evidenceItems",
+        "Доказательства",
+        `Укажите ссылку для доказательства №${firstMissingEvidenceUrlIndex + 1}.`,
+      ),
+    );
+  } else if (firstInvalidEvidenceUrlIndex >= 0) {
+    issues.push(
+      issue(
+        "evidenceItems",
+        "Доказательства",
+        `Ссылка в доказательстве №${firstInvalidEvidenceUrlIndex + 1} должна начинаться с http или https.`,
+      ),
+    );
   }
 
   return issues;

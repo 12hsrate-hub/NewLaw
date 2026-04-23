@@ -273,11 +273,13 @@ function formatDraftStatus(status: OgpComplaintGenerationState["status"]) {
 }
 
 function buildEmptyEvidenceItem(sortOrder: number): OgpComplaintEvidenceItem {
+  const firstTemplateKey = ogpComplaintEvidenceTemplateKeys[0];
+
   return {
     id: createLocalId("evidence_item"),
-    mode: "custom",
-    templateKey: null,
-    labelSnapshot: "",
+    mode: "template",
+    templateKey: firstTemplateKey,
+    labelSnapshot: evidenceTemplateLabels[firstTemplateKey],
     url: "",
     sortOrder,
   };
