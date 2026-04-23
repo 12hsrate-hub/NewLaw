@@ -104,7 +104,7 @@ describe("/servers/[serverSlug]/documents/ogp-complaints/[documentId] page", () 
             passportImageUrl: "",
             note: "",
           },
-          evidenceGroups: [],
+          evidenceItems: [],
         },
       },
     });

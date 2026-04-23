@@ -180,7 +180,7 @@ Post-MVP note:
 - OGP-specific form flow
 - self / representative branching
 - trustor usage inside document
-- evidence groups and rows
+- flat evidence items без групп и комментариев
 - validation rules для жалобы
 
 Что не входит:
@@ -202,11 +202,11 @@ Post-MVP note:
   - `violation_summary`
   - `working_notes`
   - `trustor snapshot`
-  - `evidence groups / evidence rows`
+  - flat `evidenceItems[]`
 - self filing работает для любого доступного персонажа
 - representative filing доступен только персонажу с `access flag advocate`
 - при representative filing trustor snapshot живёт внутри самого документа и сохраняется консистентно в persisted payload
-- evidence links сохраняются в структуре, пригодной для будущего `BBCode` generation без переделки схемы
+- evidence links сохраняются как flat `evidenceItems[]`, пригодные для текущего deterministic `BBCode` generation без live template dependency
 - `/account/documents` и `/servers/[serverSlug]/documents/ogp-complaints` уже показывают persisted `ogp_complaint` drafts/documents пользователя
 - `BBCode` generation, publication metadata UI и forum automation остаются следующими шагами
 
@@ -245,7 +245,7 @@ Post-MVP note:
 - обязательный character/trustor generation context включает `fullName`, `passportNumber`, `address`, `phone`, `icEmail`, `passportImageUrl`; для character дополнительно требуется `position`
 - обязательный OGP payload включает `appealNumber`, `organizationName`, `subjectLabel`, `incidentAt`, `situationDescription`, `violationSummary` и минимум один usable evidence item
 - `appealNumber`, `passportNumber`, `phone` и `passportImageUrl` проходят общую нормализацию и в generation/checklist сравниваются уже в canonical формате
-- `evidenceGroups` и `evidenceRows` со ссылками корректно попадают в итоговый `BBCode`: evidence сортируется по `sortOrder`, берёт persisted `labelSnapshot` и рендерится как `[URL='...']labelSnapshot[/URL]`, элементы соединяются запятой
+- flat `evidenceItems[]` со ссылками корректно попадают в итоговый `BBCode`: evidence сортируется по `sortOrder`, берёт только persisted `labelSnapshot` и `url`, рендерится как `[URL='...']labelSnapshot[/URL]`, элементы соединяются запятой
 - подпись внизу строится по правилу first-letter + "." + last-word, дата берётся на момент generation в часовом поясе Moscow и формате `DD.MM.YYYY`
 - generation честно блокируется при неполном обязательном profile или неполном complaint payload
 - вместо vague общей ошибки editor показывает точный blocking checklist с отдельными секциями:

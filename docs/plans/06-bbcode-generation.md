@@ -44,7 +44,7 @@
 - trustor registry может быть только prefill source до сохранения document snapshot, но не live source для generation
 - required OGP fields не расширяются неявно: `appealNumber`, `organizationName`, `subjectLabel`, `incidentAt`, `situationDescription`, `violationSummary`, минимум один evidence item
 - `appealNumber` в OGP generation contract — digits only
-- evidence рендерится из persisted evidence rows как `[URL='...']labelSnapshot[/URL]`, сортируется по `sortOrder` и соединяется запятой
+- evidence рендерится из persisted flat `evidenceItems[]` как `[URL='...']labelSnapshot[/URL]`, сортируется по `sortOrder` и соединяется запятой
 - passport image URL в applicant/representative/trustor blocks рендерится как кликабельная ссылка с видимым текстом `паспорт`
 - bottom date берётся на момент generation в Moscow timezone и формате `DD.MM.YYYY`
 - подпись строится из author/representative profile как первая буква первого слова + "." + последнее слово; в representative flow доверитель не становится источником подписи

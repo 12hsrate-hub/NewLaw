@@ -53,11 +53,14 @@ function createBaseDocument(input?: {
           passportNumber: "TR-001",
           note: "Действую по доверенности",
         },
-        evidenceGroups: [
+        evidenceItems: [
           {
-            id: "group-1",
-            title: "Видео",
-            rows: [{ id: "row-1", label: "Видео", url: "https://example.com", note: "Основная ссылка" }],
+            id: "item-1",
+            mode: "custom",
+            templateKey: null,
+            labelSnapshot: "Видео",
+            url: "https://example.com",
+            sortOrder: 0,
           },
         ],
       } satisfies Record<string, unknown>),

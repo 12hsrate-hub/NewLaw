@@ -15,7 +15,7 @@ export type OgpChecklistIssue = {
     | "incidentAt"
     | "situationDescription"
     | "violationSummary"
-    | "evidenceList";
+    | "evidenceItems";
   label: string;
   message: string;
 };
@@ -46,8 +46,9 @@ export type OgpTrustorGenerationProfile = {
   passportImageUrl: string;
 };
 
-export type OgpEvidenceLike = {
-  rows: Array<unknown>;
+export type OgpEvidenceItemLike = {
+  labelSnapshot: string;
+  url: string;
 };
 
 export type OgpDocumentGenerationPayload = {
@@ -57,7 +58,7 @@ export type OgpDocumentGenerationPayload = {
   incidentAt: string;
   situationDescription: string;
   violationSummary: string;
-  evidenceGroups: OgpEvidenceLike[];
+  evidenceItems: OgpEvidenceItemLike[];
 };
 
 export type OgpGenerationValidationResult = {
@@ -213,33 +214,13 @@ export function validateOgpTrustorProfile(input: OgpTrustorGenerationProfile) {
   });
 }
 
-function readEvidenceText(row: unknown, key: string) {
-  if (!row || typeof row !== "object" || Array.isArray(row)) {
-    return "";
-  }
-
-  const value = (row as Record<string, unknown>)[key];
-
-  return typeof value === "string" ? normalizeText(value) : "";
-}
-
-function countUsableEvidenceRows(groups: OgpEvidenceLike[]) {
-  return groups.reduce(
-    (count, group) =>
-      count +
-      group.rows.filter((row) => {
-        const url = readEvidenceText(row, "url");
-        const labelSnapshot = readEvidenceText(row, "labelSnapshot") || readEvidenceText(row, "label");
-
-        return url.length > 0 && labelSnapshot.length > 0;
-      }).length,
-    0,
-  );
-}
-
 export function validateOgpDocumentPayload(input: OgpDocumentGenerationPayload) {
   const issues: OgpChecklistIssue[] = [];
   const appealNumber = normalizeText(input.appealNumber);
+  const evidenceItems = input.evidenceItems.map((item) => ({
+    labelSnapshot: normalizeText(item.labelSnapshot),
+    url: normalizeSafeUrl(item.url),
+  }));
 
   if (appealNumber.length === 0) {
     issues.push(issue("appealNumber", "Номер обращения", "Укажите номер обращения."));
@@ -267,8 +248,14 @@ export function validateOgpDocumentPayload(input: OgpDocumentGenerationPayload) 
     issues.push(issue("violationSummary", "Суть нарушения", "Заполните краткую суть нарушения."));
   }
 
-  if (countUsableEvidenceRows(input.evidenceGroups) === 0) {
-    issues.push(issue("evidenceList", "Доказательства", "Добавьте хотя бы один элемент в список доказательств."));
+  if (evidenceItems.length === 0) {
+    issues.push(issue("evidenceItems", "Доказательства", "Добавьте хотя бы один элемент в список доказательств."));
+  } else if (evidenceItems.some((item) => item.labelSnapshot.length === 0)) {
+    issues.push(issue("evidenceItems", "Доказательства", "Заполните название каждого доказательства."));
+  } else if (evidenceItems.some((item) => item.url.length === 0)) {
+    issues.push(issue("evidenceItems", "Доказательства", "Укажите ссылку для каждого доказательства."));
+  } else if (evidenceItems.some((item) => !isSafeUrl(item.url))) {
+    issues.push(issue("evidenceItems", "Доказательства", "Ссылки на доказательства должны начинаться с http или https."));
   }
 
   return issues;

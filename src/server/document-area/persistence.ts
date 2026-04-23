@@ -132,9 +132,81 @@ function canUseRepresentativeFiling(authorSnapshot: {
   return authorSnapshot.accessFlags.includes("advocate");
 }
 
+function readLegacyEvidenceText(row: unknown, key: string) {
+  if (!row || typeof row !== "object" || Array.isArray(row)) {
+    return "";
+  }
+
+  const value = (row as Record<string, unknown>)[key];
+
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function readLegacyEvidenceSortOrder(row: unknown, fallbackSortOrder: number) {
+  if (!row || typeof row !== "object" || Array.isArray(row)) {
+    return fallbackSortOrder;
+  }
+
+  const value = (row as Record<string, unknown>).sortOrder;
+
+  return typeof value === "number" && Number.isInteger(value) ? value : fallbackSortOrder;
+}
+
+function normalizeLegacyOgpEvidenceItems(input: unknown) {
+  if (!input || typeof input !== "object" || Array.isArray(input)) {
+    return input;
+  }
+
+  const payload = input as Record<string, unknown>;
+
+  if (Array.isArray(payload.evidenceItems)) {
+    return input;
+  }
+
+  if (!Array.isArray(payload.evidenceGroups)) {
+    return input;
+  }
+
+  let fallbackSortOrder = 0;
+  const evidenceItems = payload.evidenceGroups.flatMap((group) => {
+    if (!group || typeof group !== "object" || Array.isArray(group)) {
+      return [];
+    }
+
+    const groupTitle = readLegacyEvidenceText(group, "title");
+    const rows = (group as Record<string, unknown>).rows;
+
+    if (!Array.isArray(rows)) {
+      return [];
+    }
+
+    return rows.map((row) => {
+      const item = {
+        id: readLegacyEvidenceText(row, "id") || `legacy_evidence_${fallbackSortOrder}`,
+        mode: "custom" as const,
+        templateKey: null,
+        labelSnapshot:
+          readLegacyEvidenceText(row, "labelSnapshot") ||
+          readLegacyEvidenceText(row, "label") ||
+          groupTitle,
+        url: readLegacyEvidenceText(row, "url"),
+        sortOrder: readLegacyEvidenceSortOrder(row, fallbackSortOrder),
+      };
+      fallbackSortOrder += 1;
+
+      return item;
+    });
+  });
+
+  return {
+    ...payload,
+    evidenceItems,
+  };
+}
+
 function normalizeOgpComplaintDraftPayload(input: unknown): OgpComplaintDraftPayload {
   try {
-    const parsed = ogpComplaintDraftPayloadSchema.parse(input);
+    const parsed = ogpComplaintDraftPayloadSchema.parse(normalizeLegacyOgpEvidenceItems(input));
 
     return {
       ...parsed,
@@ -151,6 +223,19 @@ function normalizeOgpComplaintDraftPayload(input: unknown): OgpComplaintDraftPay
               note: parsed.trustorSnapshot?.note ?? "",
             }
           : null,
+      evidenceItems: parsed.evidenceItems
+        .map((item, index) => ({
+          ...item,
+          templateKey: item.mode === "template" ? item.templateKey : null,
+          labelSnapshot: item.labelSnapshot.trim(),
+          url: normalizeSafeUrl(item.url),
+          sortOrder: item.sortOrder ?? index,
+        }))
+        .sort((left, right) =>
+          left.sortOrder === right.sortOrder
+            ? left.id.localeCompare(right.id)
+            : left.sortOrder - right.sortOrder,
+        ),
     };
   } catch (error) {
     if (error instanceof ZodError) {
@@ -309,7 +394,7 @@ export function readOgpComplaintDraftPayload(payload: unknown) {
         violationSummary: "",
         workingNotes: "",
         trustorSnapshot: null,
-        evidenceGroups: [],
+        evidenceItems: [],
       } satisfies OgpComplaintDraftPayload;
     }
 

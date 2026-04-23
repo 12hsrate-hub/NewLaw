@@ -374,7 +374,7 @@ function buildInitialCreatePayload(): OgpComplaintDraftPayload {
     violationSummary: "",
     workingNotes: "",
     trustorSnapshot: null,
-    evidenceGroups: [],
+    evidenceItems: [],
   };
 }
 

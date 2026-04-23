@@ -47,7 +47,7 @@ describe("OGP document editor rewrite affordances", () => {
           violationSummary: "Нарушение",
           workingNotes: "Внутренние notes",
           trustorSnapshot: null,
-          evidenceGroups: [],
+          evidenceItems: [],
         },
         initialLastGeneratedBbcode: null,
         generatedAt: null,
@@ -127,7 +127,7 @@ describe("OGP document editor rewrite affordances", () => {
             passportImageUrl: "",
             note: "",
           },
-          evidenceGroups: [],
+          evidenceItems: [],
         },
         initialLastGeneratedBbcode: null,
         generatedAt: null,
@@ -172,5 +172,93 @@ describe("OGP document editor rewrite affordances", () => {
     expect(html).toContain("Подставить доверителя из списка");
     expect(html).toContain("Подставить в документ");
     expect(html).toContain('/account/trustors?server=blackberry');
+  });
+
+  it("рендерит плоский блок доказательств без групп и комментариев", () => {
+    const html = renderToStaticMarkup(
+      createElement(DocumentDraftEditorClient, {
+        documentId: "document-3",
+        server: {
+          code: "blackberry",
+          name: "Blackberry",
+        },
+        authorSnapshot: {
+          fullName: "Игорь Юристов",
+          passportNumber: "AA-001",
+          position: "Адвокат",
+          address: "Дом 10",
+          phone: "123-45-67",
+          icEmail: "lawyer@example.com",
+          passportImageUrl: "https://example.com/passport.png",
+          isProfileComplete: true,
+          canUseRepresentative: true,
+        },
+        initialTitle: "Жалоба в ОГП",
+        initialPayload: {
+          filingMode: "self",
+          appealNumber: "OGP-003",
+          objectOrganization: "LSPD",
+          objectFullName: "Officer Smoke",
+          incidentAt: "2026-04-22T10:15",
+          situationDescription: "Описание",
+          violationSummary: "Нарушение",
+          workingNotes: "",
+          trustorSnapshot: null,
+          evidenceItems: [
+            {
+              id: "item-1",
+              mode: "template",
+              templateKey: "legal_services_contract",
+              labelSnapshot: "Договор на оказание юридических услуг",
+              url: "https://example.com/contract",
+              sortOrder: 0,
+            },
+            {
+              id: "item-2",
+              mode: "custom",
+              templateKey: null,
+              labelSnapshot: "Свой скриншот",
+              url: "https://example.com/screenshot",
+              sortOrder: 1,
+            },
+          ],
+        },
+        initialLastGeneratedBbcode: null,
+        generatedAt: null,
+        generatedLawVersion: null,
+        generatedTemplateVersion: null,
+        generatedFormSchemaVersion: null,
+        initialPublicationUrl: null,
+        initialIsSiteForumSynced: false,
+        initialIsModifiedAfterGeneration: false,
+        initialForumSyncState: "not_published",
+        initialForumThreadId: null,
+        initialForumPostId: null,
+        initialForumPublishedBbcodeHash: null,
+        initialForumLastPublishedAt: null,
+        initialForumLastSyncError: null,
+        status: "draft",
+        forumConnection: {
+          providerKey: "forum.gta5rp.com",
+          state: "valid",
+          forumUserId: "42",
+          forumUsername: "lawyer",
+          validatedAt: "2026-04-22T10:00:00.000Z",
+          lastValidationError: null,
+          disabledAt: null,
+        },
+        trustorRegistry: [],
+        updatedAt: "2026-04-22T10:00:00.000Z",
+      }),
+    );
+
+    expect(html).toContain("Добавить доказательство");
+    expect(html).toContain("Из списка");
+    expect(html).toContain("Свой текст");
+    expect(html).toContain("Договор на оказание юридических услуг");
+    expect(html).toContain("Адвокатский запрос");
+    expect(html).not.toContain("Добавить группу доказательств");
+    expect(html).not.toContain("Заголовок группы");
+    expect(html).not.toContain("Комментарий");
   });
 });

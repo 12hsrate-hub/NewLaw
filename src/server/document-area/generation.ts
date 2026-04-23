@@ -28,8 +28,6 @@ type OgpTemplateBranch = "ogp_self" | "ogp_representative";
 
 type OgpEvidenceRenderItem = {
   id: string;
-  mode: string;
-  templateKey: string;
   labelSnapshot: string;
   url: string;
   sortOrder: number;
@@ -145,30 +143,12 @@ function buildSignatureShort(fullName: string) {
 }
 
 function flattenEvidenceItems(payload: OgpComplaintDraftPayload) {
-  const evidenceItems: OgpEvidenceRenderItem[] = [];
-  let fallbackSortOrder = 0;
-
-  for (const group of payload.evidenceGroups) {
-    for (const row of group.rows) {
-      const labelSnapshot =
-        normalizeInlineText(row.labelSnapshot) ||
-        normalizeInlineText(row.label) ||
-        normalizeInlineText(group.title) ||
-        "Доказательство";
-
-      evidenceItems.push({
-        id: row.id,
-        mode: normalizeInlineText(row.mode) || "link",
-        templateKey: normalizeInlineText(row.templateKey) || "custom",
-        labelSnapshot,
-        url: row.url.trim(),
-        sortOrder: row.sortOrder ?? fallbackSortOrder,
-      });
-      fallbackSortOrder += 1;
-    }
-  }
-
-  return evidenceItems.sort((left, right) =>
+  return payload.evidenceItems.map((item, index): OgpEvidenceRenderItem => ({
+    id: item.id,
+    labelSnapshot: normalizeInlineText(item.labelSnapshot),
+    url: item.url.trim(),
+    sortOrder: item.sortOrder ?? index,
+  })).sort((left, right) =>
     left.sortOrder === right.sortOrder
       ? left.id.localeCompare(right.id)
       : left.sortOrder - right.sortOrder,
@@ -356,7 +336,7 @@ function getOgpComplaintGenerationValidation(input: {
       incidentAt: input.payload.incidentAt,
       situationDescription: input.payload.situationDescription,
       violationSummary: input.payload.violationSummary,
-      evidenceGroups: input.payload.evidenceGroups,
+      evidenceItems: input.payload.evidenceItems,
     },
   });
 }

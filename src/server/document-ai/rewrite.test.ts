@@ -50,18 +50,14 @@ function createBaseDocument(input?: {
         passportNumber: "TR-001",
         note: "Действую по доверенности",
       },
-      evidenceGroups: [
+      evidenceItems: [
         {
-          id: "group-1",
-          title: "Видео",
-          rows: [
-            {
-              id: "row-1",
-              label: "Запись с бодикамеры",
-              url: "https://example.com/bodycam",
-              note: "Основная ссылка",
-            },
-          ],
+          id: "item-1",
+          mode: "custom",
+          templateKey: null,
+          labelSnapshot: "Запись с бодикамеры",
+          url: "https://example.com/bodycam",
+          sortOrder: 0,
         },
       ],
     },

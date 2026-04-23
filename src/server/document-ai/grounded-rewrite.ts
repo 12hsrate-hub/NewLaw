@@ -129,11 +129,24 @@ function buildCompactTrustorSummary(input: {
   };
 }
 
-function buildCompactEvidenceSummary(evidenceGroups: Array<{ title: string; rows: unknown[] }>) {
+function buildCompactEvidenceSummary(input:
+  | { evidenceGroups: Array<{ title: string; rows: unknown[] }>; evidenceItems?: never }
+  | { evidenceGroups?: never; evidenceItems: Array<{ labelSnapshot: string }> }) {
+  if (input.evidenceItems) {
+    return {
+      groupCount: 0,
+      rowCount: input.evidenceItems.length,
+      titles: input.evidenceItems
+        .map((item) => item.labelSnapshot.trim())
+        .filter((title) => title.length > 0)
+        .slice(0, 4),
+    } satisfies CompactEvidenceSummary;
+  }
+
   return {
-    groupCount: evidenceGroups.length,
-    rowCount: evidenceGroups.reduce((total, group) => total + group.rows.length, 0),
-    titles: evidenceGroups
+    groupCount: input.evidenceGroups.length,
+    rowCount: input.evidenceGroups.reduce((total, group) => total + group.rows.length, 0),
+    titles: input.evidenceGroups
       .map((group) => group.title.trim())
       .filter((title) => title.length > 0)
       .slice(0, 4),
@@ -201,7 +214,7 @@ function buildOgpGroundedContext(input: {
     filingMode: input.payload.filingMode,
     trustorSnapshot: input.payload.trustorSnapshot,
   });
-  const evidenceSummary = buildCompactEvidenceSummary(input.payload.evidenceGroups);
+  const evidenceSummary = buildCompactEvidenceSummary({ evidenceItems: input.payload.evidenceItems });
   const contextFieldKeys = [
     "objectOrganization",
     "objectFullName",
@@ -252,7 +265,7 @@ function buildClaimsGroundedContext(input: {
     filingMode: input.payload.filingMode,
     trustorSnapshot: input.payload.trustorSnapshot,
   });
-  const evidenceSummary = buildCompactEvidenceSummary(input.payload.evidenceGroups);
+  const evidenceSummary = buildCompactEvidenceSummary({ evidenceGroups: input.payload.evidenceGroups });
   const sectionLabel = getDocumentRewriteSectionLabel(input.sectionKey);
   const contextFieldKeys =
     input.sectionKey === "legal_basis_summary"

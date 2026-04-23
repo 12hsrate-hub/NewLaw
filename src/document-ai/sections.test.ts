@@ -51,7 +51,7 @@ describe("document rewrite sections", () => {
       violationSummary: "Нарушение",
       workingNotes: "Черновая заметка",
       trustorSnapshot: null,
-      evidenceGroups: [],
+      evidenceItems: [],
     };
 
     const nextOgpPayload = applyOgpRewriteSuggestion(

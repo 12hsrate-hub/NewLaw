@@ -5,6 +5,17 @@ export const documentStatuses = ["draft", "generated", "published"] as const;
 export const ogpComplaintFilingModes = ["self", "representative"] as const;
 export const trustorSnapshotSourceTypes = ["inline_manual", "registry_prefill"] as const;
 export const claimDocumentTypes = ["rehabilitation", "lawsuit"] as const;
+export const ogpComplaintEvidenceItemModes = ["template", "custom"] as const;
+export const ogpComplaintEvidenceTemplateKeys = [
+  "legal_services_contract",
+  "attorney_request",
+  "attorney_request_response",
+  "trustor_recording",
+  "officer_provided_recording",
+  "arrest_record",
+  "fines_registry_extract",
+  "leadership_response",
+] as const;
 export const claimsStructuredPreviewFormat = "claims_structured_preview_v1" as const;
 export const ogpForumSyncStates = [
   "not_published",
@@ -51,6 +62,8 @@ export const documentStatusSchema = z.enum(documentStatuses);
 export const ogpForumSyncStateSchema = z.enum(ogpForumSyncStates);
 export const ogpComplaintFilingModeSchema = z.enum(ogpComplaintFilingModes);
 export const trustorSnapshotSourceTypeSchema = z.enum(trustorSnapshotSourceTypes);
+export const ogpComplaintEvidenceItemModeSchema = z.enum(ogpComplaintEvidenceItemModes);
+export const ogpComplaintEvidenceTemplateKeySchema = z.enum(ogpComplaintEvidenceTemplateKeys);
 export const documentTitleSchema = z.string().trim().min(3).max(160);
 export const documentWorkingNotesSchema = z.string().max(12_000).default("");
 export const documentFormSchemaVersionSchema = z.string().trim().min(1).max(64);
@@ -102,6 +115,40 @@ export const ogpComplaintEvidenceGroupSchema = z.object({
   rows: z.array(ogpComplaintEvidenceRowSchema).max(20).default([]),
 });
 
+export const ogpComplaintEvidenceItemSchema = z
+  .object({
+    id: z.string().trim().min(1).max(64),
+    mode: ogpComplaintEvidenceItemModeSchema.default("custom"),
+    templateKey: ogpComplaintEvidenceTemplateKeySchema.nullable().default(null),
+    labelSnapshot: z.string().trim().max(240).default(""),
+    url: z
+      .string()
+      .trim()
+      .max(2_048)
+      .default("")
+      .refine(isValidOptionalHttpUrl, {
+        message: "Ссылка должна быть пустой или начинаться с http/https.",
+      }),
+    sortOrder: z.number().int().min(0).max(10_000).default(0),
+  })
+  .superRefine((item, ctx) => {
+    if (item.mode === "template" && item.templateKey === null) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Для доказательства из списка нужно выбрать название.",
+        path: ["templateKey"],
+      });
+    }
+
+    if (item.mode === "custom" && item.templateKey !== null) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Для своего текста templateKey должен быть пустым.",
+        path: ["templateKey"],
+      });
+    }
+  });
+
 export const ogpComplaintDraftPayloadSchema = z.object({
   filingMode: ogpComplaintFilingModeSchema.default("self"),
   appealNumber: z.string().trim().max(120).default(""),
@@ -119,7 +166,7 @@ export const ogpComplaintDraftPayloadSchema = z.object({
   violationSummary: z.string().max(8_000).default(""),
   workingNotes: documentWorkingNotesSchema,
   trustorSnapshot: ogpComplaintTrustorSnapshotSchema.nullable().optional(),
-  evidenceGroups: z.array(ogpComplaintEvidenceGroupSchema).max(12).default([]),
+  evidenceItems: z.array(ogpComplaintEvidenceItemSchema).max(40).default([]),
 });
 
 const claimsDraftPayloadBaseSchema = z.object({
@@ -252,6 +299,7 @@ export type DocumentAuthorSnapshot = z.infer<typeof documentAuthorSnapshotSchema
 export type OgpComplaintTrustorSnapshot = z.infer<typeof ogpComplaintTrustorSnapshotSchema>;
 export type OgpComplaintEvidenceRow = z.infer<typeof ogpComplaintEvidenceRowSchema>;
 export type OgpComplaintEvidenceGroup = z.infer<typeof ogpComplaintEvidenceGroupSchema>;
+export type OgpComplaintEvidenceItem = z.infer<typeof ogpComplaintEvidenceItemSchema>;
 export type OgpComplaintDraftPayload = z.infer<typeof ogpComplaintDraftPayloadSchema>;
 export type ClaimsCommonDraftPayload = z.infer<typeof claimsDraftPayloadBaseSchema>;
 export type RehabilitationClaimDraftPayload = z.infer<typeof rehabilitationClaimDraftPayloadSchema>;

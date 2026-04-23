@@ -35,12 +35,12 @@ import {
   saveDocumentDraftAction,
   updateDocumentPublicationMetadataAction,
 } from "@/server/actions/documents";
-import type {
-  OgpForumSyncState,
-  OgpComplaintDraftPayload,
-  OgpComplaintEvidenceGroup,
-  OgpComplaintEvidenceRow,
-  OgpComplaintTrustorSnapshot,
+import {
+  ogpComplaintEvidenceTemplateKeys,
+  type OgpForumSyncState,
+  type OgpComplaintDraftPayload,
+  type OgpComplaintEvidenceItem,
+  type OgpComplaintTrustorSnapshot,
 } from "@/schemas/document";
 import type {
   DocumentFieldRewriteUsageMeta,
@@ -132,6 +132,17 @@ type OgpComplaintGenerationState = {
   forumPublishedBbcodeHash: string | null;
   forumLastPublishedAt: string | null;
   forumLastSyncError: string | null;
+};
+
+const evidenceTemplateLabels: Record<(typeof ogpComplaintEvidenceTemplateKeys)[number], string> = {
+  legal_services_contract: "Договор на оказание юридических услуг",
+  attorney_request: "Адвокатский запрос",
+  attorney_request_response: "Ответ на адвокатский запрос",
+  trustor_recording: "Запись со стороны доверителя",
+  officer_provided_recording: "Запись, предоставленная сотрудником",
+  arrest_record: "Запись об аресте",
+  fines_registry_extract: "Выписка из базы штрафов",
+  leadership_response: "Официальный ответ руководства",
 };
 
 type OgpGenerationBlockState = {
@@ -261,23 +272,14 @@ function formatDraftStatus(status: OgpComplaintGenerationState["status"]) {
   return "опубликовано";
 }
 
-function buildEmptyEvidenceGroup(): OgpComplaintEvidenceGroup {
+function buildEmptyEvidenceItem(sortOrder: number): OgpComplaintEvidenceItem {
   return {
-    id: createLocalId("evidence_group"),
-    title: "",
-    rows: [],
-  };
-}
-
-function buildEmptyEvidenceRow(): OgpComplaintEvidenceRow {
-  return {
-    id: createLocalId("evidence_row"),
-    mode: "link",
-    templateKey: "custom",
+    id: createLocalId("evidence_item"),
+    mode: "custom",
+    templateKey: null,
     labelSnapshot: "",
-    label: "",
     url: "",
-    note: "",
+    sortOrder,
   };
 }
 
@@ -307,7 +309,7 @@ function buildEmptyOgpComplaintPayload(
     violationSummary: "",
     workingNotes: "",
     trustorSnapshot: filingMode === "representative" ? buildEmptyTrustorSnapshot() : null,
-    evidenceGroups: [],
+    evidenceItems: [],
   };
 }
 
@@ -383,7 +385,7 @@ function buildGenerationBlockState(input: {
       incidentAt: input.payload.incidentAt,
       situationDescription: input.payload.situationDescription,
       violationSummary: input.payload.violationSummary,
-      evidenceGroups: input.payload.evidenceGroups,
+      evidenceItems: input.payload.evidenceItems,
     },
   });
 
@@ -449,202 +451,157 @@ function GenerationChecklistSection(props: {
   );
 }
 
-function EvidenceGroupsEditor(props: {
-  evidenceGroups: OgpComplaintDraftPayload["evidenceGroups"];
-  onChange: (groups: OgpComplaintDraftPayload["evidenceGroups"]) => void;
+function EvidenceItemsEditor(props: {
+  evidenceItems: OgpComplaintDraftPayload["evidenceItems"];
+  onChange: (items: OgpComplaintDraftPayload["evidenceItems"]) => void;
 }) {
-  const groups = props.evidenceGroups;
+  const items = props.evidenceItems;
+
+  const updateItem = (itemId: string, nextItem: Partial<OgpComplaintEvidenceItem>) => {
+    props.onChange(
+      items.map((item) =>
+        item.id === itemId
+          ? {
+              ...item,
+              ...nextItem,
+            }
+          : item,
+      ),
+    );
+  };
 
   return (
     <div className="space-y-4">
-      {groups.length === 0 ? (
+      {items.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-[var(--border)] px-4 py-5 text-sm text-[var(--muted)]">
-          Доказательства пока не добавлены. Черновик можно сохранить сейчас, а ссылки добавить позже.
+          Доказательства пока не добавлены. Добавьте хотя бы одну ссылку перед генерацией BBCode.
         </div>
       ) : null}
 
-      {groups.map((group, groupIndex) => (
-        <div className="space-y-4 rounded-3xl border border-[var(--border)] bg-white/70 p-4" key={group.id}>
+      {items.map((item, itemIndex) => (
+        <div className="space-y-4 rounded-3xl border border-[var(--border)] bg-white/70 p-4" key={item.id}>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="space-y-1">
               <p className="text-sm font-medium text-[var(--foreground)]">
-                Группа доказательств {groupIndex + 1}
+                Доказательство {itemIndex + 1}
               </p>
               <ComplaintFieldHint>
-                Добавьте ссылки, которые подтверждают обстоятельства жалобы.
+                В итоговом BBCode будет использован сохранённый текст и ссылка из этой строки.
               </ComplaintFieldHint>
             </div>
             <Button
               onClick={() => {
-                props.onChange(groups.filter((entry) => entry.id !== group.id));
+                props.onChange(items.filter((entry) => entry.id !== item.id));
               }}
               type="button"
               variant="secondary"
             >
-              Удалить группу
+              Удалить доказательство
             </Button>
           </div>
 
+          <div className="grid gap-3 md:grid-cols-2">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`evidence-mode-${item.id}`}>
+                Тип текста
+              </label>
+              <Select
+                id={`evidence-mode-${item.id}`}
+                onChange={(event) => {
+                  const mode = event.target.value as OgpComplaintEvidenceItem["mode"];
+                  const firstTemplateKey = ogpComplaintEvidenceTemplateKeys[0];
+
+                  updateItem(
+                    item.id,
+                    mode === "template"
+                      ? {
+                          mode,
+                          templateKey: firstTemplateKey,
+                          labelSnapshot: evidenceTemplateLabels[firstTemplateKey],
+                        }
+                      : {
+                          mode,
+                          templateKey: null,
+                          labelSnapshot: "",
+                        },
+                  );
+                }}
+                value={item.mode}
+              >
+                <option value="template">Из списка</option>
+                <option value="custom">Свой текст</option>
+              </Select>
+            </div>
+
+            {item.mode === "template" ? (
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`evidence-template-${item.id}`}>
+                  Название доказательства
+                </label>
+                <Select
+                  id={`evidence-template-${item.id}`}
+                  onChange={(event) => {
+                    const templateKey = event.target.value as (typeof ogpComplaintEvidenceTemplateKeys)[number];
+
+                    updateItem(item.id, {
+                      templateKey,
+                      labelSnapshot: evidenceTemplateLabels[templateKey],
+                    });
+                  }}
+                  value={item.templateKey ?? ogpComplaintEvidenceTemplateKeys[0]}
+                >
+                  {ogpComplaintEvidenceTemplateKeys.map((templateKey) => (
+                    <option key={templateKey} value={templateKey}>
+                      {evidenceTemplateLabels[templateKey]}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`evidence-label-${item.id}`}>
+                  Название доказательства
+                </label>
+                <Input
+                  id={`evidence-label-${item.id}`}
+                  onChange={(event) => {
+                    updateItem(item.id, {
+                      labelSnapshot: event.target.value,
+                    });
+                  }}
+                  placeholder="Например: Запись с бодикамеры"
+                  value={item.labelSnapshot}
+                />
+              </div>
+            )}
+          </div>
+
           <div className="space-y-2">
-            <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`group-title-${group.id}`}>
-              Заголовок группы
+            <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`evidence-url-${item.id}`}>
+              Ссылка
             </label>
             <Input
-              id={`group-title-${group.id}`}
+              id={`evidence-url-${item.id}`}
               onChange={(event) => {
-                props.onChange(
-                  groups.map((entry) =>
-                    entry.id === group.id ? { ...entry, title: event.target.value } : entry,
-                  ),
-                );
+                updateItem(item.id, {
+                  url: event.target.value,
+                });
               }}
-              placeholder="Например: Ссылки на видеозаписи"
-              value={group.title}
+              placeholder="https://..."
+              value={item.url}
             />
           </div>
-
-          <div className="space-y-3">
-            {group.rows.map((row, rowIndex) => (
-              <div className="space-y-3 rounded-2xl border border-[var(--border)] bg-white/80 p-4" key={row.id}>
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <p className="text-sm font-medium text-[var(--foreground)]">
-                    Доказательство {rowIndex + 1}
-                  </p>
-                  <Button
-                    onClick={() => {
-                      props.onChange(
-                        groups.map((entry) =>
-                          entry.id === group.id
-                            ? {
-                                ...entry,
-                                rows: entry.rows.filter((existingRow) => existingRow.id !== row.id),
-                              }
-                            : entry,
-                        ),
-                      );
-                    }}
-                    type="button"
-                    variant="secondary"
-                  >
-                    Удалить доказательство
-                  </Button>
-                </div>
-
-                <div className="grid gap-3 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`row-label-${row.id}`}>
-                      Название ссылки
-                    </label>
-                    <Input
-                      id={`row-label-${row.id}`}
-                      onChange={(event) => {
-                        props.onChange(
-                          groups.map((entry) =>
-                            entry.id === group.id
-                              ? {
-                                  ...entry,
-                                  rows: entry.rows.map((existingRow) =>
-                                    existingRow.id === row.id
-                                      ? { ...existingRow, label: event.target.value }
-                                      : existingRow,
-                                  ),
-                                }
-                              : entry,
-                          ),
-                        );
-                      }}
-                      placeholder="Например: Запись с бодикамеры"
-                      value={row.label}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`row-url-${row.id}`}>
-                      Ссылка
-                    </label>
-                    <Input
-                      id={`row-url-${row.id}`}
-                      onChange={(event) => {
-                        props.onChange(
-                          groups.map((entry) =>
-                            entry.id === group.id
-                              ? {
-                                  ...entry,
-                                  rows: entry.rows.map((existingRow) =>
-                                    existingRow.id === row.id
-                                      ? { ...existingRow, url: event.target.value }
-                                      : existingRow,
-                                  ),
-                                }
-                              : entry,
-                          ),
-                        );
-                      }}
-                      placeholder="https://..."
-                      value={row.url}
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`row-note-${row.id}`}>
-                    Комментарий к ссылке
-                  </label>
-                  <Textarea
-                    id={`row-note-${row.id}`}
-                    onChange={(event) => {
-                      props.onChange(
-                        groups.map((entry) =>
-                          entry.id === group.id
-                            ? {
-                                ...entry,
-                                rows: entry.rows.map((existingRow) =>
-                                  existingRow.id === row.id
-                                    ? { ...existingRow, note: event.target.value }
-                                    : existingRow,
-                                ),
-                              }
-                            : entry,
-                        ),
-                      );
-                    }}
-                    placeholder="Короткое пояснение, что именно подтверждает эта ссылка."
-                    value={row.note}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <Button
-            onClick={() => {
-              props.onChange(
-                groups.map((entry) =>
-                  entry.id === group.id
-                    ? {
-                        ...entry,
-                        rows: [...entry.rows, buildEmptyEvidenceRow()],
-                      }
-                    : entry,
-                ),
-              );
-            }}
-            type="button"
-            variant="secondary"
-          >
-            Добавить доказательство
-          </Button>
         </div>
       ))}
 
       <Button
         onClick={() => {
-          props.onChange([...groups, buildEmptyEvidenceGroup()]);
+          props.onChange([...items, buildEmptyEvidenceItem(items.length)]);
         }}
         type="button"
         variant="secondary"
       >
-        Добавить группу доказательств
+        Добавить доказательство
       </Button>
     </div>
   );
@@ -1081,14 +1038,14 @@ function ComplaintFormFields(props: {
             Добавьте ссылки на материалы, которые подтверждают обстоятельства жалобы.
           </ComplaintFieldHint>
         </div>
-        <EvidenceGroupsEditor
-          evidenceGroups={payload.evidenceGroups}
-          onChange={(groups) => {
+        <EvidenceItemsEditor
+          evidenceItems={payload.evidenceItems}
+          onChange={(items) => {
             props.onStateChange({
               ...props.state,
               payload: {
                 ...payload,
-                evidenceGroups: groups,
+                evidenceItems: items,
               },
             });
           }}

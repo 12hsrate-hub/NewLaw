@@ -109,7 +109,7 @@ describe("document persistence foundation", () => {
     );
   });
 
-  it("representative filing доступен только при advocate и сохраняет trustor snapshot с evidence rows", async () => {
+  it("representative filing доступен только при advocate и сохраняет trustor snapshot с flat evidence items", async () => {
     const createDocumentRecord = vi.fn().mockResolvedValue({
       id: "document-1",
       status: "draft",
@@ -146,18 +146,14 @@ describe("document persistence foundation", () => {
             passportImageUrl: "https://example.com/trustor-passport.png",
             note: "Действую по доверенности",
           },
-          evidenceGroups: [
+          evidenceItems: [
             {
-              id: "group-1",
-              title: "Видео",
-              rows: [
-                {
-                  id: "row-1",
-                  label: "Запись 1",
-                  url: "https://example.com/video-1",
-                  note: "Основной ролик",
-                },
-              ],
+              id: "item-1",
+              mode: "custom",
+              templateKey: null,
+              labelSnapshot: "Запись 1",
+              url: "https://example.com/video-1",
+              sortOrder: 0,
             },
           ],
         },
@@ -207,15 +203,10 @@ describe("document persistence foundation", () => {
             icEmail: "trustor@example.com",
             passportImageUrl: "https://example.com/trustor-passport.png",
           }),
-          evidenceGroups: [
+          evidenceItems: [
             expect.objectContaining({
-              title: "Видео",
-              rows: [
-                expect.objectContaining({
-                  label: "Запись 1",
-                  url: "https://example.com/video-1",
-                }),
-              ],
+              labelSnapshot: "Запись 1",
+              url: "https://example.com/video-1",
             }),
           ],
         }),
