@@ -88,7 +88,7 @@ describe("document.repository", () => {
         generatedArtifactJson: {
           family: "attorney_request",
           format: "attorney_request_preview_pdf_png_jpg_v2",
-          rendererVersion: "attorney_request_renderer_v24_justified_main_block_pass",
+          rendererVersion: "attorney_request_renderer_v25_signature_snapshot_pass",
           previewHtml: "<main>preview</main>",
           previewText: "new preview",
           pdfDataUrl: "data:application/pdf;base64,JVBERi0=",
@@ -101,7 +101,15 @@ describe("document.repository", () => {
         generatedAt: new Date("2026-04-23T12:00:00.000Z"),
         generatedFormSchemaVersion: "attorney_request_v1",
         generatedOutputFormat: "attorney_request_preview_pdf_png_jpg_v2",
-        generatedRendererVersion: "attorney_request_renderer_v24_justified_main_block_pass",
+        generatedRendererVersion: "attorney_request_renderer_v25_signature_snapshot_pass",
+        signatureSnapshotJson: {
+          signatureId: "signature-1",
+          storagePath: "servers/server-1/characters/character-1/signatures/signature-1.png",
+          mimeType: "image/png",
+          width: 600,
+          height: 200,
+          fileSize: 180000,
+        },
       },
       db as never,
     );
@@ -113,6 +121,14 @@ describe("document.repository", () => {
       data: expect.objectContaining({
         status: "generated",
         generatedArtifactText: "new preview",
+        signatureSnapshotJson: {
+          signatureId: "signature-1",
+          storagePath: "servers/server-1/characters/character-1/signatures/signature-1.png",
+          mimeType: "image/png",
+          width: 600,
+          height: 200,
+          fileSize: 180000,
+        },
         isModifiedAfterGeneration: false,
         publicationUrl: null,
       }),

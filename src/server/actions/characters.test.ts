@@ -45,8 +45,21 @@ vi.mock("@/server/app-shell/selection", () => ({
   setActiveCharacterSelection: vi.fn(),
 }));
 
+vi.mock("@/server/character-signatures/service", () => ({
+  CharacterSignatureAccessDeniedError: class CharacterSignatureAccessDeniedError extends Error {},
+  CharacterSignatureDimensionsError: class CharacterSignatureDimensionsError extends Error {},
+  CharacterSignatureFileTooLargeError: class CharacterSignatureFileTooLargeError extends Error {},
+  CharacterSignatureInvalidFormatError: class CharacterSignatureInvalidFormatError extends Error {},
+  CharacterSignatureMissingFileError: class CharacterSignatureMissingFileError extends Error {},
+  CharacterSignatureStorageUnavailableError: class CharacterSignatureStorageUnavailableError extends Error {},
+  uploadCharacterSignatureForCharacter: vi.fn(),
+  detachActiveCharacterSignatureForCharacter: vi.fn(),
+}));
+
 import {
   createCharacterAction,
+  removeActiveCharacterSignatureAction,
+  uploadCharacterSignatureAction,
   updateCharacterAction,
 } from "@/server/actions/characters";
 import {
@@ -63,6 +76,11 @@ import {
 import { requireProtectedAccountContext } from "@/server/auth/protected";
 import { countCharactersByServer } from "@/db/repositories/character.repository";
 import { setInitialDefaultCharacterIfMissing } from "@/db/repositories/user-server-state.repository";
+import {
+  CharacterSignatureAccessDeniedError,
+  uploadCharacterSignatureForCharacter,
+  detachActiveCharacterSignatureForCharacter,
+} from "@/server/character-signatures/service";
 
 function expectRedirect(promise: Promise<unknown>, path: string) {
   return expect(promise).rejects.toThrow(`NEXT_REDIRECT:${path}`);
@@ -315,5 +333,76 @@ describe("character actions", () => {
 
     await expectRedirect(createCharacterAction(formData), "/app?status=character-create-error");
     expect(createCharacterManually).not.toHaveBeenCalled();
+  });
+
+  it("загружает подпись персонажа и возвращает warning status для не-png варианта", async () => {
+    vi.mocked(uploadCharacterSignatureForCharacter).mockResolvedValue({
+      signature: {
+        id: "signature-1",
+      },
+      warning: "Для лучшего отображения в документах рекомендуется использовать PNG с прозрачным фоном.",
+      snapshot: {
+        signatureId: "signature-1",
+        storagePath: "servers/server-1/characters/character-1/signatures/signature-1.jpg",
+        mimeType: "image/jpeg",
+        width: 600,
+        height: 200,
+        fileSize: 120000,
+      },
+    } as never);
+
+    const formData = new FormData();
+    formData.set("characterId", "character-1");
+    formData.set("redirectTo", "/account/characters?server=blackberry");
+    formData.set(
+      "signatureFile",
+      new File([new Uint8Array([1, 2, 3])], "signature.jpg", {
+        type: "image/jpeg",
+      }),
+    );
+
+    await expectRedirect(
+      uploadCharacterSignatureAction(formData),
+      "/account/characters?server=blackberry&status=character-signature-uploaded-warning",
+    );
+
+    expect(uploadCharacterSignatureForCharacter).toHaveBeenCalledWith({
+      accountId: "21631886-7b4d-4be2-b6e9-95322d0dca41",
+      characterId: "character-1",
+      file: expect.any(File),
+    });
+  });
+
+  it("безопасно отвязывает активную подпись персонажа", async () => {
+    vi.mocked(detachActiveCharacterSignatureForCharacter).mockResolvedValue({} as never);
+
+    const formData = new FormData();
+    formData.set("characterId", "character-1");
+    formData.set("redirectTo", "/account/characters?server=blackberry");
+
+    await expectRedirect(
+      removeActiveCharacterSignatureAction(formData),
+      "/account/characters?server=blackberry&status=character-signature-removed",
+    );
+
+    expect(detachActiveCharacterSignatureForCharacter).toHaveBeenCalledWith({
+      accountId: "21631886-7b4d-4be2-b6e9-95322d0dca41",
+      characterId: "character-1",
+    });
+  });
+
+  it("не даёт менять подпись чужого персонажа", async () => {
+    vi.mocked(detachActiveCharacterSignatureForCharacter).mockRejectedValue(
+      new CharacterSignatureAccessDeniedError(),
+    );
+
+    const formData = new FormData();
+    formData.set("characterId", "character-404");
+    formData.set("redirectTo", "/account/characters?server=blackberry");
+
+    await expectRedirect(
+      removeActiveCharacterSignatureAction(formData),
+      "/account/characters?server=blackberry&status=character-signature-access-denied",
+    );
   });
 });

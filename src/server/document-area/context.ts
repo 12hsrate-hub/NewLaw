@@ -17,6 +17,7 @@ import {
   isClaimsDocumentType,
   readOgpComplaintDraftPayload,
   readAttorneyRequestDraftPayload,
+  readDocumentSignatureSnapshot,
 } from "@/server/document-area/persistence";
 import { readClaimsGeneratedArtifact } from "@/server/document-area/claims-rendering";
 import {
@@ -30,6 +31,7 @@ import type { TrustorRegistryPrefillOption } from "@/lib/trustors/registry-prefi
 import type {
   ClaimDocumentType,
   ClaimsDraftPayload,
+  DocumentSignatureSnapshot,
   ClaimsRenderedOutput,
   OgpForumSyncState,
   OgpComplaintDraftPayload,
@@ -107,6 +109,7 @@ type SelectableCharacterSummary = {
   isProfileComplete: boolean;
   canUseRepresentative: boolean;
   canCreateAttorneyRequest?: boolean;
+  hasActiveSignature?: boolean;
 };
 
 type SelectedCharacterSummary = SelectableCharacterSummary & {
@@ -121,6 +124,12 @@ type CharacterSummaryInput = {
   fullName: string;
   passportNumber: string;
   isProfileComplete: boolean;
+  activeSignature?:
+    | {
+        id: string;
+        storagePath: string;
+      }
+    | null;
   accessFlags: Array<{
     flagKey: string;
   }>;
@@ -294,6 +303,8 @@ type AttorneyRequestEditorRouteContext =
           accessFlags: string[];
           isProfileComplete: boolean;
         };
+        signatureSnapshot: DocumentSignatureSnapshot | null;
+        hasActiveCharacterSignature: boolean;
         payload: AttorneyRequestDraftPayload;
       };
     };
@@ -442,6 +453,7 @@ function buildSelectableCharacterSummary(character: CharacterSummaryInput) {
     isProfileComplete: character.isProfileComplete,
     canUseRepresentative: character.accessFlags.some((flag) => flag.flagKey === "advocate"),
     canCreateAttorneyRequest: character.roles.some((role) => role.roleKey === "lawyer"),
+    hasActiveSignature: Boolean(character.activeSignature),
   } satisfies SelectableCharacterSummary;
 }
 
@@ -453,6 +465,12 @@ function buildSelectedCharacterSummary(input: {
     fullName: string;
     passportNumber: string;
     isProfileComplete: boolean;
+    activeSignature?:
+      | {
+          id: string;
+          storagePath: string;
+        }
+      | null;
     accessFlags: Array<{
       flagKey: string;
     }>;
@@ -1167,6 +1185,7 @@ export async function getAttorneyRequestEditorRouteContext(input: {
   }
 
   const authorSnapshot = readDocumentAuthorSnapshot(document.authorSnapshotJson);
+  const signatureSnapshot = readDocumentSignatureSnapshot(document.signatureSnapshotJson);
   const payload = readAttorneyRequestDraftPayload(document.formPayloadJson);
   const generatedArtifact = readAttorneyRequestGeneratedArtifact(document.generatedArtifactJson);
 
@@ -1210,6 +1229,8 @@ export async function getAttorneyRequestEditorRouteContext(input: {
         accessFlags: authorSnapshot.accessFlags,
         isProfileComplete: authorSnapshot.isProfileComplete,
       },
+      signatureSnapshot,
+      hasActiveCharacterSignature: Boolean(document.character.activeSignature),
       payload,
     },
   };

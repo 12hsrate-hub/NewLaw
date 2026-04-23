@@ -9,6 +9,21 @@ import {
 import { getCharactersByServerSchema } from "@/schemas/server";
 
 type PrismaLike = PrismaClient;
+type CharacterWithAssignmentsBase = Prisma.CharacterGetPayload<{
+  include: {
+    roles: true;
+    accessFlags: true;
+    activeSignature: true;
+  };
+}>;
+
+export type CharacterWithAssignments = Omit<
+  CharacterWithAssignmentsBase,
+  "activeSignature" | "activeSignatureId"
+> & {
+  activeSignature?: CharacterWithAssignmentsBase["activeSignature"];
+  activeSignatureId?: CharacterWithAssignmentsBase["activeSignatureId"];
+};
 
 type CharacterQueryInput = {
   accountId: string;
@@ -36,7 +51,10 @@ type UpdateCharacterRecordInput = CreateCharacterRecordInput & {
   characterId: string;
 };
 
-export async function getCharactersByServer(input: CharacterQueryInput, db: PrismaLike = prisma) {
+export async function getCharactersByServer(
+  input: CharacterQueryInput,
+  db: PrismaLike = prisma,
+): Promise<CharacterWithAssignments[]> {
   const parsed = getCharactersByServerSchema.parse(input);
 
   return db.character.findMany({
@@ -48,12 +66,16 @@ export async function getCharactersByServer(input: CharacterQueryInput, db: Pris
     include: {
       roles: true,
       accessFlags: true,
+      activeSignature: true,
     },
     orderBy: [{ createdAt: "asc" }],
   });
 }
 
-export async function listCharactersForAccount(accountId: string, db: PrismaLike = prisma) {
+export async function listCharactersForAccount(
+  accountId: string,
+  db: PrismaLike = prisma,
+): Promise<CharacterWithAssignments[]> {
   return db.character.findMany({
     where: {
       accountId,
@@ -62,6 +84,7 @@ export async function listCharactersForAccount(accountId: string, db: PrismaLike
     include: {
       roles: true,
       accessFlags: true,
+      activeSignature: true,
     },
     orderBy: [{ serverId: "asc" }, { createdAt: "asc" }],
   });
@@ -73,7 +96,7 @@ export async function getCharacterByIdForAccount(
     characterId: string;
   },
   db: PrismaLike = prisma,
-) {
+): Promise<CharacterWithAssignments | null> {
   return db.character.findFirst({
     where: {
       id: characterIdSchema.parse(input.characterId),
@@ -83,6 +106,7 @@ export async function getCharacterByIdForAccount(
     include: {
       roles: true,
       accessFlags: true,
+      activeSignature: true,
     },
   });
 }
@@ -147,6 +171,7 @@ export async function createCharacterRecord(
     include: {
       roles: true,
       accessFlags: true,
+      activeSignature: true,
     },
   });
 }
@@ -181,6 +206,7 @@ export async function updateCharacterRecord(
     include: {
       roles: true,
       accessFlags: true,
+      activeSignature: true,
     },
   });
 }

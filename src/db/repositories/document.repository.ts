@@ -1,4 +1,4 @@
-import type { Prisma, PrismaClient } from "@prisma/client";
+import { Prisma, type PrismaClient } from "@prisma/client";
 
 import { prisma } from "@/db/prisma";
 import {
@@ -17,6 +17,55 @@ import {
 } from "@/schemas/document";
 
 type PrismaLike = PrismaClient | Prisma.TransactionClient;
+type DocumentBase = Prisma.DocumentGetPayload<Record<string, never>>;
+type DocumentWithServerBase = Prisma.DocumentGetPayload<{
+  include: {
+    server: true;
+  };
+}>;
+type DocumentWithServerAndCharacterBase = Prisma.DocumentGetPayload<{
+  include: {
+    server: true;
+    character: {
+      include: {
+        roles: true;
+        accessFlags: true;
+        activeSignature: true;
+      };
+    };
+  };
+}>;
+
+export type DocumentWithServer = Omit<DocumentWithServerBase, "signatureSnapshotJson"> & {
+  signatureSnapshotJson?: DocumentWithServerBase["signatureSnapshotJson"];
+};
+
+export type DocumentRecord = Omit<DocumentBase, "signatureSnapshotJson"> & {
+  signatureSnapshotJson?: DocumentBase["signatureSnapshotJson"];
+};
+
+export type DocumentWithServerAndCharacter = Omit<
+  DocumentWithServerAndCharacterBase,
+  "signatureSnapshotJson" | "character"
+> & {
+  signatureSnapshotJson?: DocumentWithServerAndCharacterBase["signatureSnapshotJson"];
+  character: Omit<DocumentWithServerAndCharacterBase["character"], "activeSignature" | "activeSignatureId"> & {
+    activeSignature?: DocumentWithServerAndCharacterBase["character"]["activeSignature"];
+    activeSignatureId?: DocumentWithServerAndCharacterBase["character"]["activeSignatureId"];
+  };
+};
+
+function toNullableJsonInput(value: Record<string, unknown> | Prisma.JsonValue | null | undefined) {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (value === null) {
+    return Prisma.JsonNull;
+  }
+
+  return value as Prisma.InputJsonValue;
+}
 
 export async function createDocumentRecord(
   input: {
@@ -29,10 +78,11 @@ export async function createDocumentRecord(
     formSchemaVersion: string;
     snapshotCapturedAt: Date;
     authorSnapshotJson: Record<string, unknown>;
+    signatureSnapshotJson?: Record<string, unknown> | null;
     formPayloadJson?: Record<string, unknown>;
   },
   db: PrismaLike = prisma,
-) {
+): Promise<DocumentWithServerAndCharacter> {
   const parsed = createDocumentDraftInputSchema.parse(input);
 
   return db.document.create({
@@ -47,6 +97,7 @@ export async function createDocumentRecord(
       formSchemaVersion: parsed.formSchemaVersion,
       snapshotCapturedAt: parsed.snapshotCapturedAt,
       authorSnapshotJson: parsed.authorSnapshotJson as Prisma.InputJsonValue,
+      signatureSnapshotJson: toNullableJsonInput(parsed.signatureSnapshotJson ?? null),
       formPayloadJson: (parsed.formPayloadJson ?? {}) as Prisma.InputJsonValue,
     },
     include: {
@@ -55,6 +106,7 @@ export async function createDocumentRecord(
         include: {
           roles: true,
           accessFlags: true,
+          activeSignature: true,
         },
       },
     },
@@ -67,7 +119,7 @@ export async function getDocumentByIdForAccount(
     documentId: string;
   },
   db: PrismaLike = prisma,
-) {
+): Promise<DocumentWithServerAndCharacter | null> {
   return db.document.findFirst({
     where: {
       id: documentIdSchema.parse(input.documentId),
@@ -80,13 +132,17 @@ export async function getDocumentByIdForAccount(
         include: {
           roles: true,
           accessFlags: true,
+          activeSignature: true,
         },
       },
     },
   });
 }
 
-export async function listDocumentsByAccount(accountId: string, db: PrismaLike = prisma) {
+export async function listDocumentsByAccount(
+  accountId: string,
+  db: PrismaLike = prisma,
+): Promise<DocumentWithServer[]> {
   return db.document.findMany({
     where: {
       accountId,
@@ -106,7 +162,7 @@ export async function listDocumentsByAccountAndServerAndType(
     documentType: DocumentType;
   },
   db: PrismaLike = prisma,
-) {
+): Promise<DocumentRecord[]> {
   return db.document.findMany({
     where: {
       accountId: input.accountId,
@@ -317,6 +373,7 @@ export async function markClaimsDocumentGeneratedRecord(
     generatedFormSchemaVersion: string;
     generatedOutputFormat: string;
     generatedRendererVersion: string;
+    signatureSnapshotJson?: Record<string, unknown> | null;
   },
   db: PrismaLike = prisma,
 ) {
@@ -357,6 +414,10 @@ export async function markClaimsDocumentGeneratedRecord(
       generatedRendererVersion: parsedGeneratedRendererVersion,
       generatedAt: input.generatedAt,
       generatedFormSchemaVersion: parsedGeneratedFormSchemaVersion,
+      signatureSnapshotJson:
+        input.signatureSnapshotJson === undefined
+          ? toNullableJsonInput(existingDocument.signatureSnapshotJson)
+          : toNullableJsonInput(input.signatureSnapshotJson),
       isModifiedAfterGeneration: false,
       publicationUrl: null,
       isSiteForumSynced: false,
@@ -378,6 +439,7 @@ export async function markAttorneyRequestGeneratedRecord(
     generatedFormSchemaVersion: string;
     generatedOutputFormat: string;
     generatedRendererVersion: string;
+    signatureSnapshotJson?: Record<string, unknown> | null;
   },
   db: PrismaLike = prisma,
 ) {
@@ -417,6 +479,10 @@ export async function markAttorneyRequestGeneratedRecord(
       generatedRendererVersion: parsedGeneratedRendererVersion,
       generatedAt: input.generatedAt,
       generatedFormSchemaVersion: parsedGeneratedFormSchemaVersion,
+      signatureSnapshotJson:
+        input.signatureSnapshotJson === undefined
+          ? toNullableJsonInput(existingDocument.signatureSnapshotJson)
+          : toNullableJsonInput(input.signatureSnapshotJson),
       isModifiedAfterGeneration: false,
       publicationUrl: null,
       isSiteForumSynced: false,

@@ -99,8 +99,8 @@ const headerConfig = {
 const footerConfig = {
   topY: 924 - footerBandConfig.liftY,
   signatureY: 824 - footerBandConfig.liftY,
-  signatureWidth: mm(35),
-  signatureHeight: mm(38),
+  signatureWidth: mm(38),
+  signatureHeight: mm(16),
   leftRoleWidth: mm(24),
   centerTopY: 1008 - footerBandConfig.liftY,
   centerTitleY: 1020 - footerBandConfig.liftY,
@@ -164,7 +164,7 @@ const assetConfig = {
     "image/jpeg",
   ),
   signatureDataUrl: null as string | null,
-} as const;
+};
 
 const visualReferenceConfig = {
   referenceName: "attorney_request_1703",
@@ -1174,38 +1174,45 @@ export async function renderAttorneyRequestArtifact(input: {
   title: string;
   authorSnapshot: DocumentAuthorSnapshot;
   payload: AttorneyRequestDraftPayload;
+  signatureDataUrl?: string | null;
 }) {
-  const blockingReasons = validateAttorneyRequestForGeneration(input);
+  assetConfig.signatureDataUrl = input.signatureDataUrl ?? null;
 
-  if (blockingReasons.length > 0) {
-    throw new AttorneyRequestGenerationBlockedError(blockingReasons);
+  try {
+    const blockingReasons = validateAttorneyRequestForGeneration(input);
+
+    if (blockingReasons.length > 0) {
+      throw new AttorneyRequestGenerationBlockedError(blockingReasons);
+    }
+
+    const previewText = buildPreviewText(input);
+    const { svg: pageSvg, contentBottomY } = await buildPageSvg(input);
+
+    if (contentBottomY > MAX_BODY_Y) {
+      throw new AttorneyRequestGenerationBlockedError([
+        "Документ не помещается в одну страницу. Сократите редактируемые пункты раздела 1 или раздела 3.",
+      ]);
+    }
+
+    const previewHtml = buildPreviewHtml({
+      title: input.title,
+      pageSvg,
+    });
+    const { pdfDataUrl, pngDataUrl, jpgDataUrl } = await buildPdfPngAndJpgDataUrls(pageSvg);
+
+    return {
+      family: "attorney_request" as const,
+      format: ATTORNEY_REQUEST_OUTPUT_FORMAT,
+      rendererVersion: ATTORNEY_REQUEST_RENDERER_VERSION,
+      previewHtml,
+      previewText,
+      pdfDataUrl,
+      pngDataUrl,
+      jpgDataUrl,
+      pageCount: 1 as const,
+      blockingReasons: [],
+    };
+  } finally {
+    assetConfig.signatureDataUrl = null;
   }
-
-  const previewText = buildPreviewText(input);
-  const { svg: pageSvg, contentBottomY } = await buildPageSvg(input);
-
-  if (contentBottomY > MAX_BODY_Y) {
-    throw new AttorneyRequestGenerationBlockedError([
-      "Документ не помещается в одну страницу. Сократите редактируемые пункты раздела 1 или раздела 3.",
-    ]);
-  }
-
-  const previewHtml = buildPreviewHtml({
-    title: input.title,
-    pageSvg,
-  });
-  const { pdfDataUrl, pngDataUrl, jpgDataUrl } = await buildPdfPngAndJpgDataUrls(pageSvg);
-
-  return {
-    family: "attorney_request" as const,
-    format: ATTORNEY_REQUEST_OUTPUT_FORMAT,
-    rendererVersion: ATTORNEY_REQUEST_RENDERER_VERSION,
-    previewHtml,
-    previewText,
-    pdfDataUrl,
-    pngDataUrl,
-    jpgDataUrl,
-    pageCount: 1 as const,
-    blockingReasons: [],
-  };
 }

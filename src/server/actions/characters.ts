@@ -8,6 +8,7 @@ import {
   buildCharacterProfileDataJson,
   isOgpCharacterProfileComplete,
 } from "@/lib/ogp/generation-contract";
+import { characterSignatureActionInputSchema } from "@/schemas/character-signature";
 import {
   type CharacterAccessFlagKey,
   characterAccessFlagKeySchema,
@@ -28,6 +29,16 @@ import {
   createCharacterManually,
   updateCharacterManually,
 } from "@/server/characters/manual-character";
+import {
+  CharacterSignatureAccessDeniedError,
+  CharacterSignatureDimensionsError,
+  CharacterSignatureFileTooLargeError,
+  CharacterSignatureInvalidFormatError,
+  CharacterSignatureMissingFileError,
+  CharacterSignatureStorageUnavailableError,
+  detachActiveCharacterSignatureForCharacter,
+  uploadCharacterSignatureForCharacter,
+} from "@/server/character-signatures/service";
 import { requireProtectedAccountContext } from "@/server/auth/protected";
 import {
   setActiveCharacterSelection,
@@ -251,5 +262,90 @@ export async function updateCharacterAction(formData: FormData) {
     }
 
     redirect(buildStatusRedirect(redirectTo, "character-update-error"));
+  }
+}
+
+function readCharacterSignatureActionInput(formData: FormData) {
+  return characterSignatureActionInputSchema.parse({
+    characterId: String(formData.get("characterId") ?? ""),
+    redirectTo: getRedirectTarget(formData),
+  });
+}
+
+function revalidateCharacterSignatureRoutes(redirectTo: string) {
+  revalidatePath("/account");
+  revalidatePath("/account/characters");
+  revalidatePath(redirectTo);
+}
+
+export async function uploadCharacterSignatureAction(formData: FormData) {
+  const { redirectTo, characterId } = readCharacterSignatureActionInput(formData);
+  const { account } = await requireProtectedAccountContext(redirectTo, undefined, {
+    allowMustChangePassword: true,
+  });
+
+  try {
+    const result = await uploadCharacterSignatureForCharacter({
+      accountId: account.id,
+      characterId,
+      file: formData.get("signatureFile") instanceof File ? (formData.get("signatureFile") as File) : null,
+    });
+
+    revalidateCharacterSignatureRoutes(redirectTo);
+    redirect(
+      buildStatusRedirect(
+        redirectTo,
+        result.warning ? "character-signature-uploaded-warning" : "character-signature-uploaded",
+      ),
+    );
+  } catch (error) {
+    if (error instanceof CharacterSignatureAccessDeniedError) {
+      redirect(buildStatusRedirect(redirectTo, "character-signature-access-denied"));
+    }
+
+    if (error instanceof CharacterSignatureMissingFileError) {
+      redirect(buildStatusRedirect(redirectTo, "character-signature-missing-file"));
+    }
+
+    if (error instanceof CharacterSignatureInvalidFormatError) {
+      redirect(buildStatusRedirect(redirectTo, "character-signature-invalid-format"));
+    }
+
+    if (error instanceof CharacterSignatureFileTooLargeError) {
+      redirect(buildStatusRedirect(redirectTo, "character-signature-file-too-large"));
+    }
+
+    if (error instanceof CharacterSignatureDimensionsError) {
+      redirect(buildStatusRedirect(redirectTo, "character-signature-invalid-dimensions"));
+    }
+
+    if (error instanceof CharacterSignatureStorageUnavailableError) {
+      redirect(buildStatusRedirect(redirectTo, "character-signature-upload-error"));
+    }
+
+    throw error;
+  }
+}
+
+export async function removeActiveCharacterSignatureAction(formData: FormData) {
+  const { redirectTo, characterId } = readCharacterSignatureActionInput(formData);
+  const { account } = await requireProtectedAccountContext(redirectTo, undefined, {
+    allowMustChangePassword: true,
+  });
+
+  try {
+    await detachActiveCharacterSignatureForCharacter({
+      accountId: account.id,
+      characterId,
+    });
+
+    revalidateCharacterSignatureRoutes(redirectTo);
+    redirect(buildStatusRedirect(redirectTo, "character-signature-removed"));
+  } catch (error) {
+    if (error instanceof CharacterSignatureAccessDeniedError) {
+      redirect(buildStatusRedirect(redirectTo, "character-signature-access-denied"));
+    }
+
+    throw error;
   }
 }

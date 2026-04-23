@@ -10,6 +10,10 @@ vi.mock("@/components/product/characters/character-form-card", () => ({
     `CharacterFormCard:${props.mode}:${props.surface ?? "app_shell"}`,
 }));
 
+vi.mock("@/components/product/characters/character-signature-card", () => ({
+  CharacterSignatureCard: (props: { characterId: string }) => `CharacterSignatureCard:${props.characterId}`,
+}));
+
 import AccountCharactersPage from "@/app/account/characters/page";
 import { getAccountCharactersOverviewContext } from "@/server/account-zone/characters";
 
@@ -48,12 +52,19 @@ describe("/account/characters page", () => {
               hasProfileData: true,
               compactProfileSummary: "Сохранено 2 дополнительных полей профиля",
               profileNote: "Профиль для account zone",
-              profileSignature: "И. Юристов",
               position: "Адвокат",
               address: "Дом 10",
               phone: "123-45-67",
               icEmail: "lawyer@example.com",
               passportImageUrl: "https://example.com/passport.png",
+              activeSignature: {
+                id: "signature-1",
+                previewUrl: "https://example.com/signature.png",
+                mimeType: "image/png",
+                width: 600,
+                height: 200,
+                fileSize: 200000,
+              },
               isDefaultForServer: true,
             },
           ],
@@ -96,7 +107,8 @@ describe("/account/characters page", () => {
     expect(html).toContain("Сохранено 2 дополнительных полей профиля");
     expect(html).toContain("Карточка персонажа сохранена");
     expect(html).toContain("Создать персонажа на этом сервере");
-    expect(html).toContain("И. Юристов");
+    expect(html).toContain("Подпись для документов");
+    expect(html).toContain("CharacterSignatureCard:character-1");
     expect(html).toContain('/account/characters?server=blackberry#create-character-blackberry');
     expect(html).not.toContain("Жалобы в ОГП");
     expect(html).not.toContain("Claims");

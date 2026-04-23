@@ -6,6 +6,7 @@ import {
   buildAccountCharactersBridgeHref,
   buildAccountCharactersFocusHref,
 } from "@/lib/routes/account-characters";
+import { createCharacterSignaturePreviewUrl } from "@/server/character-signatures/service";
 import { requireProtectedAccountContext } from "@/server/auth/protected";
 
 type AccountCharactersViewerSummary = {
@@ -25,12 +26,20 @@ export type AccountCharactersCharacterSummary = {
   hasProfileData: boolean;
   compactProfileSummary: string | null;
   profileNote: string | null;
-  profileSignature: string | null;
+  profileSignature?: string | null;
   position: string | null;
   address: string | null;
   phone: string | null;
   icEmail: string | null;
   passportImageUrl: string | null;
+  activeSignature: {
+    id: string;
+    previewUrl: string | null;
+    mimeType: string;
+    width: number;
+    height: number;
+    fileSize: number;
+  } | null;
   isDefaultForServer: boolean;
 };
 
@@ -90,7 +99,7 @@ function buildCompactProfileSummary(profileDataJson: unknown): {
   hasProfileData: boolean;
   compactProfileSummary: string | null;
   profileNote: string | null;
-  profileSignature: string | null;
+  profileSignature?: string | null;
   position: string | null;
   address: string | null;
   phone: string | null;
@@ -166,7 +175,7 @@ export async function getAccountCharactersOverviewContext(input: {
     getUserServerStates(account.id),
   ]);
 
-  const serverGroups = servers.map((server) => {
+  const serverGroups = await Promise.all(servers.map(async (server) => {
     const serverCharacters = characters.filter((character) => character.serverId === server.id);
     const serverState =
       userServerStates.find((state) => state.serverId === server.id && state.activeCharacterId) ?? null;
@@ -190,8 +199,18 @@ export async function getAccountCharactersOverviewContext(input: {
       createBridgeHref: buildAccountCharactersBridgeHref(server.code),
       focusHref: buildAccountCharactersFocusHref(server.code),
       isFocused: focusedServerCode === server.code.toLowerCase(),
-      characters: serverCharacters.map((character) => {
+      characters: await Promise.all(serverCharacters.map(async (character) => {
         const profileDataSummary = buildCompactProfileSummary(character.profileDataJson);
+        const activeSignature = character.activeSignature
+          ? {
+              id: character.activeSignature.id,
+              previewUrl: await createCharacterSignaturePreviewUrl(character.activeSignature.storagePath),
+              mimeType: character.activeSignature.mimeType,
+              width: character.activeSignature.width,
+              height: character.activeSignature.height,
+              fileSize: character.activeSignature.fileSize,
+            }
+          : null;
 
         return {
           id: character.id,
@@ -210,11 +229,12 @@ export async function getAccountCharactersOverviewContext(input: {
           phone: profileDataSummary.phone,
           icEmail: profileDataSummary.icEmail,
           passportImageUrl: profileDataSummary.passportImageUrl,
+          activeSignature,
           isDefaultForServer: defaultCharacter?.id === character.id,
         };
-      }),
+      })),
     };
-  });
+  }));
 
   serverGroups.sort((left, right) => {
     if (left.isFocused !== right.isFocused) {

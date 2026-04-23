@@ -588,6 +588,7 @@ export function AttorneyRequestDraftCreateEntry(props: {
     passportNumber: string;
     isProfileComplete: boolean;
     canCreateAttorneyRequest?: boolean;
+    hasActiveSignature: boolean;
   }>;
   selectedCharacter: {
     id: string;
@@ -596,6 +597,7 @@ export function AttorneyRequestDraftCreateEntry(props: {
     source: "last_used" | "first_available";
     isProfileComplete: boolean;
     canCreateAttorneyRequest?: boolean;
+    hasActiveSignature: boolean;
   };
   trustorRegistry: DocumentTrustorRegistrySummary[];
   status?: string;
@@ -1133,6 +1135,15 @@ export function AttorneyRequestPersistedEditor(props: {
     generatedRendererVersion: string | null;
     generatedArtifact: AttorneyRequestRenderedArtifact | null;
     isModifiedAfterGeneration: boolean;
+    hasActiveCharacterSignature: boolean;
+    signatureSnapshot: {
+      signatureId: string;
+      storagePath: string;
+      mimeType: string;
+      width: number;
+      height: number;
+      fileSize: number;
+    } | null;
     server: {
       code: string;
       name: string;
@@ -1199,6 +1210,15 @@ export function AttorneyRequestPersistedEditor(props: {
             {props.document.payload.signerTitleSnapshot?.bodyRu ?? props.document.authorSnapshot.position ?? "не указана"}
           </li>
           <li>
+            Подпись персонажа в документе:{" "}
+            {props.document.signatureSnapshot
+              ? "снимок подписи уже зафиксирован"
+              : props.document.hasActiveCharacterSignature
+                ? "текущая активная подпись будет зафиксирована при генерации"
+                : "активная подпись пока не загружена"}
+            .
+          </li>
+          <li>
             Генерация: {props.document.generatedAt ? "результат уже создан" : "ещё не выполнялась"}.
           </li>
           <li>
@@ -1215,6 +1235,8 @@ export function AttorneyRequestPersistedEditor(props: {
           generatedAt={props.document.generatedAt}
           generatedOutputFormat={props.document.generatedOutputFormat}
           generatedRendererVersion={props.document.generatedRendererVersion}
+          hasActiveCharacterSignature={props.document.hasActiveCharacterSignature}
+          hasSignatureSnapshot={props.document.signatureSnapshot !== null}
           initialPayload={props.document.payload}
           initialTitle={props.document.title}
           isModifiedAfterGeneration={props.document.isModifiedAfterGeneration}

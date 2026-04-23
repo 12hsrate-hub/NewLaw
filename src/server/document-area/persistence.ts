@@ -20,6 +20,9 @@ import {
 } from "@/features/documents/attorney-request/schemas";
 import { ATTORNEY_REQUEST_FORM_SCHEMA_VERSION } from "@/features/documents/attorney-request/types";
 import {
+  buildCharacterSignatureSnapshotFromActiveSignature,
+} from "@/server/character-signatures/service";
+import {
   normalizeIcEmail,
   normalizePassportNumber,
   normalizePhone,
@@ -32,6 +35,7 @@ import {
   createClaimDraftActionInputSchema,
   createOgpComplaintDraftActionInputSchema,
   documentAuthorSnapshotSchema,
+  documentSignatureSnapshotSchema,
   documentTitleSchema,
   lawsuitClaimDraftPayloadSchema,
   ogpComplaintDraftPayloadSchema,
@@ -40,6 +44,7 @@ import {
   type ClaimDocumentType,
   type ClaimsDraftPayload,
   type DocumentAuthorSnapshot,
+  type DocumentSignatureSnapshot,
   type OgpComplaintDraftPayload,
 } from "@/schemas/document";
 
@@ -556,6 +561,14 @@ export function readDocumentAuthorSnapshot(snapshot: unknown) {
   return documentAuthorSnapshotSchema.parse(snapshot);
 }
 
+export function readDocumentSignatureSnapshot(snapshot: unknown): DocumentSignatureSnapshot | null {
+  if (!snapshot) {
+    return null;
+  }
+
+  return documentSignatureSnapshotSchema.parse(snapshot);
+}
+
 export function readOgpComplaintDraftPayload(payload: unknown) {
   try {
     return normalizeOgpComplaintDraftPayload(payload);
@@ -786,6 +799,9 @@ export async function createInitialAttorneyRequestDraft(
     trustorSnapshot,
     capturedAt,
   });
+  const signatureSnapshot = buildCharacterSignatureSnapshotFromActiveSignature({
+    activeSignature: character.activeSignature,
+  });
 
   const createdDocument = await dependencies.createDocumentRecord({
     accountId: input.accountId,
@@ -800,6 +816,7 @@ export async function createInitialAttorneyRequestDraft(
     formSchemaVersion: ATTORNEY_REQUEST_FORM_SCHEMA_VERSION,
     snapshotCapturedAt: capturedAt,
     authorSnapshotJson: authorSnapshot,
+    signatureSnapshotJson: signatureSnapshot,
     formPayloadJson: payload,
   });
 

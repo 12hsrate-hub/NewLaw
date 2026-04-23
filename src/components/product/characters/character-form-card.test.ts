@@ -25,7 +25,6 @@ describe("character form card", () => {
           icEmail: "alice.stone@example.com",
           passportImageUrl: "https://example.com/passport.png",
           profileNote: "Профиль для account zone",
-          profileSignature: "А. Стоун",
           roleKeys: ["lawyer"],
         },
         mode: "edit",
@@ -41,7 +40,6 @@ describe("character form card", () => {
     expect(html).toContain("Компактный профиль персонажа");
     expect(html).toContain('name="nickname"');
     expect(html).toContain('value="alice.stone"');
-    expect(html).toContain('name="profileSignature"');
     expect(html).toContain("Система сама проверит");
     expect(html).toContain('value="Адвокат"');
     expect(html).toContain('value="123-45-67"');

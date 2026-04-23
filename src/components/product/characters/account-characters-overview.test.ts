@@ -7,6 +7,10 @@ vi.mock("@/components/product/characters/character-form-card", () => ({
     `CharacterFormCard:${props.mode}:${props.selectionBehavior ?? "app_shell"}:${props.surface ?? "app_shell"}`,
 }));
 
+vi.mock("@/components/product/characters/character-signature-card", () => ({
+  CharacterSignatureCard: (props: { characterId: string }) => `CharacterSignatureCard:${props.characterId}`,
+}));
+
 import { AccountCharactersOverview } from "@/components/product/characters/account-characters-overview";
 
 describe("account characters overview", () => {
@@ -46,12 +50,19 @@ describe("account characters overview", () => {
                   hasProfileData: true,
                   compactProfileSummary: "Сохранено 2 дополнительных полей профиля",
                   profileNote: "Профиль для account zone",
-                  profileSignature: "И. Юристов",
                   position: "Адвокат",
                   address: "Дом 10",
                   phone: "123-45-67",
                   icEmail: "lawyer@example.com",
                   passportImageUrl: "https://example.com/passport.png",
+                  activeSignature: {
+                    id: "signature-1",
+                    previewUrl: "https://example.com/signature.png",
+                    mimeType: "image/png",
+                    width: 600,
+                    height: 200,
+                    fileSize: 200000,
+                  },
                   isDefaultForServer: true,
                 },
               ],
@@ -80,9 +91,11 @@ describe("account characters overview", () => {
     expect(html).toContain("Мои персонажи");
     expect(html).toContain("CharacterFormCard:create:account_zone:account_zone");
     expect(html).toContain("CharacterFormCard:edit:account_zone:account_zone");
+    expect(html).toContain("CharacterSignatureCard:character-1");
     expect(html).toContain('/account/characters?server=blackberry#create-character-blackberry');
     expect(html).toContain("Карточка персонажа сохранена");
     expect(html).toContain("Заметка профиля");
+    expect(html).toContain("Подпись для документов");
     expect(html).toContain("Персонажей пока нет");
     expect(html).not.toContain("Assistant");
     expect(html).not.toContain("Documents hub");

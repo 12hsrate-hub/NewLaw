@@ -143,6 +143,7 @@ describe("attorney request foundation", () => {
       title: "Адвокатский запрос",
       authorSnapshot: buildAuthorSnapshot(),
       payload: buildValidPayload(),
+      signatureDataUrl: "data:image/png;base64,iVBORw0KGgo=",
     });
 
     expect(artifact.pageCount).toBe(1);
@@ -155,6 +156,8 @@ describe("attorney request foundation", () => {
     expect(artifact.previewHtml).toContain("data-visual-reference=\"attorney_request_1703\"");
     expect(artifact.previewHtml).toContain("Lawyer");
     expect(artifact.previewHtml).toContain("SAR Doc.");
+    expect(artifact.previewHtml).toContain("data-asset-slot=\"attorney-request-signature\"");
+    expect(artifact.previewHtml).toContain("data:image/png;base64,iVBORw0KGgo=");
     expect(artifact.previewHtml).toContain("Игорь АДВОКАТОВ");
     expect(artifact.previewHtml).toContain("Section 4. ");
     expect(artifact.previewHtml).toContain("Настоящий запрос вступает");
@@ -219,6 +222,7 @@ describe("attorney request foundation", () => {
           position: "Адвокат",
         },
         payload,
+        signatureDataUrl: "data:image/png;base64,iVBORw0KGgo=",
       }),
     ).resolves.toMatchObject({
       pageCount: 1,

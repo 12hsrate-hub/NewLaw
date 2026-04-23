@@ -258,6 +258,18 @@ Post-MVP policy для этой линии:
 - current representative flows не блокируются отсутствием standalone registry
 - document success state уже не зависит от отдельного trustors module
 - standalone route `/account/trustors` уже существует
+
+#### `post-MVP template documents and character signature assets`
+
+Статус: `optional / future`
+
+Зафиксировано:
+
+- первый живой template/PDF/JPG consumer уже существует как `attorney_request`
+- для этой линии допустим отдельный character-scoped signature asset layer поверх `Supabase Storage`
+- подпись должна принадлежать конкретному персонажу, а не аккаунту
+- template documents должны хранить frozen `signatureSnapshot` внутри документа, а не читать live asset после первой фиксации
+- будущий договор на оказание юридических услуг и другие template documents должны reuse-ить тот же snapshot contract, а не изобретать отдельную модель подписи
 - registry foundation + grouped overview уже существуют
 - create / edit / soft delete внутри `/account/trustors` уже существуют
 - optional choose-from-registry prefill inside document flows уже существует

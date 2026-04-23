@@ -194,6 +194,15 @@ export const lawsuitClaimDraftPayloadSchema = claimsDraftPayloadBaseSchema.exten
   pretrialSummary: z.string().max(8_000).default(""),
 });
 
+export const documentSignatureSnapshotSchema = z.object({
+  signatureId: z.string().trim().min(1),
+  storagePath: z.string().trim().min(1).max(512),
+  mimeType: z.string().trim().min(1).max(160),
+  width: z.number().int().min(1),
+  height: z.number().int().min(1),
+  fileSize: z.number().int().min(1),
+});
+
 export const createDocumentDraftInputSchema = z.object({
   accountId: z.string().uuid(),
   serverId: z.string().min(1),
@@ -204,6 +213,7 @@ export const createDocumentDraftInputSchema = z.object({
   formSchemaVersion: documentFormSchemaVersionSchema,
   snapshotCapturedAt: z.date(),
   authorSnapshotJson: z.record(z.string(), z.unknown()),
+  signatureSnapshotJson: documentSignatureSnapshotSchema.nullable().optional(),
   formPayloadJson: z.record(z.string(), z.unknown()).optional(),
 });
 
@@ -301,6 +311,7 @@ export type OgpForumSyncState = z.infer<typeof ogpForumSyncStateSchema>;
 export type ClaimDocumentType = z.infer<typeof claimDocumentTypeSchema>;
 export type OgpComplaintFilingMode = z.infer<typeof ogpComplaintFilingModeSchema>;
 export type DocumentAuthorSnapshot = z.infer<typeof documentAuthorSnapshotSchema>;
+export type DocumentSignatureSnapshot = z.infer<typeof documentSignatureSnapshotSchema>;
 export type OgpComplaintTrustorSnapshot = z.infer<typeof ogpComplaintTrustorSnapshotSchema>;
 export type OgpComplaintEvidenceRow = z.infer<typeof ogpComplaintEvidenceRowSchema>;
 export type OgpComplaintEvidenceGroup = z.infer<typeof ogpComplaintEvidenceGroupSchema>;

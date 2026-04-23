@@ -72,6 +72,7 @@ Identity-источник:
 - `passport_number`
 - `nickname`
 - `profile_data_json`
+- `active_signature_id`
 - `is_profile_complete`
 - `deleted_at`
 - `created_at`
@@ -82,6 +83,31 @@ Identity-источник:
 - `nickname` должен совпадать с `full_name`
 - уникальность паспорта действует внутри связки `user_id + server_id` среди не удаленных записей
 - ограничение максимум `3` персонажа на `user + server` реализуется прикладной логикой
+- `active_signature_id` указывает на текущую активную подпись персонажа и может быть `NULL`
+
+### character_signatures
+
+Исторические изображения подписи персонажа для template/PDF/JPG documents.
+
+Основные поля:
+
+- `id`
+- `character_id`
+- `storage_path`
+- `mime_type`
+- `width`
+- `height`
+- `file_size`
+- `is_active`
+- `created_at`
+
+Правила:
+
+- одна запись относится к одному конкретному upload asset
+- один персонаж может иметь несколько исторических записей
+- у персонажа активной считается только одна запись
+- storage path должен быть уникальным и versioned, без перезаписи файла одним и тем же именем
+- если подпись уже использовалась в документе, физическое удаление файла не должно ломать frozen snapshots
 
 ### character_roles
 
@@ -168,6 +194,7 @@ Identity-источник:
 - `form_schema_version`
 - `snapshot_captured_at`
 - `author_snapshot_json`
+- `signature_snapshot_json`
 - `trustor_snapshot_json`
 - `form_payload_json`
 - `last_generated_bbcode`
@@ -185,12 +212,19 @@ Identity-источник:
 - документ хранит слепок
 - слепок фиксируется при первом сохранении черновика
 - `author_snapshot_json` после фиксации не должен автоматически пересобираться из карточки персонажа
+- `signature_snapshot_json` после фиксации не должен автоматически пересобираться из активной подписи персонажа
 - `trustor_snapshot_json` внутри документа живет отдельно от карточки доверителя
 - `publication_url` допускается только одна
 - `publication_url` должен валидироваться по домену `forum.gta5rp.com`
 - OGP automation-owned publication identity хранится отдельно от manual `publication_url`
 - `appeal_number` в полезной нагрузке или отдельных полях не проверяется на уникальность
 - soft delete обязателен
+
+Отдельная note по signature snapshot:
+
+- шаблонные документы могут хранить `signature_snapshot_json` с `signatureId`, `storagePath`, `mimeType`, `width`, `height`, `fileSize`
+- snapshot фиксирует именно тот asset, который использовался при первой фиксации/генерации документа
+- последующая замена активной подписи персонажа не должна менять уже созданный документ
 
 ### forum_session_connections
 

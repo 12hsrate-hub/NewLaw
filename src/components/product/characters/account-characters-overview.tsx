@@ -7,6 +7,7 @@ import type {
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { CharacterFormCard } from "@/components/product/characters/character-form-card";
+import { CharacterSignatureCard } from "@/components/product/characters/character-signature-card";
 
 const roleLabels: Record<string, string> = {
   citizen: "Гражданин",
@@ -28,6 +29,23 @@ const statusLabels: Record<string, string> = {
   "character-create-error": "Не удалось создать персонажа. Проверьте данные и попробуйте снова. Код: CHARACTER_CREATE_FAILED.",
   "character-update-error": "Не удалось сохранить изменения персонажа. Проверьте данные и попробуйте снова. Код: CHARACTER_UPDATE_FAILED.",
   "character-not-found": "Персонаж для редактирования не найден. Код: CHARACTER_NOT_FOUND.",
+  "character-signature-uploaded": "Подпись персонажа сохранена и станет использоваться в новых шаблонных документах.",
+  "character-signature-uploaded-warning":
+    "Подпись персонажа сохранена. Для лучшего отображения в документах рекомендуется использовать PNG с прозрачным фоном.",
+  "character-signature-removed":
+    "Активная подпись отвязана от персонажа. Уже созданные документы продолжают использовать сохранённый снимок подписи.",
+  "character-signature-access-denied":
+    "Не удалось изменить подпись персонажа. Проверьте права доступа и попробуйте снова. Код: CHARACTER_SIGNATURE_ACCESS_DENIED.",
+  "character-signature-missing-file":
+    "Выберите файл подписи и попробуйте снова. Код: CHARACTER_SIGNATURE_MISSING_FILE.",
+  "character-signature-invalid-format":
+    "Поддерживаются только PNG, JPG/JPEG и WEBP. Код: CHARACTER_SIGNATURE_INVALID_FORMAT.",
+  "character-signature-file-too-large":
+    "Файл подписи должен быть не больше 1 МБ. Код: CHARACTER_SIGNATURE_FILE_TOO_LARGE.",
+  "character-signature-invalid-dimensions":
+    "Проверьте размеры подписи: допустимо от 300×100 до 1200×400 px и от 2:1 до 5:1. Код: CHARACTER_SIGNATURE_INVALID_DIMENSIONS.",
+  "character-signature-upload-error":
+    "Не удалось сохранить подпись персонажа. Попробуйте снова позже. Код: CHARACTER_SIGNATURE_UPLOAD_FAILED.",
 };
 
 function formatLabels(values: string[], labels: Record<string, string>) {
@@ -143,14 +161,12 @@ function CharacterGroup(props: { group: AccountCharactersServerGroup }) {
                       : "дополнительные данные пока не сохранены"}
                   </span>
                 </p>
-                {character.profileSignature ? (
-                  <p>
-                    Подпись:{" "}
-                    <span className="font-medium text-[var(--foreground)]">
-                      {character.profileSignature}
-                    </span>
-                  </p>
-                ) : null}
+                <p>
+                  Подпись для документов:{" "}
+                  <span className="font-medium text-[var(--foreground)]">
+                    {character.activeSignature ? "загружена" : "не загружена"}
+                  </span>
+                </p>
                 {character.position ? (
                   <p>
                     Должность:{" "}
@@ -212,7 +228,6 @@ function CharacterGroup(props: { group: AccountCharactersServerGroup }) {
                       icEmail: character.icEmail,
                       passportImageUrl: character.passportImageUrl,
                       profileNote: character.profileNote,
-                      profileSignature: character.profileSignature,
                       roleKeys: character.roleKeys,
                     }}
                     mode="edit"
@@ -220,6 +235,11 @@ function CharacterGroup(props: { group: AccountCharactersServerGroup }) {
                     selectionBehavior="account_zone"
                     serverId={group.server.id}
                     surface="account_zone"
+                  />
+                  <CharacterSignatureCard
+                    activeSignature={character.activeSignature}
+                    characterId={character.id}
+                    redirectTo={accountRedirectTo}
                   />
                 </div>
               </details>

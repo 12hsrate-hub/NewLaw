@@ -28,6 +28,7 @@ type AttorneyRequestCreateCharacterOption = {
   passportNumber: string;
   isProfileComplete: boolean;
   canCreateAttorneyRequest?: boolean;
+  hasActiveSignature: boolean;
 };
 
 type AttorneyRequestCreateClientProps = {
@@ -59,6 +60,8 @@ type AttorneyRequestEditorClientProps = {
   generatedRendererVersion: string | null;
   generatedArtifact: AttorneyRequestRenderedArtifact | null;
   isModifiedAfterGeneration: boolean;
+  hasActiveCharacterSignature: boolean;
+  hasSignatureSnapshot: boolean;
 };
 
 type AttorneyRequestEditorState = {
@@ -180,7 +183,17 @@ export function AttorneyRequestDraftCreateClient(props: AttorneyRequestCreateCli
           <Badge>{selectedCharacter.canCreateAttorneyRequest ? "роль адвоката есть" : "нет роли адвоката"}</Badge>
         ) : null}
         <Badge>{props.trustorRegistry.length > 0 ? "доверитель выбран" : "нужен доверитель"}</Badge>
+        {selectedCharacter ? (
+          <Badge>{selectedCharacter.hasActiveSignature ? "подпись загружена" : "подпись не загружена"}</Badge>
+        ) : null}
       </div>
+
+      {selectedCharacter && !selectedCharacter.hasActiveSignature ? (
+        <div className="rounded-2xl border border-[var(--border)] bg-white/60 px-4 py-3 text-sm leading-6 text-[var(--muted)]">
+          У выбранного персонажа не загружена подпись. Черновик можно создать, но финальная
+          генерация документа будет недоступна.
+        </div>
+      ) : null}
 
       <Button
         disabled={!selectedCharacter?.canCreateAttorneyRequest || props.trustorRegistry.length === 0}
@@ -276,6 +289,13 @@ export function AttorneyRequestEditorClient(props: AttorneyRequestEditorClientPr
 
   return (
     <div className="space-y-6">
+      {!props.hasSignatureSnapshot && !props.hasActiveCharacterSignature ? (
+        <div className="rounded-2xl border border-[var(--border)] bg-white/60 px-4 py-3 text-sm leading-6 text-[var(--muted)]">
+          У выбранного персонажа не загружена подпись. Черновик можно редактировать и сохранять,
+          но финальная генерация документа будет недоступна.
+        </div>
+      ) : null}
+
       <div className="grid gap-4 md:grid-cols-2">
         <label className="space-y-2 md:col-span-2">
           <span className="text-sm font-medium">Название документа</span>

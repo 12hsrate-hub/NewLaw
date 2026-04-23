@@ -51,9 +51,15 @@ export default async function AttorneyRequestNewPage({
 
   return (
     <AttorneyRequestDraftCreateEntry
-      characters={context.characters}
+      characters={context.characters.map((character) => ({
+        ...character,
+        hasActiveSignature: character.hasActiveSignature ?? false,
+      }))}
       initialTrustorId={resolvedSearchParams?.trustorId}
-      selectedCharacter={context.selectedCharacter}
+      selectedCharacter={{
+        ...context.selectedCharacter,
+        hasActiveSignature: context.selectedCharacter.hasActiveSignature ?? false,
+      }}
       server={context.server}
       status={resolvedSearchParams?.status}
       trustorRegistry={context.trustorRegistry}

@@ -13,9 +13,14 @@ import {
   ATTORNEY_REQUEST_FORM_SCHEMA_VERSION,
 } from "@/features/documents/attorney-request/types";
 import {
+  buildCharacterSignatureSnapshotFromActiveSignature,
+  loadCharacterSignatureDataUrl,
+} from "@/server/character-signatures/service";
+import {
   DocumentAccessDeniedError,
   readAttorneyRequestDraftPayload,
   readDocumentAuthorSnapshot,
+  readDocumentSignatureSnapshot,
 } from "@/server/document-area/persistence";
 
 type AttorneyRequestGenerationDependencies = {
@@ -47,12 +52,34 @@ export async function generateOwnedAttorneyRequestArtifacts(
   }
 
   const authorSnapshot = readDocumentAuthorSnapshot(document.authorSnapshotJson);
+  const frozenSignatureSnapshot = readDocumentSignatureSnapshot(document.signatureSnapshotJson);
+  const signatureSnapshot =
+    frozenSignatureSnapshot ??
+    buildCharacterSignatureSnapshotFromActiveSignature({
+      activeSignature: document.character.activeSignature,
+    });
   const payload = readAttorneyRequestDraftPayload(document.formPayloadJson);
+
+  if (!signatureSnapshot) {
+    throw new AttorneyRequestGenerationBlockedError([
+      "Для генерации адвокатского запроса необходимо загрузить подпись персонажа.",
+    ]);
+  }
+
+  const signatureDataUrl = await loadCharacterSignatureDataUrl(signatureSnapshot);
+
+  if (!signatureDataUrl) {
+    throw new AttorneyRequestGenerationBlockedError([
+      "Файл подписи персонажа недоступен в хранилище. Загрузите подпись заново в профиле персонажа.",
+    ]);
+  }
+
   const artifact = attorneyRequestRenderedArtifactSchema.parse(
     await renderAttorneyRequestArtifact({
       title: document.title,
       authorSnapshot,
       payload,
+      signatureDataUrl,
     }),
   );
   const generatedDocument = await dependencies.markAttorneyRequestGeneratedRecord({
@@ -63,6 +90,7 @@ export async function generateOwnedAttorneyRequestArtifacts(
     generatedFormSchemaVersion: document.formSchemaVersion || ATTORNEY_REQUEST_FORM_SCHEMA_VERSION,
     generatedOutputFormat: artifact.format,
     generatedRendererVersion: artifact.rendererVersion,
+    signatureSnapshotJson: frozenSignatureSnapshot ? undefined : signatureSnapshot,
   });
 
   if (!generatedDocument) {

@@ -36,6 +36,11 @@
 - активного персонажа нельзя переключать в режиме редактирования документа
 - активного персонажа нельзя удалить, пока не выбран другой, кроме случая когда это последний персонаж на сервере
 
+Отдельно после MVP:
+
+- profile-management зона персонажа может хранить image-подпись для template/PDF/JPG documents
+- такая подпись принадлежит конкретному персонажу и конкретному серверному контексту, а не всему аккаунту
+
 ### Доверители
 
 - для MVP trustor живет внутри документа как snapshot
@@ -56,6 +61,7 @@
 - автоподтягивание данных персонажа в документ работает только до первой генерации
 - автор в документе read-only от персонажа
 - доверитель внутри документа редактируемый как слепок
+- для post-MVP template documents подпись персонажа тоже фиксируется как отдельный snapshot asset
 - изменения доверителя в документе не обновляют карточку автоматически, но могут быть отдельно сохранены обратно в карточку доверителя
 - в документе допускается одна ссылка на публикацию
 - статус публикации: `Опубликован на форуме`
@@ -150,6 +156,7 @@
 - deeper grounded document AI expansion beyond current first grounded legal rollout
 - deeper standalone trustors registry expansion beyond current `/account/trustors` CRUD + optional prefill
 - post-MVP template documents
+- reusable character-signature asset layer для template/PDF/JPG documents с frozen signature snapshot внутри документа
 - deeper operational/admin maturity
 
 Важно:

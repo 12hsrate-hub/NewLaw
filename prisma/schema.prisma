@@ -234,6 +234,7 @@ model Character {
   id                String                @id @default(cuid())
   accountId         String                @db.Uuid
   serverId          String
+  activeSignatureId String?               @unique
   fullName          String
   nickname          String
   passportNumber    String
@@ -242,15 +243,34 @@ model Character {
   deletedAt         DateTime?
   account           Account               @relation(fields: [accountId], references: [id], onDelete: Cascade)
   server            Server                @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  activeSignature   CharacterSignature?   @relation("ActiveCharacterSignature", fields: [activeSignatureId], references: [id], onDelete: SetNull)
   roles             CharacterRole[]
   accessFlags       CharacterAccessFlag[]
   activeInStates    UserServerState[]     @relation("ActiveCharacter")
+  signatures        CharacterSignature[]  @relation("CharacterSignatureHistory")
   documents         Document[]
   createdAt         DateTime              @default(now())
   updatedAt         DateTime              @updatedAt
 
   @@index([accountId, serverId, deletedAt])
   @@index([accountId, serverId, passportNumber])
+}
+
+model CharacterSignature {
+  id               String      @id
+  characterId      String
+  storagePath      String      @unique
+  mimeType         String
+  width            Int
+  height           Int
+  fileSize         Int
+  isActive         Boolean     @default(false)
+  character        Character   @relation("CharacterSignatureHistory", fields: [characterId], references: [id], onDelete: Restrict)
+  activeForCharacter Character? @relation("ActiveCharacterSignature")
+  createdAt        DateTime    @default(now())
+
+  @@index([characterId, createdAt])
+  @@index([characterId, isActive, createdAt])
 }
 
 model Trustor {
@@ -326,6 +346,7 @@ model Document {
   formSchemaVersion          String
   snapshotCapturedAt         DateTime
   authorSnapshotJson         Json
+  signatureSnapshotJson      Json?
   formPayloadJson            Json?
   generatedArtifactJson      Json?
   generatedArtifactText      String?

@@ -31,7 +31,6 @@ type CharacterFormValues = {
   icEmail?: string | null;
   passportImageUrl?: string | null;
   profileNote?: string | null;
-  profileSignature?: string | null;
   isProfileComplete?: boolean;
   passportNumber: string;
   roleKeys?: string[];
@@ -246,18 +245,6 @@ export function CharacterFormCard({
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium" htmlFor={`${mode}-profileSignature`}>
-              Подпись персонажа
-            </label>
-            <Input
-              defaultValue={defaultValues?.profileSignature ?? ""}
-              id={`${mode}-profileSignature`}
-              name="profileSignature"
-              placeholder="И. Иванов"
-            />
-          </div>
-
-          <div className="space-y-2">
             <label className="text-sm font-medium" htmlFor={`${mode}-profileNote`}>
               Краткая заметка профиля
             </label>
@@ -269,6 +256,13 @@ export function CharacterFormCard({
               rows={3}
             />
           </div>
+
+          {mode === "create" ? (
+            <div className="rounded-2xl border border-dashed border-[var(--border)] bg-white/70 px-4 py-3 text-sm leading-6 text-[var(--muted)]">
+              После создания карточки здесь же можно будет загрузить подпись для шаблонных
+              документов.
+            </div>
+          ) : null}
         </fieldset>
 
         <Button type="submit">{submitLabel}</Button>

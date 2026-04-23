@@ -38,8 +38,8 @@ Production email delivery для auth-писем зафиксирован чер
 - Внутренние UI-действия строятся на `Server Actions`
 - Технические endpoint’ы строятся на `Route Handlers`
 - Единый слой валидации: `Zod`
-- В document flow MVP используются ссылки, а не загрузка файлов
-- `Supabase Storage` остается частью платформы, но не нужен на этапе bootstrap MVP
+- В MVP document flow для OGP/claims используются ссылки, а не пользовательская загрузка файлов
+- `Supabase Storage` остается частью платформы; post-MVP template/PDF/JPG documents могут использовать его для character-scoped signature assets
 - AI вызывается только с сервера
 - Шаблоны AI prompt’ов хранятся в коде, а не в БД
 - Канонический MVP runtime на VPS: `systemd + release directories + current symlink`
