@@ -8,6 +8,7 @@ import {
   renderAttorneyRequestArtifact,
   validateAttorneyRequestForGeneration,
 } from "@/features/documents/attorney-request/render";
+import { ATTORNEY_REQUEST_RENDERER_VERSION } from "@/features/documents/attorney-request/types";
 import type { AttorneyRequestDraftPayload } from "@/features/documents/attorney-request/schemas";
 import type { DocumentAuthorSnapshot } from "@/schemas/document";
 
@@ -145,6 +146,7 @@ describe("attorney request foundation", () => {
     });
 
     expect(artifact.pageCount).toBe(1);
+    expect(artifact.rendererVersion).toBe(ATTORNEY_REQUEST_RENDERER_VERSION);
     expect(artifact.previewText).toContain("BAR-2112");
     expect(artifact.previewText).toContain("Павел Доверитель");
     expect(artifact.previewHtml).toContain("STATE OF SAN ANDREAS");
@@ -158,6 +160,42 @@ describe("attorney request foundation", () => {
     expect(Buffer.from(artifact.jpgDataUrl.split(",")[1] ?? "", "base64").subarray(0, 2)).toEqual(
       Buffer.from([0xff, 0xd8]),
     );
+  });
+
+  it("рендерит типовой длинный запрос в одну страницу после визуального уплотнения", async () => {
+    const payload = buildValidPayload();
+    payload.signerTitleSnapshot = resolveAttorneyRequestSignerTitle("Заместитель Главы Коллегии Адвокатов");
+    payload.section1Items = [
+      {
+        id: "1",
+        text: "Прошу предоставить видеозаписи с записываемого устройства сотрудника Azod Panike за 05.04.2026 19:30 по 20:30 в отношении гражданина Greg Farmond.",
+      },
+      {
+        id: "2",
+        text: "В случае, если процессуальные действия проводились вне промежутка времени указанного в текущем документе, предоставить видеозапись всех процессуальных действий в отношении гражданина Greg Farmond за 05.04.2026.",
+      },
+      {
+        id: "3",
+        text: "Личные данные сотрудника: ФИО, данные из государственной базы данных при наличии такового.",
+      },
+    ];
+    payload.section3Text =
+      "Адвокатский запрос о предоставлении личных данных направлен Шефу LSPD и его заместителям. Адвокатский запрос о предоставлении видеозаписи направлен Azod Panike.";
+
+    await expect(
+      renderAttorneyRequestArtifact({
+        title: "Адвокатский запрос",
+        authorSnapshot: {
+          ...buildAuthorSnapshot(),
+          fullName: "Dom Perignon",
+          position: "Заместитель Главы Коллегии Адвокатов",
+        },
+        payload,
+      }),
+    ).resolves.toMatchObject({
+      pageCount: 1,
+      rendererVersion: ATTORNEY_REQUEST_RENDERER_VERSION,
+    });
   });
 
   it("блокирует генерацию, но не мешает неполному черновику существовать", () => {

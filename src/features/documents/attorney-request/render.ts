@@ -15,7 +15,7 @@ import type { DocumentAuthorSnapshot } from "@/schemas/document";
 
 const PX_PER_MM = 96 / 25.4;
 const mm = (value: number) => value * PX_PER_MM;
-const pt = (value: number) => (value * 96) / 72;
+const pt = (value: number) => value;
 const PAGE_WIDTH = Math.round(210 * PX_PER_MM);
 const PAGE_HEIGHT = Math.round(297 * PX_PER_MM);
 const PAGE_PADDING_TOP = mm(10);
@@ -589,7 +589,7 @@ function buildVisualLines(input: {
 
   return {
     lines,
-    contentBottomY: y,
+    contentBottomY: Math.max(...lines.map((line) => (line.y ?? 0) + (line.size ?? BODY_FONT_SIZE) * 0.35)),
   };
 }
 
