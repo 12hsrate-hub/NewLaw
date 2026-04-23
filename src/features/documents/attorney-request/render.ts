@@ -37,18 +37,29 @@ const qrConfig = {
 
 const RASTER_SCALE = rasterConfig.exportScale;
 
+const headerBandConfig = {
+  dividerY: 186,
+  contentStartY: 206,
+  registerToDividerGap: mm(2.35),
+} as const;
+
+const footerBandConfig = {
+  liftY: 16,
+  clearanceTargetGap: mm(7.1),
+} as const;
+
 const fontConfig = {
   textFamily: "Times New Roman, Liberation Serif, serif",
   monoFamily: "Courier New, Liberation Mono, monospace",
-  bodyRegularSize: pt(12.3),
-  bodyBoldSize: pt(12.3),
-  bodyLineHeight: pt(17.12),
+  bodyRegularSize: pt(12.22),
+  bodyBoldSize: pt(12.22),
+  bodyLineHeight: pt(16.95),
   sectionHeadingSize: pt(11.9),
-  introSize: pt(11.82),
-  introLineHeight: pt(16.02),
-  titleSize: pt(12.46),
-  registerTitleSize: pt(11.92),
-  registerBodySize: pt(11.32),
+  introSize: pt(11.78),
+  introLineHeight: pt(15.95),
+  titleSize: pt(12.4),
+  registerTitleSize: pt(12.08),
+  registerBodySize: pt(11.46),
   stateTitleSize: pt(21),
   associationTitleSize: pt(15),
   footerRoleSize: pt(12),
@@ -66,12 +77,12 @@ const layoutConfig = {
     left: mm(16),
   },
   registerWidth: mm(46),
-  leftRoleWidth: mm(17.7),
+  leftRoleWidth: mm(18.5),
   columnGap: mm(0.8),
-  contentStartY: 198,
-  contentDividerY: 178,
-  contentLeftX: mm(33.7),
-  contentRightX: PAGE_WIDTH - mm(13.5),
+  contentStartY: headerBandConfig.contentStartY,
+  contentDividerY: headerBandConfig.dividerY,
+  contentLeftX: mm(33.2),
+  contentRightX: PAGE_WIDTH - mm(13),
   sectionGap: mm(5.2),
 } as const;
 
@@ -86,32 +97,32 @@ const headerConfig = {
 } as const;
 
 const footerConfig = {
-  topY: 924,
-  signatureY: 824,
+  topY: 924 - footerBandConfig.liftY,
+  signatureY: 824 - footerBandConfig.liftY,
   signatureWidth: mm(35),
   signatureHeight: mm(38),
   leftRoleWidth: mm(24),
-  centerTopY: 1008,
-  centerTitleY: 1020,
-  centerDateY: 1041,
-  qrY: 1008,
+  centerTopY: 1008 - footerBandConfig.liftY,
+  centerTitleY: 1020 - footerBandConfig.liftY,
+  centerDateY: 1041 - footerBandConfig.liftY,
+  qrY: 1008 - footerBandConfig.liftY,
   qrSize: mm(20),
 } as const;
 
 const registerBlockConfig = {
   x: layoutConfig.pagePadding.left,
   width: layoutConfig.registerWidth,
-  titleLineHeight: fontConfig.registerTitleSize * 0.94,
-  bodyLineHeight: fontConfig.registerBodySize * 0.98,
-  registerToDividerGap: mm(1.45),
+  titleLineHeight: fontConfig.registerTitleSize * 1.02,
+  bodyLineHeight: fontConfig.registerBodySize * 1.08,
+  registerToDividerGap: headerBandConfig.registerToDividerGap,
 } as const;
 
 const leftRoleBlockConfig = {
   x: layoutConfig.pagePadding.left,
   width: layoutConfig.leftRoleWidth,
   titleY: layoutConfig.contentStartY,
-  roleY: layoutConfig.contentStartY + pt(29.6),
-  roleLineGap: pt(17.8),
+  roleY: layoutConfig.contentStartY + pt(27.2),
+  roleLineGap: pt(16.7),
 } as const;
 
 const titleBlockConfig = {
@@ -133,16 +144,16 @@ const sectionBlockConfig = {
   width: titleBlockConfig.width,
   introToSection1Gap: mm(5.25),
   baseGap: mm(5.6),
-  maxExtraGapPerSection: mm(8),
+  maxExtraGapPerSection: mm(6.5),
   itemMarkerGap: 2.8,
-  itemTextIndent: 14.2,
+  itemTextIndent: 15.4,
   itemLineHeight: pt(16.85),
 } as const;
 
 const stampConfig = {
-  topY: 1008,
-  lineHeight: 12.2,
-  letterSpacing: 0.32,
+  topY: 1008 - footerBandConfig.liftY,
+  lineHeight: 11.7,
+  letterSpacing: 0.16,
 } as const;
 
 const assetConfig = {
@@ -157,7 +168,6 @@ const visualReferenceConfig = {
   referenceName: "attorney_request_1703",
   knownGaps: [
     "Оригинальный asset подписи отсутствует: используется replace-ready векторная имитация.",
-    "Точный stamp-font эталона неизвестен: используется Courier/Liberation Mono approximation.",
     "Raster export keeps a generated-output-first calibration and uses a higher-quality JPEG pipeline within the current A4 contract.",
     "PNG export is included as a higher-fidelity alternative to JPG for manual comparison and download.",
     "Section spacing can stretch slightly when the body block leaves too much vertical room above the footer.",
@@ -724,7 +734,7 @@ function buildFooter(input: {
     ${stampLines
       .map(
         (line, index) =>
-          `<text x="${layoutConfig.pagePadding.left}" y="${stampConfig.topY + fontConfig.stampSize + index * stampConfig.lineHeight}" font-family="${fontConfig.monoFamily}" font-size="${fontConfig.stampSize}" font-weight="600" letter-spacing="${stampConfig.letterSpacing}" xml:space="preserve">${escapeXml(line)}</text>`,
+          `<text x="${layoutConfig.pagePadding.left}" y="${stampConfig.topY + fontConfig.stampSize + index * stampConfig.lineHeight}" font-family="${fontConfig.monoFamily}" font-size="${fontConfig.stampSize}" font-weight="700" letter-spacing="${stampConfig.letterSpacing}" xml:space="preserve">${escapeXml(line)}</text>`,
       )
       .join("")}
     <text x="${PAGE_WIDTH / 2}" y="${footerConfig.centerTitleY}" font-family="${fontConfig.textFamily}" font-size="${fontConfig.footerCenterTitleSize}" text-anchor="middle">SAN ANDREAS CAPITOL</text>
@@ -948,7 +958,7 @@ function buildVisualLines(input: {
     rawSectionBlocks[2].bottomY + sectionBlockConfig.baseGap - rawSectionBlocks[3].topY,
   );
 
-  const footerClearanceTargetY = footerConfig.signatureY - mm(1.2);
+  const footerClearanceTargetY = footerConfig.signatureY - footerBandConfig.clearanceTargetGap;
   const availableStretch = Math.max(0, footerClearanceTargetY - rawSectionBlocks[3].bottomY);
   const extraPerGap =
     rawSectionBlocks.length > 1
