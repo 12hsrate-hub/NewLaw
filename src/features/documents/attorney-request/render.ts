@@ -25,6 +25,7 @@ const rasterConfig = {
   jpegQuality: 98,
   chromaSubsampling: "4:4:4" as const,
   qrSourceScale: 4,
+  sharpenSigma: 0.35,
 } as const;
 
 const RASTER_SCALE = rasterConfig.exportScale;
@@ -58,17 +59,17 @@ const layoutConfig = {
     left: mm(16),
   },
   registerWidth: mm(46),
-  leftRoleWidth: mm(30),
-  columnGap: mm(4),
+  leftRoleWidth: mm(24),
+  columnGap: mm(2.2),
   contentStartY: 198,
   contentDividerY: 178,
-  bodyRightX: PAGE_WIDTH - mm(29),
-  sectionGap: mm(7),
+  bodyRightX: PAGE_WIDTH - mm(20),
+  sectionGap: mm(5.2),
 } as const;
 
 const headerConfig = {
   sealSize: mm(12),
-  sealY: mm(5.2),
+  sealY: mm(2.6),
   topLineY: 57,
   secondLineY: 61.5,
   stateTitleY: 84.5,
@@ -77,19 +78,19 @@ const headerConfig = {
 } as const;
 
 const footerConfig = {
-  topY: 914,
-  signatureY: 814,
+  topY: 924,
+  signatureY: 824,
   signatureWidth: mm(35),
   signatureHeight: mm(38),
-  centerTopY: 996,
-  centerTitleY: 1008,
-  centerDateY: 1029,
-  qrY: 996,
+  centerTopY: 1008,
+  centerTitleY: 1020,
+  centerDateY: 1041,
+  qrY: 1008,
   qrSize: mm(20),
 } as const;
 
 const stampConfig = {
-  topY: 996,
+  topY: 1008,
   lineHeight: 13.1,
   letterSpacing: 0.55,
 } as const;
@@ -108,6 +109,7 @@ const visualReferenceConfig = {
     "Оригинальный asset подписи отсутствует: используется replace-ready векторная имитация.",
     "Точный stamp-font эталона неизвестен: используется Courier/Liberation Mono approximation.",
     "Raster export keeps a generated-output-first calibration and uses a higher-quality JPEG pipeline within the current A4 contract.",
+    "Section spacing can stretch slightly when the body block leaves too much vertical room above the footer.",
   ],
   header: headerConfig,
   layout: layoutConfig,
@@ -445,37 +447,13 @@ function pushNumberedItem(input: {
   y: number;
   width: number;
 }) {
-  const markerText = `${input.marker} `;
-  const markerWidth = estimateTextWidth(markerText, fontConfig.bodyRegularSize) + 6;
-  const wrapped = wrapTextWithFirstWidth(
-    input.text,
-    Math.max(60, input.width - markerWidth),
-    Math.max(60, input.width - markerWidth),
-    fontConfig.bodyRegularSize,
-  );
-  const [firstLine = "", ...restLines] = wrapped;
+  const wrapped = wrapText(`${input.marker} ${input.text}`, input.width, fontConfig.bodyRegularSize);
+  let y = input.y;
 
-  input.lines.push({
-    segments: [
-      {
-        text: markerText,
-      },
-      {
-        text: firstLine,
-        dx: 4,
-      },
-    ],
-    x: input.x,
-    y: input.y,
-    size: fontConfig.bodyRegularSize,
-  });
-
-  let y = input.y + fontConfig.bodyLineHeight;
-
-  for (const line of restLines) {
+  for (const line of wrapped) {
     input.lines.push({
       text: line,
-      x: input.x + markerWidth,
+      x: input.x,
       y,
       size: fontConfig.bodyRegularSize,
     });
@@ -645,6 +623,7 @@ function buildVisualLines(input: {
   const lines: SvgLine[] = [];
   const bodyX = layoutConfig.pagePadding.left + layoutConfig.leftRoleWidth + layoutConfig.columnGap;
   const bodyWidth = layoutConfig.bodyRightX - bodyX;
+  const sectionStartIndices: number[] = [];
   const signerTitle = input.payload.signerTitleSnapshot;
   const titleDate = formatRegisterDate(input.payload.documentDateMsk);
   const leftRole = signerTitle?.leftColumnEn ?? input.authorSnapshot.position;
@@ -751,7 +730,8 @@ function buildVisualLines(input: {
     },
   ];
 
-  for (const section of sectionBlocks) {
+  for (const [sectionIndex, section] of sectionBlocks.entries()) {
+    sectionStartIndices.push(lines.length);
     y = pushInlineSectionParagraph({
       lines,
       label: section.label,
@@ -788,7 +768,29 @@ function buildVisualLines(input: {
       });
     }
 
-    y += layoutConfig.sectionGap;
+    if (sectionIndex < sectionBlocks.length - 1) {
+      y += layoutConfig.sectionGap;
+    }
+  }
+
+  const rawContentBottomY = Math.max(...lines.map((line) => (line.y ?? 0) + (line.size ?? fontConfig.bodyRegularSize) * 0.35));
+  const footerClearanceTargetY = footerConfig.signatureY - mm(10);
+  const availableStretch = Math.min(mm(14), Math.max(0, footerClearanceTargetY - rawContentBottomY));
+  const internalSectionGapCount = Math.max(0, sectionBlocks.length - 1);
+
+  if (availableStretch > 0 && internalSectionGapCount > 0) {
+    const extraPerGap = availableStretch / internalSectionGapCount;
+
+    for (let sectionIndex = 1; sectionIndex < sectionStartIndices.length; sectionIndex += 1) {
+      const offset = extraPerGap * sectionIndex;
+
+      for (let lineIndex = sectionStartIndices[sectionIndex]; lineIndex < lines.length; lineIndex += 1) {
+        lines[lineIndex] = {
+          ...lines[lineIndex],
+          y: (lines[lineIndex]?.y ?? 0) + offset,
+        };
+      }
+    }
   }
 
   return {
@@ -902,6 +904,7 @@ function buildRasterSvg(pageSvg: string) {
 
 async function buildPdfAndJpgDataUrls(pageSvg: string) {
   const jpg = await sharp(Buffer.from(buildRasterSvg(pageSvg)))
+    .sharpen(rasterConfig.sharpenSigma)
     .jpeg({
       quality: rasterConfig.jpegQuality,
       chromaSubsampling: rasterConfig.chromaSubsampling,
