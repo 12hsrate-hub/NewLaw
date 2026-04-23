@@ -28,12 +28,12 @@ export function TrustorFormCard({
   serverId,
 }: TrustorFormCardProps) {
   const action = mode === "create" ? createTrustorAction : updateTrustorAction;
-  const submitLabel = mode === "create" ? "Сохранить trustor card" : "Сохранить изменения";
-  const title = mode === "create" ? "Новая trustor card" : "Редактирование trustor card";
+  const submitLabel = mode === "create" ? "Сохранить доверителя" : "Сохранить изменения";
+  const title = mode === "create" ? "Новый доверитель" : "Редактирование доверителя";
   const description =
     mode === "create"
-      ? "Карточка создаётся прямо в account zone и остаётся reusable-data слоем. Неполные поля допустимы, но полностью пустую карточку сохранить нельзя."
-      : "Изменения касаются только registry card внутри account zone и не должны ретроактивно менять уже созданные document snapshots.";
+      ? "Заполните основные данные доверителя. Можно сохранить неполную карточку, но хотя бы одно поле должно быть заполнено."
+      : "Изменения применятся только к этой карточке. Уже созданные документы не изменятся автоматически.";
 
   return (
     <Card className="space-y-5 border border-[var(--border)] bg-white/50">
@@ -87,13 +87,13 @@ export function TrustorFormCard({
 
         <div className="space-y-2">
           <label className="text-sm font-medium" htmlFor={`${mode}-trustor-ic-email`}>
-            IC email
+            Игровая почта
           </label>
           <Input
             defaultValue={defaultValues?.icEmail ?? ""}
             id={`${mode}-trustor-ic-email`}
             name="icEmail"
-            placeholder="trustor@example.com"
+            placeholder="name@sa.com"
             type="email"
           />
         </div>
@@ -119,7 +119,7 @@ export function TrustorFormCard({
             defaultValue={defaultValues?.note ?? ""}
             id={`${mode}-trustor-note`}
             name="note"
-            placeholder="Короткая note по trustor card или representative context."
+            placeholder="Короткая пометка, если она нужна."
             rows={3}
           />
         </div>

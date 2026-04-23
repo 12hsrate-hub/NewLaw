@@ -109,7 +109,7 @@ describe("protected account security helpers", () => {
 
     expect(result).toEqual({
       status: "error",
-      message: "Не удалось подтвердить текущий пароль. Проверь пароль и попробуй ещё раз.",
+      message: "Не удалось подтвердить текущий пароль. Проверьте пароль и попробуйте снова. Код: ACCOUNT_CURRENT_PASSWORD_INVALID.",
     });
     expect(client.auth.updateUser).not.toHaveBeenCalled();
     expect(createAuditLog).toHaveBeenCalledWith({
@@ -224,7 +224,7 @@ describe("protected account security helpers", () => {
 
     expect(result).toEqual({
       status: "blocked",
-      message: "Сначала смени пароль аккаунта, а потом уже меняй email.",
+      message: "Сначала смените пароль аккаунта, а затем обновите email. Код: ACCOUNT_PASSWORD_CHANGE_REQUIRED.",
     });
     expect(client.auth.signInWithPassword).not.toHaveBeenCalled();
     expect(client.auth.updateUser).not.toHaveBeenCalled();

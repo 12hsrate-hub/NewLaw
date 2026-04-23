@@ -39,22 +39,22 @@ export const accountLoginCandidateSchema = z
   .string()
   .trim()
   .toLowerCase()
-  .regex(accountLoginPattern, "Некорректный login.");
+  .regex(accountLoginPattern, "Некорректный логин.");
 
 export const accountIdentifierSchema = z
   .string()
   .trim()
-  .min(1, "Укажи email или login.")
+  .min(1, "Укажите email или логин.")
   .refine((value) => {
     const normalizedValue = value.toLowerCase();
 
     return z.string().email().safeParse(normalizedValue).success || accountLoginCandidateSchema.safeParse(normalizedValue).success;
-  }, "Укажи email или login в корректном формате.");
+  }, "Укажите email или логин в корректном формате.");
 
 export const adminAccountSearchIdentifierSchema = z
   .string()
   .trim()
-  .min(1, "Укажи email, login или account id.")
+  .min(1, "Укажите email, логин или ID аккаунта.")
   .refine((value) => {
     const normalizedValue = value.toLowerCase();
 
@@ -63,14 +63,14 @@ export const adminAccountSearchIdentifierSchema = z
       z.string().uuid().safeParse(value).success ||
       accountLoginCandidateSchema.safeParse(normalizedValue).success
     );
-  }, "Укажи корректный email, login или account id.");
+  }, "Укажите корректный email, логин или ID аккаунта.");
 
 const passwordResetBaseSchema = z.object({
   newPassword: z
     .string()
-    .min(8, "Пароль должен содержать минимум 8 символов.")
-    .max(72, "Пароль слишком длинный."),
-  confirmNewPassword: z.string().min(1, "Подтверди новый пароль."),
+  .min(8, "Пароль должен содержать минимум 8 символов.")
+  .max(72, "Пароль слишком длинный."),
+  confirmNewPassword: z.string().min(1, "Подтвердите новый пароль."),
 });
 
 export const resetPasswordInputSchema = passwordResetBaseSchema.refine(
@@ -83,7 +83,7 @@ export const resetPasswordInputSchema = passwordResetBaseSchema.refine(
 
 export const changePasswordInputSchema = passwordResetBaseSchema
   .extend({
-    currentPassword: z.string().min(1, "Укажи текущий пароль."),
+    currentPassword: z.string().min(1, "Укажите текущий пароль."),
   })
   .refine((value) => value.newPassword === value.confirmNewPassword, {
     path: ["confirmNewPassword"],
@@ -91,8 +91,8 @@ export const changePasswordInputSchema = passwordResetBaseSchema
   });
 
 export const changeEmailInputSchema = z.object({
-  newEmail: z.string().trim().toLowerCase().email("Укажи корректный email."),
-  currentPassword: z.string().min(1, "Укажи текущий пароль."),
+  newEmail: z.string().trim().toLowerCase().email("Укажите корректный email."),
+  currentPassword: z.string().min(1, "Укажите текущий пароль."),
 });
 
 export const adminSecurityInputBaseSchema = z.object({
@@ -107,11 +107,11 @@ export const adminSecurityUiInputBaseSchema = z.object({
 });
 
 export const adminChangeEmailInputSchema = adminSecurityInputBaseSchema.extend({
-  newEmail: z.string().trim().toLowerCase().email("Укажи корректный email."),
+  newEmail: z.string().trim().toLowerCase().email("Укажите корректный email."),
 });
 
 export const adminChangeEmailUiInputSchema = adminSecurityUiInputBaseSchema.extend({
-  newEmail: z.string().trim().toLowerCase().email("Укажи корректный email."),
+  newEmail: z.string().trim().toLowerCase().email("Укажите корректный email."),
 });
 
 export type AccountLogin = z.infer<typeof accountLoginSchema>;

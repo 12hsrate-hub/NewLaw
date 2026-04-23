@@ -25,7 +25,7 @@ describe("character form card", () => {
     );
 
     expect(html).toContain("Роли персонажа");
-    expect(html).toContain("Access flags");
+    expect(html).toContain("Доступы персонажа");
     expect(html).toMatch(/value="lawyer"[^>]*checked=""/);
     expect(html).toMatch(/value="advocate"[^>]*checked=""/);
     expect(html).toMatch(/value="tester"[^>]*checked=""/);

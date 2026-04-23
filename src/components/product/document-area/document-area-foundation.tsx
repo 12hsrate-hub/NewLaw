@@ -32,16 +32,16 @@ function FoundationLink({
 export function AccountZoneFoundationIntro() {
   return (
     <Card className="space-y-3">
-      <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">Account Zone</p>
+      <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">Личный кабинет</p>
       <h1 className="text-3xl font-semibold">Личный кабинет</h1>
       <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
-        Это отдельная account zone. Рабочие document-модули живут не здесь, а в server-scoped
-        маршрутах. `/account/documents` остаётся обзором документов по всем серверам и типам.
+        Здесь можно перейти к документам, персонажам, доверителям и настройкам аккаунта.
+        Документы по конкретному серверу открываются из раздела серверов.
       </p>
       <div className="flex flex-wrap gap-3">
         <FoundationLink href="/account/documents">Открыть обзор документов</FoundationLink>
         <FoundationLink className="text-[var(--muted)]" href="/assistant">
-          Вернуться к assistant
+          Открыть юридического помощника
         </FoundationLink>
       </div>
     </Card>
@@ -55,15 +55,12 @@ export function AccountDocumentsOverview(props: {
     <div className="space-y-6">
       <Card className="space-y-3">
         <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">
-          Account Documents
+          Документы
         </p>
         <h1 className="text-3xl font-semibold">Мои документы</h1>
         <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
-          Это cross-server overview route. Здесь показывается общий обзор документов пользователя,
-          а основной create/edit flow живёт в server-scoped document area, а не внутри account
-          zone. Persisted `OGP complaints` уже отображаются здесь как реальные документы, а family
-          `Claims` подготовлена так, чтобы позже появиться рядом с ними без смены account route
-          contract.
+          Здесь собраны ваши документы по всем серверам. Создание и редактирование открываются
+          из раздела конкретного сервера, чтобы не смешивать разные рабочие контексты.
         </p>
       </Card>
 
@@ -71,7 +68,7 @@ export function AccountDocumentsOverview(props: {
         <Card className="space-y-3">
           <h2 className="text-2xl font-semibold">Серверы пока не найдены</h2>
           <p className="text-sm leading-6 text-[var(--muted)]">
-            Foundation route уже существует, но без активных серверов обзор документов пока пустой.
+            Пока у аккаунта нет доступных серверов, список документов будет пустым.
           </p>
         </Card>
       ) : (
@@ -86,17 +83,16 @@ export function AccountDocumentsOverview(props: {
                   </span>
                 </div>
                 <p className="text-sm leading-6 text-[var(--muted)]">
-                  Персонажей на сервере: {server.characterCount}. Выбранный по UX-default персонаж:{" "}
+                  Персонажей на сервере: {server.characterCount}. Выбранный персонаж:{" "}
                   {server.selectedCharacterName ?? "пока не выбран"}.
                 </p>
                 <p className="text-sm leading-6 text-[var(--muted)]">
-                  Активные families document area: `OGP complaints` и `Claims`. Claims пока
-                  существуют как route/UI foundation и не притворяются persisted editor flow.
+                  Жалобы в ОГП уже доступны для работы. Раздел исков отображается отдельно.
                 </p>
               </div>
               <div className="flex flex-wrap gap-3">
                 <FoundationLink href={`/servers/${server.code}/documents`}>
-                  Открыть document area сервера
+                  Открыть документы сервера
                 </FoundationLink>
               </div>
             </Card>
@@ -114,11 +110,10 @@ export function DocumentServerNotFoundState(props: {
   return (
     <div className="space-y-6">
       <Card className="space-y-3">
-        <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">Document Area</p>
+        <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">Документы</p>
         <h1 className="text-3xl font-semibold">Сервер не найден</h1>
         <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
-          Такой `serverSlug` сейчас не найден среди доступных server contexts document area:{" "}
-          {props.requestedServerSlug}.
+          Сервер с кодом {props.requestedServerSlug} сейчас недоступен для вашего аккаунта.
         </p>
         <div className="flex flex-wrap gap-3">
           <FoundationLink href="/account/documents">Вернуться к обзору документов</FoundationLink>
@@ -127,7 +122,7 @@ export function DocumentServerNotFoundState(props: {
 
       {props.servers.length > 0 ? (
         <Card className="space-y-4">
-          <h2 className="text-2xl font-semibold">Доступные server-scoped зоны</h2>
+          <h2 className="text-2xl font-semibold">Доступные серверы</h2>
           <div className="flex flex-wrap gap-3">
             {props.servers.map((server) => (
               <FoundationLink href={`/servers/${server.code}/documents`} key={server.id}>
@@ -151,16 +146,13 @@ export function DocumentNoCharactersState(props: {
   return (
     <div className="space-y-6">
       <Card className="space-y-3">
-        <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">Document Area</p>
+        <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">Документы</p>
         <h1 className="text-3xl font-semibold">{props.server.name}</h1>
         <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
-          На этом сервере у аккаунта пока нет персонажей, поэтому рабочий document flow ещё нельзя
-          открыть. Это честный server-scoped empty state, а не deny или 404.
+          На этом сервере пока нет персонажей, поэтому документы для него создать нельзя.
         </p>
         <p className="text-sm leading-6 text-[var(--muted)]">
-          Focused bridge ведёт в `/account/characters` сразу к группе нужного сервера и якорю
-          создания персонажа. Это не меняет server-scoped document area semantics, а только
-          убирает generic вход через transitional `/app`.
+          Сначала добавьте персонажа в личном кабинете. Ссылка ниже сразу откроет нужный сервер.
         </p>
         <div className="flex flex-wrap gap-3">
           <FoundationLink href={props.bridgeHref}>Создать персонажа на этом сервере</FoundationLink>
@@ -188,21 +180,20 @@ export function ServerDocumentsHub(props: {
     <div className="space-y-6">
       <Card className="space-y-3">
         <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">
-          Server Documents
+          Документы сервера
         </p>
         <h1 className="text-3xl font-semibold">{props.server.name}</h1>
         <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
-          Это server-scoped document hub. Source of truth по серверу берётся только из URL, а не из
-          active server shell state.
+          Здесь собраны документы и действия для выбранного сервера.
         </p>
         <div className="flex flex-wrap items-center gap-2 text-sm leading-6 text-[var(--muted)]">
-          <Badge>serverSlug: {props.server.code}</Badge>
+          <Badge>Код сервера: {props.server.code}</Badge>
           <Badge>Персонаж: {props.selectedCharacter.fullName}</Badge>
           <span>
-            UX-default: {props.selectedCharacter.source === "last_used" ? "last-used" : "first available"}
+            Выбор: {props.selectedCharacter.source === "last_used" ? "последний использованный" : "первый доступный"}
           </span>
           {typeof props.ogpComplaintDocumentCount === "number" ? (
-            <span>Persisted OGP documents: {props.ogpComplaintDocumentCount}</span>
+            <span>Жалоб в ОГП: {props.ogpComplaintDocumentCount}</span>
           ) : null}
         </div>
       </Card>
@@ -211,17 +202,17 @@ export function ServerDocumentsHub(props: {
         <Card className="space-y-4">
           <div className="space-y-2">
             <p className="text-xs uppercase tracking-[0.22em] text-[var(--accent)]">
-              Document Family
+              Раздел документов
             </p>
-            <h2 className="text-2xl font-semibold">OGP complaints</h2>
+            <h2 className="text-2xl font-semibold">Жалобы в ОГП</h2>
             <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
-              Первая уже рабочая family в document area. Здесь живут persisted drafts, owner-only
-              editor route, deterministic BBCode generation и manual publication metadata.
+              Создавайте и редактируйте жалобы в ОГП, генерируйте BBCode и готовьте публикацию
+              на форуме.
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
             <FoundationLink href={`/servers/${props.server.code}/documents/ogp-complaints`}>
-              Открыть OGP complaints
+              Открыть жалобы в ОГП
             </FoundationLink>
           </div>
         </Card>
@@ -229,21 +220,19 @@ export function ServerDocumentsHub(props: {
         <Card className="space-y-4">
           <div className="space-y-2">
             <p className="text-xs uppercase tracking-[0.22em] text-[var(--accent)]">
-              Document Family
+              Раздел документов
             </p>
-            <h2 className="text-2xl font-semibold">Claims</h2>
+            <h2 className="text-2xl font-semibold">Иски</h2>
             <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
-              Отдельная family рядом с OGP complaints. Она покрывает subtype `rehabilitation` и
-              `lawsuit`. Persisted drafts и owner-only routes уже заведены, но generation,
-              publication и full subtype-specific payload editor появятся позже.
+              Отдельный раздел для исковых документов. Он не смешивается с жалобами в ОГП.
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
             <FoundationLink href={`/servers/${props.server.code}/documents/claims`}>
-              Открыть Claims
+              Открыть иски
             </FoundationLink>
             <FoundationLink href={`/servers/${props.server.code}/documents/claims/new`}>
-              Выбрать subtype
+              Выбрать тип иска
             </FoundationLink>
           </div>
         </Card>
@@ -267,31 +256,31 @@ export function OgpComplaintFoundation(props: {
 }) {
   const title =
     props.mode === "index"
-      ? "OGP complaints"
+      ? "Жалобы в ОГП"
       : props.mode === "new"
         ? "Новая жалоба в ОГП"
-        : "Future editor route";
+        : "Редактор жалобы в ОГП";
 
   const description =
     props.mode === "index"
-      ? "Это foundation-level family index. Здесь позже появятся реальные drafts и документы типа `ogp_complaint`."
+      ? "Здесь будут отображаться жалобы в ОГП по выбранному серверу."
       : props.mode === "new"
-        ? "Это pre-draft entry route. До первого сохранения персонажа можно будет сменить, но persistence и snapshot model в этом шаге ещё не реализуются."
-        : "Это foundation для будущего owner-account editor route. Здесь пока нет fake draft loading и нет симуляции несуществующей persistence-логики.";
+        ? "Создайте черновик жалобы. До первого сохранения можно сменить выбранного персонажа."
+        : "Откройте сохранённую жалобу и продолжите редактирование.";
 
   return (
     <div className="space-y-6">
       <Card className="space-y-3">
         <div className="flex flex-wrap items-center gap-2">
           <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">
-            OGP Complaint Family
+            Жалоба в ОГП
           </p>
-          {props.mode === "editor" ? <Badge>owner-account route foundation</Badge> : null}
+          {props.mode === "editor" ? <Badge>только для владельца</Badge> : null}
         </div>
         <h1 className="text-3xl font-semibold">{title}</h1>
         <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">{description}</p>
         <div className="flex flex-wrap items-center gap-2 text-sm leading-6 text-[var(--muted)]">
-          <Badge>serverSlug: {props.server.code}</Badge>
+          <Badge>Код сервера: {props.server.code}</Badge>
           <Badge>Сервер: {props.server.name}</Badge>
           <Badge>Персонаж: {props.selectedCharacter.fullName}</Badge>
           <span>Паспорт: {props.selectedCharacter.passportNumber}</span>
@@ -299,28 +288,27 @@ export function OgpComplaintFoundation(props: {
       </Card>
 
       <Card className="space-y-4">
-        <h2 className="text-2xl font-semibold">Текущее состояние foundation</h2>
+        <h2 className="text-2xl font-semibold">Что доступно сейчас</h2>
         <ul className="space-y-2 text-sm leading-6 text-[var(--muted)]">
-          <li>Persistence модели документов в этом шаге ещё нет.</li>
-          <li>First-save snapshot capture ещё не реализован.</li>
-          <li>Autosave, OGP wizard fields и BBCode generation пока отсутствуют.</li>
+          <li>Черновик можно создать и затем открыть в редакторе жалобы.</li>
+          <li>После сохранения данные персонажа фиксируются в документе.</li>
+          <li>Генерация BBCode доступна в сохранённом редакторе жалобы.</li>
           <li>
-            Выбранный персонаж показан явно и уже готов к будущему правилу “можно сменить до
-            первого сохранения”.
+            Выбранный персонаж показан явно и может быть изменён до первого сохранения.
           </li>
           {props.mode === "editor" ? (
-            <li>Текущий foundation route использует documentId из URL: {props.documentId}.</li>
+            <li>ID документа: {props.documentId}.</li>
           ) : null}
         </ul>
         <div className="flex flex-wrap gap-3">
           {props.mode !== "index" ? (
             <FoundationLink href={`/servers/${props.server.code}/documents/ogp-complaints`}>
-              Вернуться к OGP family
+              Вернуться к жалобам в ОГП
             </FoundationLink>
           ) : null}
           {props.mode !== "new" ? (
             <FoundationLink href={`/servers/${props.server.code}/documents/ogp-complaints/new`}>
-              Открыть pre-draft entry
+              Создать новую жалобу
             </FoundationLink>
           ) : null}
         </div>

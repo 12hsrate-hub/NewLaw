@@ -118,19 +118,19 @@ describe("/servers/[serverSlug]/documents/ogp-complaints/[documentId] page", () 
       }),
     );
 
-    expect(html).toContain("owner-account route");
+    expect(html).toContain("только для владельца");
     expect(html).toContain("Persisted draft");
     expect(html).toContain("doc-123");
-    expect(html).toContain("OGP complaint editor");
-    expect(html).toContain("filing mode: representative");
-    expect(html).toContain("BBCode preview");
-    expect(html).toContain("Forum integration");
-    expect(html).toContain("Forum session state");
+    expect(html).toContain("Редактор жалобы в ОГП");
+    expect(html).toContain("Подача: как представитель");
+    expect(html).toContain("Готовый BBCode");
+    expect(html).toContain("Подключение форума");
+    expect(html).toContain("Статус: подключение работает");
     expect(html).toContain("Опубликовать на форуме");
     expect(html).not.toContain("Профиль персонажа неполный");
     expect(html).not.toContain("Должность: Укажите должность.");
     expect(html).not.toContain("Телефон: Укажите телефон.");
-    expect(html).not.toContain("IC email: Укажите IC email.");
+    expect(html).not.toContain("Игровая почта: Укажите игровую почту.");
     expect(html).not.toContain("Ссылка на скрин паспорта: Укажите ссылку на скрин паспорта.");
   });
 });

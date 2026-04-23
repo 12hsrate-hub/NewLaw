@@ -71,10 +71,10 @@ describe("/account/documents page", () => {
     const html = renderToStaticMarkup(await AccountDocumentsPage());
 
     expect(html).toContain("Мои документы");
-    expect(html).toContain("cross-server обзором persisted документов");
+    expect(html).toContain("Здесь собраны ваши сохранённые документы по всем серверам");
     expect(html).toContain("Жалоба в ОГП");
-    expect(html).toContain("Claims");
-    expect(html).toContain("filing mode: representative");
+    expect(html).toContain("Документы по серверам");
+    expect(html).toContain("Подача: как представитель");
     expect(html).toContain("/servers/blackberry/documents");
   });
 

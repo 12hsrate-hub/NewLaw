@@ -59,12 +59,12 @@ export function CharacterFormCard({
   const title = mode === "create" ? "Новый персонаж" : "Редактирование персонажа";
   const appShellDescription =
     mode === "create"
-      ? "Персонаж создаётся вручную. Минимально обязательны ФИО и паспорт, а роли и access flags можно оставить пустыми."
-      : "Обновление карточки персонажа в текущем серверном контексте без выхода в отдельный permission-центр.";
+      ? "Заполните ФИО и паспорт. Роли и дополнительные доступы можно указать позже."
+      : "Обновите данные персонажа для текущего сервера.";
   const accountZoneDescription =
     mode === "create"
-      ? "Новая карточка создаётся прямо внутри account zone. Это profile-management сценарий: он не превращает страницу в server workflow center и не тянет active server из `/app`."
-      : "Редактирование остаётся в account zone и не должно скрыто менять active selection для transitional `/app`.";
+      ? "Создайте карточку персонажа для выбранного сервера."
+      : "Изменения сохраняются только в этой карточке персонажа.";
   const description = surface === "account_zone" ? accountZoneDescription : appShellDescription;
   const selectedRoleKeys = new Set(defaultValues?.roleKeys ?? []);
   const selectedAccessFlags = new Set(defaultValues?.accessFlags ?? []);
@@ -113,7 +113,7 @@ export function CharacterFormCard({
         {surface === "account_zone" ? (
           <div className="space-y-2">
             <label className="text-sm font-medium" htmlFor={`${mode}-nickname`}>
-              Nickname
+              Ник
             </label>
             <Input
               defaultValue={defaultValues?.nickname ?? ""}
@@ -127,8 +127,7 @@ export function CharacterFormCard({
         <fieldset className="space-y-3">
           <legend className="text-sm font-medium">Роли персонажа</legend>
           <p className="text-xs leading-5 text-[var(--muted)]">
-            Это только роли текущего персонажа. Они не связаны с `super_admin` и платформенными
-            правами аккаунта.
+            Это роли только текущего персонажа. Они не дают права администратора аккаунта.
           </p>
           <div className="grid gap-2 sm:grid-cols-2">
             {characterRoleKeys.map((roleKey) => (
@@ -149,9 +148,9 @@ export function CharacterFormCard({
         </fieldset>
 
         <fieldset className="space-y-3">
-          <legend className="text-sm font-medium">Access flags</legend>
+          <legend className="text-sm font-medium">Доступы персонажа</legend>
           <p className="text-xs leading-5 text-[var(--muted)]">
-            Флаги тоже живут на уровне `character_id` и сохраняются только для этой карточки.
+            Эти доступы относятся только к выбранному персонажу.
           </p>
           <div className="grid gap-2 sm:grid-cols-2">
             {characterAccessFlagKeys.map((flagKey) => (
@@ -166,7 +165,7 @@ export function CharacterFormCard({
                   value={flagKey}
                 />
                 <span>
-                  {accessFlagLabels[flagKey]} <span className="text-[var(--muted)]">({flagKey})</span>
+                  {accessFlagLabels[flagKey]}
                 </span>
               </label>
             ))}
@@ -176,13 +175,11 @@ export function CharacterFormCard({
         <fieldset className="space-y-3 rounded-2xl border border-[var(--border)] bg-white/40 p-4">
           <legend className="px-1 text-sm font-medium">Компактный профиль персонажа</legend>
           <p className="text-xs leading-5 text-[var(--muted)]">
-            Это account-level profile subsection поверх уже существующего `profileDataJson`. Здесь
-            нет document payload и нет server-scoped workflow логики.
+            Эти поля нужны для жалоб в ОГП и других документов.
           </p>
 
           <div className="rounded-2xl border border-[var(--border)] bg-white/70 px-4 py-3 text-sm leading-6 text-[var(--muted)]">
-            Ready state считается автоматически из generation-required profile fields для OGP и не
-            хранится отдельным ручным чекбоксом.
+            Система сама проверит, хватает ли данных для генерации жалобы в ОГП.
           </div>
 
           <div className="space-y-2">
@@ -224,13 +221,13 @@ export function CharacterFormCard({
 
             <div className="space-y-2">
               <label className="text-sm font-medium" htmlFor={`${mode}-icEmail`}>
-                IC email
+                Игровая почта
               </label>
               <Input
                 defaultValue={defaultValues?.icEmail ?? ""}
                 id={`${mode}-icEmail`}
                 name="icEmail"
-                placeholder="IC mail / Discord"
+                placeholder="name@sa.com"
               />
             </div>
           </div>
@@ -262,13 +259,13 @@ export function CharacterFormCard({
 
           <div className="space-y-2">
             <label className="text-sm font-medium" htmlFor={`${mode}-profileNote`}>
-              Краткая profile note
+              Краткая заметка профиля
             </label>
             <Textarea
               defaultValue={defaultValues?.profileNote ?? ""}
               id={`${mode}-profileNote`}
               name="profileNote"
-              placeholder="Короткая server-specific заметка или уточнение по профилю."
+              placeholder="Короткая заметка или уточнение по профилю."
               rows={3}
             />
           </div>

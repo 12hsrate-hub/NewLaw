@@ -37,12 +37,12 @@ describe("character form card", () => {
     );
 
     expect(html).toContain("Роли персонажа");
-    expect(html).toContain("Access flags");
+    expect(html).toContain("Доступы персонажа");
     expect(html).toContain("Компактный профиль персонажа");
     expect(html).toContain('name="nickname"');
     expect(html).toContain('value="alice.stone"');
     expect(html).toContain('name="profileSignature"');
-    expect(html).toContain("Ready state считается автоматически");
+    expect(html).toContain("Система сама проверит");
     expect(html).toContain('value="Адвокат"');
     expect(html).toContain('value="123-45-67"');
     expect(html).toContain('value="alice.stone@example.com"');

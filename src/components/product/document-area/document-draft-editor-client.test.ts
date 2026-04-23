@@ -80,9 +80,9 @@ describe("OGP document editor rewrite affordances", () => {
 
     expect(html.match(/Улучшить текст/g)?.length).toBe(2);
     expect(html.match(/Улучшить с опорой на нормы/g)?.length).toBe(1);
-    expect(html).toContain("Situation description");
-    expect(html).toContain("Violation summary");
-    expect(html).toContain("Publication metadata");
+    expect(html).toContain("Подробное описание ситуации");
+    expect(html).toContain("Суть нарушения");
+    expect(html).toContain("Публикация на форуме");
     expect(html).toContain("Очистить форму жалобы");
     expect(html).toContain("Обновить данные профиля в жалобе");
     expect(html).not.toContain("AI-предложение для секции Working notes");
@@ -169,8 +169,8 @@ describe("OGP document editor rewrite affordances", () => {
       }),
     );
 
-    expect(html).toContain("Prefill из trustors registry");
-    expect(html).toContain("Подставить из registry");
+    expect(html).toContain("Подставить доверителя из списка");
+    expect(html).toContain("Подставить в документ");
     expect(html).toContain('/account/trustors?server=blackberry');
   });
 });

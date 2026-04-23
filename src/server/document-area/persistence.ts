@@ -62,7 +62,7 @@ const defaultDependencies: DocumentPersistenceDependencies = {
 
 export class DocumentServerUnavailableError extends Error {
   constructor() {
-    super("Server document area недоступен для этого serverSlug.");
+    super("Документы этого сервера сейчас недоступны. Код: DOCUMENT_SERVER_UNAVAILABLE.");
     this.name = "DocumentServerUnavailableError";
   }
 }

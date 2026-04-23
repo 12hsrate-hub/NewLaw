@@ -77,12 +77,12 @@ describe("account characters overview", () => {
       }),
     );
 
-    expect(html).toContain("Персонажи аккаунта");
+    expect(html).toContain("Мои персонажи");
     expect(html).toContain("CharacterFormCard:create:account_zone:account_zone");
     expect(html).toContain("CharacterFormCard:edit:account_zone:account_zone");
     expect(html).toContain('/account/characters?server=blackberry#create-character-blackberry');
-    expect(html).toContain("Карточка персонажа сохранена в account zone");
-    expect(html).toContain("Profile note");
+    expect(html).toContain("Карточка персонажа сохранена");
+    expect(html).toContain("Заметка профиля");
     expect(html).toContain("Персонажей пока нет");
     expect(html).not.toContain("Assistant");
     expect(html).not.toContain("Documents hub");

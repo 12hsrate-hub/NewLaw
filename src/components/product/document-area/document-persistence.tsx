@@ -46,7 +46,7 @@ function DocumentLink({
 
 function formatDocumentType(documentType: DocumentAreaPersistedListItem["documentType"]) {
   if (documentType === "ogp_complaint") {
-    return "OGP complaint";
+    return "Жалоба в ОГП";
   }
 
   if (documentType === "rehabilitation") {
@@ -57,7 +57,7 @@ function formatDocumentType(documentType: DocumentAreaPersistedListItem["documen
 }
 
 function formatDocumentFamily(documentType: DocumentAreaPersistedListItem["documentType"]) {
-  return documentType === "ogp_complaint" ? "OGP complaints" : "Claims";
+  return documentType === "ogp_complaint" ? "Жалобы в ОГП" : "Иски";
 }
 
 function formatDocumentSubtype(documentType: DocumentAreaPersistedListItem["documentType"]) {
@@ -78,22 +78,22 @@ function formatClaimSubtype(documentType: ClaimDocumentType) {
 
 function formatForumConnectionState(state: ForumConnectionSummary["state"]) {
   if (state === "not_connected") {
-    return "not_connected";
+    return "не подключено";
   }
 
   if (state === "connected_unvalidated") {
-    return "connected_unvalidated";
+    return "подключено, но не проверено";
   }
 
   if (state === "valid") {
-    return "valid";
+    return "подключение работает";
   }
 
   if (state === "invalid") {
-    return "invalid";
+    return "нужно подключить заново";
   }
 
-  return "disabled";
+  return "отключено";
 }
 
 function formatForumSyncState(state: OgpForumSyncState | null) {
@@ -101,19 +101,35 @@ function formatForumSyncState(state: OgpForumSyncState | null) {
     return null;
   }
 
-  return state;
+  if (state === "not_published") {
+    return "ещё не опубликовано";
+  }
+
+  if (state === "current") {
+    return "публикация актуальна";
+  }
+
+  if (state === "outdated") {
+    return "нужно обновить публикацию";
+  }
+
+  if (state === "failed") {
+    return "ошибка публикации";
+  }
+
+  return "указана вручную";
 }
 
 function formatDocumentStatus(status: DocumentAreaPersistedListItem["status"]) {
   if (status === "draft") {
-    return "draft";
+    return "черновик";
   }
 
   if (status === "generated") {
-    return "generated";
+    return "сгенерировано";
   }
 
-  return "published";
+  return "опубликовано";
 }
 
 function formatFilingMode(mode: DocumentAreaPersistedListItem["filingMode"]) {
@@ -121,7 +137,7 @@ function formatFilingMode(mode: DocumentAreaPersistedListItem["filingMode"]) {
     return null;
   }
 
-  return mode === "representative" ? "representative" : "self";
+  return mode === "representative" ? "как представитель" : "от своего имени";
 }
 
 function buildDocumentEditorHref(document: DocumentAreaPersistedListItem) {
@@ -140,7 +156,7 @@ function PersistedDocumentList(props: {
       <Card className="space-y-3">
         <h2 className="text-2xl font-semibold">Документы пока не созданы</h2>
         <p className="text-sm leading-6 text-[var(--muted)]">
-          Persistence foundation уже заведён, но у этого аккаунта пока нет сохранённых документов.
+          У этого аккаунта пока нет сохранённых документов.
         </p>
       </Card>
     );
@@ -160,10 +176,10 @@ function PersistedDocumentList(props: {
               )}
               <Badge>{formatDocumentStatus(document.status)}</Badge>
               {document.documentType === "ogp_complaint" && formatForumSyncState(document.forumSyncState) ? (
-                <Badge>forum: {formatForumSyncState(document.forumSyncState)}</Badge>
+                <Badge>Форум: {formatForumSyncState(document.forumSyncState)}</Badge>
               ) : null}
               {formatFilingMode(document.filingMode) ? (
-                <Badge>filing mode: {formatFilingMode(document.filingMode)}</Badge>
+                <Badge>Подача: {formatFilingMode(document.filingMode)}</Badge>
               ) : null}
               <span className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
                 {document.server.name} / {document.server.code}
@@ -171,23 +187,21 @@ function PersistedDocumentList(props: {
             </div>
             <h3 className="text-xl font-semibold">{document.title}</h3>
             <p className="text-sm leading-6 text-[var(--muted)]">
-              Author snapshot: {document.authorSnapshot.fullName}, паспорт{" "}
-              {document.authorSnapshot.passportNumber}. Snapshot captured:{" "}
+              Персонаж: {document.authorSnapshot.fullName}, паспорт{" "}
+              {document.authorSnapshot.passportNumber}. Данные сохранены:{" "}
               {new Date(document.snapshotCapturedAt).toLocaleString("ru-RU")}.
             </p>
             {document.documentType === "ogp_complaint" &&
             (document.appealNumber || document.objectOrganization || document.objectFullName) ? (
               <p className="text-sm leading-6 text-[var(--muted)]">
-                Appeal number: {document.appealNumber || "не указан"}. Object:{" "}
+                Номер обращения: {document.appealNumber || "не указан"}. Объект жалобы:{" "}
                 {document.objectOrganization || "—"} / {document.objectFullName || "—"}.
               </p>
             ) : null}
             {document.documentType !== "ogp_complaint" ? (
               <p className="text-sm leading-6 text-[var(--muted)]">
-                Claims editor уже работает внутри отдельной family `Claims`: subtype{" "}
-                `{formatDocumentSubtype(document.documentType)}` фиксируется через internal
-                `document_type`, а payload живёт отдельно от OGP. Claims generated checkpoint тоже
-                хранится в отдельном structured artifact, а не в OGP generation/publication workflow.
+                Этот документ относится к разделу исков. Его данные и результат подготовки
+                хранятся отдельно от жалоб в ОГП.
               </p>
             ) : null}
             <p className="text-sm leading-6 text-[var(--muted)]">
@@ -195,14 +209,14 @@ function PersistedDocumentList(props: {
             </p>
             {document.generatedAt ? (
               <p className="text-sm leading-6 text-[var(--muted)]">
-                Generated at: {new Date(document.generatedAt).toLocaleString("ru-RU")}.
+                Сгенерировано: {new Date(document.generatedAt).toLocaleString("ru-RU")}.
                 {document.isModifiedAfterGeneration ? " После генерации есть несинхронизированные изменения." : ""}
               </p>
             ) : null}
             {document.publicationUrl ? (
               <p className="text-sm leading-6 text-[var(--muted)]">
-                Publication URL: {document.publicationUrl}. Forum sync: {document.isSiteForumSynced ? "да" : "нет"}.
-                {document.forumSyncState ? ` State: ${document.forumSyncState}.` : ""}
+                Ссылка на публикацию: {document.publicationUrl}. Отмечено как опубликованное вручную: {document.isSiteForumSynced ? "да" : "нет"}.
+                {document.forumSyncState ? ` Статус: ${formatForumSyncState(document.forumSyncState)}.` : ""}
               </p>
             ) : null}
             {document.documentType === "ogp_complaint" && document.forumLastSyncError ? (
@@ -219,8 +233,8 @@ function PersistedDocumentList(props: {
           <div className="flex flex-wrap gap-3">
             <DocumentLink href={buildDocumentEditorHref(document)}>
               {document.documentType === "ogp_complaint"
-                ? "Открыть persisted complaint"
-                : "Открыть persisted claim"}
+                ? "Открыть жалобу в ОГП"
+                : "Открыть документ"}
             </DocumentLink>
           </div>
         </Card>
@@ -237,21 +251,19 @@ export function AccountDocumentsPersistedOverview(props: {
     <div className="space-y-6">
       <Card className="space-y-3">
         <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">
-          Account Documents
+          Документы
         </p>
         <h1 className="text-3xl font-semibold">Мои документы</h1>
         <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
-          `/account/documents` остаётся cross-server обзором persisted документов. Это не главный
-          create/edit route: рабочая зона по-прежнему живёт в server-scoped маршрутах. `OGP
-          complaints` уже persisted, а family `Claims` теперь тоже уже может появляться рядом с
-          ними как persisted `rehabilitation | lawsuit` без отдельного account editor center.
+          Здесь собраны ваши сохранённые документы по всем серверам. Создание и редактирование
+          открываются из раздела конкретного сервера.
         </p>
       </Card>
 
       <PersistedDocumentList documents={props.documents} />
 
       <Card className="space-y-4">
-        <h2 className="text-2xl font-semibold">Document area по серверам</h2>
+        <h2 className="text-2xl font-semibold">Документы по серверам</h2>
         <div className="grid gap-4 md:grid-cols-2">
           {props.servers.map((server) => (
             <Card className="space-y-3" key={server.id}>
@@ -263,16 +275,14 @@ export function AccountDocumentsPersistedOverview(props: {
                   </span>
                 </div>
                 <p className="text-sm leading-6 text-[var(--muted)]">
-                  Персонажей на сервере: {server.characterCount}. persisted OGP complaints:{" "}
-                  {server.ogpComplaintDocumentCount}. persisted claims: {server.claimsDocumentCount}.
-                  Это bridge в server-scoped document area, а не editor внутри account zone. Claims
-                  family тоже живёт в том же server-scoped hub, но не наследует OGP
-                  generation/publication workflow автоматически.
+                  Персонажей на сервере: {server.characterCount}. Жалоб в ОГП:{" "}
+                  {server.ogpComplaintDocumentCount}. Других документов: {server.claimsDocumentCount}.
+                  Откройте сервер, чтобы создать или отредактировать документы.
                 </p>
               </div>
               <div className="flex flex-wrap gap-3">
                 <DocumentLink href={`/servers/${server.code}/documents`}>
-                  Открыть document area сервера
+                  Открыть документы сервера
                 </DocumentLink>
               </div>
             </Card>
@@ -302,39 +312,38 @@ export function OgpComplaintFamilyPersistedList(props: {
     <div className="space-y-6">
       <Card className="space-y-3">
         <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">
-          OGP Complaint Family
+          Жалобы в ОГП
         </p>
-        <h1 className="text-3xl font-semibold">OGP complaints</h1>
+        <h1 className="text-3xl font-semibold">Жалобы в ОГП</h1>
         <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
-          Это уже не пустой foundation route: здесь читаются реальные persisted документы типа
-          `ogp_complaint` на выбранном сервере.
+          Здесь отображаются сохранённые жалобы в ОГП на выбранном сервере.
         </p>
         <div className="flex flex-wrap items-center gap-2 text-sm leading-6 text-[var(--muted)]">
-          <Badge>serverSlug: {props.server.code}</Badge>
+          <Badge>Код сервера: {props.server.code}</Badge>
           <Badge>Сервер: {props.server.name}</Badge>
           {props.selectedCharacter ? (
             <>
-              <Badge>UX-default персонаж: {props.selectedCharacter.fullName}</Badge>
+              <Badge>Персонаж: {props.selectedCharacter.fullName}</Badge>
               <span>
-                Источник:{" "}
-                {props.selectedCharacter.source === "last_used" ? "last-used" : "first available"}
+                Выбор:{" "}
+                {props.selectedCharacter.source === "last_used" ? "последний использованный" : "первый доступный"}
               </span>
               <span>
-                Representative: {props.selectedCharacter.canUseRepresentative ? "да" : "нет"}
+                Может подавать как представитель: {props.selectedCharacter.canUseRepresentative ? "да" : "нет"}
               </span>
             </>
           ) : (
-            <Badge>Новых create-flow сейчас нет: на сервере нет персонажей</Badge>
+            <Badge>Создание недоступно: на сервере нет персонажей</Badge>
           )}
         </div>
         <div className="flex flex-wrap gap-3">
           {props.canCreateDocuments ? (
             <DocumentLink href={`/servers/${props.server.code}/documents/ogp-complaints/new`}>
-              Создать новый draft
+              Создать черновик
             </DocumentLink>
           ) : null}
           <DocumentLink href={`/servers/${props.server.code}/documents`}>
-            Вернуться к hub сервера
+            Вернуться к документам сервера
           </DocumentLink>
         </div>
       </Card>
@@ -343,8 +352,8 @@ export function OgpComplaintFamilyPersistedList(props: {
         <Card className="space-y-3">
           <h2 className="text-2xl font-semibold">Создание временно недоступно</h2>
           <p className="text-sm leading-6 text-[var(--muted)]">
-            На сервере сейчас нет доступных персонажей, поэтому новый document создать нельзя.
-            Existing persisted drafts при этом остаются доступны owner-аккаунту.
+            На сервере сейчас нет доступных персонажей, поэтому новую жалобу создать нельзя.
+            Уже сохранённые черновики остаются доступны.
           </p>
         </Card>
       ) : null}
@@ -427,20 +436,19 @@ export function OgpComplaintDraftCreateEntry(props: {
     <div className="space-y-6">
       <Card className="space-y-3">
         <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">
-          OGP Complaint Draft
+          Новая жалоба
         </p>
         <h1 className="text-3xl font-semibold">Новая жалоба в ОГП</h1>
         <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
-          `/new` отвечает за pre-draft create entry. После первого сохранения работа продолжается
-          в owner-only route `[documentId]`.
+          Создайте черновик жалобы. После первого сохранения откроется обычный редактор документа.
         </p>
         <div className="flex flex-wrap items-center gap-2 text-sm leading-6 text-[var(--muted)]">
-          <Badge>serverSlug: {props.server.code}</Badge>
+          <Badge>Код сервера: {props.server.code}</Badge>
           <Badge>Сервер: {props.server.name}</Badge>
-          <Badge>UX-default персонаж: {props.selectedCharacter.fullName}</Badge>
+          <Badge>Персонаж: {props.selectedCharacter.fullName}</Badge>
           <span>
-            До first save персонажа можно сменить. Источник default:{" "}
-            {props.selectedCharacter.source === "last_used" ? "last-used" : "first available"}.
+            До первого сохранения персонажа можно сменить. Сейчас выбран{" "}
+            {props.selectedCharacter.source === "last_used" ? "последний использованный" : "первый доступный"} персонаж.
           </span>
         </div>
         {props.status ? (
@@ -449,11 +457,10 @@ export function OgpComplaintDraftCreateEntry(props: {
       </Card>
 
       <Card className="space-y-4">
-        <h2 className="text-2xl font-semibold">Complaint create entry</h2>
+        <h2 className="text-2xl font-semibold">Черновик жалобы</h2>
         <p className="text-sm leading-6 text-[var(--muted)]">
-          На этом route создаётся persisted complaint draft и фиксируется immutable author snapshot.
-          BBCode generation, publish create/update и manual publication metadata появляются после
-          first save уже в owner-only route `[documentId]`.
+          Заполните основные поля и сохраните черновик. Генерация BBCode и публикация на форуме
+          будут доступны после сохранения.
         </p>
         <OgpComplaintDraftCreateClient
           characters={props.characters}
@@ -478,21 +485,21 @@ export function OwnedDocumentUnavailableState(props: {
   familyLabel?: string;
 }) {
   const familyHref = props.familyHref ?? `/servers/${props.server.code}/documents/ogp-complaints`;
-  const familyLabel = props.familyLabel ?? "persisted документам";
+  const familyLabel = props.familyLabel ?? "сохранённым документам";
 
   return (
     <div className="space-y-6">
       <Card className="space-y-3">
         <div className="flex flex-wrap items-center gap-2">
           <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">
-            Owner Document Area
+            Документ
           </p>
-          <Badge>owner-account only</Badge>
+          <Badge>только для владельца</Badge>
         </div>
         <h1 className="text-3xl font-semibold">Документ недоступен</h1>
         <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
-          Документ `{props.documentId}` не найден в owner-account зоне этого сервера или не
-          принадлежит текущему аккаунту.
+          Документ `{props.documentId}` не найден на этом сервере или не принадлежит текущему
+          аккаунту.
         </p>
         <div className="flex flex-wrap gap-3">
           <DocumentLink href={familyHref}>
@@ -556,56 +563,55 @@ export function OgpComplaintPersistedEditor(props: {
       <Card className="space-y-3">
         <div className="flex flex-wrap items-center gap-2">
           <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">
-            Owner Document Editor
+            Редактор жалобы
           </p>
           <Badge>{formatDocumentStatus(props.document.status)}</Badge>
-          <Badge>owner-account route</Badge>
-          <Badge>filing mode: {formatFilingMode(props.document.payload.filingMode)}</Badge>
+          <Badge>только для владельца</Badge>
+          <Badge>Подача: {formatFilingMode(props.document.payload.filingMode)}</Badge>
         </div>
         <h1 className="text-3xl font-semibold">{props.document.title}</h1>
         <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
-          Это уже реальный OGP complaint editor route. Здесь грузится persisted payload, работает
-          owner-only access, manual/autosave, deterministic BBCode generation и первый automation
-          create/update flow публикации на форум.
+          Здесь можно редактировать жалобу в ОГП, сохранить черновик, сгенерировать BBCode и
+          подготовить публикацию на форуме.
         </p>
         <div className="flex flex-wrap items-center gap-2 text-sm leading-6 text-[var(--muted)]">
-          <Badge>serverSlug: {props.document.server.code}</Badge>
+          <Badge>Код сервера: {props.document.server.code}</Badge>
           <Badge>Сервер: {props.document.server.name}</Badge>
-          <Badge>Author snapshot: {props.document.authorSnapshot.fullName}</Badge>
-          <span>Passport: {props.document.authorSnapshot.passportNumber}</span>
+          <Badge>Персонаж: {props.document.authorSnapshot.fullName}</Badge>
+          <span>Паспорт: {props.document.authorSnapshot.passportNumber}</span>
         </div>
         {props.status ? (
-          <p className="text-sm leading-6 text-[var(--muted)]">Route status: {props.status}</p>
+          <p className="text-sm leading-6 text-[var(--muted)]">Статус: {props.status}</p>
         ) : null}
       </Card>
 
       <Card className="space-y-4">
-        <h2 className="text-2xl font-semibold">Persisted context</h2>
+        <h2 className="text-2xl font-semibold">Служебные сведения</h2>
         <ul className="space-y-2 text-sm leading-6 text-[var(--muted)]">
-          <li>Document ID: {props.document.id}</li>
-          <li>Created at: {new Date(props.document.createdAt).toLocaleString("ru-RU")}</li>
-          <li>Updated at: {new Date(props.document.updatedAt).toLocaleString("ru-RU")}</li>
+          <li>ID документа: {props.document.id}</li>
+          <li>Создано: {new Date(props.document.createdAt).toLocaleString("ru-RU")}</li>
+          <li>Обновлено: {new Date(props.document.updatedAt).toLocaleString("ru-RU")}</li>
           <li>
-            Snapshot captured at: {new Date(props.document.snapshotCapturedAt).toLocaleString("ru-RU")}
+            Данные персонажа сохранены: {new Date(props.document.snapshotCapturedAt).toLocaleString("ru-RU")}
           </li>
-          <li>Form schema version: {props.document.formSchemaVersion}</li>
-          <li>Nickname snapshot: {props.document.authorSnapshot.nickname}</li>
-          <li>Role keys: {props.document.authorSnapshot.roleKeys.join(", ") || "нет"}</li>
-          <li>Access flags: {props.document.authorSnapshot.accessFlags.join(", ") || "нет"}</li>
+          <li>Версия формы: {props.document.formSchemaVersion}</li>
+          <li>Ник: {props.document.authorSnapshot.nickname}</li>
+          <li>Роли: {props.document.authorSnapshot.roleKeys.join(", ") || "нет"}</li>
+          <li>Доступы: {props.document.authorSnapshot.accessFlags.join(", ") || "нет"}</li>
           <li>
-            Server и character snapshot после first save больше не меняются в рамках этого шага.
+            Сервер и выбранный персонаж после первого сохранения не меняются.
           </li>
           <li>
-            Generation status: {props.document.generatedAt ? "есть generated BBCode" : "ещё не генерировался"}.
+            Генерация: {props.document.generatedAt ? "BBCode уже создан" : "ещё не выполнялась"}.
           </li>
-          <li>Forum integration state: {formatForumConnectionState(props.document.forumConnection.state)}.</li>
-          <li>Forum sync state: {props.document.forumSyncState}.</li>
+          <li>Подключение форума: {formatForumConnectionState(props.document.forumConnection.state)}.</li>
+          <li>Статус публикации: {formatForumSyncState(props.document.forumSyncState)}.</li>
           <li>
-            Automation-owned publication:{" "}
+            Опубликовано через приложение:{" "}
             {props.document.forumThreadId && props.document.forumPostId ? "да" : "нет"}
           </li>
           <li>
-            Forum last published at:{" "}
+            Последняя публикация на форуме:{" "}
             {props.document.forumLastPublishedAt
               ? new Date(props.document.forumLastPublishedAt).toLocaleString("ru-RU")
               : "ещё не публиковался"}
@@ -617,36 +623,35 @@ export function OgpComplaintPersistedEditor(props: {
       </Card>
 
       <Card className="space-y-4">
-        <h2 className="text-2xl font-semibold">Forum integration</h2>
+        <h2 className="text-2xl font-semibold">Подключение форума</h2>
         <p className="text-sm leading-6 text-[var(--muted)]">
-          OGP editor уже умеет читать account-scoped forum connection state, запускать first
-          publish create и owner-only update/resync только из latest generated BBCode. Подключение
-          и validate session живут в `/account/security`.
+          Подключение форума управляется в настройках аккаунта. Редактор использует его только
+          для публикации жалобы в ОГП.
         </p>
         <ul className="space-y-2 text-sm leading-6 text-[var(--muted)]">
-          <li>Provider: {props.document.forumConnection.providerKey}</li>
-          <li>State: {formatForumConnectionState(props.document.forumConnection.state)}</li>
+          <li>Форум: {props.document.forumConnection.providerKey}</li>
+          <li>Статус: {formatForumConnectionState(props.document.forumConnection.state)}</li>
           <li>
-            Forum identity:{" "}
+            Форумный аккаунт:{" "}
             {props.document.forumConnection.forumUsername ?? "ещё не извлечена"}
             {props.document.forumConnection.forumUserId
               ? ` (${props.document.forumConnection.forumUserId})`
               : ""}
           </li>
           <li>
-            Validated at:{" "}
+            Последняя проверка:{" "}
             {props.document.forumConnection.validatedAt
               ? new Date(props.document.forumConnection.validatedAt).toLocaleString("ru-RU")
               : "ещё не подтверждалась"}
           </li>
           {props.document.forumConnection.lastValidationError ? (
-            <li>Последняя безопасная ошибка: {props.document.forumConnection.lastValidationError}</li>
+            <li>Последняя ошибка проверки: {props.document.forumConnection.lastValidationError}</li>
           ) : null}
         </ul>
       </Card>
 
       <Card className="space-y-4">
-        <h2 className="text-2xl font-semibold">OGP complaint editor</h2>
+        <h2 className="text-2xl font-semibold">Редактор жалобы в ОГП</h2>
         <DocumentDraftEditorClient
           authorSnapshot={{
             canUseRepresentative: props.document.authorSnapshot.accessFlags.includes("advocate"),

@@ -73,7 +73,7 @@ export async function changePasswordAction(
   if (!hasLiveSupabaseRuntimeEnv(initialRuntimeConfig)) {
     return {
       errorMessage:
-        "Сейчас подключены placeholder-переменные Supabase. Без боевых значений смена пароля не сработает.",
+        "Смена пароля временно недоступна из-за настройки сервера. Код: ACCOUNT_PASSWORD_RUNTIME_CONFIG_MISSING.",
       fieldErrors: {},
     };
   }
@@ -137,7 +137,7 @@ export async function changeEmailAction(
   if (!hasLiveSupabaseRuntimeEnv(initialRuntimeConfig)) {
     return {
       errorMessage:
-        "Сейчас подключены placeholder-переменные Supabase. Без боевых значений смена email не сработает.",
+        "Смена email временно недоступна из-за настройки сервера. Код: ACCOUNT_EMAIL_RUNTIME_CONFIG_MISSING.",
       fieldErrors: {},
     };
   }

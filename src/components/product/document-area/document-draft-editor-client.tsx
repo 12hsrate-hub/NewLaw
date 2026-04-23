@@ -195,7 +195,7 @@ function areStatesEqual(left: OgpComplaintEditorState, right: OgpComplaintEditor
 }
 
 function filingModeLabel(mode: OgpComplaintDraftPayload["filingMode"]) {
-  return mode === "representative" ? "Representative" : "Self";
+  return mode === "representative" ? "как представитель" : "от своего имени";
 }
 
 function formatGroundedSupportSummary(
@@ -203,50 +203,62 @@ function formatGroundedSupportSummary(
   references: GroundedDocumentReference[],
 ) {
   if (groundingMode === "law_grounded") {
-    return `Опора: подтверждённые нормы закона (${references.length}). Suggestion остаётся локальным и не сохраняется автоматически.`;
+    return `Опора: подтверждённые нормы закона (${references.length}). Предложение не сохраняется автоматически.`;
   }
 
-  return `Опора: подтверждённые судебные прецеденты (${references.length}). Норма закона по retrieval не найдена, поэтому suggestion остаётся precedent-grounded.`;
+  return `Опора: подтверждённые судебные прецеденты (${references.length}). Подходящей нормы закона не найдено, поэтому текст опирается только на прецеденты.`;
 }
 
 function formatForumConnectionState(state: ForumConnectionSummary["state"]) {
   if (state === "not_connected") {
-    return "not_connected";
+    return "не подключено";
   }
 
   if (state === "connected_unvalidated") {
-    return "connected_unvalidated";
+    return "подключено, но не проверено";
   }
 
   if (state === "valid") {
-    return "valid";
+    return "подключение работает";
   }
 
   if (state === "invalid") {
-    return "invalid";
+    return "нужно подключить заново";
   }
 
-  return "disabled";
+  return "отключено";
 }
 
 function formatForumSyncState(state: OgpForumSyncState) {
   if (state === "not_published") {
-    return "not_published";
+    return "ещё не опубликовано";
   }
 
   if (state === "current") {
-    return "current";
+    return "публикация актуальна";
   }
 
   if (state === "outdated") {
-    return "outdated";
+    return "нужно обновить публикацию";
   }
 
   if (state === "failed") {
-    return "failed";
+    return "ошибка публикации";
   }
 
-  return "manual_untracked";
+  return "указана вручную";
+}
+
+function formatDraftStatus(status: OgpComplaintGenerationState["status"]) {
+  if (status === "draft") {
+    return "черновик";
+  }
+
+  if (status === "generated") {
+    return "сгенерировано";
+  }
+
+  return "опубликовано";
 }
 
 function buildEmptyEvidenceGroup(): OgpComplaintEvidenceGroup {
@@ -385,22 +397,22 @@ function buildGenerationBlockState(input: {
 
 function formatGenerationReadyState(readyState: OgpGenerationReadyState) {
   if (readyState === "generation_ready") {
-    return "Generation ready";
+    return "готово к генерации";
   }
 
   if (readyState === "blocked_by_character_profile") {
-    return "Blocked by character profile";
+    return "нужно заполнить профиль персонажа";
   }
 
   if (readyState === "blocked_by_trustor_snapshot") {
-    return "Blocked by trustor snapshot";
+    return "нужно заполнить данные доверителя";
   }
 
   if (readyState === "blocked_by_document_payload") {
-    return "Blocked by document payload";
+    return "нужно заполнить поля жалобы";
   }
 
-  return "Blocked by multiple sections";
+  return "нужно заполнить несколько разделов";
 }
 
 function GenerationChecklistSection(props: {
@@ -447,7 +459,7 @@ function EvidenceGroupsEditor(props: {
     <div className="space-y-4">
       {groups.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-[var(--border)] px-4 py-5 text-sm text-[var(--muted)]">
-          Пока нет evidence groups. Можно сохранить черновик без них и добавить ссылки позже.
+          Доказательства пока не добавлены. Черновик можно сохранить сейчас, а ссылки добавить позже.
         </div>
       ) : null}
 
@@ -456,10 +468,10 @@ function EvidenceGroupsEditor(props: {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="space-y-1">
               <p className="text-sm font-medium text-[var(--foreground)]">
-                Evidence group {groupIndex + 1}
+                Группа доказательств {groupIndex + 1}
               </p>
               <ComplaintFieldHint>
-                Группа нужна, чтобы позже BBCode generation можно было строить по стабильной структуре.
+                Добавьте ссылки, которые подтверждают обстоятельства жалобы.
               </ComplaintFieldHint>
             </div>
             <Button
@@ -496,7 +508,7 @@ function EvidenceGroupsEditor(props: {
               <div className="space-y-3 rounded-2xl border border-[var(--border)] bg-white/80 p-4" key={row.id}>
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <p className="text-sm font-medium text-[var(--foreground)]">
-                    Evidence row {rowIndex + 1}
+                    Доказательство {rowIndex + 1}
                   </p>
                   <Button
                     onClick={() => {
@@ -514,14 +526,14 @@ function EvidenceGroupsEditor(props: {
                     type="button"
                     variant="secondary"
                   >
-                    Удалить row
+                    Удалить доказательство
                   </Button>
                 </div>
 
                 <div className="grid gap-3 md:grid-cols-2">
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`row-label-${row.id}`}>
-                      Название / label
+                      Название ссылки
                     </label>
                     <Input
                       id={`row-label-${row.id}`}
@@ -620,7 +632,7 @@ function EvidenceGroupsEditor(props: {
             type="button"
             variant="secondary"
           >
-            Добавить evidence row
+            Добавить доказательство
           </Button>
         </div>
       ))}
@@ -632,7 +644,7 @@ function EvidenceGroupsEditor(props: {
         type="button"
         variant="secondary"
       >
-        Добавить evidence group
+        Добавить группу доказательств
       </Button>
     </div>
   );
@@ -648,7 +660,7 @@ function ComplaintFormFields(props: {
   serverCode: string;
   trustorRegistry: TrustorRegistryPrefillOption[];
   routeStatus?: string | null;
-  draftStatusLabel?: string;
+  draftStatusLabel?: OgpComplaintGenerationState["status"];
   updatedAtLabel?: string;
   renderRewriteControls?: (input: {
     sectionKey: OgpDocumentRewriteSectionKey;
@@ -660,26 +672,29 @@ function ComplaintFormFields(props: {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center gap-2">
-        <Badge>{props.mode === "create" ? "pre-draft entry" : "persisted draft editor"}</Badge>
-        <Badge>Filing mode: {filingModeLabel(payload.filingMode)}</Badge>
-        {props.draftStatusLabel ? <Badge>Status: {props.draftStatusLabel}</Badge> : null}
+        <Badge>{props.mode === "create" ? "новая жалоба" : "черновик жалобы"}</Badge>
+        <Badge>Подача: {filingModeLabel(payload.filingMode)}</Badge>
+        {props.draftStatusLabel ? (
+          <Badge>
+            Статус: {formatDraftStatus(props.draftStatusLabel)}
+          </Badge>
+        ) : null}
       </div>
 
       <div className="rounded-3xl border border-[var(--border)] bg-white/70 p-4 text-sm leading-6 text-[var(--muted)]">
         <p>Сервер и персонаж уже показаны явно. Персонаж: {props.characterLabel}.</p>
         {!props.profileComplete ? (
           <p className="mt-2 text-[var(--accent)]">
-            Профиль персонажа неполный для OGP generation. Редактирование жалобы доступно, но
-            persisted generation будет заблокирована точным checklist до заполнения обязательных
-            profile fields.
+            Для генерации жалобы в ОГП не хватает данных профиля персонажа. Жалобу можно
+            редактировать, но генерация будет доступна только после заполнения обязательных полей.
           </p>
         ) : null}
         {!props.representativeAllowed ? (
           <p className="mt-2">
-            У этого персонажа нет access flag `advocate`, поэтому representative filing недоступен.
+            Этот персонаж не отмечен как адвокат, поэтому подача как представитель недоступна.
           </p>
         ) : null}
-        {props.routeStatus ? <p className="mt-2">Route status: {props.routeStatus}</p> : null}
+        {props.routeStatus ? <p className="mt-2">Статус: {props.routeStatus}</p> : null}
         {props.updatedAtLabel ? <p className="mt-2">Последнее сохранение: {props.updatedAtLabel}</p> : null}
       </div>
 
@@ -703,7 +718,7 @@ function ComplaintFormFields(props: {
       <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-2">
           <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`${props.mode}-filing-mode`}>
-            Filing mode
+            Способ подачи
           </label>
           <Select
             id={`${props.mode}-filing-mode`}
@@ -723,19 +738,19 @@ function ComplaintFormFields(props: {
             }}
             value={payload.filingMode}
           >
-            <option value="self">Self</option>
+            <option value="self">От своего имени</option>
             <option disabled={!props.representativeAllowed} value="representative">
-              Representative
+              Как представитель
             </option>
           </Select>
           <ComplaintFieldHint>
-            Ветка representative доступна только персонажу с `advocate`.
+            Подача как представитель доступна только персонажу с ролью адвоката.
           </ComplaintFieldHint>
         </div>
 
         <div className="space-y-2">
           <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`${props.mode}-appeal-number`}>
-            Appeal number
+            Номер обращения
           </label>
           <Input
             id={`${props.mode}-appeal-number`}
@@ -758,7 +773,7 @@ function ComplaintFormFields(props: {
       <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-2">
           <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`${props.mode}-object-organization`}>
-            Organization name
+            Организация объекта жалобы
           </label>
           <Input
             id={`${props.mode}-object-organization`}
@@ -779,7 +794,7 @@ function ComplaintFormFields(props: {
 
         <div className="space-y-2">
           <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`${props.mode}-object-full-name`}>
-            Subject label
+            Объект жалобы
           </label>
           <Input
             id={`${props.mode}-object-full-name`}
@@ -801,7 +816,7 @@ function ComplaintFormFields(props: {
 
       <div className="space-y-2">
         <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`${props.mode}-incident-at`}>
-          Incident date-time
+          Дата и время события
         </label>
         <Input
           id={`${props.mode}-incident-at`}
@@ -821,7 +836,7 @@ function ComplaintFormFields(props: {
 
       <div className="space-y-2">
         <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`${props.mode}-situation-description`}>
-          Situation description
+          Подробное описание ситуации
         </label>
         <Textarea
           id={`${props.mode}-situation-description`}
@@ -834,18 +849,18 @@ function ComplaintFormFields(props: {
               },
             });
           }}
-          placeholder="Опиши, что произошло и в каком контексте."
+          placeholder="Опишите, что произошло, где и при каких обстоятельствах."
           value={payload.situationDescription}
         />
         {props.renderRewriteControls?.({
           sectionKey: "situation_description",
-          sectionLabel: "Situation description",
+          sectionLabel: "Описание ситуации",
         })}
       </div>
 
       <div className="space-y-2">
         <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`${props.mode}-violation-summary`}>
-          Violation summary
+          Суть нарушения
         </label>
         <Textarea
           id={`${props.mode}-violation-summary`}
@@ -858,22 +873,22 @@ function ComplaintFormFields(props: {
               },
             });
           }}
-          placeholder="Коротко сформулируй, в чём именно состоит нарушение."
+          placeholder="Коротко сформулируйте, в чём именно состоит нарушение."
           value={payload.violationSummary}
         />
         {props.renderRewriteControls?.({
           sectionKey: "violation_summary",
-          sectionLabel: "Violation summary",
+          sectionLabel: "Суть нарушения",
         })}
       </div>
 
       {payload.filingMode === "representative" ? (
         <div className="space-y-4 rounded-3xl border border-[var(--border)] bg-white/70 p-4" id="trustor-snapshot-section">
           <div className="space-y-1">
-            <h3 className="text-lg font-semibold">Trustor snapshot</h3>
+            <h3 className="text-lg font-semibold">Данные доверителя</h3>
             <ComplaintFieldHint>
-              На этом шаге trustor сохраняется прямо внутри документа как snapshot. Registry
-              используется только как optional prefill и не создаёт live-связь с документом.
+              Эти данные сохраняются внутри жалобы. Если вы подставили доверителя из списка,
+              дальнейшие изменения карточки не изменят уже заполненный документ.
             </ComplaintFieldHint>
           </div>
 
@@ -897,7 +912,7 @@ function ComplaintFormFields(props: {
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`${props.mode}-trustor-full-name`}>
-                Trustor full name
+                ФИО доверителя
               </label>
               <Input
                 id={`${props.mode}-trustor-full-name`}
@@ -919,7 +934,7 @@ function ComplaintFormFields(props: {
 
             <div className="space-y-2">
               <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`${props.mode}-trustor-passport`}>
-                Trustor passport number
+                Паспорт доверителя
               </label>
               <Input
                 id={`${props.mode}-trustor-passport`}
@@ -942,7 +957,7 @@ function ComplaintFormFields(props: {
 
           <div className="space-y-2">
             <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`${props.mode}-trustor-address`}>
-              Trustor address
+              Адрес доверителя
             </label>
             <Input
               id={`${props.mode}-trustor-address`}
@@ -965,7 +980,7 @@ function ComplaintFormFields(props: {
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`${props.mode}-trustor-phone`}>
-                Trustor phone
+                Телефон доверителя
               </label>
               <Input
                 id={`${props.mode}-trustor-phone`}
@@ -988,7 +1003,7 @@ function ComplaintFormFields(props: {
 
             <div className="space-y-2">
               <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`${props.mode}-trustor-ic-email`}>
-                Trustor IC email
+                Игровая почта доверителя
               </label>
               <Input
                 id={`${props.mode}-trustor-ic-email`}
@@ -1004,7 +1019,7 @@ function ComplaintFormFields(props: {
                     },
                   });
                 }}
-                placeholder="IC mail / Discord"
+                placeholder="name@sa.com"
                 value={payload.trustorSnapshot?.icEmail ?? ""}
               />
             </div>
@@ -1012,7 +1027,7 @@ function ComplaintFormFields(props: {
 
           <div className="space-y-2">
             <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`${props.mode}-trustor-passport-image-url`}>
-              Trustor passport image URL
+              Ссылка на скрин паспорта доверителя
             </label>
             <Input
               id={`${props.mode}-trustor-passport-image-url`}
@@ -1036,7 +1051,7 @@ function ComplaintFormFields(props: {
 
           <div className="space-y-2">
             <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`${props.mode}-trustor-note`}>
-              Trustor note
+              Примечание по доверителю
             </label>
             <Textarea
               id={`${props.mode}-trustor-note`}
@@ -1061,9 +1076,9 @@ function ComplaintFormFields(props: {
 
       <div className="space-y-4 rounded-3xl border border-[var(--border)] bg-white/70 p-4" id="evidence-links-section">
         <div className="space-y-1">
-          <h3 className="text-lg font-semibold">Evidence links</h3>
+          <h3 className="text-lg font-semibold">Доказательства</h3>
           <ComplaintFieldHint>
-            Только ссылки и текстовые rows. File uploads и forum automation в этот шаг не входят.
+            Добавьте ссылки на материалы, которые подтверждают обстоятельства жалобы.
           </ComplaintFieldHint>
         </div>
         <EvidenceGroupsEditor
@@ -1082,7 +1097,7 @@ function ComplaintFormFields(props: {
 
       <div className="space-y-2">
         <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`${props.mode}-working-notes`}>
-          Working notes
+          Рабочие заметки
         </label>
         <Textarea
           id={`${props.mode}-working-notes`}
@@ -1139,7 +1154,7 @@ export function OgpComplaintDraftCreateClient(props: OgpComplaintDraftCreateClie
 
       <div className="space-y-2">
         <label className="text-sm font-medium text-[var(--foreground)]" htmlFor="create-character-id">
-          Персонаж для first save
+          Персонаж для жалобы
         </label>
         <Select
           id="create-character-id"
@@ -1155,7 +1170,8 @@ export function OgpComplaintDraftCreateClient(props: OgpComplaintDraftCreateClie
           ))}
         </Select>
         <ComplaintFieldHint>
-          До первого сохранения персонажа можно сменить. После first save server и author snapshot станут immutable.
+          До первого сохранения персонажа можно сменить. После сохранения жалоба продолжит
+          использовать выбранного персонажа.
         </ComplaintFieldHint>
       </div>
 
@@ -1171,7 +1187,7 @@ export function OgpComplaintDraftCreateClient(props: OgpComplaintDraftCreateClie
       />
 
       <div className="flex flex-wrap gap-3">
-        <Button type="submit">Создать persisted complaint draft</Button>
+        <Button type="submit">Создать черновик жалобы</Button>
       </div>
     </form>
   );
@@ -1292,7 +1308,7 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
   const canGenerateFromPersistedState = !isDirty;
   const generationReadinessLabel = useMemo(() => {
     if (isDirty) {
-      return "Сначала сохраните черновик, затем generation будет проверяться по persisted состоянию.";
+      return "Сначала сохраните черновик, затем генератор проверит сохранённые данные.";
     }
 
     return formatGenerationReadyState(persistedGenerationBlockState.readyState);
@@ -1311,15 +1327,15 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
     }
 
     if (generationState.forumSyncState === "manual_untracked") {
-      return "manual publication url without automation tracking";
+      return "ссылка на публикацию указана вручную";
     }
 
     if (generationState.forumSyncState === "failed" && hasAutomationOwnedIdentity) {
-      return "ошибка публикации, можно повторить sync";
+      return "ошибка публикации, можно повторить обновление";
     }
 
     if (generationState.forumSyncState === "outdated" && hasAutomationOwnedIdentity) {
-      return "требуется update/resync";
+      return "нужно обновить публикацию";
     }
 
     if (generationState.forumSyncState === "current" && hasAutomationOwnedIdentity) {
@@ -1334,7 +1350,7 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
       return "готово к публикации";
     }
 
-    return "нужна валидная forum session";
+    return "нужно рабочее подключение форума";
   }, [
     generationState.forumSyncState,
     generationState.generatedAt,
@@ -1354,16 +1370,16 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
 
       if (!result.ok) {
         if (result.error === "representative-not-allowed") {
-          setSaveMessage("Representative filing недоступен без access flag advocate.");
+          setSaveMessage("Подача как представитель доступна только персонажу с ролью адвоката. Код: OGP_REPRESENTATIVE_NOT_ALLOWED.");
           return;
         }
 
         if (result.error === "invalid-payload") {
-          setSaveMessage("Черновик не прошёл валидацию. Проверь поля жалобы и ссылки evidence.");
+          setSaveMessage("Черновик не прошёл проверку. Проверьте поля жалобы и ссылки на доказательства. Код: OGP_DRAFT_INVALID.");
           return;
         }
 
-        setSaveMessage("Сохранить черновик не удалось. Проверь доступ и попробуй ещё раз.");
+        setSaveMessage("Не удалось сохранить черновик. Проверьте доступ и попробуйте снова. Код: OGP_DRAFT_SAVE_FAILED.");
         return;
       }
 
@@ -1393,7 +1409,7 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
 
   const handleClearComplaintTemplate = useCallback(() => {
     const confirmed = window.confirm(
-      "Очистить заполненную форму жалобы? Документ, персонаж и route останутся на месте, но поля жалобы будут очищены.",
+      "Очистить заполненную форму жалобы? Документ и выбранный персонаж останутся на месте, но поля жалобы будут очищены.",
     );
 
     if (!confirmed) {
@@ -1410,7 +1426,7 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
     setGroundedRewriteSuggestion(null);
     setGenerationMessage(null);
     setSaveMessage(
-      "Форма жалобы очищена в редакторе. Autosave сохранит изменение, либо нажмите «Сохранить complaint draft».",
+      "Форма жалобы очищена в редакторе. Автосохранение применит изменение, либо нажмите «Сохранить черновик».",
     );
   }, []);
 
@@ -1426,17 +1442,17 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
       if (!result.ok) {
         if (result.error === "character-unavailable") {
           setProfileSnapshotMessage(
-            "Не удалось обновить snapshot: исходный персонаж недоступен на этом сервере.",
+            "Не удалось обновить данные профиля: выбранный персонаж недоступен на этом сервере. Код: OGP_CHARACTER_UNAVAILABLE.",
           );
           return;
         }
 
         if (result.error === "invalid-profile") {
-          setProfileSnapshotMessage("Профиль персонажа не прошёл validation для document snapshot.");
+          setProfileSnapshotMessage("Профиль персонажа заполнен не полностью. Проверьте обязательные поля. Код: OGP_CHARACTER_PROFILE_INVALID.");
           return;
         }
 
-        setProfileSnapshotMessage("Не удалось обновить snapshot профиля. Проверь доступ к документу.");
+        setProfileSnapshotMessage("Не удалось обновить данные профиля в жалобе. Проверьте доступ к документу. Код: OGP_PROFILE_REFRESH_FAILED.");
         return;
       }
 
@@ -1456,7 +1472,7 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
           : current.forumSyncState,
       }));
       setProfileSnapshotMessage(
-        `Snapshot профиля обновлён из текущей карточки персонажа: ${new Date(result.snapshotCapturedAt).toLocaleString("ru-RU")}.`,
+        `Данные профиля обновлены из текущей карточки персонажа: ${new Date(result.snapshotCapturedAt).toLocaleString("ru-RU")}.`,
       );
     } finally {
       setIsProfileSnapshotRefreshing(false);
@@ -1488,7 +1504,7 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
 
   const handleGenerate = useCallback(async () => {
     if (!canGenerateFromPersistedState) {
-      setGenerationMessage("Сначала сохраните черновик. Генерация всегда берёт уже persisted payload.");
+      setGenerationMessage("Сначала сохраните черновик. Генерация использует только сохранённые данные жалобы.");
       return;
     }
 
@@ -1499,12 +1515,12 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
     if (!result.ok) {
       if (result.error === "generation-blocked") {
         setGenerationMessage(
-          "Generation пока заблокирована. Ниже показан точный checklist по persisted character profile, trustor snapshot и document payload.",
+          "Генерация пока недоступна. Ниже показано, какие поля нужно заполнить в профиле персонажа, данных доверителя и самой жалобе.",
         );
         return;
       }
 
-      setGenerationMessage("Сгенерировать BBCode не удалось. Проверь доступ и попробуй ещё раз.");
+      setGenerationMessage("Не удалось сгенерировать BBCode. Проверьте доступ и попробуйте снова. Код: OGP_BBCODE_GENERATION_FAILED.");
       return;
     }
 
@@ -1563,7 +1579,7 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
       if (isDirty) {
         setRewriteFeedback({
           sectionKey,
-          message: "Сначала сохраните черновик. AI suggestion всегда строится из persisted документа.",
+          message: "Сначала сохраните черновик. Предложение строится только по сохранённой версии документа.",
         });
         setRewriteSuggestion(null);
         return;
@@ -1599,7 +1615,7 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
 
           setRewriteFeedback({
             sectionKey,
-            message: "Получить AI-предложение не удалось. Проверь доступ к документу и попробуй ещё раз.",
+            message: "Не удалось подготовить предложение. Проверьте доступ к документу и попробуйте снова. Код: OGP_AI_REWRITE_FAILED.",
           });
           setRewriteSuggestion(null);
           return;
@@ -1635,7 +1651,7 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
     }));
     setRewriteFeedback({
       sectionKey: rewriteSuggestion.sectionKey,
-      message: "AI-предложение применено локально. Сохраните черновик или дождитесь autosave.",
+      message: "Предложение применено в редакторе. Сохраните черновик или дождитесь автосохранения.",
     });
     setRewriteSuggestion(null);
   }, [rewriteSuggestion]);
@@ -1649,12 +1665,12 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
       await navigator.clipboard.writeText(rewriteSuggestion.suggestionText);
       setRewriteFeedback({
         sectionKey: rewriteSuggestion.sectionKey,
-        message: "AI-предложение скопировано в буфер обмена.",
+        message: "Предложение скопировано в буфер обмена.",
       });
     } catch {
       setRewriteFeedback({
         sectionKey: rewriteSuggestion.sectionKey,
-        message: "Не удалось скопировать AI-предложение автоматически.",
+        message: "Не удалось скопировать предложение автоматически.",
       });
     }
   }, [rewriteSuggestion]);
@@ -1665,7 +1681,7 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
         setGroundedRewriteFeedback({
           sectionKey,
           message:
-            "Сначала сохраните черновик. Grounded AI suggestion всегда строится из persisted документа.",
+            "Сначала сохраните черновик. Предложение с опорой на нормы строится только по сохранённой версии документа.",
         });
         setGroundedRewriteSuggestion(null);
         return;
@@ -1702,7 +1718,7 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
           setGroundedRewriteFeedback({
             sectionKey,
             message:
-              "Получить grounded AI-предложение не удалось. Проверь доступ к документу и попробуй ещё раз.",
+              "Не удалось подготовить предложение с опорой на нормы. Проверьте доступ к документу и попробуйте снова. Код: OGP_GROUNDED_REWRITE_FAILED.",
           });
           setGroundedRewriteSuggestion(null);
           return;
@@ -1742,7 +1758,7 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
     setGroundedRewriteFeedback({
       sectionKey: groundedRewriteSuggestion.sectionKey,
       message:
-        "Grounded AI-предложение применено локально. Сохраните черновик или дождитесь autosave.",
+        "Предложение применено в редакторе. Сохраните черновик или дождитесь автосохранения.",
     });
     setGroundedRewriteSuggestion(null);
   }, [groundedRewriteSuggestion]);
@@ -1756,12 +1772,12 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
       await navigator.clipboard.writeText(groundedRewriteSuggestion.suggestionText);
       setGroundedRewriteFeedback({
         sectionKey: groundedRewriteSuggestion.sectionKey,
-        message: "Grounded AI-предложение скопировано в буфер обмена.",
+        message: "Предложение скопировано в буфер обмена.",
       });
     } catch {
       setGroundedRewriteFeedback({
         sectionKey: groundedRewriteSuggestion.sectionKey,
-        message: "Не удалось скопировать grounded AI-предложение автоматически.",
+        message: "Не удалось скопировать предложение автоматически.",
       });
     }
   }, [groundedRewriteSuggestion]);
@@ -1796,7 +1812,7 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
               type="button"
               variant="secondary"
             >
-              {rewritePendingSectionKey === input.sectionKey ? "AI обрабатывает..." : "Улучшить текст"}
+              {rewritePendingSectionKey === input.sectionKey ? "Готовим текст..." : "Улучшить текст"}
             </Button>
             {supportsGrounded ? (
               <Button
@@ -1811,12 +1827,12 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
                 variant="secondary"
               >
                 {groundedRewritePendingSectionKey === input.sectionKey
-                  ? "AI обрабатывает..."
+                  ? "Готовим текст..."
                   : "Улучшить с опорой на нормы"}
               </Button>
             ) : null}
             <span className="text-xs leading-5 text-[var(--muted)]">
-              AI использует только последнее persisted состояние секции.
+              Помощник использует только последнюю сохранённую версию этого раздела.
             </span>
           </div>
           {sectionFeedback ? <p className="text-sm text-[var(--muted)]">{sectionFeedback}</p> : null}
@@ -1855,7 +1871,7 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
                 activeGroundedSuggestion.groundingMode,
                 activeGroundedSuggestion.references,
               )}
-              titlePrefix="Grounded AI-предложение"
+              titlePrefix="Предложение с опорой на нормы"
             />
           ) : null}
         </div>
@@ -1886,16 +1902,16 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
 
     if (!result.ok) {
       if (result.error === "publication-before-generation") {
-        setPublicationMessage("Сначала сгенерируйте BBCode, а уже потом указывайте publication URL.");
+        setPublicationMessage("Сначала сгенерируйте BBCode, а затем укажите ссылку на публикацию. Код: OGP_PUBLICATION_BEFORE_GENERATION.");
         return;
       }
 
       if (result.error === "invalid-publication-url") {
-        setPublicationMessage("Publication URL должен быть пустым или вести на https://forum.gta5rp.com/.");
+        setPublicationMessage("Ссылка на публикацию должна быть пустой или вести на https://forum.gta5rp.com/. Код: OGP_PUBLICATION_URL_INVALID.");
         return;
       }
 
-      setPublicationMessage("Сохранить publication metadata не удалось.");
+      setPublicationMessage("Не удалось сохранить данные публикации. Код: OGP_PUBLICATION_METADATA_SAVE_FAILED.");
       return;
     }
 
@@ -1919,13 +1935,13 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
           : current.forumLastSyncError,
     }));
     setPublicationUrlInput(result.publicationUrl ?? "");
-    setPublicationMessage("Publication metadata обновлены.");
+    setPublicationMessage("Данные публикации обновлены.");
   }, [generationState.isSiteForumSynced, props.documentId, publicationUrlInput]);
 
   const handlePublishCreate = useCallback(async () => {
     if (isDirty) {
       setPublicationMessage(
-        "Сначала сохраните черновик. Publish create всегда использует latest persisted generated BBCode.",
+        "Сначала сохраните черновик. Публикация использует последний сохранённый BBCode.",
       );
       return;
     }
@@ -1951,7 +1967,7 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
         return;
       }
 
-      setPublicationMessage("Выполнить publish create не удалось. Проверьте доступ к документу.");
+      setPublicationMessage("Не удалось опубликовать жалобу на форуме. Проверьте доступ к документу. Код: OGP_FORUM_PUBLISH_CREATE_FAILED.");
       return;
     }
 
@@ -1971,13 +1987,13 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
       forumLastSyncError: result.forumLastSyncError,
     }));
     setPublicationUrlInput(result.publicationUrl ?? "");
-    setPublicationMessage("Документ опубликован на форуме через automation create-step.");
+    setPublicationMessage("Жалоба опубликована на форуме.");
   }, [isDirty, props.documentId]);
 
   const handlePublishUpdate = useCallback(async () => {
     if (isDirty) {
       setPublicationMessage(
-        "Сначала сохраните черновик. Update/resync всегда использует latest persisted generated BBCode.",
+        "Сначала сохраните черновик. Обновление публикации использует последний сохранённый BBCode.",
       );
       return;
     }
@@ -2003,7 +2019,7 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
         return;
       }
 
-      setPublicationMessage("Выполнить publish update не удалось. Проверьте доступ к документу.");
+      setPublicationMessage("Не удалось обновить публикацию на форуме. Проверьте доступ к документу. Код: OGP_FORUM_PUBLISH_UPDATE_FAILED.");
       return;
     }
 
@@ -2023,7 +2039,7 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
       forumLastSyncError: result.forumLastSyncError,
     }));
     setPublicationUrlInput(result.publicationUrl ?? "");
-    setPublicationMessage("Forum publication обновлена через automation update/resync.");
+    setPublicationMessage("Публикация на форуме обновлена.");
   }, [isDirty, props.documentId]);
 
   return (
@@ -2052,7 +2068,7 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
           }}
           type="button"
         >
-          Сохранить complaint draft
+          Сохранить черновик
         </Button>
         <Button
           disabled={!canGenerateFromPersistedState}
@@ -2077,34 +2093,34 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
 
       <div className="space-y-4 rounded-3xl border border-[var(--border)] bg-white/70 p-4">
         <div className="space-y-1">
-          <h3 className="text-lg font-semibold">Generation checklist</h3>
+          <h3 className="text-lg font-semibold">Проверка перед генерацией</h3>
           <ComplaintFieldHint>
-            OGP BBCode generation читает только persisted document snapshot и даёт точный список
-            блокеров вместо общего сообщения про незаполненный профиль.
+            Генератор читает только сохранённые данные жалобы и показывает точный список полей,
+            которые нужно заполнить.
           </ComplaintFieldHint>
         </div>
         <p className="text-sm leading-6 text-[var(--muted)]">
-          Current state:{" "}
+          Текущее состояние:{" "}
           <span className="font-medium text-[var(--foreground)]">
             {formatGenerationReadyState(persistedGenerationBlockState.readyState)}
           </span>
         </p>
         {persistedGenerationBlockState.readyState === "generation_ready" ? (
           <div className="rounded-2xl border border-[var(--border)] bg-white/80 p-4 text-sm leading-6 text-[var(--muted)]">
-            Persisted complaint snapshot готов к generation. Генератор возьмёт character snapshot,
-            trustor snapshot и document payload без live dependency от trustor registry.
+            Сохранённые данные готовы к генерации. Генератор возьмёт данные персонажа,
+            доверителя и жалобы из текущего документа.
           </div>
         ) : null}
         <GenerationChecklistSection
           href={`/account/characters?server=${encodeURIComponent(props.server.code)}`}
           hrefLabel="Открыть профиль персонажа"
           issues={persistedGenerationBlockState.characterIssues}
-          title="Character profile issues"
+          title="Что исправить в профиле персонажа"
         />
         <div className="rounded-2xl border border-[var(--border)] bg-white/80 p-4 text-sm leading-6 text-[var(--muted)]">
           <p>
-            Если профиль персонажа уже исправлен в `/account/characters`, обновите persisted snapshot в
-            этой жалобе. Это явное действие не читает live profile во время generation.
+            Если профиль персонажа уже исправлен в личном кабинете, обновите данные профиля в
+            этой жалобе. Генератор всё равно будет использовать только данные, сохранённые в документе.
           </p>
           <div className="mt-3 flex flex-wrap items-center gap-3">
             <Button
@@ -2117,7 +2133,7 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
               type="button"
               variant="secondary"
             >
-              {isProfileSnapshotRefreshing ? "Обновляем snapshot..." : "Обновить данные профиля в жалобе"}
+              {isProfileSnapshotRefreshing ? "Обновляем данные..." : "Обновить данные профиля в жалобе"}
             </Button>
             {profileSnapshotMessage ? (
               <span className="text-[var(--muted)]">{profileSnapshotMessage}</span>
@@ -2132,48 +2148,48 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
           }
           hrefLabel={
             savedState.payload.trustorSnapshot?.sourceType === "registry_prefill"
-              ? "Открыть trustors registry"
-              : "Исправить trustor snapshot"
+              ? "Открыть список доверителей"
+              : "Исправить данные доверителя"
           }
           issues={persistedGenerationBlockState.trustorIssues}
-          title="Trustor snapshot issues"
+          title="Что исправить в данных доверителя"
         />
         <GenerationChecklistSection
           href="#document-required-fields-section"
           hrefLabel="Исправить поля документа"
           issues={persistedGenerationBlockState.documentIssues}
-          title="Document payload issues"
+          title="Что исправить в жалобе"
         />
       </div>
 
       <div className="space-y-4 rounded-3xl border border-[var(--border)] bg-white/70 p-4">
         <div className="space-y-1">
-          <h3 className="text-lg font-semibold">Generation metadata</h3>
+          <h3 className="text-lg font-semibold">Сведения о генерации</h3>
           <ComplaintFieldHint>
-            Генерация использует только уже persisted complaint payload и не подменяет server/character snapshot.
+            Эти сведения помогают понять, когда и из какой версии данных был создан BBCode.
           </ComplaintFieldHint>
         </div>
         <ul className="space-y-2 text-sm leading-6 text-[var(--muted)]">
-          <li>Status: {generationState.status}</li>
+          <li>Статус: {formatDraftStatus(generationState.status)}</li>
           <li>
-            Generated at:{" "}
+            Сгенерировано:{" "}
             {generationState.generatedAt
               ? new Date(generationState.generatedAt).toLocaleString("ru-RU")
               : "ещё не генерировалось"}
           </li>
-          <li>Generated law version: {generationState.generatedLawVersion ?? "ещё не заполнено"}</li>
+          <li>Версия правовой базы: {generationState.generatedLawVersion ?? "ещё не заполнено"}</li>
           <li>
-            Generated template version: {generationState.generatedTemplateVersion ?? "ещё не заполнено"}
+            Версия шаблона: {generationState.generatedTemplateVersion ?? "ещё не заполнено"}
           </li>
           <li>
-            Generated form schema version: {generationState.generatedFormSchemaVersion ?? "ещё не заполнено"}
+            Версия формы: {generationState.generatedFormSchemaVersion ?? "ещё не заполнено"}
           </li>
           <li>
-            Modified after generation: {generationState.isModifiedAfterGeneration ? "да" : "нет"}
+            Есть изменения после генерации: {generationState.isModifiedAfterGeneration ? "да" : "нет"}
           </li>
-          <li>Forum sync state: {formatForumSyncState(generationState.forumSyncState)}</li>
+          <li>Статус публикации на форуме: {formatForumSyncState(generationState.forumSyncState)}</li>
           <li>
-            Forum last published at:{" "}
+            Последняя публикация на форуме:{" "}
             {generationState.forumLastPublishedAt
               ? new Date(generationState.forumLastPublishedAt).toLocaleString("ru-RU")
               : "ещё не публиковался"}
@@ -2184,9 +2200,9 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
       <div className="space-y-4 rounded-3xl border border-[var(--border)] bg-white/70 p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="space-y-1">
-            <h3 className="text-lg font-semibold">BBCode preview</h3>
+            <h3 className="text-lg font-semibold">Готовый BBCode</h3>
             <ComplaintFieldHint>
-              Здесь показывается deterministic результат generation. Publish create использует только этот persisted generated BBCode.
+              Здесь показывается итоговый BBCode для копирования и публикации.
             </ComplaintFieldHint>
           </div>
           <Button
@@ -2211,28 +2227,27 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
 
       <div className="space-y-4 rounded-3xl border border-[var(--border)] bg-white/70 p-4">
         <div className="space-y-1">
-          <h3 className="text-lg font-semibold">Publication metadata</h3>
+          <h3 className="text-lg font-semibold">Публикация на форуме</h3>
           <ComplaintFieldHint>
-            Publication URL и forum sync marker относятся только к `ogp_complaint`. Здесь уже есть
-            create/update automation для forum publication, но claims этот workflow не наследуют.
+            Здесь можно сохранить ссылку на тему форума или опубликовать жалобу через подключение форума.
           </ComplaintFieldHint>
         </div>
         <div className="rounded-2xl border border-[var(--border)] bg-white/80 px-4 py-3 text-sm leading-6 text-[var(--muted)]">
           <p>
-            Forum session state:{" "}
+            Подключение форума:{" "}
             <span className="font-medium text-[var(--foreground)]">
               {formatForumConnectionState(props.forumConnection.state)}
             </span>
           </p>
           <p>
-            Forum identity:{" "}
+            Форумный аккаунт:{" "}
             <span className="font-medium text-[var(--foreground)]">
               {props.forumConnection.forumUsername ?? "ещё не извлечена"}
               {props.forumConnection.forumUserId ? ` (${props.forumConnection.forumUserId})` : ""}
             </span>
           </p>
           <p>
-            Validate status:{" "}
+            Последняя проверка:{" "}
             <span className="font-medium text-[var(--foreground)]">
               {props.forumConnection.validatedAt
                 ? new Date(props.forumConnection.validatedAt).toLocaleString("ru-RU")
@@ -2244,23 +2259,23 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
               Требуется переподключение: {props.forumConnection.lastValidationError}
             </p>
           ) : null}
-          <p className="mt-2">Само подключение session управляется отдельно через `/account/security`.</p>
+          <p className="mt-2">Подключение форума управляется в настройках аккаунта.</p>
         </div>
         <div className="rounded-2xl border border-[var(--border)] bg-white/80 px-4 py-3 text-sm leading-6 text-[var(--muted)]">
           <p>
-            Publication readiness:{" "}
+            Готовность к публикации:{" "}
             <span className="font-medium text-[var(--foreground)]">
               {publicationReadinessLabel}
             </span>
           </p>
           <p>
-            Forum sync state:{" "}
+            Статус публикации:{" "}
             <span className="font-medium text-[var(--foreground)]">
               {formatForumSyncState(generationState.forumSyncState)}
             </span>
           </p>
           <p>
-            Automation-owned identity:{" "}
+            Тема и сообщение на форуме:{" "}
             <span className="font-medium text-[var(--foreground)]">
               {generationState.forumThreadId && generationState.forumPostId
                 ? `${generationState.forumThreadId} / ${generationState.forumPostId}`
@@ -2268,7 +2283,7 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
             </span>
           </p>
           <p>
-            Published at:{" "}
+            Опубликовано:{" "}
             <span className="font-medium text-[var(--foreground)]">
               {generationState.forumLastPublishedAt
                 ? new Date(generationState.forumLastPublishedAt).toLocaleString("ru-RU")
@@ -2277,17 +2292,17 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
           </p>
           {generationState.forumLastSyncError ? (
             <p className="mt-2 text-[#8a2d1d]">
-              Последняя ошибка forum sync: {generationState.forumLastSyncError}
+              Последняя ошибка публикации: {generationState.forumLastSyncError}
             </p>
           ) : null}
           <p className="mt-2">
-            Automation доступна только для `ogp_complaint`: create работает для first publish, а update/resync
-            возвращает automation-owned публикацию из `outdated` или `failed` обратно в `current`.
+            Автопубликация доступна только для жалобы в ОГП. Если жалоба изменилась после
+            публикации, её можно обновить на форуме.
           </p>
         </div>
         <div className="space-y-2">
           <label className="text-sm font-medium text-[var(--foreground)]" htmlFor="publication-url">
-            Publication URL
+            Ссылка на публикацию
           </label>
           <Input
             id="publication-url"
@@ -2348,10 +2363,10 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
             type="button"
             variant="secondary"
           >
-            Сохранить publication metadata
+            Сохранить данные публикации
           </Button>
           <span className="text-sm text-[var(--muted)]">
-            Текущий forum sync: {generationState.isSiteForumSynced ? "да" : "нет"} /{" "}
+            Отмечено как опубликованное вручную: {generationState.isSiteForumSynced ? "да" : "нет"} /{" "}
             {formatForumSyncState(generationState.forumSyncState)}
           </span>
         </div>

@@ -56,9 +56,9 @@ describe("/account/trustors page", () => {
       nextPath: "/account/trustors",
       focusedServerCode: "blackberry",
     });
-    expect(html).toContain("Доверители аккаунта");
+    expect(html).toContain("Доверители");
     expect(html).toContain("Blackberry");
-    expect(html).toContain("Trustor card сохранена");
+    expect(html).toContain("Доверитель сохранён");
   });
 
   it("следует auth guard и пробрасывает redirect при отсутствии доступа", async () => {

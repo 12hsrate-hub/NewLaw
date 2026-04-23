@@ -61,7 +61,7 @@ describe("admin account search", () => {
       status: "invalid",
       identifier: "Passport 123",
       account: null,
-      message: "Укажи корректный email, login или account id.",
+      message: "Укажите корректный email, логин или ID аккаунта.",
     });
   });
 });

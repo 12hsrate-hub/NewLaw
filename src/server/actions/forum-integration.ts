@@ -48,8 +48,8 @@ export async function saveForumConnectionAction(
       errorMessage: null,
       successMessage:
         summary.state === "connected_unvalidated"
-          ? "Forum session сохранена. Теперь её можно отдельно провалидировать."
-          : "Forum session обновлена.",
+          ? "Подключение форума сохранено. Теперь проверьте, что оно работает."
+          : "Подключение форума обновлено.",
       fieldErrors: {},
     };
   } catch (error) {
@@ -68,14 +68,14 @@ export async function saveForumConnectionAction(
     if (error instanceof ForumIntegrationUnavailableError) {
       return {
         errorMessage:
-          "Server-side encryption key для forum integration не настроен. Подключение session пока недоступно.",
+          "Подключение форума временно недоступно из-за настройки сервера. Код: FORUM_CONNECTION_CONFIG_MISSING.",
         successMessage: null,
         fieldErrors: {},
       };
     }
 
     return {
-      errorMessage: "Сохранить forum session не удалось. Проверьте Cookie header и попробуйте ещё раз.",
+      errorMessage: "Не удалось сохранить подключение форума. Проверьте Cookie header и попробуйте снова. Код: FORUM_CONNECTION_SAVE_FAILED.",
       successMessage: null,
       fieldErrors: {},
     };
@@ -104,21 +104,23 @@ export async function validateForumConnectionAction(
         errorMessage: null,
         successMessage:
           summary.forumUsername
-            ? `Forum session валидна. Подтверждённый аккаунт: ${summary.forumUsername}.`
-            : "Forum session валидна и готова для будущей automation foundation.",
+            ? `Подключение форума работает. Подтверждённый аккаунт: ${summary.forumUsername}.`
+            : "Подключение форума работает.",
         fieldErrors: {},
       };
     }
 
     return {
-      errorMessage: summary.lastValidationError ?? "Forum session требует переподключения.",
+      errorMessage:
+        summary.lastValidationError ??
+        "Подключение форума требует повторной настройки. Код: FORUM_CONNECTION_RECONNECT_REQUIRED.",
       successMessage: null,
       fieldErrors: {},
     };
   } catch (error) {
     if (error instanceof ForumConnectionNotFoundError) {
       return {
-        errorMessage: "Сначала подключите forum session, а потом запускайте validate.",
+        errorMessage: "Сначала подключите форум, а потом запустите проверку. Код: FORUM_CONNECTION_NOT_FOUND.",
         successMessage: null,
         fieldErrors: {},
       };
@@ -127,14 +129,14 @@ export async function validateForumConnectionAction(
     if (error instanceof ForumIntegrationUnavailableError) {
       return {
         errorMessage:
-          "Server-side encryption key для forum integration не настроен. Validate пока недоступен.",
+          "Проверка форума временно недоступна из-за настройки сервера. Код: FORUM_CONNECTION_CONFIG_MISSING.",
         successMessage: null,
         fieldErrors: {},
       };
     }
 
     return {
-      errorMessage: "Проверить forum session не удалось.",
+      errorMessage: "Не удалось проверить подключение форума. Попробуйте снова. Код: FORUM_CONNECTION_VALIDATE_FAILED.",
       successMessage: null,
       fieldErrors: {},
     };
@@ -161,8 +163,8 @@ export async function disableForumConnectionAction(
     errorMessage: null,
     successMessage:
       summary.state === "not_connected"
-        ? "Forum session ещё не была подключена."
-        : "Forum session отключена и больше не доступна для будущей automation.",
+        ? "Форум ещё не был подключён."
+        : "Подключение форума отключено.",
     fieldErrors: {},
   };
 }

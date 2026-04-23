@@ -86,7 +86,7 @@ export class DocumentGenerationBlockedError extends Error {
 
 export class DocumentPublicationMetadataStateError extends Error {
   constructor() {
-    super("Publication metadata можно обновлять только после хотя бы одной успешной генерации.");
+    super("Данные публикации можно обновлять только после успешной генерации BBCode. Код: OGP_PUBLICATION_METADATA_REQUIRES_GENERATION.");
     this.name = "DocumentPublicationMetadataStateError";
   }
 }

@@ -30,23 +30,23 @@ import { DocumentAccessDeniedError } from "@/server/document-area/persistence";
 
 const publicationBlockingReasonLabels = {
   generated_at_missing:
-    "Сначала выполните generation. Forum automation доступна только после успешной генерации BBCode.",
+    "Сначала сгенерируйте BBCode. Публикация на форуме доступна только после генерации. Код: OGP_PUBLICATION_GENERATION_MISSING.",
   generated_bbcode_missing:
-    "Сначала выполните generation. Latest generated BBCode отсутствует в persisted документе.",
+    "Сначала сгенерируйте BBCode. В сохранённом документе нет готового текста для публикации. Код: OGP_PUBLICATION_BBCODE_MISSING.",
   modified_after_generation:
-    "Документ изменён после последней генерации. Сначала пересоберите BBCode, потом публикуйте.",
+    "Документ изменился после последней генерации. Сначала пересоберите BBCode, затем публикуйте. Код: OGP_PUBLICATION_STALE_BBCODE.",
   forum_connection_invalid:
-    "Для forum automation нужна валидная account-scoped forum session в /account/security.",
+    "Для публикации нужно рабочее подключение форума в настройках аккаунта. Код: OGP_FORUM_CONNECTION_INVALID.",
   manual_untracked:
-    "У документа уже есть manual publication URL без automation-owned forum identity. Automation sync заблокирован, чтобы не создать дубликат публикации.",
+    "У документа уже указана ссылка на публикацию вручную. Автопубликация заблокирована, чтобы не создать дубль на форуме. Код: OGP_FORUM_MANUAL_PUBLICATION_EXISTS.",
   already_published:
-    "У документа уже есть automation-owned forum thread/post. Повторный create-step недоступен: нужен отдельный resync/update flow.",
+    "Документ уже опубликован через приложение. Для изменений используйте обновление публикации. Код: OGP_FORUM_ALREADY_PUBLISHED.",
   create_required:
-    "У документа ещё нет automation-owned forum thread/post. Для такого состояния сначала нужен publish create или manual state handling.",
+    "Документ ещё не опубликован через приложение. Сначала выполните публикацию или укажите ссылку вручную. Код: OGP_FORUM_PUBLICATION_REQUIRED.",
   already_current:
-    "Форумная публикация уже current и не требует update/resync.",
+    "Публикация на форуме уже актуальна и не требует обновления. Код: OGP_FORUM_PUBLICATION_CURRENT.",
   automation_unavailable:
-    "OGP forum automation не настроена на сервере: проверьте OGP_FORUM_THREAD_FORM_URL и forum integration env.",
+    "Публикация на форуме временно недоступна из-за настройки сервера. Код: OGP_FORUM_AUTOMATION_UNAVAILABLE.",
 } as const;
 
 export type OgpPublicationBlockingReason = keyof typeof publicationBlockingReasonLabels;
@@ -288,7 +288,7 @@ export async function publishOwnedOgpComplaintCreate(
       const errorSummary =
         error instanceof Error
           ? error.message
-          : "Форум не подтвердил publish create для OGP complaint.";
+          : "Форум не подтвердил публикацию жалобы в ОГП. Код: OGP_FORUM_PUBLISH_CREATE_UNCONFIRMED.";
 
       await dependencies.runTransaction(async (db) => {
         await dependencies.markOgpDocumentPublishFailedRecord(
@@ -473,7 +473,7 @@ export async function publishOwnedOgpComplaintUpdate(
       const errorSummary =
         error instanceof Error
           ? error.message
-          : "Форум не подтвердил publish update для OGP complaint.";
+          : "Форум не подтвердил обновление жалобы в ОГП. Код: OGP_FORUM_PUBLISH_UPDATE_UNCONFIRMED.";
 
       await dependencies.runTransaction(async (db) => {
         await dependencies.markOgpDocumentPublishFailedRecord(

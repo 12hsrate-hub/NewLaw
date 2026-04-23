@@ -89,16 +89,16 @@ describe("/account/characters page", () => {
       nextPath: "/account/characters",
       focusedServerCode: "blackberry",
     });
-    expect(html).toContain("Персонажи аккаунта");
+    expect(html).toContain("Мои персонажи");
     expect(html).toContain("Blackberry");
-    expect(html).toContain("Default for server");
+    expect(html).toContain("По умолчанию для сервера");
     expect(html).toContain("Адвокатский доступ");
     expect(html).toContain("Сохранено 2 дополнительных полей профиля");
-    expect(html).toContain("Карточка персонажа сохранена в account zone");
+    expect(html).toContain("Карточка персонажа сохранена");
     expect(html).toContain("Создать персонажа на этом сервере");
     expect(html).toContain("И. Юристов");
     expect(html).toContain('/account/characters?server=blackberry#create-character-blackberry');
-    expect(html).not.toContain("OGP complaints");
+    expect(html).not.toContain("Жалобы в ОГП");
     expect(html).not.toContain("Claims");
   });
 

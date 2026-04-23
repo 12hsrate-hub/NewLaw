@@ -14,7 +14,7 @@ describe("account layout", () => {
       ),
     );
 
-    expect(html).toContain("Account navigation");
+    expect(html).toContain("Навигация личного кабинета");
     expect(html).toContain('href="/account"');
     expect(html).toContain('href="/account/security"');
     expect(html).toContain('href="/account/characters"');

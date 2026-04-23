@@ -21,13 +21,13 @@ const accessFlagLabels: Record<string, string> = {
 };
 
 const statusLabels: Record<string, string> = {
-  "character-created": "Карточка персонажа сохранена в account zone.",
-  "character-updated": "Изменения персонажа сохранены в account zone.",
+  "character-created": "Карточка персонажа сохранена.",
+  "character-updated": "Изменения персонажа сохранены.",
   "character-limit": "На одном сервере нельзя иметь больше трёх персонажей.",
   "passport-conflict": "Паспорт уже используется в рамках этого аккаунта и сервера.",
-  "character-create-error": "Не удалось создать персонажа. Проверь данные и попробуй ещё раз.",
-  "character-update-error": "Не удалось сохранить изменения персонажа. Попробуй ещё раз.",
-  "character-not-found": "Персонаж для редактирования не найден.",
+  "character-create-error": "Не удалось создать персонажа. Проверьте данные и попробуйте снова. Код: CHARACTER_CREATE_FAILED.",
+  "character-update-error": "Не удалось сохранить изменения персонажа. Проверьте данные и попробуйте снова. Код: CHARACTER_UPDATE_FAILED.",
+  "character-not-found": "Персонаж для редактирования не найден. Код: CHARACTER_NOT_FOUND.",
 };
 
 function formatLabels(values: string[], labels: Record<string, string>) {
@@ -49,7 +49,7 @@ function CharacterGroup(props: { group: AccountCharactersServerGroup }) {
               {group.server.code}
             </span>
             {group.isFocused ? (
-              <Badge className="bg-[#e9efe0] text-[#35501c]">Фокус route</Badge>
+              <Badge className="bg-[#e9efe0] text-[#35501c]">Выбранный сервер</Badge>
             ) : null}
           </div>
           <p className="text-sm leading-6 text-[var(--muted)]">
@@ -57,7 +57,7 @@ function CharacterGroup(props: { group: AccountCharactersServerGroup }) {
             <span className="font-medium text-[var(--foreground)]">{group.characterCount}</span>.
           </p>
           <p className="text-sm leading-6 text-[var(--muted)]">
-            Default character для server-scoped модулей:{" "}
+            Персонаж по умолчанию для этого сервера:{" "}
             <span className="font-medium text-[var(--foreground)]">
               {group.defaultCharacterLabel ?? "пока не выбран"}
             </span>
@@ -95,8 +95,8 @@ function CharacterGroup(props: { group: AccountCharactersServerGroup }) {
         <div className="space-y-3 rounded-2xl border border-dashed border-[var(--border)] bg-white/50 p-4">
           <h3 className="text-lg font-semibold">Персонажей пока нет</h3>
           <p className="text-sm leading-6 text-[var(--muted)]">
-            Server group уже видима в account zone. Focused bridge и inline form ведут прямо к
-            созданию персонажа в нужной server group без возврата в generic `/app`.
+            Добавьте персонажа прямо в этой группе сервера. После этого он сможет использоваться
+            в документах и других серверных разделах.
           </p>
         </div>
       ) : (
@@ -106,7 +106,7 @@ function CharacterGroup(props: { group: AccountCharactersServerGroup }) {
               <div className="flex flex-wrap items-center gap-2">
                 <Badge>{character.fullName}</Badge>
                 {character.isDefaultForServer ? (
-                  <Badge className="bg-[#dfead9] text-[#285c2d]">Default for server</Badge>
+                  <Badge className="bg-[#dfead9] text-[#285c2d]">По умолчанию для сервера</Badge>
                 ) : null}
                 <Badge className="bg-white/70 text-[var(--foreground)]">
                   {character.isProfileComplete ? "Профиль заполнен" : "Профиль не заполнен"}
@@ -130,7 +130,7 @@ function CharacterGroup(props: { group: AccountCharactersServerGroup }) {
                   </span>
                 </p>
                 <p>
-                  Access flags:{" "}
+                  Доступы:{" "}
                   <span className="font-medium text-[var(--foreground)]">
                     {formatLabels(character.accessFlagKeys, accessFlagLabels)}
                   </span>
@@ -171,7 +171,7 @@ function CharacterGroup(props: { group: AccountCharactersServerGroup }) {
                 ) : null}
                 {character.icEmail ? (
                   <p>
-                    IC email:{" "}
+                    Игровая почта:{" "}
                     <span className="font-medium text-[var(--foreground)]">{character.icEmail}</span>
                   </p>
                 ) : null}
@@ -185,7 +185,7 @@ function CharacterGroup(props: { group: AccountCharactersServerGroup }) {
                 ) : null}
                 {character.profileNote ? (
                   <p>
-                    Profile note:{" "}
+                    Заметка профиля:{" "}
                     <span className="font-medium text-[var(--foreground)]">
                       {character.profileNote}
                     </span>
@@ -240,22 +240,22 @@ export function AccountCharactersOverview(props: {
       <Card className="space-y-3">
         <div className="space-y-2">
           <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">
-            Account Characters
+            Персонажи
           </p>
-          <h1 className="text-3xl font-semibold">Персонажи аккаунта</h1>
+          <h1 className="text-3xl font-semibold">Мои персонажи</h1>
           <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
-            Это account-wide profile-management overview. Здесь персонажи собраны по серверам, а
-            рабочие assistant и documents flows по-прежнему живут в server-scoped маршрутах.
+            Здесь персонажи собраны по серверам. Документы и юридический помощник открываются
+            из раздела конкретного сервера.
           </p>
         </div>
 
         {props.context.focusedServerCode ? (
           <p className="rounded-2xl border border-[var(--border)] bg-white/60 px-4 py-3 text-sm leading-6 text-[var(--muted)]">
-            Route focus применён для сервера:{" "}
+            Сейчас открыт список для сервера:{" "}
             <span className="font-medium text-[var(--foreground)]">
               {props.context.focusedServerCode}
             </span>
-            . Это только UX-подсветка и не меняет source of truth рабочих server-scoped модулей.
+            . Это только подсветка нужной группы.
           </p>
         ) : null}
 
@@ -270,7 +270,7 @@ export function AccountCharactersOverview(props: {
         <Card className="space-y-3">
           <h2 className="text-2xl font-semibold">Серверы пока не найдены</h2>
           <p className="text-sm leading-6 text-[var(--muted)]">
-            Account route уже готов, но список серверов для profile-management зоны пока пуст.
+            Пока у аккаунта нет доступных серверов, список персонажей будет пустым.
           </p>
         </Card>
       ) : (

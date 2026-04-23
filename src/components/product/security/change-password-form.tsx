@@ -29,13 +29,13 @@ export function ChangePasswordForm({ mustChangePassword }: ChangePasswordFormPro
         <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">Пароль</p>
         <h2 className="text-2xl font-semibold">Сменить пароль</h2>
         <p className="text-sm leading-6 text-[var(--muted)]">
-          Подтверди текущий пароль и задай новый. После успешной смены система завершит текущую сессию, и нужно будет войти заново.
+          Подтвердите текущий пароль и задайте новый. После смены пароля нужно будет войти заново.
         </p>
       </div>
 
       {mustChangePassword ? (
         <div className="rounded-2xl border border-[#d7c4b6] bg-[#fff5eb] px-4 py-3 text-sm leading-6 text-[#7a3f1d]">
-          Для продолжения работы сначала смени пароль. Пока это требование не выполнено, другие защищённые действия недоступны.
+          Для продолжения работы сначала смените пароль. До этого другие защищённые действия недоступны.
         </div>
       ) : null}
 
@@ -82,7 +82,7 @@ export function ChangePasswordForm({ mustChangePassword }: ChangePasswordFormPro
             autoComplete="new-password"
             id="confirmNewPassword"
             name="confirmNewPassword"
-            placeholder="Повтори новый пароль"
+            placeholder="Повторите новый пароль"
             required
             type="password"
           />

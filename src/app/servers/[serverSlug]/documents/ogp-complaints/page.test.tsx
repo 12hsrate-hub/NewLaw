@@ -79,9 +79,9 @@ describe("/servers/[serverSlug]/documents/ogp-complaints page", () => {
       }),
     );
 
-    expect(html).toContain("OGP complaints");
+    expect(html).toContain("Жалобы в ОГП");
     expect(html).toContain("Persisted draft");
-    expect(html).toContain("реальные persisted документы");
-    expect(html).toContain("Appeal number: OGP-001");
+    expect(html).toContain("Здесь отображаются сохранённые жалобы в ОГП");
+    expect(html).toContain("Номер обращения: OGP-001");
   });
 });

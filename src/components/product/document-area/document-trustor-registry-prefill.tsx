@@ -23,14 +23,14 @@ export function DocumentTrustorRegistryPrefill(props: {
     return (
       <div className="space-y-2 rounded-2xl border border-dashed border-[var(--border)] bg-white/60 p-4">
         <p className="text-sm leading-6 text-[var(--muted)]">
-          На этом сервере пока нет reusable trustor cards в registry. Manual inline entry остаётся
-          рабочим fallback.
+          На этом сервере пока нет сохранённых доверителей. Можно заполнить данные доверителя
+          вручную прямо в документе.
         </p>
         <Link
           className="inline-flex items-center rounded-2xl border border-[var(--border)] bg-white/70 px-4 py-2 text-sm font-medium transition hover:bg-white"
           href={manageHref}
         >
-          Открыть trustors registry
+          Открыть список доверителей
         </Link>
       </div>
     );
@@ -39,17 +39,17 @@ export function DocumentTrustorRegistryPrefill(props: {
   return (
     <div className="space-y-3 rounded-2xl border border-[var(--border)] bg-white/60 p-4">
       <div className="space-y-1">
-        <h4 className="text-sm font-semibold">Prefill из trustors registry</h4>
+        <h4 className="text-sm font-semibold">Подставить доверителя из списка</h4>
         <p className="text-sm leading-6 text-[var(--muted)]">
-          Это только convenience prefill: значения копируются в local trustor snapshot документа и
-          не создают live-связь с registry.
+          Данные будут скопированы в этот документ. Если позже изменить карточку доверителя в
+          списке, уже заполненный документ сам не изменится.
         </p>
       </div>
 
       <div className="flex flex-col gap-3 md:flex-row md:items-end">
         <div className="min-w-0 flex-1 space-y-2">
           <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`trustor-registry-${props.serverCode}`}>
-            Reusable trustor card
+            Доверитель
           </label>
           <Select
             id={`trustor-registry-${props.serverCode}`}
@@ -58,7 +58,7 @@ export function DocumentTrustorRegistryPrefill(props: {
             }}
             value={selectedTrustorId}
           >
-            <option value="">Выберите доверителя из registry</option>
+            <option value="">Выберите доверителя из списка</option>
             {props.items.map((trustor) => (
               <option key={trustor.id} value={trustor.id}>
                 {trustor.fullName} ({trustor.passportNumber})
@@ -76,13 +76,13 @@ export function DocumentTrustorRegistryPrefill(props: {
           type="button"
           variant="secondary"
         >
-          Подставить из registry
+          Подставить в документ
         </Button>
         <Link
           className="inline-flex items-center rounded-2xl border border-[var(--border)] bg-white/70 px-4 py-2 text-sm font-medium transition hover:bg-white"
           href={manageHref}
         >
-          Открыть registry
+          Открыть список
         </Link>
       </div>
 
@@ -92,7 +92,7 @@ export function DocumentTrustorRegistryPrefill(props: {
             <Badge>{selectedTrustor.fullName}</Badge>
             <Badge className="bg-white/70 text-[var(--foreground)]">
               {selectedTrustor.isRepresentativeReady
-                ? "Готов для representative flow"
+                ? "Готов для подачи через представителя"
                 : "Нужны обязательные поля"}
             </Badge>
           </div>
@@ -104,7 +104,7 @@ export function DocumentTrustorRegistryPrefill(props: {
           </p>
           {selectedTrustor.phone ? (
             <p>
-              Телефон registry:{" "}
+              Телефон:{" "}
               <span className="font-medium text-[var(--foreground)]">
                 {selectedTrustor.phone}
               </span>
@@ -112,7 +112,7 @@ export function DocumentTrustorRegistryPrefill(props: {
           ) : null}
           {selectedTrustor.icEmail ? (
             <p>
-              IC email registry:{" "}
+              Игровая почта:{" "}
               <span className="font-medium text-[var(--foreground)]">
                 {selectedTrustor.icEmail}
               </span>
@@ -120,7 +120,7 @@ export function DocumentTrustorRegistryPrefill(props: {
           ) : null}
           {selectedTrustor.passportImageUrl ? (
             <p>
-              Скрин паспорта registry:{" "}
+              Скрин паспорта:{" "}
               <span className="font-medium text-[var(--foreground)]">
                 {selectedTrustor.passportImageUrl}
               </span>
@@ -128,7 +128,7 @@ export function DocumentTrustorRegistryPrefill(props: {
           ) : null}
           {selectedTrustor.note ? (
             <p>
-              Note для snapshot:{" "}
+              Примечание:{" "}
               <span className="font-medium text-[var(--foreground)]">
                 {selectedTrustor.note}
               </span>

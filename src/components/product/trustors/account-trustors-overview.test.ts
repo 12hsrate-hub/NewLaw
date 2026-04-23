@@ -65,14 +65,14 @@ describe("account trustors overview", () => {
       }),
     );
 
-    expect(html).toContain("Доверители аккаунта");
-    expect(html).toContain("Route focus применён для сервера");
-    expect(html).toContain("Создать trustor card");
-    expect(html).toContain("Создать trustor card на этом сервере");
-    expect(html).toContain("Редактировать trustor card");
-    expect(html).toContain("Мягко удалить trustor card");
-    expect(html).toContain("Изменения trustor card сохранены");
-    expect(html).toContain("Готов для representative flow");
+    expect(html).toContain("Доверители");
+    expect(html).toContain("Сейчас открыт список для сервера");
+    expect(html).toContain("Добавить доверителя");
+    expect(html).toContain("Добавить доверителя на этом сервере");
+    expect(html).toContain("Редактировать доверителя");
+    expect(html).toContain("Удалить доверителя из списка");
+    expect(html).toContain("Изменения по доверителю сохранены");
+    expect(html).toContain("Готов для подачи через представителя");
     expect(html).toContain("Нужны обязательные поля");
     expect(html).toContain("Проверенный представитель");
     expect(html).toContain("Карточек доверителей пока нет");

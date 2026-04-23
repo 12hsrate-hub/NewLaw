@@ -40,7 +40,7 @@ function withTrustorCardValidation<TSchema extends z.ZodTypeAny>(schema: TSchema
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["fullName"],
-        message: "Хотя бы одно поле trustor card должно быть заполнено.",
+        message: "Заполните хотя бы одно поле доверителя.",
       });
     }
   });

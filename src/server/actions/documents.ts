@@ -572,7 +572,7 @@ export async function publishOgpComplaintCreateAction(input: {
       message:
         error instanceof Error
           ? error.message
-          : "Создать forum publication для OGP complaint не удалось.",
+          : "Не удалось опубликовать жалобу в ОГП на форуме. Код: OGP_FORUM_PUBLISH_CREATE_FAILED.",
     };
   }
 }
@@ -632,7 +632,7 @@ export async function publishOgpComplaintUpdateAction(input: {
       message:
         error instanceof Error
           ? error.message
-          : "Обновить forum publication для OGP complaint не удалось.",
+          : "Не удалось обновить публикацию жалобы в ОГП на форуме. Код: OGP_FORUM_PUBLISH_UPDATE_FAILED.",
     };
   }
 }

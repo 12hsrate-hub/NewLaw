@@ -138,8 +138,8 @@ describe("claims document editor rewrite affordances", () => {
       }),
     );
 
-    expect(html).toContain("Prefill из trustors registry");
-    expect(html).toContain("Подставить из registry");
+    expect(html).toContain("Подставить доверителя из списка");
+    expect(html).toContain("Подставить в документ");
     expect(html).toContain('/account/trustors?server=blackberry');
   });
 });

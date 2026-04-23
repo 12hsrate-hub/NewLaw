@@ -68,11 +68,11 @@ describe("/servers/[serverSlug]/documents/ogp-complaints/new page", () => {
       }),
     );
 
-    expect(html).toContain("После первого сохранения работа продолжается");
-    expect(html).toContain("UX-default персонаж: Игорь Юристов");
-    expect(html).toContain("Filing mode: Self");
-    expect(html).toContain("Evidence links");
-    expect(html).toContain("Создать persisted complaint draft");
+    expect(html).toContain("После первого сохранения откроется обычный редактор документа");
+    expect(html).toContain("Сейчас выбран первый доступный персонаж");
+    expect(html).toContain("Подача: от своего имени");
+    expect(html).toContain("Доказательства");
+    expect(html).toContain("Создать черновик жалобы");
   });
 
   it("показывает focused bridge, если на сервере нет персонажей", async () => {

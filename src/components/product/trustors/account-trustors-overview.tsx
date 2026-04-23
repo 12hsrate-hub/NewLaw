@@ -11,13 +11,13 @@ import { Card } from "@/components/ui/card";
 import { TrustorFormCard } from "@/components/product/trustors/trustor-form-card";
 
 const statusLabels: Record<string, string> = {
-  "trustor-created": "Trustor card сохранена в account zone.",
-  "trustor-updated": "Изменения trustor card сохранены.",
-  "trustor-deleted": "Trustor card мягко удалена и скрыта из default overview.",
-  "trustor-not-found": "Trustor card для редактирования или удаления не найдена.",
-  "trustor-create-error": "Не удалось сохранить trustor card. Проверь данные и попробуй ещё раз.",
-  "trustor-update-error": "Не удалось сохранить изменения trustor card. Попробуй ещё раз.",
-  "trustor-delete-error": "Не удалось мягко удалить trustor card. Попробуй ещё раз.",
+  "trustor-created": "Доверитель сохранён.",
+  "trustor-updated": "Изменения по доверителю сохранены.",
+  "trustor-deleted": "Доверитель удалён из списка.",
+  "trustor-not-found": "Не удалось найти доверителя для редактирования или удаления. Код: TRUSTOR_NOT_FOUND.",
+  "trustor-create-error": "Не удалось сохранить доверителя. Проверьте данные и попробуйте снова. Код: TRUSTOR_CREATE_FAILED.",
+  "trustor-update-error": "Не удалось сохранить изменения по доверителю. Попробуйте снова. Код: TRUSTOR_UPDATE_FAILED.",
+  "trustor-delete-error": "Не удалось удалить доверителя из списка. Попробуйте снова. Код: TRUSTOR_DELETE_FAILED.",
 };
 
 function TrustorGroup(props: { group: AccountTrustorsServerGroup }) {
@@ -35,7 +35,7 @@ function TrustorGroup(props: { group: AccountTrustorsServerGroup }) {
               {group.server.code}
             </span>
             {group.isFocused ? (
-              <Badge className="bg-[#e9efe0] text-[#35501c]">Фокус route</Badge>
+              <Badge className="bg-[#e9efe0] text-[#35501c]">Выбранный сервер</Badge>
             ) : null}
           </div>
           <p className="text-sm leading-6 text-[var(--muted)]">
@@ -50,14 +50,14 @@ function TrustorGroup(props: { group: AccountTrustorsServerGroup }) {
               className="inline-flex items-center rounded-2xl border border-[var(--border)] bg-white/70 px-4 py-2 text-sm font-medium transition hover:bg-white"
               href={group.focusHref}
             >
-              Сфокусировать группу
+              Показать этот сервер
             </Link>
           ) : null}
           <Link
             className="inline-flex items-center rounded-2xl border border-[var(--border)] bg-white/70 px-4 py-2 text-sm font-medium transition hover:bg-white"
             href={group.createBridgeHref}
           >
-            Создать trustor card
+            Добавить доверителя
           </Link>
         </div>
       </div>
@@ -68,7 +68,7 @@ function TrustorGroup(props: { group: AccountTrustorsServerGroup }) {
         open={group.isFocused}
       >
         <summary className="cursor-pointer text-sm font-medium">
-          Создать trustor card на этом сервере
+          Добавить доверителя на этом сервере
         </summary>
         <div className="mt-4">
           <TrustorFormCard
@@ -83,9 +83,8 @@ function TrustorGroup(props: { group: AccountTrustorsServerGroup }) {
         <div className="space-y-3 rounded-2xl border border-dashed border-[var(--border)] bg-white/50 p-4">
           <h3 className="text-lg font-semibold">Карточек доверителей пока нет</h3>
           <p className="text-sm leading-6 text-[var(--muted)]">
-            Registry route уже готов. Здесь можно создавать reusable trustor cards по серверу, но
-            эта account-zone страница не становится document workflow hub и не трогает existing
-            snapshots в уже созданных документах.
+            Здесь можно хранить данные доверителей для этого сервера. Уже созданные документы от
+            этого списка не зависят: в каждом документе остаётся своя сохранённая копия данных.
           </p>
         </div>
       ) : (
@@ -96,7 +95,7 @@ function TrustorGroup(props: { group: AccountTrustorsServerGroup }) {
                 <Badge>{trustor.fullName.trim().length > 0 ? trustor.fullName : "Без имени"}</Badge>
                 <Badge className="bg-white/70 text-[var(--foreground)]">
                   {trustor.isRepresentativeReady
-                    ? "Готов для representative flow"
+                    ? "Готов для подачи через представителя"
                     : "Нужны обязательные поля"}
                 </Badge>
               </div>
@@ -118,7 +117,7 @@ function TrustorGroup(props: { group: AccountTrustorsServerGroup }) {
                 ) : null}
                 {trustor.icEmail ? (
                   <p>
-                    IC email:{" "}
+                    Игровая почта:{" "}
                     <span className="font-medium text-[var(--foreground)]">{trustor.icEmail}</span>
                   </p>
                 ) : null}
@@ -140,7 +139,7 @@ function TrustorGroup(props: { group: AccountTrustorsServerGroup }) {
 
               <details className="rounded-2xl border border-[var(--border)] bg-white/50 p-4">
                 <summary className="cursor-pointer text-sm font-medium">
-                  Редактировать trustor card
+                  Редактировать доверителя
                 </summary>
                 <div className="mt-4 space-y-4">
                   <TrustorFormCard
@@ -162,7 +161,7 @@ function TrustorGroup(props: { group: AccountTrustorsServerGroup }) {
                     <input name="redirectTo" type="hidden" value={accountRedirectTo} />
                     <input name="trustorId" type="hidden" value={trustor.id} />
                     <Button type="submit" variant="secondary">
-                      Мягко удалить trustor card
+                      Удалить доверителя из списка
                     </Button>
                   </form>
                 </div>
@@ -184,23 +183,22 @@ export function AccountTrustorsOverview(props: {
       <Card className="space-y-3">
         <div className="space-y-2">
           <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">
-            Account Trustors
+            Доверители
           </p>
           <h1 className="text-3xl font-semibold">Доверители аккаунта</h1>
           <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
-            Это account-wide reusable registry внутри account zone. Он помогает держать owner-owned
-            trustor cards по серверам, но не заменяет document snapshots и не превращает страницу в
-            server workflow hub.
+            Здесь можно вести список доверителей по серверам. Эти данные удобно подставлять в
+            новые документы, но уже созданные жалобы остаются независимыми от карточек в списке.
           </p>
         </div>
 
         {props.context.focusedServerCode ? (
           <p className="rounded-2xl border border-[var(--border)] bg-white/60 px-4 py-3 text-sm leading-6 text-[var(--muted)]">
-            Route focus применён для сервера:{" "}
+            Сейчас открыт список для сервера:{" "}
             <span className="font-medium text-[var(--foreground)]">
               {props.context.focusedServerCode}
             </span>
-            . Это только account-zone focus pattern для grouped overview.
+            .
           </p>
         ) : null}
 
@@ -215,8 +213,7 @@ export function AccountTrustorsOverview(props: {
         <Card className="space-y-3">
           <h2 className="text-2xl font-semibold">Серверы пока не найдены</h2>
           <p className="text-sm leading-6 text-[var(--muted)]">
-            Account route уже готов, но активные серверы для reusable trustor registry пока не
-            найдены.
+            Пока нет активных серверов, для которых можно добавить доверителей.
           </p>
         </Card>
       ) : (

@@ -19,22 +19,22 @@ type ForumIntegrationSectionProps = {
 
 function formatForumConnectionState(state: ForumConnectionSummary["state"]) {
   if (state === "not_connected") {
-    return "not_connected";
+    return "не подключено";
   }
 
   if (state === "connected_unvalidated") {
-    return "connected_unvalidated";
+    return "подключено, но не проверено";
   }
 
   if (state === "valid") {
-    return "valid";
+    return "подключение работает";
   }
 
   if (state === "invalid") {
-    return "invalid";
+    return "нужно подключить заново";
   }
 
-  return "disabled";
+  return "отключено";
 }
 
 export function ForumIntegrationSection({
@@ -66,32 +66,31 @@ export function ForumIntegrationSection({
     <Card className="space-y-5">
       <div className="space-y-2">
         <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">
-          Forum Integration
+          Подключение форума
         </p>
-        <h2 className="text-2xl font-semibold">Forum session для OGP automation</h2>
+        <h2 className="text-2xl font-semibold">Подключение форума для жалоб в ОГП</h2>
         <p className="text-sm leading-6 text-[var(--muted)]">
-          Это account-scoped foundation для будущей forum automation только у `OGP complaints`.
-          Здесь хранится и проверяется forum session пользователя. Raw cookies после сохранения
-          больше не показываются в UI и не живут в document route.
+          Здесь можно подключить форумный аккаунт для публикации жалоб в ОГП. Сырые cookie после
+          сохранения больше не показываются в интерфейсе.
         </p>
       </div>
 
       <div className="rounded-2xl border border-[var(--border)] bg-[rgba(255,255,255,0.7)] px-4 py-3 text-sm leading-6 text-[var(--muted)]">
         <p>
-          Provider: <span className="font-medium text-[var(--foreground)]">{forumConnection.providerKey}</span>
+          Форум: <span className="font-medium text-[var(--foreground)]">{forumConnection.providerKey}</span>
         </p>
         <p>
-          State: <span className="font-medium text-[var(--foreground)]">{formatForumConnectionState(forumConnection.state)}</span>
+          Статус: <span className="font-medium text-[var(--foreground)]">{formatForumConnectionState(forumConnection.state)}</span>
         </p>
         <p>
-          Forum identity:{" "}
+          Форумный аккаунт:{" "}
           <span className="font-medium text-[var(--foreground)]">
             {forumConnection.forumUsername ?? "ещё не извлечена"}
             {forumConnection.forumUserId ? ` (${forumConnection.forumUserId})` : ""}
           </span>
         </p>
         <p>
-          Validated at:{" "}
+          Последняя проверка:{" "}
           <span className="font-medium text-[var(--foreground)]">
             {forumConnection.validatedAt
               ? new Date(forumConnection.validatedAt).toLocaleString("ru-RU")
@@ -100,7 +99,7 @@ export function ForumIntegrationSection({
         </p>
         {forumConnection.lastValidationError ? (
           <p className="mt-2 text-[#8a2d1d]">
-            Последняя безопасная ошибка: {forumConnection.lastValidationError}
+            Последняя ошибка проверки: {forumConnection.lastValidationError}
           </p>
         ) : null}
       </div>
@@ -121,8 +120,8 @@ export function ForumIntegrationSection({
             value={rawSessionInput}
           />
           <p className="text-xs leading-5 text-[var(--muted)]">
-            Вставляйте именно request Cookie header для `forum.gta5rp.com`. После сохранения raw
-            session больше не вернётся в UI.
+            Вставьте Cookie header из запроса к `forum.gta5rp.com`. После сохранения он больше не
+            будет показан в интерфейсе.
           </p>
           {saveState?.fieldErrors.rawSessionInput ? (
             <p className="text-sm leading-6 text-[#8a2d1d]">{saveState.fieldErrors.rawSessionInput}</p>
@@ -130,7 +129,7 @@ export function ForumIntegrationSection({
         </div>
 
         <Button disabled={isSaving} fullWidth type="submit">
-          {isSaving ? "Сохраняем session..." : "Подключить / обновить forum session"}
+          {isSaving ? "Сохраняем подключение..." : "Подключить или обновить форум"}
         </Button>
       </form>
 
@@ -152,7 +151,7 @@ export function ForumIntegrationSection({
             type="submit"
             variant="secondary"
           >
-            {isValidating ? "Проверяем..." : "Провалидировать session"}
+            {isValidating ? "Проверяем..." : "Проверить подключение"}
           </Button>
         </form>
 
@@ -166,7 +165,7 @@ export function ForumIntegrationSection({
             type="submit"
             variant="secondary"
           >
-            {isDisabling ? "Отключаем..." : "Отключить session"}
+            {isDisabling ? "Отключаем..." : "Отключить форум"}
           </Button>
         </form>
       </div>

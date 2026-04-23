@@ -23,14 +23,14 @@ describe("document trustor registry prefill", () => {
       }),
     );
 
-    expect(html).toContain("Prefill из trustors registry");
-    expect(html).toContain("Подставить из registry");
+    expect(html).toContain("Подставить доверителя из списка");
+    expect(html).toContain("Подставить в документ");
     expect(html).toContain('/account/trustors?server=blackberry');
     expect(html).not.toContain("Claims");
     expect(html).not.toContain("Assistant");
   });
 
-  it("честно показывает fallback, если на сервере нет trustor cards", () => {
+  it("честно показывает fallback, если на сервере нет доверителей", () => {
     const html = renderToStaticMarkup(
       createElement(DocumentTrustorRegistryPrefill, {
         items: [],
@@ -39,7 +39,7 @@ describe("document trustor registry prefill", () => {
       }),
     );
 
-    expect(html).toContain("Manual inline entry остаётся рабочим fallback");
+    expect(html).toContain("Можно заполнить данные доверителя");
     expect(html).toContain('/account/trustors?server=blackberry');
   });
 });

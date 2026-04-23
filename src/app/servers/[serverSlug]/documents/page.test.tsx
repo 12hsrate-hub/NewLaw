@@ -63,9 +63,9 @@ describe("/servers/[serverSlug]/documents page", () => {
       serverSlug: "blackberry",
       nextPath: "/servers/blackberry/documents",
     });
-    expect(html).toContain("server-scoped document hub");
-    expect(html).toContain("OGP complaints");
-    expect(html).toContain("Claims");
+    expect(html).toContain("Здесь собраны документы и действия для выбранного сервера");
+    expect(html).toContain("Жалобы в ОГП");
+    expect(html).toContain("Иски");
     expect(html).toContain("/servers/blackberry/documents/claims");
   });
 

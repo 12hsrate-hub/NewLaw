@@ -38,9 +38,9 @@ describe("/account/security page", () => {
     const html = renderToStaticMarkup(await AccountSecurityPage({}));
 
     expect(html).toContain("Настройки аккаунта");
-    expect(html).toContain("Forum session для OGP automation");
+    expect(html).toContain("Подключение форума для жалоб в ОГП");
     expect(html).toContain("Cookie header форума");
-    expect(html).toContain("connected_unvalidated");
+    expect(html).toContain("подключено, но не проверено");
     expect(html).not.toContain("xf_session=");
   });
 });

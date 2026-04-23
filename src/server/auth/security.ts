@@ -62,31 +62,31 @@ const defaultDependencies: ProtectedSecurityDependencies = {
 };
 
 function mapCurrentPasswordErrorToMessage() {
-  return "Не удалось подтвердить текущий пароль. Проверь пароль и попробуй ещё раз.";
+  return "Не удалось подтвердить текущий пароль. Проверьте пароль и попробуйте снова. Код: ACCOUNT_CURRENT_PASSWORD_INVALID.";
 }
 
 function mapPasswordChangeErrorToMessage(error: AuthErrorLike) {
   if (error?.code === "same_password") {
-    return "Новый пароль должен отличаться от текущего.";
+    return "Новый пароль должен отличаться от текущего. Код: ACCOUNT_PASSWORD_SAME_AS_CURRENT.";
   }
 
   if (error?.code === "reauthentication_needed" || error?.code === "reauthentication_not_valid") {
-    return "Не удалось безопасно сменить пароль. Войди в аккаунт заново и повтори попытку.";
+    return "Не удалось безопасно сменить пароль. Войдите в аккаунт заново и повторите попытку. Код: ACCOUNT_PASSWORD_REAUTH_REQUIRED.";
   }
 
-  return "Не удалось сохранить новый пароль. Попробуй ещё раз немного позже.";
+  return "Не удалось сохранить новый пароль. Попробуйте снова немного позже. Код: ACCOUNT_PASSWORD_CHANGE_FAILED.";
 }
 
 function mapEmailChangeErrorToMessage(error: AuthErrorLike) {
   if (error?.code === "email_exists") {
-    return "Этот email уже занят другим аккаунтом.";
+    return "Этот email уже занят другим аккаунтом. Код: ACCOUNT_EMAIL_ALREADY_USED.";
   }
 
   if (error?.code === "email_address_invalid") {
-    return "Укажи корректный новый email.";
+    return "Укажите корректный новый email. Код: ACCOUNT_EMAIL_INVALID.";
   }
 
-  return "Не удалось запустить подтверждение нового email. Попробуй ещё раз немного позже.";
+  return "Не удалось отправить подтверждение нового email. Попробуйте снова немного позже. Код: ACCOUNT_EMAIL_CHANGE_FAILED.";
 }
 
 async function reauthenticateCurrentPassword(
@@ -203,7 +203,7 @@ export async function requestEmailChangeSelfService(
   if (account.mustChangePassword) {
     return {
       status: "blocked" as const,
-      message: "Сначала смени пароль аккаунта, а потом уже меняй email.",
+      message: "Сначала смените пароль аккаунта, а затем обновите email. Код: ACCOUNT_PASSWORD_CHANGE_REQUIRED.",
     };
   }
 
@@ -212,7 +212,7 @@ export async function requestEmailChangeSelfService(
   if (parsed.newEmail === account.email) {
     return {
       status: "error" as const,
-      message: "Новый email должен отличаться от текущего подтверждённого адреса.",
+      message: "Новый email должен отличаться от текущего подтверждённого адреса. Код: ACCOUNT_EMAIL_SAME_AS_CURRENT.",
     };
   }
 

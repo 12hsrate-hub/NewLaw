@@ -180,7 +180,7 @@ function validateIdentityFields(input: {
   }
 
   if (normalizedIcEmail.length === 0) {
-    issues.push(issue("icEmail", "IC email", "Укажите IC email."));
+    issues.push(issue("icEmail", "Игровая почта", "Укажите игровую почту."));
   }
 
   if (normalizedPassportImageUrl.length === 0) {

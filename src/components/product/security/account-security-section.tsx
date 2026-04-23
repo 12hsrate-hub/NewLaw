@@ -12,9 +12,9 @@ type AccountSecuritySectionProps = {
 
 const statusMessages: Record<string, string> = {
   "admin-access-denied":
-    "Доступ к admin security screen разрешён только super_admin. Текущий аккаунт может управлять только собственной безопасностью.",
+    "У вас нет доступа к внутреннему разделу безопасности. Здесь можно управлять только настройками своего аккаунта. Код: ACCOUNT_ADMIN_SECURITY_DENIED.",
   "email-change-confirmed":
-    "Новый email подтверждён. Аккаунт уже синхронизирован с Supabase Auth и будет использовать обновлённый адрес.",
+    "Новый email подтверждён. Теперь аккаунт будет использовать обновлённый адрес.",
   "email-change-requested":
     "Письмо для подтверждения нового email отправлено. Старый подтверждённый адрес продолжает работать, пока не будет завершено подтверждение.",
   "must-change-password":
@@ -43,7 +43,8 @@ export function AccountSecuritySection({
           <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">Безопасность аккаунта</p>
           <h1 className="text-3xl font-semibold">Настройки аккаунта</h1>
           <p className="text-sm leading-6 text-[var(--muted)]">
-            Здесь управляются пароль и подтверждённый email аккаунта. `login` остаётся неизменяемым и продолжает вести на тот же аккаунт.
+            Здесь можно сменить пароль, обновить email и проверить данные для входа. Логин пока
+            нельзя изменить.
           </p>
         </div>
 
@@ -53,14 +54,14 @@ export function AccountSecuritySection({
             <p className="mt-2 text-lg font-medium">{accountEmail}</p>
           </div>
           <div className="rounded-2xl border border-[var(--border)] bg-[rgba(255,255,255,0.7)] px-4 py-3">
-            <p className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">Account login</p>
+            <p className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">Логин</p>
             <p className="mt-2 text-lg font-medium">{accountLogin}</p>
           </div>
         </div>
 
         {pendingEmail ? (
           <div className="rounded-2xl border border-[#d7c4b6] bg-[#fff5eb] px-4 py-3 text-sm leading-6 text-[#7a3f1d]">
-            Ожидается подтверждение нового email: <span className="font-medium">{pendingEmail}</span>. Пока подтверждение не завершено, вход и recovery продолжают работать через текущий подтверждённый email или через `login`.
+            Ожидается подтверждение нового email: <span className="font-medium">{pendingEmail}</span>. Пока подтверждение не завершено, вход и восстановление доступа работают через текущий email или логин.
           </div>
         ) : null}
       </Card>

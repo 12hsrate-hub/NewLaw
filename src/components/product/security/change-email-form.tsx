@@ -42,7 +42,7 @@ export function ChangeEmailForm({
 
       {mustChangePassword ? (
         <div className="rounded-2xl border border-[#d7c4b6] bg-[#fff5eb] px-4 py-3 text-sm leading-6 text-[#7a3f1d]">
-          Пока аккаунт требует смены пароля, self-service смена email временно заблокирована.
+          Пока требуется смена пароля, обновление email временно недоступно.
         </div>
       ) : null}
 
