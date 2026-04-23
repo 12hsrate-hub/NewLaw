@@ -29,6 +29,7 @@ import {
   generateOgpComplaintBbcodeAction,
   publishOgpComplaintCreateAction,
   publishOgpComplaintUpdateAction,
+  refreshOgpComplaintAuthorSnapshotAction,
   rewriteDocumentFieldAction,
   rewriteGroundedDocumentFieldAction,
   saveDocumentDraftAction,
@@ -272,6 +273,23 @@ function buildEmptyTrustorSnapshot(): OgpComplaintTrustorSnapshot {
     icEmail: "",
     passportImageUrl: "",
     note: "",
+  };
+}
+
+function buildEmptyOgpComplaintPayload(
+  filingMode: OgpComplaintDraftPayload["filingMode"],
+): OgpComplaintDraftPayload {
+  return {
+    filingMode,
+    appealNumber: "",
+    objectOrganization: "",
+    objectFullName: "",
+    incidentAt: "",
+    situationDescription: "",
+    violationSummary: "",
+    workingNotes: "",
+    trustorSnapshot: filingMode === "representative" ? buildEmptyTrustorSnapshot() : null,
+    evidenceGroups: [],
   };
 }
 
@@ -1130,6 +1148,7 @@ export function OgpComplaintDraftCreateClient(props: OgpComplaintDraftCreateClie
 }
 
 export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientProps) {
+  const [authorSnapshot, setAuthorSnapshot] = useState(props.authorSnapshot);
   const [editorState, setEditorState] = useState(() =>
     createEditorState({
       title: props.initialTitle,
@@ -1165,6 +1184,8 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
   const [publicationUrlInput, setPublicationUrlInput] = useState(props.initialPublicationUrl ?? "");
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [generationMessage, setGenerationMessage] = useState<string | null>(null);
+  const [profileSnapshotMessage, setProfileSnapshotMessage] = useState<string | null>(null);
+  const [isProfileSnapshotRefreshing, setIsProfileSnapshotRefreshing] = useState(false);
   const [publicationMessage, setPublicationMessage] = useState<string | null>(null);
   const [rewriteSuggestion, setRewriteSuggestion] = useState<OgpRewriteSuggestionState | null>(null);
   const [rewriteFeedback, setRewriteFeedback] = useState<{
@@ -1183,14 +1204,18 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
     useState<GroundedOgpDocumentRewriteSectionKey | null>(null);
   const lastAutoSaveKeyRef = useRef<string | null>(null);
 
-  const representativeAllowed = props.authorSnapshot.canUseRepresentative;
+  useEffect(() => {
+    setAuthorSnapshot(props.authorSnapshot);
+  }, [props.authorSnapshot]);
+
+  const representativeAllowed = authorSnapshot.canUseRepresentative;
   const persistedGenerationBlockState = useMemo(
     () =>
       buildGenerationBlockState({
-        authorSnapshot: props.authorSnapshot,
+        authorSnapshot,
         payload: savedState.payload,
       }),
-    [props.authorSnapshot, savedState.payload],
+    [authorSnapshot, savedState.payload],
   );
 
   useEffect(() => {
@@ -1335,6 +1360,78 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
     },
     [editorState, props.documentId],
   );
+
+  const handleClearComplaintTemplate = useCallback(() => {
+    const confirmed = window.confirm(
+      "Очистить заполненную форму жалобы? Документ, персонаж и route останутся на месте, но поля жалобы будут очищены.",
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setEditorState((current) =>
+      createEditorState({
+        title: current.title,
+        payload: buildEmptyOgpComplaintPayload(current.payload.filingMode),
+      }),
+    );
+    setRewriteSuggestion(null);
+    setGroundedRewriteSuggestion(null);
+    setGenerationMessage(null);
+    setSaveMessage(
+      "Форма жалобы очищена в редакторе. Autosave сохранит изменение, либо нажмите «Сохранить complaint draft».",
+    );
+  }, []);
+
+  const handleProfileSnapshotRefresh = useCallback(async () => {
+    setIsProfileSnapshotRefreshing(true);
+    setProfileSnapshotMessage(null);
+
+    try {
+      const result = await refreshOgpComplaintAuthorSnapshotAction({
+        documentId: props.documentId,
+      });
+
+      if (!result.ok) {
+        if (result.error === "character-unavailable") {
+          setProfileSnapshotMessage(
+            "Не удалось обновить snapshot: исходный персонаж недоступен на этом сервере.",
+          );
+          return;
+        }
+
+        if (result.error === "invalid-profile") {
+          setProfileSnapshotMessage("Профиль персонажа не прошёл validation для document snapshot.");
+          return;
+        }
+
+        setProfileSnapshotMessage("Не удалось обновить snapshot профиля. Проверь доступ к документу.");
+        return;
+      }
+
+      setAuthorSnapshot(result.authorSnapshot);
+      setSavedUpdatedAt(result.updatedAt);
+      setGenerationState((current) => ({
+        ...current,
+        status: result.status,
+        isModifiedAfterGeneration: result.isModifiedAfterGeneration,
+        isSiteForumSynced: result.isModifiedAfterGeneration ? false : current.isSiteForumSynced,
+        forumSyncState: result.isModifiedAfterGeneration
+          ? current.publicationUrl && !current.forumThreadId && !current.forumPostId
+            ? "manual_untracked"
+            : current.forumThreadId && current.forumPostId
+              ? "outdated"
+              : current.forumSyncState
+          : current.forumSyncState,
+      }));
+      setProfileSnapshotMessage(
+        `Snapshot профиля обновлён из текущей карточки персонажа: ${new Date(result.snapshotCapturedAt).toLocaleString("ru-RU")}.`,
+      );
+    } finally {
+      setIsProfileSnapshotRefreshing(false);
+    }
+  }, [props.documentId]);
 
   useEffect(() => {
     if (!isDirty) {
@@ -1902,11 +1999,11 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
   return (
     <div className="space-y-6">
       <ComplaintFormFields
-        characterLabel={`${props.authorSnapshot.fullName} (${props.authorSnapshot.passportNumber})`}
+        characterLabel={`${authorSnapshot.fullName} (${authorSnapshot.passportNumber})`}
         draftStatusLabel={generationState.status}
         mode="edit"
         onStateChange={setEditorState}
-        profileComplete={props.authorSnapshot.isProfileComplete}
+        profileComplete={authorSnapshot.isProfileComplete}
         representativeAllowed={representativeAllowed}
         renderRewriteControls={renderRewriteControls}
         serverCode={props.server.code}
@@ -1938,6 +2035,9 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
           variant="secondary"
         >
           Сгенерировать BBCode
+        </Button>
+        <Button onClick={handleClearComplaintTemplate} type="button" variant="secondary">
+          Очистить форму жалобы
         </Button>
         <span className="text-sm text-[var(--muted)]">{generationReadinessLabel}</span>
       </div>
@@ -1971,6 +2071,29 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
           issues={persistedGenerationBlockState.characterIssues}
           title="Character profile issues"
         />
+        <div className="rounded-2xl border border-[var(--border)] bg-white/80 p-4 text-sm leading-6 text-[var(--muted)]">
+          <p>
+            Если профиль персонажа уже исправлен в `/account/characters`, обновите persisted snapshot в
+            этой жалобе. Это явное действие не читает live profile во время generation.
+          </p>
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <Button
+              disabled={isProfileSnapshotRefreshing}
+              onClick={() => {
+                startTransition(() => {
+                  void handleProfileSnapshotRefresh();
+                });
+              }}
+              type="button"
+              variant="secondary"
+            >
+              {isProfileSnapshotRefreshing ? "Обновляем snapshot..." : "Обновить данные профиля в жалобе"}
+            </Button>
+            {profileSnapshotMessage ? (
+              <span className="text-[var(--muted)]">{profileSnapshotMessage}</span>
+            ) : null}
+          </div>
+        </div>
         <GenerationChecklistSection
           href={
             savedState.payload.trustorSnapshot?.sourceType === "registry_prefill"

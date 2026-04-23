@@ -4,6 +4,7 @@ import { prisma } from "@/db/prisma";
 import {
   createDocumentDraftInputSchema,
   claimsRenderedOutputSchema,
+  documentAuthorSnapshotSchema,
   documentGeneratedArtifactTextSchema,
   documentIdSchema,
   documentGeneratedMetadataVersionSchema,
@@ -175,6 +176,60 @@ export async function updateDocumentDraftRecord(
     data: {
       title: parsed.title,
       formPayloadJson: parsed.formPayloadJson as Prisma.InputJsonValue,
+      isModifiedAfterGeneration: touchedGeneratedDocument
+        ? true
+        : existingDocument.isModifiedAfterGeneration,
+      isSiteForumSynced: touchedGeneratedDocument ? false : existingDocument.isSiteForumSynced,
+      forumSyncState: nextForumSyncState,
+    },
+    include: {
+      server: true,
+    },
+  });
+}
+
+export async function updateDocumentAuthorSnapshotRecord(
+  input: {
+    documentId: string;
+    authorSnapshotJson: Record<string, unknown>;
+    snapshotCapturedAt: Date;
+  },
+  db: PrismaLike = prisma,
+) {
+  const parsedDocumentId = documentIdSchema.parse(input.documentId);
+  const parsedAuthorSnapshot = documentAuthorSnapshotSchema.parse(input.authorSnapshotJson);
+  const existingDocument = await db.document.findUnique({
+    where: {
+      id: parsedDocumentId,
+    },
+  });
+
+  if (!existingDocument) {
+    return null;
+  }
+
+  const snapshotChanged =
+    JSON.stringify(existingDocument.authorSnapshotJson ?? {}) !== JSON.stringify(parsedAuthorSnapshot);
+  const touchedGeneratedDocument =
+    (existingDocument.status === "generated" || existingDocument.status === "published") &&
+    snapshotChanged;
+  const nextForumSyncState = touchedGeneratedDocument
+    ? existingDocument.documentType === "ogp_complaint" &&
+      existingDocument.forumThreadId &&
+      existingDocument.forumPostId
+      ? "outdated"
+      : existingDocument.documentType === "ogp_complaint" && existingDocument.publicationUrl
+        ? "manual_untracked"
+        : existingDocument.forumSyncState
+    : existingDocument.forumSyncState;
+
+  return db.document.update({
+    where: {
+      id: parsedDocumentId,
+    },
+    data: {
+      authorSnapshotJson: parsedAuthorSnapshot as Prisma.InputJsonValue,
+      snapshotCapturedAt: input.snapshotCapturedAt,
       isModifiedAfterGeneration: touchedGeneratedDocument
         ? true
         : existingDocument.isModifiedAfterGeneration,

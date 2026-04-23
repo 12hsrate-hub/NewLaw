@@ -94,7 +94,7 @@ export function normalizePhone(value: string) {
 }
 
 export function normalizeIcEmail(value: string) {
-  return normalizeText(value).toLowerCase();
+  return normalizeText(value);
 }
 
 export function normalizeSafeUrl(value: string) {
@@ -168,8 +168,6 @@ function validateIdentityFields(input: {
 
   if (normalizedIcEmail.length === 0) {
     issues.push(issue("icEmail", "IC email", "Укажите IC email."));
-  } else if (!z.string().email().safeParse(normalizedIcEmail).success) {
-    issues.push(issue("icEmail", "IC email", "IC email должен быть корректным email-адресом."));
   }
 
   if (normalizedPassportImageUrl.length === 0) {

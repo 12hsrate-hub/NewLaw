@@ -14,6 +14,7 @@ import {
   DocumentRepresentativeAccessError,
   DocumentServerUnavailableError,
   DocumentValidationError,
+  refreshOwnedOgpComplaintAuthorSnapshot,
   saveOwnedDocumentDraft,
 } from "@/server/document-area/persistence";
 import {
@@ -305,6 +306,68 @@ export async function generateOgpComplaintBbcodeAction(input: {
         ok: false as const,
         error: "generation-blocked" as const,
         validation: error.validation,
+      };
+    }
+
+    throw error;
+  }
+}
+
+export async function refreshOgpComplaintAuthorSnapshotAction(input: {
+  documentId: string;
+}) {
+  const { account } = await requireProtectedAccountContext("/account/documents", undefined, {
+    allowMustChangePassword: true,
+  });
+
+  try {
+    const { document, authorSnapshot } = await refreshOwnedOgpComplaintAuthorSnapshot({
+      accountId: account.id,
+      documentId: input.documentId,
+    });
+
+    revalidateDocumentPaths({
+      documentId: document.id,
+      serverCode: document.server.code,
+      documentType: "ogp_complaint",
+    });
+
+    return {
+      ok: true as const,
+      updatedAt: document.updatedAt.toISOString(),
+      snapshotCapturedAt: document.snapshotCapturedAt.toISOString(),
+      status: document.status,
+      isModifiedAfterGeneration: document.isModifiedAfterGeneration,
+      authorSnapshot: {
+        fullName: authorSnapshot.fullName,
+        passportNumber: authorSnapshot.passportNumber,
+        position: authorSnapshot.position,
+        phone: authorSnapshot.phone,
+        icEmail: authorSnapshot.icEmail,
+        passportImageUrl: authorSnapshot.passportImageUrl,
+        isProfileComplete: authorSnapshot.isProfileComplete,
+        canUseRepresentative: authorSnapshot.accessFlags.includes("advocate"),
+      },
+    };
+  } catch (error) {
+    if (error instanceof DocumentAccessDeniedError) {
+      return {
+        ok: false as const,
+        error: "document-access-denied" as const,
+      };
+    }
+
+    if (error instanceof DocumentCharacterUnavailableError) {
+      return {
+        ok: false as const,
+        error: "character-unavailable" as const,
+      };
+    }
+
+    if (error instanceof DocumentValidationError || error instanceof ZodError) {
+      return {
+        ok: false as const,
+        error: "invalid-profile" as const,
       };
     }
 

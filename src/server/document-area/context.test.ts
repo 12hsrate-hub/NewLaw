@@ -11,6 +11,7 @@ vi.mock("@/db/repositories/document.repository", () => ({
   getDocumentByIdForAccount: vi.fn(),
   listDocumentsByAccount: vi.fn(),
   listDocumentsByAccountAndServerAndType: vi.fn(),
+  updateDocumentAuthorSnapshotRecord: vi.fn(),
   updateDocumentDraftRecord: vi.fn(),
 }));
 
@@ -908,6 +909,5 @@ describe("document area context", () => {
     }
   });
 });
-
 
 

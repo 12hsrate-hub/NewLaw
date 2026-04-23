@@ -7,6 +7,7 @@ vi.mock("@/server/actions/documents", () => ({
   generateOgpComplaintBbcodeAction: vi.fn(),
   publishOgpComplaintCreateAction: vi.fn(),
   publishOgpComplaintUpdateAction: vi.fn(),
+  refreshOgpComplaintAuthorSnapshotAction: vi.fn(),
   rewriteDocumentFieldAction: vi.fn(),
   rewriteGroundedDocumentFieldAction: vi.fn(),
   saveDocumentDraftAction: vi.fn(),
@@ -81,6 +82,8 @@ describe("OGP document editor rewrite affordances", () => {
     expect(html).toContain("Situation description");
     expect(html).toContain("Violation summary");
     expect(html).toContain("Publication metadata");
+    expect(html).toContain("Очистить форму жалобы");
+    expect(html).toContain("Обновить данные профиля в жалобе");
     expect(html).not.toContain("AI-предложение для секции Working notes");
   });
 

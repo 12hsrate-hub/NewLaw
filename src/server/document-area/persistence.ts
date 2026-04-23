@@ -1,6 +1,11 @@
 import { ZodError } from "zod";
 
-import { createDocumentRecord, getDocumentByIdForAccount, updateDocumentDraftRecord } from "@/db/repositories/document.repository";
+import {
+  createDocumentRecord,
+  getDocumentByIdForAccount,
+  updateDocumentAuthorSnapshotRecord,
+  updateDocumentDraftRecord,
+} from "@/db/repositories/document.repository";
 import { getCharacterByIdForAccount } from "@/db/repositories/character.repository";
 import { getServerByCode } from "@/db/repositories/server.repository";
 import {
@@ -37,6 +42,7 @@ type DocumentPersistenceDependencies = {
   createDocumentRecord: typeof createDocumentRecord;
   getDocumentByIdForAccount: typeof getDocumentByIdForAccount;
   updateDocumentDraftRecord: typeof updateDocumentDraftRecord;
+  updateDocumentAuthorSnapshotRecord?: typeof updateDocumentAuthorSnapshotRecord;
   setActiveServerSelection: typeof setActiveServerSelection;
   setActiveCharacterSelection: typeof setActiveCharacterSelection;
   now: () => Date;
@@ -48,6 +54,7 @@ const defaultDependencies: DocumentPersistenceDependencies = {
   createDocumentRecord,
   getDocumentByIdForAccount,
   updateDocumentDraftRecord,
+  updateDocumentAuthorSnapshotRecord,
   setActiveServerSelection,
   setActiveCharacterSelection,
   now: () => new Date(),
@@ -90,7 +97,11 @@ export class DocumentValidationError extends Error {
 
 function buildAuthorSnapshot(input: {
   character: NonNullable<Awaited<ReturnType<typeof getCharacterByIdForAccount>>>;
-  server: NonNullable<Awaited<ReturnType<typeof getServerByCode>>>;
+  server: {
+    id: string;
+    code: string;
+    name: string;
+  };
   capturedAt: Date;
 }) {
   const profileData = readCharacterProfileData(input.character.profileDataJson);
@@ -503,4 +514,54 @@ export async function saveOwnedDocumentDraft(
     }
 
     return savedDocument;
+}
+
+export async function refreshOwnedOgpComplaintAuthorSnapshot(
+  input: {
+    accountId: string;
+    documentId: string;
+  },
+  dependencies: DocumentPersistenceDependencies = defaultDependencies,
+) {
+  const existingDocument = await dependencies.getDocumentByIdForAccount({
+    accountId: input.accountId,
+    documentId: input.documentId,
+  });
+
+  if (!existingDocument || existingDocument.documentType !== "ogp_complaint") {
+    throw new DocumentAccessDeniedError();
+  }
+
+  const character = await dependencies.getCharacterByIdForAccount({
+    accountId: input.accountId,
+    characterId: existingDocument.characterId,
+  });
+
+  if (!character || character.serverId !== existingDocument.serverId) {
+    throw new DocumentCharacterUnavailableError();
+  }
+
+  const capturedAt = dependencies.now();
+  const authorSnapshot = buildAuthorSnapshot({
+    character,
+    server: existingDocument.server,
+    capturedAt,
+  });
+  const updateAuthorSnapshot =
+    dependencies.updateDocumentAuthorSnapshotRecord ??
+    updateDocumentAuthorSnapshotRecord;
+  const refreshedDocument = await updateAuthorSnapshot({
+    documentId: existingDocument.id,
+    authorSnapshotJson: authorSnapshot,
+    snapshotCapturedAt: capturedAt,
+  });
+
+  if (!refreshedDocument) {
+    throw new DocumentAccessDeniedError();
+  }
+
+  return {
+    document: refreshedDocument,
+    authorSnapshot,
+  };
 }

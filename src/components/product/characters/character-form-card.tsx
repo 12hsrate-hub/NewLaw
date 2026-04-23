@@ -217,8 +217,7 @@ export function CharacterFormCard({
                 defaultValue={defaultValues?.icEmail ?? ""}
                 id={`${mode}-icEmail`}
                 name="icEmail"
-                placeholder="lawyer@example.com"
-                type="email"
+                placeholder="IC mail / Discord"
               />
             </div>
           </div>

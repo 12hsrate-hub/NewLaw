@@ -6,6 +6,7 @@ import {
   DocumentAccessDeniedError,
   DocumentCharacterUnavailableError,
   DocumentRepresentativeAccessError,
+  refreshOwnedOgpComplaintAuthorSnapshot,
   readClaimsDraftPayload,
   readOgpComplaintDraftPayload,
   saveOwnedDocumentDraft,
@@ -1054,5 +1055,115 @@ describe("document persistence foundation", () => {
       rehabilitationBasis: "",
       harmSummary: "",
     });
+  });
+
+  it("явно обновляет OGP author snapshot из текущего профиля персонажа", async () => {
+    const now = new Date("2026-04-23T08:00:00.000Z");
+    const existingDocument = {
+      id: "document-1",
+      accountId: "00000000-0000-0000-0000-000000000001",
+      serverId: "server-1",
+      characterId: "character-1",
+      documentType: "ogp_complaint" as const,
+      title: "Жалоба в ОГП",
+      status: "generated" as const,
+      formPayloadJson: {
+        filingMode: "self",
+        appealNumber: "OGP-001",
+        objectOrganization: "LSPD",
+        incidentAt: "2026-04-23T12:00",
+        situationDescription: "Описание",
+        violationSummary: "Нарушение",
+        workingNotes: "",
+        trustorSnapshot: null,
+        evidenceGroups: [{ id: "group-1", title: "Видео", rows: [{ id: "row-1", label: "Запись", url: "https://example.com/video", note: "" }] }],
+      },
+      authorSnapshotJson: {
+        characterId: "character-1",
+        serverId: "server-1",
+        serverCode: "blackberry",
+        serverName: "Blackberry",
+        fullName: "Игорь Юристов",
+        nickname: "Игорь Юристов",
+        passportNumber: "001",
+        position: "",
+        phone: "",
+        icEmail: "",
+        passportImageUrl: "",
+        isProfileComplete: false,
+        roleKeys: ["lawyer"],
+        accessFlags: ["advocate"],
+        capturedAt: "2026-04-21T05:00:00.000Z",
+      },
+      snapshotCapturedAt: new Date("2026-04-21T05:00:00.000Z"),
+      deletedAt: null,
+      createdAt: new Date("2026-04-21T05:00:00.000Z"),
+      updatedAt: new Date("2026-04-21T05:00:00.000Z"),
+      isModifiedAfterGeneration: false,
+      server: {
+        id: "server-1",
+        code: "blackberry",
+        name: "Blackberry",
+      },
+      character: {
+        id: "character-1",
+        accountId: "00000000-0000-0000-0000-000000000001",
+        serverId: "server-1",
+        fullName: "Игорь Юристов",
+        nickname: "Игорь Юристов",
+        passportNumber: "AA-001",
+        isProfileComplete: true,
+        profileDataJson: {
+          position: "Адвокат",
+          phone: "1234567",
+          icEmail: "Blackberry Lawyer #42",
+          passportImageUrl: "https://example.com/passport.png",
+        },
+        deletedAt: null,
+        createdAt: new Date("2026-04-21T05:00:00.000Z"),
+        updatedAt: new Date("2026-04-23T07:55:00.000Z"),
+        roles: [{ roleKey: "lawyer" }],
+        accessFlags: [{ flagKey: "advocate" }],
+      },
+    };
+    const updateDocumentAuthorSnapshotRecord = vi.fn().mockImplementation(async (input) => ({
+      ...existingDocument,
+      authorSnapshotJson: input.authorSnapshotJson,
+      snapshotCapturedAt: input.snapshotCapturedAt,
+      isModifiedAfterGeneration: true,
+      updatedAt: now,
+    }));
+
+    const result = await refreshOwnedOgpComplaintAuthorSnapshot(
+      {
+        accountId: "00000000-0000-0000-0000-000000000001",
+        documentId: "document-1",
+      },
+      {
+        getServerByCode: vi.fn(),
+        getCharacterByIdForAccount: vi.fn().mockResolvedValue(existingDocument.character),
+        createDocumentRecord: vi.fn(),
+        getDocumentByIdForAccount: vi.fn().mockResolvedValue(existingDocument),
+        updateDocumentDraftRecord: vi.fn(),
+        updateDocumentAuthorSnapshotRecord,
+        setActiveServerSelection: vi.fn(),
+        setActiveCharacterSelection: vi.fn(),
+        now: () => now,
+      },
+    );
+
+    expect(updateDocumentAuthorSnapshotRecord).toHaveBeenCalledWith({
+      documentId: "document-1",
+      snapshotCapturedAt: now,
+      authorSnapshotJson: expect.objectContaining({
+        position: "Адвокат",
+        phone: "123-45-67",
+        icEmail: "Blackberry Lawyer #42",
+        passportImageUrl: "https://example.com/passport.png",
+        capturedAt: now.toISOString(),
+      }),
+    });
+    expect(result.authorSnapshot.isProfileComplete).toBe(true);
+    expect(result.document.isModifiedAfterGeneration).toBe(true);
   });
 });
