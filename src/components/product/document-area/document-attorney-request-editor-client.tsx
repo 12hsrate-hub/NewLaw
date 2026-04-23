@@ -427,7 +427,7 @@ export function AttorneyRequestEditorClient(props: AttorneyRequestEditorClientPr
           Сохранить черновик
         </Button>
         <Button onClick={performGenerate} type="button" variant="secondary">
-          Сгенерировать preview / PDF / JPG
+          Сгенерировать preview / PDF / PNG / JPG
         </Button>
         <Badge>{formatDocumentStatus(status)}</Badge>
         {isDirty ? <Badge>есть несохранённые изменения</Badge> : null}
@@ -459,6 +459,13 @@ export function AttorneyRequestEditorClient(props: AttorneyRequestEditorClientPr
                 href={generatedArtifact.pdfDataUrl}
               >
                 Скачать PDF
+              </a>
+              <a
+                className="inline-flex rounded-2xl border border-[var(--border)] bg-white/80 px-4 py-2.5 text-sm font-medium"
+                download="attorney-request.png"
+                href={generatedArtifact.pngDataUrl}
+              >
+                Скачать PNG
               </a>
               <a
                 className="inline-flex rounded-2xl border border-[var(--border)] bg-white/80 px-4 py-2.5 text-sm font-medium"

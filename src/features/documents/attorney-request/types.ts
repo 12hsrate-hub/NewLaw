@@ -1,6 +1,6 @@
 export const ATTORNEY_REQUEST_FORM_SCHEMA_VERSION = "attorney_request_v1";
-export const ATTORNEY_REQUEST_RENDERER_VERSION = "attorney_request_renderer_v12_width_and_spacing_pass";
-export const ATTORNEY_REQUEST_OUTPUT_FORMAT = "attorney_request_preview_pdf_jpg_v1";
+export const ATTORNEY_REQUEST_RENDERER_VERSION = "attorney_request_renderer_v13_png_export_pass";
+export const ATTORNEY_REQUEST_OUTPUT_FORMAT = "attorney_request_preview_pdf_png_jpg_v2";
 
 export type AttorneyRequestAddresseePresetKey =
   | "LSPD_CHIEF"

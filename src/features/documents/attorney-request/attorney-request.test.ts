@@ -162,8 +162,12 @@ describe("attorney request foundation", () => {
     expect(artifact.previewHtml).toContain("SAN ANDREAS CAPITOL");
     expect(artifact.previewHtml).toContain("data:image/jpeg;base64,");
     expect(artifact.pdfDataUrl).toMatch(/^data:application\/pdf;base64,/);
+    expect(artifact.pngDataUrl).toMatch(/^data:image\/png;base64,/);
     expect(artifact.jpgDataUrl).toMatch(/^data:image\/jpeg;base64,/);
     expect(Buffer.from(artifact.pdfDataUrl.split(",")[1] ?? "", "base64").subarray(0, 5).toString()).toBe("%PDF-");
+    expect(Buffer.from(artifact.pngDataUrl.split(",")[1] ?? "", "base64").subarray(0, 8)).toEqual(
+      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    );
     expect(Buffer.from(artifact.jpgDataUrl.split(",")[1] ?? "", "base64").subarray(0, 2)).toEqual(
       Buffer.from([0xff, 0xd8]),
     );

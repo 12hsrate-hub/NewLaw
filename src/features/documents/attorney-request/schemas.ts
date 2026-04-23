@@ -67,6 +67,7 @@ export const attorneyRequestRenderedArtifactSchema = z.object({
   previewHtml: z.string().max(500_000),
   previewText: z.string().max(200_000),
   pdfDataUrl: z.string().max(1_000_000),
+  pngDataUrl: z.string().max(1_500_000),
   jpgDataUrl: z.string().max(1_000_000),
   pageCount: z.literal(1),
   blockingReasons: z.array(z.string()).max(64),

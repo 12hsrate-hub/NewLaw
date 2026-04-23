@@ -26,6 +26,7 @@ const rasterConfig = {
   chromaSubsampling: "4:4:4" as const,
   qrSourceScale: 4,
   sharpenSigma: 0.35,
+  pngCompressionLevel: 9,
 } as const;
 
 const RASTER_SCALE = rasterConfig.exportScale;
@@ -109,6 +110,7 @@ const visualReferenceConfig = {
     "Оригинальный asset подписи отсутствует: используется replace-ready векторная имитация.",
     "Точный stamp-font эталона неизвестен: используется Courier/Liberation Mono approximation.",
     "Raster export keeps a generated-output-first calibration and uses a higher-quality JPEG pipeline within the current A4 contract.",
+    "PNG export is included as a higher-fidelity alternative to JPG for manual comparison and download.",
     "Section spacing can stretch slightly when the body block leaves too much vertical room above the footer.",
   ],
   header: headerConfig,
@@ -637,7 +639,7 @@ function buildVisualLines(input: {
     y: registerY,
     width: layoutConfig.registerWidth,
     size: fontConfig.registerTitleSize,
-    lineHeight: fontConfig.registerTitleSize * 1.12,
+    lineHeight: fontConfig.registerTitleSize * 1.04,
     bold: true,
   });
   lines.push({
@@ -662,7 +664,7 @@ function buildVisualLines(input: {
     bold: true,
   });
 
-  let roleY: number = layoutConfig.contentStartY + fontConfig.titleSize * 1.35;
+  let roleY: number = layoutConfig.contentStartY + fontConfig.titleSize * 1.1;
   for (const roleLine of wrapText(leftRole, layoutConfig.leftRoleWidth, fontConfig.titleSize)) {
     lines.push({
       text: roleLine,
@@ -671,7 +673,7 @@ function buildVisualLines(input: {
       size: fontConfig.titleSize,
       bold: true,
     });
-    roleY += fontConfig.bodyLineHeight * 0.88;
+    roleY += fontConfig.bodyLineHeight * 0.84;
   }
 
   let y: number = layoutConfig.contentStartY;
@@ -902,9 +904,18 @@ function buildRasterSvg(pageSvg: string) {
   );
 }
 
-async function buildPdfAndJpgDataUrls(pageSvg: string) {
-  const jpg = await sharp(Buffer.from(buildRasterSvg(pageSvg)))
-    .sharpen(rasterConfig.sharpenSigma)
+async function buildPdfPngAndJpgDataUrls(pageSvg: string) {
+  const raster = sharp(Buffer.from(buildRasterSvg(pageSvg))).sharpen(rasterConfig.sharpenSigma);
+  const png = await raster
+    .clone()
+    .png({
+      compressionLevel: rasterConfig.pngCompressionLevel,
+      adaptiveFiltering: true,
+      palette: false,
+    })
+    .toBuffer();
+  const jpg = await raster
+    .clone()
     .jpeg({
       quality: rasterConfig.jpegQuality,
       chromaSubsampling: rasterConfig.chromaSubsampling,
@@ -920,6 +931,7 @@ async function buildPdfAndJpgDataUrls(pageSvg: string) {
 
   return {
     pdfDataUrl: makeDataUrl("application/pdf", pdf),
+    pngDataUrl: makeDataUrl("image/png", png),
     jpgDataUrl: makeDataUrl("image/jpeg", jpg),
   };
 }
@@ -983,7 +995,7 @@ export async function renderAttorneyRequestArtifact(input: {
     title: input.title,
     pageSvg,
   });
-  const { pdfDataUrl, jpgDataUrl } = await buildPdfAndJpgDataUrls(pageSvg);
+  const { pdfDataUrl, pngDataUrl, jpgDataUrl } = await buildPdfPngAndJpgDataUrls(pageSvg);
 
   return {
     family: "attorney_request" as const,
@@ -992,6 +1004,7 @@ export async function renderAttorneyRequestArtifact(input: {
     previewHtml,
     previewText,
     pdfDataUrl,
+    pngDataUrl,
     jpgDataUrl,
     pageCount: 1 as const,
     blockingReasons: [],
