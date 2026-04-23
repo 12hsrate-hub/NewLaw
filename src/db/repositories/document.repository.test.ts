@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { updateDocumentDraftRecord } from "@/db/repositories/document.repository";
+import {
+  markAttorneyRequestGeneratedRecord,
+  updateDocumentDraftRecord,
+} from "@/db/repositories/document.repository";
 
 describe("document.repository", () => {
   it("правка generated claims документа помечает modified_after_generation и сбрасывает forum sync", async () => {
@@ -51,6 +54,66 @@ describe("document.repository", () => {
       data: expect.objectContaining({
         isModifiedAfterGeneration: true,
         isSiteForumSynced: false,
+      }),
+      include: {
+        server: true,
+      },
+    });
+  });
+
+  it("повторная генерация attorney_request сохраняет последние артефакты и сбрасывает modified flag", async () => {
+    const db = {
+      document: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: "attorney-request-1",
+          documentType: "attorney_request",
+        }),
+        update: vi.fn().mockResolvedValue({
+          id: "attorney-request-1",
+          status: "generated",
+          isModifiedAfterGeneration: false,
+          generatedArtifactText: "new preview",
+          server: {
+            id: "server-1",
+            code: "blackberry",
+            name: "Blackberry",
+          },
+        }),
+      },
+    };
+
+    await markAttorneyRequestGeneratedRecord(
+      {
+        documentId: "attorney-request-1",
+        generatedArtifactJson: {
+          family: "attorney_request",
+          format: "attorney_request_preview_pdf_jpg_v1",
+          rendererVersion: "attorney_request_renderer_v2",
+          previewHtml: "<main>preview</main>",
+          previewText: "new preview",
+          pdfDataUrl: "data:application/pdf;base64,JVBERi0=",
+          jpgDataUrl: "data:image/jpeg;base64,/9g=",
+          pageCount: 1,
+          blockingReasons: [],
+        },
+        generatedArtifactText: "new preview",
+        generatedAt: new Date("2026-04-23T12:00:00.000Z"),
+        generatedFormSchemaVersion: "attorney_request_v1",
+        generatedOutputFormat: "attorney_request_preview_pdf_jpg_v1",
+        generatedRendererVersion: "attorney_request_renderer_v2",
+      },
+      db as never,
+    );
+
+    expect(db.document.update).toHaveBeenCalledWith({
+      where: {
+        id: "attorney-request-1",
+      },
+      data: expect.objectContaining({
+        status: "generated",
+        generatedArtifactText: "new preview",
+        isModifiedAfterGeneration: false,
+        publicationUrl: null,
       }),
       include: {
         server: true,

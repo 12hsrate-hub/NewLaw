@@ -175,6 +175,7 @@ export function ServerDocumentsHub(props: {
     source: "last_used" | "first_available";
   };
   ogpComplaintDocumentCount?: number;
+  attorneyRequestDocumentCount?: number;
 }) {
   return (
     <div className="space-y-6">
@@ -195,6 +196,9 @@ export function ServerDocumentsHub(props: {
           {typeof props.ogpComplaintDocumentCount === "number" ? (
             <span>Жалоб в ОГП: {props.ogpComplaintDocumentCount}</span>
           ) : null}
+          {typeof props.attorneyRequestDocumentCount === "number" ? (
+            <span>Адвокатских запросов: {props.attorneyRequestDocumentCount}</span>
+          ) : null}
         </div>
       </Card>
 
@@ -213,6 +217,27 @@ export function ServerDocumentsHub(props: {
           <div className="flex flex-wrap gap-3">
             <FoundationLink href={`/servers/${props.server.code}/documents/ogp-complaints`}>
               Открыть жалобы в ОГП
+            </FoundationLink>
+          </div>
+        </Card>
+
+        <Card className="space-y-4">
+          <div className="space-y-2">
+            <p className="text-xs uppercase tracking-[0.22em] text-[var(--accent)]">
+              Раздел документов
+            </p>
+            <h2 className="text-2xl font-semibold">Адвокатские запросы</h2>
+            <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
+              Создавайте запросы от имени адвоката, фиксируя персонажа и доверителя в сохранённом
+              документе.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <FoundationLink href={`/servers/${props.server.code}/documents/attorney-requests`}>
+              Открыть адвокатские запросы
+            </FoundationLink>
+            <FoundationLink href={`/servers/${props.server.code}/documents/attorney-requests/new`}>
+              Создать запрос
             </FoundationLink>
           </div>
         </Card>

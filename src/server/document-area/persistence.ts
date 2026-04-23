@@ -8,6 +8,17 @@ import {
 } from "@/db/repositories/document.repository";
 import { getCharacterByIdForAccount } from "@/db/repositories/character.repository";
 import { getServerByCode } from "@/db/repositories/server.repository";
+import { getTrustorByIdForAccount } from "@/db/repositories/trustor.repository";
+import { buildAttorneyRequestPeriod } from "@/features/documents/attorney-request/build-period";
+import { buildDefaultAttorneyRequestSection1 } from "@/features/documents/attorney-request/build-default-section1";
+import { buildDefaultAttorneyRequestSection3 } from "@/features/documents/attorney-request/build-default-section3";
+import { normalizeAttorneyRequestNumber } from "@/features/documents/attorney-request/normalize-request-number";
+import { resolveAttorneyRequestSignerTitle } from "@/features/documents/attorney-request/presets";
+import {
+  attorneyRequestDraftPayloadSchema,
+  type AttorneyRequestDraftPayload,
+} from "@/features/documents/attorney-request/schemas";
+import { ATTORNEY_REQUEST_FORM_SCHEMA_VERSION } from "@/features/documents/attorney-request/types";
 import {
   normalizeIcEmail,
   normalizePassportNumber,
@@ -39,6 +50,7 @@ export const LAWSUIT_CLAIM_FORM_SCHEMA_VERSION = "lawsuit_claim_mvp_editor_v1";
 type DocumentPersistenceDependencies = {
   getServerByCode: typeof getServerByCode;
   getCharacterByIdForAccount: typeof getCharacterByIdForAccount;
+  getTrustorByIdForAccount?: typeof getTrustorByIdForAccount;
   createDocumentRecord: typeof createDocumentRecord;
   getDocumentByIdForAccount: typeof getDocumentByIdForAccount;
   updateDocumentDraftRecord: typeof updateDocumentDraftRecord;
@@ -51,6 +63,7 @@ type DocumentPersistenceDependencies = {
 const defaultDependencies: DocumentPersistenceDependencies = {
   getServerByCode,
   getCharacterByIdForAccount,
+  getTrustorByIdForAccount,
   createDocumentRecord,
   getDocumentByIdForAccount,
   updateDocumentDraftRecord,
@@ -85,6 +98,13 @@ export class DocumentRepresentativeAccessError extends Error {
   constructor() {
     super("Representative filing доступен только персонажу с access flag advocate.");
     this.name = "DocumentRepresentativeAccessError";
+  }
+}
+
+export class DocumentAttorneyRoleRequiredError extends Error {
+  constructor() {
+    super("Создать адвокатский запрос может только персонаж с ролью адвоката.");
+    this.name = "DocumentAttorneyRoleRequiredError";
   }
 }
 
@@ -130,6 +150,12 @@ function canUseRepresentativeFiling(authorSnapshot: {
   accessFlags: string[];
 }) {
   return authorSnapshot.accessFlags.includes("advocate");
+}
+
+function canCreateAttorneyRequest(authorSnapshot: {
+  roleKeys: string[];
+}) {
+  return authorSnapshot.roleKeys.includes("lawyer");
 }
 
 function readLegacyEvidenceText(row: unknown, key: string) {
@@ -313,6 +339,149 @@ function normalizeClaimsDraftPayload(documentType: ClaimDocumentType, input: unk
   }
 }
 
+function buildMskNow(now: Date) {
+  return now.toISOString();
+}
+
+function buildMskDateLabel(now: Date) {
+  return new Intl.DateTimeFormat("ru-RU", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    timeZone: "Europe/Moscow",
+  }).format(now);
+}
+
+function buildResponseDueAtMsk(now: Date) {
+  return new Date(now.getTime() + 26 * 60 * 60 * 1000).toISOString();
+}
+
+function isDefaultAttorneyRequestSection1Item(input: {
+  item: unknown;
+  id: "1" | "2" | "3";
+}) {
+  if (!input.item || typeof input.item !== "object" || Array.isArray(input.item)) {
+    return false;
+  }
+
+  const text = String((input.item as { text?: unknown }).text ?? "").trim();
+
+  if (text.length === 0) {
+    return true;
+  }
+
+  if (input.id === "1") {
+    return text.startsWith("Прошу предоставить видеозаписи и материалы фиксации");
+  }
+
+  if (input.id === "2") {
+    return text.startsWith("Если процессуальные действия");
+  }
+
+  return text.startsWith("Прошу предоставить личные данные");
+}
+
+function shouldRefreshAttorneyRequestSection1(section1Items: unknown) {
+  if (!Array.isArray(section1Items) || section1Items.length !== 3) {
+    return true;
+  }
+
+  return (
+    isDefaultAttorneyRequestSection1Item({ item: section1Items[0], id: "1" }) &&
+    isDefaultAttorneyRequestSection1Item({ item: section1Items[1], id: "2" }) &&
+    isDefaultAttorneyRequestSection1Item({ item: section1Items[2], id: "3" })
+  );
+}
+
+function isDefaultAttorneyRequestSection3(section3Text: unknown) {
+  const text = String(section3Text ?? "").trim();
+
+  return (
+    text.length === 0 ||
+    text.startsWith("Адвокатский запрос о предоставлении личных данных")
+  );
+}
+
+function normalizeAttorneyRequestDraftPayload(input: {
+  rawPayload: unknown;
+  authorSnapshot: DocumentAuthorSnapshot;
+  trustorSnapshot: AttorneyRequestDraftPayload["trustorSnapshot"];
+  frozenSignerTitleSnapshot?: AttorneyRequestDraftPayload["signerTitleSnapshot"];
+  frozenTemporalSnapshot?: Pick<
+    AttorneyRequestDraftPayload,
+    "startedAtMsk" | "documentDateMsk" | "responseDueAtMsk"
+  >;
+  capturedAt: Date;
+}): AttorneyRequestDraftPayload {
+  const raw =
+    typeof input.rawPayload === "object" && input.rawPayload !== null && !Array.isArray(input.rawPayload)
+      ? (input.rawPayload as Record<string, unknown>)
+      : {};
+  const requestNumberRawInput = String(raw.requestNumberRawInput ?? "");
+  const requestNumber = normalizeAttorneyRequestNumber(requestNumberRawInput);
+  const requestDate = String(raw.requestDate ?? "");
+  const timeFrom = String(raw.timeFrom ?? "");
+  const timeTo = String(raw.timeTo ?? "");
+  const period = buildAttorneyRequestPeriod({
+    requestDate,
+    timeFrom,
+    timeTo,
+  });
+  const signerTitleSnapshot =
+    input.frozenSignerTitleSnapshot ?? resolveAttorneyRequestSignerTitle(input.authorSnapshot.position);
+  const temporalSnapshot = input.frozenTemporalSnapshot ?? {
+    startedAtMsk: buildMskNow(input.capturedAt),
+    documentDateMsk: buildMskDateLabel(input.capturedAt),
+    responseDueAtMsk: buildResponseDueAtMsk(input.capturedAt),
+  };
+  const addresseePreset = raw.addresseePreset ?? null;
+  const targetOfficerInput = String(raw.targetOfficerInput ?? "");
+  const contractNumber = String(raw.contractNumber ?? "");
+  const defaultSection1Items = buildDefaultAttorneyRequestSection1({
+    contractNumber,
+    trustorSnapshot: input.trustorSnapshot,
+    targetOfficerInput,
+    period,
+    authorIcEmail: input.authorSnapshot.icEmail,
+  });
+  const section1Items = shouldRefreshAttorneyRequestSection1(raw.section1Items)
+    ? defaultSection1Items
+    : raw.section1Items;
+  const defaultSection3Text = buildDefaultAttorneyRequestSection3({
+    addresseePreset: addresseePreset as AttorneyRequestDraftPayload["addresseePreset"],
+    targetOfficerInput,
+  });
+  const section3Text = String(
+    isDefaultAttorneyRequestSection3(raw.section3Text)
+      ? defaultSection3Text
+      : raw.section3Text ?? defaultSection3Text,
+  );
+
+  return attorneyRequestDraftPayloadSchema.parse({
+    ...raw,
+    requestNumberRawInput,
+    requestNumberNormalized: requestNumber.normalized,
+    contractNumber,
+    addresseePreset,
+    targetOfficerInput,
+    requestDate,
+    timeFrom,
+    timeTo,
+    crossesMidnight: period.crossesMidnight,
+    periodStartAt: period.periodStartAt,
+    periodEndAt: period.periodEndAt,
+    startedAtMsk: temporalSnapshot.startedAtMsk,
+    documentDateMsk: temporalSnapshot.documentDateMsk,
+    responseDueAtMsk: temporalSnapshot.responseDueAtMsk,
+    signerTitleSnapshot,
+    trustorSnapshot: input.trustorSnapshot,
+    section1Items,
+    section3Text,
+    validationState: raw.validationState ?? {},
+    workingNotes: String(raw.workingNotes ?? ""),
+  });
+}
+
 function assertRepresentativeAccess(input: {
   authorSnapshot: Pick<DocumentAuthorSnapshot, "accessFlags">;
   payload: Pick<OgpComplaintDraftPayload, "filingMode"> | Pick<ClaimsDraftPayload, "filingMode">;
@@ -326,7 +495,7 @@ function assertRepresentativeAccess(input: {
   }
 }
 
-export function getDocumentTitleForType(documentType: "ogp_complaint" | "rehabilitation" | "lawsuit") {
+export function getDocumentTitleForType(documentType: "ogp_complaint" | "rehabilitation" | "lawsuit" | "attorney_request") {
   if (documentType === "ogp_complaint") {
     return "Жалоба в ОГП";
   }
@@ -335,10 +504,14 @@ export function getDocumentTitleForType(documentType: "ogp_complaint" | "rehabil
     return "Документ по реабилитации";
   }
 
+  if (documentType === "attorney_request") {
+    return "Адвокатский запрос";
+  }
+
   return "Исковое заявление";
 }
 
-function getDocumentFormSchemaVersion(documentType: "ogp_complaint" | "rehabilitation" | "lawsuit") {
+function getDocumentFormSchemaVersion(documentType: "ogp_complaint" | "rehabilitation" | "lawsuit" | "attorney_request") {
   if (documentType === "ogp_complaint") {
     return OGP_COMPLAINT_FORM_SCHEMA_VERSION;
   }
@@ -347,12 +520,16 @@ function getDocumentFormSchemaVersion(documentType: "ogp_complaint" | "rehabilit
     return REHABILITATION_CLAIM_FORM_SCHEMA_VERSION;
   }
 
+  if (documentType === "attorney_request") {
+    return ATTORNEY_REQUEST_FORM_SCHEMA_VERSION;
+  }
+
   return LAWSUIT_CLAIM_FORM_SCHEMA_VERSION;
 }
 
 function normalizeDocumentTitle(input: {
   title: string;
-  documentType: "ogp_complaint" | "rehabilitation" | "lawsuit";
+  documentType: "ogp_complaint" | "rehabilitation" | "lawsuit" | "attorney_request";
 }) {
   if (input.title.length === 0) {
     return getDocumentTitleForType(input.documentType);
@@ -370,7 +547,7 @@ function normalizeDocumentTitle(input: {
 }
 
 export function isClaimsDocumentType(
-  documentType: "ogp_complaint" | "rehabilitation" | "lawsuit",
+  documentType: "ogp_complaint" | "rehabilitation" | "lawsuit" | "attorney_request",
 ): documentType is ClaimDocumentType {
   return claimDocumentTypeSchema.safeParse(documentType).success;
 }
@@ -412,6 +589,10 @@ export function readClaimsDraftPayload(documentType: ClaimDocumentType, payload:
 
     throw error;
   }
+}
+
+export function readAttorneyRequestDraftPayload(payload: unknown) {
+  return attorneyRequestDraftPayloadSchema.parse(payload);
 }
 
 export async function createInitialOgpComplaintDraft(
@@ -542,6 +723,97 @@ export async function createInitialClaimDraft(
   return createdDocument;
 }
 
+export async function createInitialAttorneyRequestDraft(
+  input: {
+    accountId: string;
+    serverSlug: string;
+    characterId: string;
+    trustorId: string;
+    title: string;
+    payload: unknown;
+  },
+  dependencies: DocumentPersistenceDependencies = defaultDependencies,
+) {
+  const server = await dependencies.getServerByCode(input.serverSlug);
+
+  if (!server) {
+    throw new DocumentServerUnavailableError();
+  }
+
+  const readTrustorById = dependencies.getTrustorByIdForAccount ?? getTrustorByIdForAccount;
+  const [character, trustor] = await Promise.all([
+    dependencies.getCharacterByIdForAccount({
+      accountId: input.accountId,
+      characterId: input.characterId,
+    }),
+    readTrustorById({
+      accountId: input.accountId,
+      trustorId: input.trustorId,
+    }),
+  ]);
+
+  if (!character || character.serverId !== server.id) {
+    throw new DocumentCharacterUnavailableError();
+  }
+
+  if (!trustor || trustor.serverId !== server.id) {
+    throw new DocumentValidationError();
+  }
+
+  const capturedAt = dependencies.now();
+  const authorSnapshot = buildAuthorSnapshot({
+    character,
+    server,
+    capturedAt,
+  });
+
+  if (!canCreateAttorneyRequest(authorSnapshot)) {
+    throw new DocumentAttorneyRoleRequiredError();
+  }
+
+  const trustorSnapshot = {
+    trustorId: trustor.id,
+    fullName: trustor.fullName,
+    passportNumber: normalizePassportNumber(trustor.passportNumber),
+    phone: trustor.phone ? normalizePhone(trustor.phone) : null,
+    icEmail: trustor.icEmail ? normalizeIcEmail(trustor.icEmail) : null,
+    passportImageUrl: trustor.passportImageUrl ? normalizeSafeUrl(trustor.passportImageUrl) : null,
+    note: trustor.note,
+  };
+  const payload = normalizeAttorneyRequestDraftPayload({
+    rawPayload: input.payload,
+    authorSnapshot,
+    trustorSnapshot,
+    capturedAt,
+  });
+
+  const createdDocument = await dependencies.createDocumentRecord({
+    accountId: input.accountId,
+    serverId: server.id,
+    characterId: character.id,
+    trustorId: trustor.id,
+    documentType: "attorney_request",
+    title: normalizeDocumentTitle({
+      title: input.title,
+      documentType: "attorney_request",
+    }),
+    formSchemaVersion: ATTORNEY_REQUEST_FORM_SCHEMA_VERSION,
+    snapshotCapturedAt: capturedAt,
+    authorSnapshotJson: authorSnapshot,
+    formPayloadJson: payload,
+  });
+
+  await dependencies.setActiveServerSelection(input.accountId, {
+    serverId: server.id,
+  });
+  await dependencies.setActiveCharacterSelection(input.accountId, {
+    serverId: server.id,
+    characterId: character.id,
+  });
+
+  return createdDocument;
+}
+
 export async function saveOwnedDocumentDraft(
   input: {
     accountId: string;
@@ -568,6 +840,44 @@ export async function saveOwnedDocumentDraft(
       assertRepresentativeAccess({
         authorSnapshot,
         payload,
+      });
+
+      const savedDocument = await dependencies.updateDocumentDraftRecord({
+        documentId: existingDocument.id,
+        title: parsed.title,
+        formPayloadJson: payload,
+      });
+
+      if (!savedDocument) {
+        throw new DocumentAccessDeniedError();
+      }
+
+      return savedDocument;
+    }
+
+    if (existingDocument.documentType === "attorney_request") {
+      const authorSnapshot = readDocumentAuthorSnapshot(existingDocument.authorSnapshotJson);
+      const currentPayload = readAttorneyRequestDraftPayload(existingDocument.formPayloadJson);
+      const payload = normalizeAttorneyRequestDraftPayload({
+        rawPayload: {
+          ...(parsed.payload && typeof parsed.payload === "object" && !Array.isArray(parsed.payload)
+            ? parsed.payload
+            : {}),
+          trustorSnapshot: currentPayload.trustorSnapshot,
+          signerTitleSnapshot: currentPayload.signerTitleSnapshot,
+          startedAtMsk: currentPayload.startedAtMsk,
+          documentDateMsk: currentPayload.documentDateMsk,
+          responseDueAtMsk: currentPayload.responseDueAtMsk,
+        },
+        authorSnapshot,
+        trustorSnapshot: currentPayload.trustorSnapshot,
+        frozenSignerTitleSnapshot: currentPayload.signerTitleSnapshot,
+        frozenTemporalSnapshot: {
+          startedAtMsk: currentPayload.startedAtMsk,
+          documentDateMsk: currentPayload.documentDateMsk,
+          responseDueAtMsk: currentPayload.responseDueAtMsk,
+        },
+        capturedAt: existingDocument.snapshotCapturedAt,
       });
 
       const savedDocument = await dependencies.updateDocumentDraftRecord({

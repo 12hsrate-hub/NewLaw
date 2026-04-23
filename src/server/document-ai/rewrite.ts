@@ -569,6 +569,10 @@ export async function rewriteOwnedDocumentField(
     throw new DocumentAccessDeniedError();
   }
 
+  if (document.documentType === "attorney_request") {
+    throw new DocumentAccessDeniedError();
+  }
+
   const authorSnapshot = readDocumentAuthorSnapshot(document.authorSnapshotJson);
   const promptContext = buildRewritePromptContext({
     documentType: document.documentType,

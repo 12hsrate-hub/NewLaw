@@ -137,6 +137,43 @@ function TrustorGroup(props: { group: AccountTrustorsServerGroup }) {
                 ) : null}
               </div>
 
+              <div className="space-y-3 rounded-2xl border border-[var(--border)] bg-white/50 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="space-y-1">
+                    <h4 className="text-sm font-semibold">Адвокатские запросы</h4>
+                    <p className="text-xs leading-5 text-[var(--muted)]">
+                      Новые запросы будут использовать сохранённую копию данных доверителя.
+                    </p>
+                  </div>
+                  <Link
+                    className="inline-flex items-center rounded-2xl border border-[var(--border)] bg-white/70 px-4 py-2 text-sm font-medium transition hover:bg-white"
+                    href={`/servers/${group.server.code}/documents/attorney-requests/new?trustorId=${trustor.id}`}
+                  >
+                    Создать запрос
+                  </Link>
+                </div>
+                {(trustor.attorneyRequests ?? []).length > 0 ? (
+                  <ul className="space-y-2 text-sm leading-6 text-[var(--muted)]">
+                    {(trustor.attorneyRequests ?? []).map((document) => (
+                      <li key={document.id}>
+                        <Link
+                          className="font-medium text-[var(--foreground)] underline-offset-4 hover:underline"
+                          href={`/servers/${document.serverCode}/documents/attorney-requests/${document.id}`}
+                        >
+                          {document.title}
+                        </Link>{" "}
+                        · {document.status === "draft" ? "черновик" : document.status === "generated" ? "сгенерировано" : "опубликовано"} ·{" "}
+                        {new Date(document.updatedAt).toLocaleString("ru-RU")}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-sm leading-6 text-[var(--muted)]">
+                    По этому доверителю пока нет адвокатских запросов.
+                  </p>
+                )}
+              </div>
+
               <details className="rounded-2xl border border-[var(--border)] bg-white/50 p-4">
                 <summary className="cursor-pointer text-sm font-medium">
                   Редактировать доверителя

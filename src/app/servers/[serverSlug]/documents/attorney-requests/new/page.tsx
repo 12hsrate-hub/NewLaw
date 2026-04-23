@@ -1,8 +1,8 @@
 import {
   DocumentNoCharactersState,
   DocumentServerNotFoundState,
-  ServerDocumentsHub,
 } from "@/components/product/document-area/document-area-foundation";
+import { AttorneyRequestDraftCreateEntry } from "@/components/product/document-area/document-persistence";
 import {
   buildCharactersBridgePath,
   getServerDocumentsRouteContext,
@@ -10,17 +10,25 @@ import {
 
 export const dynamic = "force-dynamic";
 
-type ServerDocumentsPageProps = {
+type AttorneyRequestNewPageProps = {
   params: Promise<{
     serverSlug: string;
   }>;
+  searchParams?: Promise<{
+    status?: string;
+    trustorId?: string;
+  }>;
 };
 
-export default async function ServerDocumentsPage({ params }: ServerDocumentsPageProps) {
+export default async function AttorneyRequestNewPage({
+  params,
+  searchParams,
+}: AttorneyRequestNewPageProps) {
   const resolvedParams = await params;
+  const resolvedSearchParams = await searchParams;
   const context = await getServerDocumentsRouteContext({
     serverSlug: resolvedParams.serverSlug,
-    nextPath: `/servers/${resolvedParams.serverSlug}/documents`,
+    nextPath: `/servers/${resolvedParams.serverSlug}/documents/attorney-requests/new`,
   });
 
   if (context.status === "server_not_found") {
@@ -42,11 +50,13 @@ export default async function ServerDocumentsPage({ params }: ServerDocumentsPag
   }
 
   return (
-    <ServerDocumentsHub
-      attorneyRequestDocumentCount={context.attorneyRequestDocumentCount}
-      ogpComplaintDocumentCount={context.ogpComplaintDocumentCount}
+    <AttorneyRequestDraftCreateEntry
+      characters={context.characters}
+      initialTrustorId={resolvedSearchParams?.trustorId}
       selectedCharacter={context.selectedCharacter}
       server={context.server}
+      status={resolvedSearchParams?.status}
+      trustorRegistry={context.trustorRegistry}
     />
   );
 }

@@ -12,7 +12,12 @@ vi.mock("@/db/repositories/trustor.repository", () => ({
   listTrustorsForAccount: vi.fn(),
 }));
 
+vi.mock("@/db/repositories/document.repository", () => ({
+  listDocumentsByAccount: vi.fn(),
+}));
+
 import { listTrustorsForAccount } from "@/db/repositories/trustor.repository";
+import { listDocumentsByAccount } from "@/db/repositories/document.repository";
 import { getServers } from "@/db/repositories/server.repository";
 import { requireProtectedAccountContext } from "@/server/auth/protected";
 import { getAccountTrustorsOverviewContext } from "@/server/account-zone/trustors";
@@ -67,6 +72,7 @@ describe("account-zone trustors", () => {
         note: null,
       },
     ] as never);
+    vi.mocked(listDocumentsByAccount).mockResolvedValue([] as never);
 
     const result = await getAccountTrustorsOverviewContext({
       nextPath: "/account/trustors",

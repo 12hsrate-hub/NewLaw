@@ -1,12 +1,15 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  createInitialAttorneyRequestDraft,
   createInitialClaimDraft,
   createInitialOgpComplaintDraft,
   DocumentAccessDeniedError,
+  DocumentAttorneyRoleRequiredError,
   DocumentCharacterUnavailableError,
   DocumentRepresentativeAccessError,
   refreshOwnedOgpComplaintAuthorSnapshot,
+  readAttorneyRequestDraftPayload,
   readClaimsDraftPayload,
   readOgpComplaintDraftPayload,
   saveOwnedDocumentDraft,
@@ -1054,6 +1057,332 @@ describe("document persistence foundation", () => {
       rehabilitationBasis: "",
       harmSummary: "",
     });
+  });
+
+  it("first save для attorney_request фиксирует character/trustor snapshot и требует роль lawyer", async () => {
+    const now = new Date("2026-04-23T09:00:00.000Z");
+    const createDocumentRecord = vi.fn().mockResolvedValue({
+      id: "attorney-request-1",
+      status: "draft",
+      updatedAt: now,
+      documentType: "attorney_request",
+      server: {
+        id: "server-1",
+        code: "blackberry",
+        name: "Blackberry",
+      },
+    });
+
+    await createInitialAttorneyRequestDraft(
+      {
+        accountId: "00000000-0000-0000-0000-000000000001",
+        serverSlug: "blackberry",
+        characterId: "character-1",
+        trustorId: "trustor-1",
+        title: "Адвокатский запрос",
+        payload: {
+          requestNumberRawInput: " BAR  -  2112 ",
+          contractNumber: "DOG-100",
+          addresseePreset: "LSPD_CHIEF",
+          targetOfficerInput: "Badge #42",
+          requestDate: "2026-04-23",
+          timeFrom: "23:40",
+          timeTo: "00:20",
+        },
+      },
+      {
+        getServerByCode: vi.fn().mockResolvedValue({
+          id: "server-1",
+          code: "blackberry",
+          name: "Blackberry",
+        }),
+        getCharacterByIdForAccount: vi.fn().mockResolvedValue({
+          id: "character-1",
+          accountId: "00000000-0000-0000-0000-000000000001",
+          serverId: "server-1",
+          fullName: "Игорь Юристов",
+          nickname: "Игорь Юристов",
+          passportNumber: "AA-001",
+          isProfileComplete: true,
+          profileDataJson: {
+            position: "Адвокат",
+            address: "Дом 10",
+            phone: "123-45-67",
+            icEmail: "lawyer@example.com",
+            passportImageUrl: "https://example.com/lawyer-passport.png",
+          },
+          roles: [{ roleKey: "lawyer" }],
+          accessFlags: [{ flagKey: "advocate" }],
+        }),
+        getTrustorByIdForAccount: vi.fn().mockResolvedValue({
+          id: "trustor-1",
+          accountId: "00000000-0000-0000-0000-000000000001",
+          serverId: "server-1",
+          fullName: "Пётр Доверитель",
+          passportNumber: "TR-123",
+          phone: "2345678",
+          icEmail: "trustor@example.com",
+          passportImageUrl: "https://example.com/trustor-passport.png",
+          note: "Для адвокатского запроса",
+          deletedAt: null,
+          createdAt: now,
+          updatedAt: now,
+        }),
+        createDocumentRecord,
+        getDocumentByIdForAccount: vi.fn(),
+        updateDocumentDraftRecord: vi.fn(),
+        setActiveServerSelection: vi.fn().mockResolvedValue(undefined),
+        setActiveCharacterSelection: vi.fn().mockResolvedValue(undefined),
+        now: () => now,
+      },
+    );
+
+    expect(createDocumentRecord).toHaveBeenCalledWith(
+      expect.objectContaining({
+        serverId: "server-1",
+        characterId: "character-1",
+        trustorId: "trustor-1",
+        documentType: "attorney_request",
+        snapshotCapturedAt: now,
+        authorSnapshotJson: expect.objectContaining({
+          characterId: "character-1",
+          serverId: "server-1",
+          roleKeys: ["lawyer"],
+          position: "Адвокат",
+        }),
+        formPayloadJson: expect.objectContaining({
+          requestNumberRawInput: " BAR  -  2112 ",
+          requestNumberNormalized: "BAR-2112",
+          crossesMidnight: true,
+          signerTitleSnapshot: expect.objectContaining({
+            sourceTitle: "Адвокат",
+            footerRu: "Адвокат",
+          }),
+          trustorSnapshot: expect.objectContaining({
+            trustorId: "trustor-1",
+            fullName: "Пётр Доверитель",
+            passportNumber: "123",
+            phone: "234-56-78",
+          }),
+        }),
+      }),
+    );
+  });
+
+  it("attorney_request недоступен персонажу без роли lawyer в выбранном server context", async () => {
+    await expect(
+      createInitialAttorneyRequestDraft(
+        {
+          accountId: "00000000-0000-0000-0000-000000000001",
+          serverSlug: "blackberry",
+          characterId: "character-1",
+          trustorId: "trustor-1",
+          title: "Адвокатский запрос",
+          payload: {},
+        },
+        {
+          getServerByCode: vi.fn().mockResolvedValue({
+            id: "server-1",
+            code: "blackberry",
+            name: "Blackberry",
+          }),
+          getCharacterByIdForAccount: vi.fn().mockResolvedValue({
+            id: "character-1",
+            accountId: "00000000-0000-0000-0000-000000000001",
+            serverId: "server-1",
+            fullName: "Павел Гражданин",
+            nickname: "Павел Гражданин",
+            passportNumber: "AA-001",
+            isProfileComplete: true,
+            roles: [],
+            accessFlags: [],
+          }),
+          getTrustorByIdForAccount: vi.fn().mockResolvedValue({
+            id: "trustor-1",
+            accountId: "00000000-0000-0000-0000-000000000001",
+            serverId: "server-1",
+            fullName: "Пётр Доверитель",
+            passportNumber: "TR-123",
+            phone: null,
+            icEmail: null,
+            passportImageUrl: null,
+            note: null,
+            deletedAt: null,
+            createdAt: new Date("2026-04-23T09:00:00.000Z"),
+            updatedAt: new Date("2026-04-23T09:00:00.000Z"),
+          }),
+          createDocumentRecord: vi.fn(),
+          getDocumentByIdForAccount: vi.fn(),
+          updateDocumentDraftRecord: vi.fn(),
+          setActiveServerSelection: vi.fn(),
+          setActiveCharacterSelection: vi.fn(),
+          now: () => new Date("2026-04-23T09:00:00.000Z"),
+        },
+      ),
+    ).rejects.toBeInstanceOf(DocumentAttorneyRoleRequiredError);
+  });
+
+  it("manual save для attorney_request не перезаписывает frozen trustor/signature snapshot", async () => {
+    const existingPayload = {
+      requestNumberRawInput: "2112",
+      requestNumberNormalized: "BAR-2112",
+      contractNumber: "DOG-100",
+      addresseePreset: "LSPD_CHIEF",
+      targetOfficerInput: "Badge #42",
+      requestDate: "2026-04-23",
+      timeFrom: "23:40",
+      timeTo: "00:20",
+      crossesMidnight: true,
+      periodStartAt: "2026-04-23T20:40:00.000Z",
+      periodEndAt: "2026-04-23T21:20:00.000Z",
+      startedAtMsk: "2026-04-23T09:00:00.000Z",
+      documentDateMsk: "23.04.2026",
+      responseDueAtMsk: "2026-04-24T11:00:00.000Z",
+      signerTitleSnapshot: {
+        sourceTitle: "Адвокат",
+        leftColumnEn: "Lawyer",
+        bodyRu: "Адвокат Штата Сан-Андреас",
+        footerRu: "Адвокат",
+      },
+      trustorSnapshot: {
+        trustorId: "trustor-1",
+        fullName: "Пётр Доверитель",
+        passportNumber: "123",
+        phone: "234-56-78",
+        icEmail: "trustor@example.com",
+        passportImageUrl: "https://example.com/trustor-passport.png",
+        note: "Зафиксированный snapshot",
+      },
+      section1Items: [
+        {
+          id: "1",
+          text: "Прошу предоставить видеозаписи и материалы фиксации процессуальных действий.",
+        },
+        {
+          id: "2",
+          text: "Если процессуальные действия проводились вне указанного периода.",
+        },
+        {
+          id: "3",
+          text: "Прошу предоставить личные данные сотрудника.",
+        },
+      ],
+      section3Text: "Адвокатский запрос о предоставлении личных данных (п. 3) направлен Шефу LSPD и его заместителям.",
+      validationState: {},
+      workingNotes: "",
+    };
+    const existingDocument = {
+      id: "attorney-request-1",
+      accountId: "00000000-0000-0000-0000-000000000001",
+      serverId: "server-1",
+      characterId: "character-1",
+      trustorId: "trustor-1",
+      documentType: "attorney_request" as const,
+      title: "Адвокатский запрос",
+      status: "generated" as const,
+      formSchemaVersion: "attorney_request_v1",
+      snapshotCapturedAt: new Date("2026-04-23T09:00:00.000Z"),
+      authorSnapshotJson: {
+        characterId: "character-1",
+        serverId: "server-1",
+        serverCode: "blackberry",
+        serverName: "Blackberry",
+        fullName: "Игорь Юристов",
+        nickname: "Игорь Юристов",
+        passportNumber: "001",
+        position: "Глава Коллегии Адвокатов",
+        phone: "123-45-67",
+        icEmail: "lawyer@example.com",
+        passportImageUrl: "https://example.com/lawyer-passport.png",
+        isProfileComplete: true,
+        roleKeys: ["lawyer"],
+        accessFlags: ["advocate"],
+        capturedAt: "2026-04-23T09:00:00.000Z",
+      },
+      formPayloadJson: existingPayload,
+      lastGeneratedBbcode: null,
+      generatedAt: new Date("2026-04-23T10:00:00.000Z"),
+      generatedLawVersion: null,
+      generatedTemplateVersion: null,
+      generatedFormSchemaVersion: "attorney_request_v1",
+      publicationUrl: null,
+      isSiteForumSynced: false,
+      isModifiedAfterGeneration: false,
+      deletedAt: null,
+      createdAt: new Date("2026-04-23T09:00:00.000Z"),
+      updatedAt: new Date("2026-04-23T10:00:00.000Z"),
+      server: {
+        id: "server-1",
+        code: "blackberry",
+        name: "Blackberry",
+      },
+      character: {
+        id: "character-1",
+        accountId: "00000000-0000-0000-0000-000000000001",
+        serverId: "server-1",
+        fullName: "Игорь Юристов",
+        nickname: "Игорь Юристов",
+        passportNumber: "AA-001",
+        isProfileComplete: true,
+        profileDataJson: null,
+        deletedAt: null,
+        createdAt: new Date("2026-04-23T09:00:00.000Z"),
+        updatedAt: new Date("2026-04-23T09:00:00.000Z"),
+        roles: [{ roleKey: "lawyer" }],
+        accessFlags: [{ flagKey: "advocate" }],
+      },
+    };
+    const updateDocumentDraftRecord = vi.fn().mockImplementation(async (input) => ({
+      ...existingDocument,
+      title: input.title,
+      formPayloadJson: input.formPayloadJson,
+      isModifiedAfterGeneration: true,
+    }));
+
+    const savedDocument = await saveOwnedDocumentDraft(
+      {
+        accountId: "00000000-0000-0000-0000-000000000001",
+        documentId: "attorney-request-1",
+        title: "Адвокатский запрос / draft 2",
+        payload: {
+          ...existingPayload,
+          addresseePreset: "FIB_DIRECTOR",
+          targetOfficerInput: "Badge #99",
+          contractNumber: "DOG-200",
+          trustorSnapshot: {
+            trustorId: "trustor-evil",
+            fullName: "Новый доверитель",
+            passportNumber: "999",
+          },
+          signerTitleSnapshot: {
+            sourceTitle: "Подменённая должность",
+            leftColumnEn: "Fake",
+            bodyRu: "Fake",
+            footerRu: "Fake",
+          },
+          startedAtMsk: "2030-01-01T00:00:00.000Z",
+        },
+      },
+      {
+        getServerByCode: vi.fn(),
+        getCharacterByIdForAccount: vi.fn(),
+        createDocumentRecord: vi.fn(),
+        getDocumentByIdForAccount: vi.fn().mockResolvedValue(existingDocument),
+        updateDocumentDraftRecord,
+        setActiveServerSelection: vi.fn(),
+        setActiveCharacterSelection: vi.fn(),
+        now: () => new Date("2026-04-23T11:00:00.000Z"),
+      },
+    );
+    const savedPayload = readAttorneyRequestDraftPayload(savedDocument.formPayloadJson);
+
+    expect(savedDocument.trustorId).toBe("trustor-1");
+    expect(savedPayload.trustorSnapshot).toEqual(existingPayload.trustorSnapshot);
+    expect(savedPayload.signerTitleSnapshot).toEqual(existingPayload.signerTitleSnapshot);
+    expect(savedPayload.startedAtMsk).toBe(existingPayload.startedAtMsk);
+    expect(savedPayload.section3Text).toContain("Директору FIB");
+    expect(savedPayload.section3Text).toContain("Badge #99");
+    expect(savedPayload.section1Items[0]?.text).toContain("DOG-200");
   });
 
   it("явно обновляет OGP author snapshot из текущего профиля персонажа", async () => {

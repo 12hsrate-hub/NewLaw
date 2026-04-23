@@ -16,6 +16,7 @@ vi.mock("@/db/repositories/document.repository", () => ({
 }));
 
 vi.mock("@/db/repositories/trustor.repository", () => ({
+  getTrustorByIdForAccount: vi.fn(),
   listTrustorsForAccountAndServer: vi.fn(),
 }));
 
@@ -141,6 +142,7 @@ describe("document area context", () => {
         accountId: accountContext.account.id,
         serverId: "server-1",
         characterId: "character-2",
+        trustorId: null,
         documentType: "ogp_complaint",
         title: "Жалоба в ОГП",
         status: "draft",
@@ -310,6 +312,7 @@ describe("document area context", () => {
         accountId: accountContext.account.id,
         serverId: "server-1",
         characterId: "character-legacy",
+        trustorId: null,
         documentType: "ogp_complaint",
         title: "Исторический draft",
         status: "draft",
@@ -401,6 +404,7 @@ describe("document area context", () => {
       accountId: accountContext.account.id,
       serverId: "server-1",
       characterId: "character-1",
+      trustorId: null,
       documentType: "ogp_complaint",
       title: "Persisted draft",
       status: "draft",
@@ -555,6 +559,7 @@ describe("document area context", () => {
         accountId: accountContext.account.id,
         serverId: "server-1",
         characterId: "character-2",
+        trustorId: null,
         documentType: "rehabilitation",
         title: "Документ по реабилитации",
         status: "draft",
@@ -654,6 +659,7 @@ describe("document area context", () => {
           accountId: accountContext.account.id,
           serverId: "server-1",
           characterId: "character-2",
+          trustorId: null,
           documentType: "rehabilitation",
           title: "Документ по реабилитации",
           status: "draft",
@@ -715,6 +721,7 @@ describe("document area context", () => {
           accountId: accountContext.account.id,
           serverId: "server-1",
           characterId: "character-2",
+          trustorId: null,
           documentType: "lawsuit",
           title: "Исковое заявление",
           status: "draft",
@@ -805,6 +812,7 @@ describe("document area context", () => {
       accountId: accountContext.account.id,
       serverId: "server-1",
       characterId: "character-1",
+      trustorId: null,
       documentType: "rehabilitation",
       title: "Документ по реабилитации",
       status: "draft",
@@ -909,5 +917,3 @@ describe("document area context", () => {
     }
   });
 });
-
-

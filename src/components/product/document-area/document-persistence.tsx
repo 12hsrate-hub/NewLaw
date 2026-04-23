@@ -3,6 +3,10 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 
 import {
+  AttorneyRequestDraftCreateClient,
+  AttorneyRequestEditorClient,
+} from "@/components/product/document-area/document-attorney-request-editor-client";
+import {
   ClaimsDraftCreateClient,
   ClaimsDraftEditorClient,
 } from "@/components/product/document-area/document-claims-editor-client";
@@ -12,6 +16,10 @@ import {
 } from "@/components/product/document-area/document-draft-editor-client";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import type {
+  AttorneyRequestDraftPayload,
+  AttorneyRequestRenderedArtifact,
+} from "@/features/documents/attorney-request/schemas";
 import type {
   DocumentAreaPersistedListItem,
   DocumentAreaServerSummary,
@@ -49,6 +57,10 @@ function formatDocumentType(documentType: DocumentAreaPersistedListItem["documen
     return "Жалоба в ОГП";
   }
 
+  if (documentType === "attorney_request") {
+    return "Адвокатский запрос";
+  }
+
   if (documentType === "rehabilitation") {
     return "Rehabilitation";
   }
@@ -57,7 +69,15 @@ function formatDocumentType(documentType: DocumentAreaPersistedListItem["documen
 }
 
 function formatDocumentFamily(documentType: DocumentAreaPersistedListItem["documentType"]) {
-  return documentType === "ogp_complaint" ? "Жалобы в ОГП" : "Иски";
+  if (documentType === "ogp_complaint") {
+    return "Жалобы в ОГП";
+  }
+
+  if (documentType === "attorney_request") {
+    return "Адвокатские запросы";
+  }
+
+  return "Иски";
 }
 
 function formatDocumentSubtype(documentType: DocumentAreaPersistedListItem["documentType"]) {
@@ -145,6 +165,10 @@ function buildDocumentEditorHref(document: DocumentAreaPersistedListItem) {
     return `/servers/${document.server.code}/documents/ogp-complaints/${document.id}`;
   }
 
+  if (document.documentType === "attorney_request") {
+    return `/servers/${document.server.code}/documents/attorney-requests/${document.id}`;
+  }
+
   return `/servers/${document.server.code}/documents/claims/${document.id}`;
 }
 
@@ -200,8 +224,14 @@ function PersistedDocumentList(props: {
             ) : null}
             {document.documentType !== "ogp_complaint" ? (
               <p className="text-sm leading-6 text-[var(--muted)]">
-                Этот документ относится к разделу исков. Его данные и результат подготовки
-                хранятся отдельно от жалоб в ОГП.
+                {document.documentType === "attorney_request"
+                  ? `Адвокатский запрос привязан к доверителю: ${document.trustorName ?? "не указан"}.`
+                  : "Этот документ относится к разделу исков. Его данные и результат подготовки хранятся отдельно от жалоб в ОГП."}
+              </p>
+            ) : null}
+            {document.documentType === "attorney_request" ? (
+              <p className="text-sm leading-6 text-[var(--muted)]">
+                Номер запроса: {document.requestNumber || "не указан"}.
               </p>
             ) : null}
             <p className="text-sm leading-6 text-[var(--muted)]">
@@ -234,6 +264,8 @@ function PersistedDocumentList(props: {
             <DocumentLink href={buildDocumentEditorHref(document)}>
               {document.documentType === "ogp_complaint"
                 ? "Открыть жалобу в ОГП"
+                : document.documentType === "attorney_request"
+                  ? "Открыть адвокатский запрос"
                 : "Открыть документ"}
             </DocumentLink>
           </div>
@@ -276,7 +308,8 @@ export function AccountDocumentsPersistedOverview(props: {
                 </div>
                 <p className="text-sm leading-6 text-[var(--muted)]">
                   Персонажей на сервере: {server.characterCount}. Жалоб в ОГП:{" "}
-                  {server.ogpComplaintDocumentCount}. Других документов: {server.claimsDocumentCount}.
+                  {server.ogpComplaintDocumentCount}. Адвокатских запросов:{" "}
+                  {server.attorneyRequestDocumentCount}. Других документов: {server.claimsDocumentCount}.
                   Откройте сервер, чтобы создать или отредактировать документы.
                 </p>
               </div>
@@ -354,6 +387,75 @@ export function OgpComplaintFamilyPersistedList(props: {
           <p className="text-sm leading-6 text-[var(--muted)]">
             На сервере сейчас нет доступных персонажей, поэтому новую жалобу создать нельзя.
             Уже сохранённые черновики остаются доступны.
+          </p>
+        </Card>
+      ) : null}
+
+      <PersistedDocumentList documents={props.documents} />
+    </div>
+  );
+}
+
+export function AttorneyRequestFamilyPersistedList(props: {
+  server: {
+    code: string;
+    name: string;
+  };
+  documents: DocumentAreaPersistedListItem[];
+  canCreateDocuments: boolean;
+  selectedCharacter: {
+    fullName: string;
+    passportNumber: string;
+    source: "last_used" | "first_available";
+    isProfileComplete: boolean;
+    canCreateAttorneyRequest?: boolean;
+  } | null;
+  trustorRegistry: DocumentTrustorRegistrySummary[];
+}) {
+  return (
+    <div className="space-y-6">
+      <Card className="space-y-3">
+        <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">
+          Адвокатские запросы
+        </p>
+        <h1 className="text-3xl font-semibold">Адвокатские запросы</h1>
+        <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
+          Здесь отображаются сохранённые адвокатские запросы на выбранном сервере. Каждый
+          запрос фиксируется за конкретным доверителем при первом сохранении.
+        </p>
+        <div className="flex flex-wrap items-center gap-2 text-sm leading-6 text-[var(--muted)]">
+          <Badge>Код сервера: {props.server.code}</Badge>
+          <Badge>Сервер: {props.server.name}</Badge>
+          {props.selectedCharacter ? (
+            <>
+              <Badge>Персонаж: {props.selectedCharacter.fullName}</Badge>
+              <span>
+                Роль адвоката: {props.selectedCharacter.canCreateAttorneyRequest ? "есть" : "нет"}
+              </span>
+            </>
+          ) : (
+            <Badge>Создание недоступно: на сервере нет персонажей</Badge>
+          )}
+          <span>Доверителей на сервере: {props.trustorRegistry.length}</span>
+        </div>
+        <div className="flex flex-wrap gap-3">
+          {props.canCreateDocuments ? (
+            <DocumentLink href={`/servers/${props.server.code}/documents/attorney-requests/new`}>
+              Создать адвокатский запрос
+            </DocumentLink>
+          ) : null}
+          <DocumentLink href={`/servers/${props.server.code}/documents`}>
+            Вернуться к документам сервера
+          </DocumentLink>
+        </div>
+      </Card>
+
+      {!props.canCreateDocuments ? (
+        <Card className="space-y-3">
+          <h2 className="text-2xl font-semibold">Создание пока недоступно</h2>
+          <p className="text-sm leading-6 text-[var(--muted)]">
+            Для создания нужен персонаж с ролью адвоката и хотя бы один доверитель на этом
+            сервере. Сохранённые запросы при этом остаются доступны.
           </p>
         </Card>
       ) : null}
@@ -466,6 +568,74 @@ export function OgpComplaintDraftCreateEntry(props: {
           characters={props.characters}
           initialPayload={buildInitialCreatePayload()}
           initialTitle="Жалоба в ОГП"
+          selectedCharacter={props.selectedCharacter}
+          server={props.server}
+          trustorRegistry={props.trustorRegistry}
+        />
+      </Card>
+    </div>
+  );
+}
+
+export function AttorneyRequestDraftCreateEntry(props: {
+  server: {
+    code: string;
+    name: string;
+  };
+  characters: Array<{
+    id: string;
+    fullName: string;
+    passportNumber: string;
+    isProfileComplete: boolean;
+    canCreateAttorneyRequest?: boolean;
+  }>;
+  selectedCharacter: {
+    id: string;
+    fullName: string;
+    passportNumber: string;
+    source: "last_used" | "first_available";
+    isProfileComplete: boolean;
+    canCreateAttorneyRequest?: boolean;
+  };
+  trustorRegistry: DocumentTrustorRegistrySummary[];
+  status?: string;
+  initialTrustorId?: string | null;
+}) {
+  return (
+    <div className="space-y-6">
+      <Card className="space-y-3">
+        <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">
+          Новый адвокатский запрос
+        </p>
+        <h1 className="text-3xl font-semibold">Новый адвокатский запрос</h1>
+        <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
+          Создайте черновик запроса. После первого сохранения сервер, персонаж и доверитель
+          фиксируются в документе.
+        </p>
+        <div className="flex flex-wrap items-center gap-2 text-sm leading-6 text-[var(--muted)]">
+          <Badge>Код сервера: {props.server.code}</Badge>
+          <Badge>Сервер: {props.server.name}</Badge>
+          <Badge>Персонаж: {props.selectedCharacter.fullName}</Badge>
+          <span>
+            Источник выбора:{" "}
+            {props.selectedCharacter.source === "last_used" ? "последний использованный" : "первый доступный"}.
+          </span>
+        </div>
+        {props.status ? (
+          <p className="text-sm leading-6 text-[var(--muted)]">Статус: {props.status}</p>
+        ) : null}
+      </Card>
+
+      <Card className="space-y-4">
+        <h2 className="text-2xl font-semibold">Черновик запроса</h2>
+        <p className="text-sm leading-6 text-[var(--muted)]">
+          Неполный черновик можно сохранить. Генерация preview / PDF / JPG станет доступна
+          после заполнения обязательных полей.
+        </p>
+        <AttorneyRequestDraftCreateClient
+          characters={props.characters}
+          initialTitle="Адвокатский запрос"
+          initialTrustorId={props.initialTrustorId}
           selectedCharacter={props.selectedCharacter}
           server={props.server}
           trustorRegistry={props.trustorRegistry}
@@ -941,6 +1111,115 @@ export function ClaimsPersistedEditor(props: {
           server={props.document.server}
           status={props.document.status}
           trustorRegistry={props.document.trustorRegistry}
+          updatedAt={props.document.updatedAt}
+        />
+      </Card>
+    </div>
+  );
+}
+
+export function AttorneyRequestPersistedEditor(props: {
+  document: {
+    id: string;
+    title: string;
+    status: "draft" | "generated" | "published";
+    createdAt: string;
+    updatedAt: string;
+    snapshotCapturedAt: string;
+    formSchemaVersion: string;
+    generatedAt: string | null;
+    generatedFormSchemaVersion: string | null;
+    generatedOutputFormat: string | null;
+    generatedRendererVersion: string | null;
+    generatedArtifact: AttorneyRequestRenderedArtifact | null;
+    isModifiedAfterGeneration: boolean;
+    server: {
+      code: string;
+      name: string;
+    };
+    authorSnapshot: {
+      fullName: string;
+      passportNumber: string;
+      position?: string;
+      address?: string;
+      phone?: string;
+      icEmail?: string;
+      passportImageUrl?: string;
+      nickname: string;
+      roleKeys: string[];
+      accessFlags: string[];
+      isProfileComplete: boolean;
+    };
+    payload: AttorneyRequestDraftPayload;
+  };
+  status?: string;
+}) {
+  return (
+    <div className="space-y-6">
+      <Card className="space-y-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">
+            Редактор адвокатского запроса
+          </p>
+          <Badge>{formatDocumentStatus(props.document.status)}</Badge>
+          <Badge>только для владельца</Badge>
+        </div>
+        <h1 className="text-3xl font-semibold">{props.document.title}</h1>
+        <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
+          Здесь можно сохранить черновик, проверить данные и сгенерировать preview / PDF / JPG.
+          Документ привязан к доверителю и не зависит от дальнейших изменений карточки доверителя.
+        </p>
+        <div className="flex flex-wrap items-center gap-2 text-sm leading-6 text-[var(--muted)]">
+          <Badge>Код сервера: {props.document.server.code}</Badge>
+          <Badge>Сервер: {props.document.server.name}</Badge>
+          <Badge>Персонаж: {props.document.authorSnapshot.fullName}</Badge>
+          <Badge>Доверитель: {props.document.payload.trustorSnapshot.fullName}</Badge>
+          <span>Номер запроса: {props.document.payload.requestNumberNormalized || "не указан"}</span>
+        </div>
+        {props.status ? (
+          <p className="text-sm leading-6 text-[var(--muted)]">Статус: {props.status}</p>
+        ) : null}
+      </Card>
+
+      <Card className="space-y-4">
+        <h2 className="text-2xl font-semibold">Служебные сведения</h2>
+        <ul className="space-y-2 text-sm leading-6 text-[var(--muted)]">
+          <li>ID документа: {props.document.id}</li>
+          <li>Создано: {new Date(props.document.createdAt).toLocaleString("ru-RU")}</li>
+          <li>Обновлено: {new Date(props.document.updatedAt).toLocaleString("ru-RU")}</li>
+          <li>
+            Снимок персонажа и доверителя сохранён:{" "}
+            {new Date(props.document.snapshotCapturedAt).toLocaleString("ru-RU")}
+          </li>
+          <li>Версия формы: {props.document.formSchemaVersion}</li>
+          <li>Ник персонажа: {props.document.authorSnapshot.nickname}</li>
+          <li>Роли: {props.document.authorSnapshot.roleKeys.join(", ") || "нет"}</li>
+          <li>
+            Должность для шаблона:{" "}
+            {props.document.payload.signerTitleSnapshot?.bodyRu ?? props.document.authorSnapshot.position ?? "не указана"}
+          </li>
+          <li>
+            Генерация: {props.document.generatedAt ? "результат уже создан" : "ещё не выполнялась"}.
+          </li>
+          <li>
+            Изменено после генерации: {props.document.isModifiedAfterGeneration ? "да" : "нет"}.
+          </li>
+        </ul>
+      </Card>
+
+      <Card className="space-y-4">
+        <h2 className="text-2xl font-semibold">Редактор запроса</h2>
+        <AttorneyRequestEditorClient
+          documentId={props.document.id}
+          generatedArtifact={props.document.generatedArtifact}
+          generatedAt={props.document.generatedAt}
+          generatedOutputFormat={props.document.generatedOutputFormat}
+          generatedRendererVersion={props.document.generatedRendererVersion}
+          initialPayload={props.document.payload}
+          initialTitle={props.document.title}
+          isModifiedAfterGeneration={props.document.isModifiedAfterGeneration}
+          server={props.document.server}
+          status={props.document.status}
           updatedAt={props.document.updatedAt}
         />
       </Card>

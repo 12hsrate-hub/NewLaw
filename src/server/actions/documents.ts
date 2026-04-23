@@ -8,8 +8,10 @@ import { ZodError } from "zod";
 import { requireProtectedAccountContext } from "@/server/auth/protected";
 import {
   createInitialClaimDraft,
+  createInitialAttorneyRequestDraft,
   createInitialOgpComplaintDraft,
   DocumentAccessDeniedError,
+  DocumentAttorneyRoleRequiredError,
   DocumentCharacterUnavailableError,
   DocumentRepresentativeAccessError,
   DocumentServerUnavailableError,
@@ -17,6 +19,10 @@ import {
   refreshOwnedOgpComplaintAuthorSnapshot,
   saveOwnedDocumentDraft,
 } from "@/server/document-area/persistence";
+import {
+  AttorneyRequestGenerationBlockedError,
+  generateOwnedAttorneyRequestArtifacts,
+} from "@/features/documents/attorney-request/generation";
 import {
   ClaimsOutputBlockedError,
   mapClaimsOutputBlockingReasonsToMessages,
@@ -77,7 +83,7 @@ function parsePayloadJson(payloadJson: FormDataEntryValue | null) {
 function revalidateDocumentPaths(input: {
   documentId: string;
   serverCode: string;
-  documentType: "ogp_complaint" | "rehabilitation" | "lawsuit";
+  documentType: "ogp_complaint" | "rehabilitation" | "lawsuit" | "attorney_request";
 }) {
   revalidatePath("/account/documents");
   revalidatePath(`/servers/${input.serverCode}/documents`);
@@ -85,6 +91,14 @@ function revalidateDocumentPaths(input: {
   if (input.documentType === "ogp_complaint") {
     revalidatePath(`/servers/${input.serverCode}/documents/ogp-complaints`);
     revalidatePath(`/servers/${input.serverCode}/documents/ogp-complaints/${input.documentId}`);
+
+    return;
+  }
+
+  if (input.documentType === "attorney_request") {
+    revalidatePath("/account/trustors");
+    revalidatePath(`/servers/${input.serverCode}/documents/attorney-requests`);
+    revalidatePath(`/servers/${input.serverCode}/documents/attorney-requests/${input.documentId}`);
 
     return;
   }
@@ -197,6 +211,63 @@ export async function createClaimDraftAction(formData: FormData) {
 
     if (error instanceof DocumentRepresentativeAccessError) {
       redirect(buildStatusRedirect(nextPath, "representative-not-allowed"));
+    }
+
+    if (error instanceof DocumentValidationError || error instanceof SyntaxError || error instanceof ZodError) {
+      redirect(buildStatusRedirect(nextPath, "invalid-payload"));
+    }
+
+    redirect(buildStatusRedirect(nextPath, "document-create-error"));
+  }
+}
+
+export async function createAttorneyRequestDraftAction(formData: FormData) {
+  const serverSlug = String(formData.get("serverSlug") ?? "");
+  const characterId = String(formData.get("characterId") ?? "");
+  const trustorId = String(formData.get("trustorId") ?? "");
+  const title = String(formData.get("title") ?? "");
+  const nextPath = `/servers/${serverSlug}/documents/attorney-requests/new`;
+  const { account } = await requireProtectedAccountContext(nextPath, undefined, {
+    allowMustChangePassword: true,
+  });
+
+  try {
+    const document = await createInitialAttorneyRequestDraft({
+      accountId: account.id,
+      serverSlug,
+      characterId,
+      trustorId,
+      title,
+      payload: parsePayloadJson(formData.get("payloadJson")),
+    });
+
+    revalidateDocumentPaths({
+      documentId: document.id,
+      serverCode: document.server.code,
+      documentType: "attorney_request",
+    });
+
+    redirect(
+      buildStatusRedirect(
+        `/servers/${document.server.code}/documents/attorney-requests/${document.id}`,
+        "draft-created",
+      ),
+    );
+  } catch (error) {
+    if (isRedirectError(error)) {
+      throw error;
+    }
+
+    if (error instanceof DocumentServerUnavailableError) {
+      redirect(buildStatusRedirect(nextPath, "server-unavailable"));
+    }
+
+    if (error instanceof DocumentCharacterUnavailableError) {
+      redirect(buildStatusRedirect(nextPath, "character-unavailable"));
+    }
+
+    if (error instanceof DocumentAttorneyRoleRequiredError) {
+      redirect(buildStatusRedirect(nextPath, "attorney-role-required"));
     }
 
     if (error instanceof DocumentValidationError || error instanceof SyntaxError || error instanceof ZodError) {
@@ -459,6 +530,57 @@ export async function generateClaimsStructuredCheckpointAction(input: {
     }
 
     throw error;
+  }
+}
+
+export async function generateAttorneyRequestAction(input: {
+  documentId: string;
+}) {
+  const { account } = await requireProtectedAccountContext("/account/documents", undefined, {
+    allowMustChangePassword: true,
+  });
+
+  try {
+    const result = await generateOwnedAttorneyRequestArtifacts({
+      accountId: account.id,
+      documentId: input.documentId,
+    });
+
+    revalidateDocumentPaths({
+      documentId: result.document.id,
+      serverCode: result.document.server.code,
+      documentType: "attorney_request",
+    });
+
+    return {
+      ok: true as const,
+      status: result.document.status,
+      generatedAt: result.document.generatedAt?.toISOString() ?? null,
+      generatedOutputFormat: result.document.generatedOutputFormat,
+      generatedRendererVersion: result.document.generatedRendererVersion,
+      generatedArtifact: result.artifact,
+      isModifiedAfterGeneration: result.document.isModifiedAfterGeneration,
+    };
+  } catch (error) {
+    if (error instanceof DocumentAccessDeniedError) {
+      return {
+        ok: false as const,
+        error: "document-access-denied" as const,
+      };
+    }
+
+    if (error instanceof AttorneyRequestGenerationBlockedError) {
+      return {
+        ok: false as const,
+        error: "generation-blocked" as const,
+        messages: error.reasons,
+      };
+    }
+
+    return {
+      ok: false as const,
+      error: "generation-failed" as const,
+    };
   }
 }
 

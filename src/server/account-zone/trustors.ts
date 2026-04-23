@@ -1,4 +1,5 @@
 import { listTrustorsForAccount } from "@/db/repositories/trustor.repository";
+import { listDocumentsByAccount } from "@/db/repositories/document.repository";
 import { getServers } from "@/db/repositories/server.repository";
 import { isOgpTrustorRepresentativeReady } from "@/lib/ogp/generation-contract";
 import {
@@ -22,6 +23,13 @@ export type AccountTrustorSummary = {
   passportImageUrl?: string | null;
   note: string | null;
   isRepresentativeReady: boolean;
+  attorneyRequests?: Array<{
+    id: string;
+    title: string;
+    status: "draft" | "generated" | "published";
+    serverCode: string;
+    updatedAt: string;
+  }>;
 };
 
 export type AccountTrustorsServerGroup = {
@@ -66,9 +74,10 @@ export async function getAccountTrustorsOverviewContext(input: {
     allowMustChangePassword: true,
   });
   const focusedServerCode = input.focusedServerCode?.trim().toLowerCase() || null;
-  const [servers, trustors] = await Promise.all([
+  const [servers, trustors, documents] = await Promise.all([
     getServers(),
     listTrustorsForAccount(account.id),
+    listDocumentsByAccount(account.id),
   ]);
 
   const serverGroups = servers.map((server) => {
@@ -100,6 +109,20 @@ export async function getAccountTrustorsOverviewContext(input: {
           icEmail: trustor.icEmail,
           passportImageUrl: trustor.passportImageUrl,
         }),
+        attorneyRequests: documents
+          .filter(
+            (document) =>
+              document.documentType === "attorney_request" &&
+              document.trustorId === trustor.id &&
+              document.serverId === server.id,
+          )
+          .map((document) => ({
+            id: document.id,
+            title: document.title,
+            status: document.status,
+            serverCode: document.server.code,
+            updatedAt: document.updatedAt.toISOString(),
+          })),
       })),
     } satisfies AccountTrustorsServerGroup;
   });

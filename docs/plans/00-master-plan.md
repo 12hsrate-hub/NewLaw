@@ -266,7 +266,7 @@ Post-MVP policy для этой линии:
 
 - inline document trustor usage = уже есть и достаточно для MVP
 - standalone trustor registry = optional convenience line
-- documents по-прежнему остаются snapshot-based и не получают `trustorId` dependency
+- OGP/claims documents по-прежнему остаются snapshot-based и не получают `trustorId` dependency; post-MVP `attorney_request` хранит `trustorId` как фиксированную привязку к выбранному доверителю, но генерация читает сохранённый snapshot документа
 - изменение или удаление registry entry не меняет уже созданные документы
 - future здесь означает только дальнейшее расширение trustors line beyond current CRUD + prefill scope, а не “registry ещё не появился”
 

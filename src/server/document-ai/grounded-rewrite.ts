@@ -539,6 +539,10 @@ export async function rewriteOwnedGroundedDocumentField(
     throw new DocumentAccessDeniedError();
   }
 
+  if (document.documentType === "attorney_request") {
+    throw new DocumentAccessDeniedError();
+  }
+
   const promptContext = buildGroundedPromptContext({
     documentType: document.documentType,
     payload: document.formPayloadJson,
