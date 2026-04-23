@@ -29,20 +29,26 @@ const rasterConfig = {
   pngCompressionLevel: 9,
 } as const;
 
+const qrConfig = {
+  targetUrl: "https://gov-blackberry.bubbleapps.io/",
+  darkColor: "#5e6fb2",
+  lightColor: "#ffffff",
+} as const;
+
 const RASTER_SCALE = rasterConfig.exportScale;
 
 const fontConfig = {
   textFamily: "Times New Roman, Liberation Serif, serif",
   monoFamily: "Courier New, Liberation Mono, monospace",
-  bodyRegularSize: pt(12.1),
-  bodyBoldSize: pt(12.35),
-  bodyLineHeight: pt(16.6),
-  sectionHeadingSize: pt(12.1),
-  introSize: pt(12.35),
-  introLineHeight: pt(17),
+  bodyRegularSize: pt(12.05),
+  bodyBoldSize: pt(12.25),
+  bodyLineHeight: pt(16.9),
+  sectionHeadingSize: pt(12),
+  introSize: pt(12.02),
+  introLineHeight: pt(16.55),
   titleSize: pt(12.8),
-  registerTitleSize: pt(12.4),
-  registerBodySize: pt(11.8),
+  registerTitleSize: pt(12),
+  registerBodySize: pt(11.5),
   stateTitleSize: pt(21),
   associationTitleSize: pt(15),
   footerRoleSize: pt(12),
@@ -60,17 +66,18 @@ const layoutConfig = {
     left: mm(16),
   },
   registerWidth: mm(46),
-  leftRoleWidth: mm(24),
-  columnGap: mm(2.2),
+  leftRoleWidth: mm(18.7),
+  columnGap: mm(1.2),
   contentStartY: 198,
   contentDividerY: 178,
-  bodyRightX: PAGE_WIDTH - mm(20),
+  contentLeftX: mm(36.1),
+  contentRightX: PAGE_WIDTH - mm(15.7),
   sectionGap: mm(5.2),
 } as const;
 
 const headerConfig = {
-  sealSize: mm(12),
-  sealY: mm(2.6),
+  sealSize: mm(12.2),
+  sealY: mm(2.62),
   topLineY: 57,
   secondLineY: 61.5,
   stateTitleY: 84.5,
@@ -83,11 +90,52 @@ const footerConfig = {
   signatureY: 824,
   signatureWidth: mm(35),
   signatureHeight: mm(38),
+  leftRoleWidth: mm(24),
   centerTopY: 1008,
   centerTitleY: 1020,
   centerDateY: 1041,
   qrY: 1008,
   qrSize: mm(20),
+} as const;
+
+const registerBlockConfig = {
+  x: layoutConfig.pagePadding.left,
+  width: layoutConfig.registerWidth,
+  topY: headerConfig.registerY,
+  titleLineHeight: fontConfig.registerTitleSize * 1.02,
+  bodyLineHeight: fontConfig.registerBodySize * 1.09,
+} as const;
+
+const leftRoleBlockConfig = {
+  x: layoutConfig.pagePadding.left,
+  width: layoutConfig.leftRoleWidth,
+  titleY: layoutConfig.contentStartY,
+  roleY: layoutConfig.contentStartY + pt(26.4),
+  roleLineGap: pt(16.1),
+} as const;
+
+const titleBlockConfig = {
+  x: layoutConfig.contentLeftX,
+  width: layoutConfig.contentRightX - layoutConfig.contentLeftX,
+  titleY: layoutConfig.contentStartY,
+  subtitleGap: pt(15),
+  subtitleToIntroGap: pt(15.2),
+} as const;
+
+const introBlockConfig = {
+  x: titleBlockConfig.x,
+  width: titleBlockConfig.width,
+  lineHeight: fontConfig.introLineHeight,
+} as const;
+
+const sectionBlockConfig = {
+  x: titleBlockConfig.x,
+  width: titleBlockConfig.width,
+  introToSection1Gap: mm(4.1),
+  baseGap: mm(5.8),
+  maxExtraGapPerSection: mm(4.2),
+  itemMarkerGap: 4.5,
+  itemLineHeight: pt(17.1),
 } as const;
 
 const stampConfig = {
@@ -139,6 +187,13 @@ type SvgLine = {
   size?: number;
   anchor?: "start" | "middle" | "end";
   family?: string;
+};
+
+type RenderedBlock = {
+  lines: SvgLine[];
+  topY: number;
+  bottomY: number;
+  height: number;
 };
 
 export class AttorneyRequestGenerationBlockedError extends Error {
@@ -390,6 +445,37 @@ function pushWrappedLines(input: {
   return y;
 }
 
+function getLineBottomY(line: SvgLine) {
+  return (line.y ?? 0) + Math.max((line.size ?? fontConfig.bodyRegularSize) * 0.38, 2);
+}
+
+function finalizeBlock(lines: SvgLine[], topY: number): RenderedBlock {
+  const bottomY = lines.length > 0 ? Math.max(...lines.map(getLineBottomY)) : topY;
+
+  return {
+    lines,
+    topY,
+    bottomY,
+    height: Math.max(0, bottomY - topY),
+  };
+}
+
+function shiftBlock(block: RenderedBlock, offsetY: number) {
+  if (offsetY === 0) {
+    return block;
+  }
+
+  return {
+    ...block,
+    topY: block.topY + offsetY,
+    bottomY: block.bottomY + offsetY,
+    lines: block.lines.map((line) => ({
+      ...line,
+      y: (line.y ?? 0) + offsetY,
+    })),
+  };
+}
+
 function pushInlineSectionParagraph(input: {
   lines: SvgLine[];
   label: string;
@@ -449,17 +535,45 @@ function pushNumberedItem(input: {
   y: number;
   width: number;
 }) {
-  const wrapped = wrapText(`${input.marker} ${input.text}`, input.width, fontConfig.bodyRegularSize);
+  const markerWidth = estimateTextWidth(input.marker, fontConfig.bodyRegularSize) + sectionBlockConfig.itemMarkerGap;
+  const wrapped = wrapText(input.text, Math.max(80, input.width - markerWidth), fontConfig.bodyRegularSize);
   let y = input.y;
 
-  for (const line of wrapped) {
+  if (wrapped.length === 0) {
     input.lines.push({
-      text: line,
+      text: input.marker,
       x: input.x,
       y,
       size: fontConfig.bodyRegularSize,
     });
-    y += fontConfig.bodyLineHeight;
+
+    return y + sectionBlockConfig.itemLineHeight;
+  }
+
+  input.lines.push({
+    segments: [
+      {
+        text: input.marker,
+      },
+      {
+        text: wrapped[0] ?? "",
+        dx: sectionBlockConfig.itemMarkerGap,
+      },
+    ],
+    x: input.x,
+    y,
+    size: fontConfig.bodyRegularSize,
+  });
+  y += sectionBlockConfig.itemLineHeight;
+
+  for (const line of wrapped.slice(1)) {
+    input.lines.push({
+      text: line,
+      x: input.x + markerWidth,
+      y,
+      size: fontConfig.bodyRegularSize,
+    });
+    y += sectionBlockConfig.itemLineHeight;
   }
 
   return y;
@@ -511,23 +625,15 @@ function buildPreviewText(input: {
   ].join("\n");
 }
 
-async function buildQrDataUrl(input: {
-  authorSnapshot: DocumentAuthorSnapshot;
-  payload: AttorneyRequestDraftPayload;
-}) {
-  const qrPayload = JSON.stringify({
-    type: "attorney_request",
-    server: input.authorSnapshot.serverCode,
-    requestNumber: input.payload.requestNumberNormalized,
-    documentDate: input.payload.documentDateMsk,
-    characterId: input.authorSnapshot.characterId,
-    trustorId: input.payload.trustorSnapshot.trustorId,
-  });
-
-  return QRCode.toDataURL(qrPayload, {
+async function buildQrDataUrl() {
+  return QRCode.toDataURL(qrConfig.targetUrl, {
     errorCorrectionLevel: "M",
     margin: 0,
     width: Math.round(footerConfig.qrSize * rasterConfig.qrSourceScale),
+    color: {
+      dark: qrConfig.darkColor,
+      light: qrConfig.lightColor,
+    },
   });
 }
 
@@ -593,7 +699,7 @@ function buildFooter(input: {
   const footerTopY = footerConfig.topY;
   const footerRoleSize = fontConfig.footerRoleSize;
   const footerLineHeight = footerRoleSize * 1.22;
-  const leftRoleLines = wrapText(signerTitle?.footerRu ?? input.authorSnapshot.position, layoutConfig.leftRoleWidth, footerRoleSize)
+  const leftRoleLines = wrapText(signerTitle?.footerRu ?? input.authorSnapshot.position, footerConfig.leftRoleWidth, footerRoleSize)
     .map((line, index) => `<text x="${layoutConfig.pagePadding.left}" y="${footerTopY + index * footerLineHeight}" font-family="${fontConfig.textFamily}" font-size="${footerRoleSize}">${escapeXml(line)}</text>`)
     .join("");
   const filedDate = formatFiledDate(input.payload.documentDateMsk);
@@ -618,186 +724,243 @@ function buildFooter(input: {
   </g>`;
 }
 
-function buildVisualLines(input: {
+function buildRegisterBlock(input: {
+  requestNumberNormalized: string;
+  titleDate: string;
+}) {
+  const lines: SvgLine[] = [];
+  let y: number = registerBlockConfig.topY;
+
+  y = pushWrappedLines({
+    lines,
+    text: "San Andreas Register",
+    x: registerBlockConfig.x,
+    y,
+    width: registerBlockConfig.width,
+    size: fontConfig.registerTitleSize,
+    lineHeight: registerBlockConfig.titleLineHeight,
+    bold: true,
+  });
+  lines.push({
+    text: `No. ${input.requestNumberNormalized}`,
+    x: registerBlockConfig.x,
+    y,
+    size: fontConfig.registerBodySize,
+  });
+  y += registerBlockConfig.bodyLineHeight;
+  lines.push({
+    text: input.titleDate,
+    x: registerBlockConfig.x,
+    y,
+    size: fontConfig.registerBodySize,
+  });
+
+  return finalizeBlock(lines, registerBlockConfig.topY);
+}
+
+function buildLeftRoleBlock(leftRole: string) {
+  const lines: SvgLine[] = [
+    {
+      text: "Title 1 —",
+      x: leftRoleBlockConfig.x,
+      y: leftRoleBlockConfig.titleY,
+      size: fontConfig.titleSize,
+      bold: true,
+    },
+  ];
+
+  let y = leftRoleBlockConfig.roleY;
+
+  for (const roleLine of wrapText(leftRole, leftRoleBlockConfig.width, fontConfig.titleSize)) {
+    lines.push({
+      text: roleLine,
+      x: leftRoleBlockConfig.x,
+      y,
+      size: fontConfig.titleSize,
+      bold: true,
+    });
+    y += leftRoleBlockConfig.roleLineGap;
+  }
+
+  return finalizeBlock(lines, leftRoleBlockConfig.titleY);
+}
+
+function buildTitleBlock(titleDate: string) {
+  const lines: SvgLine[] = [
+    {
+      text: `Адвокатский запрос от ${titleDate}.`,
+      x: titleBlockConfig.x,
+      y: titleBlockConfig.titleY,
+      size: fontConfig.titleSize,
+      bold: true,
+    },
+    {
+      text: "О предоставлении запрашиваемой информации",
+      x: titleBlockConfig.x,
+      y: titleBlockConfig.titleY + titleBlockConfig.subtitleGap,
+      size: fontConfig.titleSize,
+      bold: true,
+    },
+  ];
+
+  return finalizeBlock(lines, titleBlockConfig.titleY);
+}
+
+function buildIntroBlock(input: {
+  topY: number;
+  intro: string;
+}) {
+  const lines: SvgLine[] = [];
+
+  pushWrappedLines({
+    lines,
+    text: input.intro,
+    x: introBlockConfig.x,
+    y: input.topY,
+    width: introBlockConfig.width,
+    size: fontConfig.introSize,
+    lineHeight: introBlockConfig.lineHeight,
+    bold: true,
+  });
+
+  return finalizeBlock(lines, input.topY);
+}
+
+function buildSectionParagraphBlock(input: {
+  label: string;
+  subtitle: string;
+  text: string;
+  topY: number;
+}) {
+  const lines: SvgLine[] = [];
+
+  pushInlineSectionParagraph({
+    lines,
+    label: input.label,
+    descriptor: input.subtitle,
+    text: input.text,
+    x: sectionBlockConfig.x,
+    y: input.topY,
+    width: sectionBlockConfig.width,
+  });
+
+  return finalizeBlock(lines, input.topY);
+}
+
+function buildSection1Block(input: {
+  topY: number;
   authorSnapshot: DocumentAuthorSnapshot;
   payload: AttorneyRequestDraftPayload;
 }) {
   const lines: SvgLine[] = [];
-  const bodyX = layoutConfig.pagePadding.left + layoutConfig.leftRoleWidth + layoutConfig.columnGap;
-  const bodyWidth = layoutConfig.bodyRightX - bodyX;
-  const sectionStartIndices: number[] = [];
+  let y = pushInlineSectionParagraph({
+    lines,
+    label: "Section 1.",
+    descriptor: "Резолюция.",
+    text: buildSection1Intro(input),
+    x: sectionBlockConfig.x,
+    y: input.topY,
+    width: sectionBlockConfig.width,
+  });
+
+  for (const item of input.payload.section1Items) {
+    y = pushNumberedItem({
+      lines,
+      marker: `${item.id}.`,
+      text: item.text,
+      x: sectionBlockConfig.x,
+      y,
+      width: sectionBlockConfig.width,
+    });
+  }
+
+  return finalizeBlock(lines, input.topY);
+}
+
+function buildVisualLines(input: {
+  authorSnapshot: DocumentAuthorSnapshot;
+  payload: AttorneyRequestDraftPayload;
+}) {
   const signerTitle = input.payload.signerTitleSnapshot;
   const titleDate = formatRegisterDate(input.payload.documentDateMsk);
   const leftRole = signerTitle?.leftColumnEn ?? input.authorSnapshot.position;
   const intro = `Я, действующий ${signerTitle?.bodyRu ?? input.authorSnapshot.position} ${input.authorSnapshot.fullName}, руководствуясь действующей Конституцией Штата Сан-Андреас, а также другими нормативно-правовыми актами Штата Сан-Андреас, заявляю:`;
-
-  let registerY: number = headerConfig.registerY;
-  registerY = pushWrappedLines({
-    lines,
-    text: "San Andreas Register",
-    x: layoutConfig.pagePadding.left,
-    y: registerY,
-    width: layoutConfig.registerWidth,
-    size: fontConfig.registerTitleSize,
-    lineHeight: fontConfig.registerTitleSize * 1.04,
-    bold: true,
+  const registerBlock = buildRegisterBlock({
+    requestNumberNormalized: input.payload.requestNumberNormalized,
+    titleDate,
   });
-  lines.push({
-    text: `No. ${input.payload.requestNumberNormalized}`,
-    x: layoutConfig.pagePadding.left,
-    y: registerY,
-    size: fontConfig.registerBodySize,
-  });
-  registerY += fontConfig.registerBodySize * 1.12;
-  lines.push({
-    text: titleDate,
-    x: layoutConfig.pagePadding.left,
-    y: registerY,
-    size: fontConfig.registerBodySize,
+  const leftRoleBlock = buildLeftRoleBlock(leftRole);
+  const titleBlock = buildTitleBlock(titleDate);
+  const introBlock = buildIntroBlock({
+    topY: titleBlock.bottomY + titleBlockConfig.subtitleToIntroGap,
+    intro,
   });
 
-  lines.push({
-    text: "Title 1 —",
-    x: layoutConfig.pagePadding.left,
-    y: layoutConfig.contentStartY,
-    size: fontConfig.titleSize,
-    bold: true,
-  });
-
-  let roleY: number = layoutConfig.contentStartY + fontConfig.titleSize * 1.1;
-  for (const roleLine of wrapText(leftRole, layoutConfig.leftRoleWidth, fontConfig.titleSize)) {
-    lines.push({
-      text: roleLine,
-      x: layoutConfig.pagePadding.left,
-      y: roleY,
-      size: fontConfig.titleSize,
-      bold: true,
-    });
-    roleY += fontConfig.bodyLineHeight * 0.84;
-  }
-
-  let y: number = layoutConfig.contentStartY;
-  lines.push({
-    text: `Адвокатский запрос от ${titleDate}.`,
-    x: bodyX,
-    y,
-    size: fontConfig.titleSize,
-    bold: true,
-  });
-  y += fontConfig.bodyLineHeight * 0.82;
-  lines.push({
-    text: "О предоставлении запрашиваемой информации",
-    x: bodyX,
-    y,
-    size: fontConfig.titleSize,
-    bold: true,
-  });
-  y += fontConfig.bodyLineHeight * 1.06;
-  y = pushWrappedLines({
-    lines,
-    text: intro,
-    x: bodyX,
-    y,
-    width: bodyWidth,
-    size: fontConfig.introSize,
-    lineHeight: fontConfig.introLineHeight,
-    bold: true,
-  });
-  y += mm(1.5);
-
-  const sectionBlocks = [
-    {
-      label: "Section 1.",
-      subtitle: "Резолюция.",
-      intro: buildSection1Intro(input),
-      paragraphs: input.payload.section1Items.map((item) => `${item.id}. ${item.text}`),
-    },
-    {
+  const rawSectionBlocks = [
+    buildSection1Block({
+      topY: introBlock.bottomY + sectionBlockConfig.introToSection1Gap,
+      authorSnapshot: input.authorSnapshot,
+      payload: input.payload,
+    }),
+    buildSectionParagraphBlock({
       label: "Section 2.",
       subtitle: "Срок исполнения, причины отказа.",
-      intro: buildSection2(input.payload),
-      paragraphs: [buildSection2(input.payload)],
-    },
-    {
+      text: buildSection2(input.payload),
+      topY: 0,
+    }),
+    buildSectionParagraphBlock({
       label: "Section 3.",
       subtitle: "Ответственность.",
-      intro: input.payload.section3Text,
-      paragraphs: [input.payload.section3Text],
-    },
-    {
+      text: input.payload.section3Text,
+      topY: 0,
+    }),
+    buildSectionParagraphBlock({
       label: "Section 4.",
       subtitle: "Вступление в силу.",
-      intro: buildSection4(),
-      paragraphs: [buildSection4()],
-    },
+      text: buildSection4(),
+      topY: 0,
+    }),
   ];
 
-  for (const [sectionIndex, section] of sectionBlocks.entries()) {
-    sectionStartIndices.push(lines.length);
-    y = pushInlineSectionParagraph({
-      lines,
-      label: section.label,
-      descriptor: section.subtitle,
-      text: section.intro,
-      x: bodyX,
-      y,
-      width: bodyWidth,
-    });
+  rawSectionBlocks[1] = shiftBlock(
+    rawSectionBlocks[1],
+    rawSectionBlocks[0].bottomY + sectionBlockConfig.baseGap - rawSectionBlocks[1].topY,
+  );
+  rawSectionBlocks[2] = shiftBlock(
+    rawSectionBlocks[2],
+    rawSectionBlocks[1].bottomY + sectionBlockConfig.baseGap - rawSectionBlocks[2].topY,
+  );
+  rawSectionBlocks[3] = shiftBlock(
+    rawSectionBlocks[3],
+    rawSectionBlocks[2].bottomY + sectionBlockConfig.baseGap - rawSectionBlocks[3].topY,
+  );
 
-    const paragraphs = section.label === "Section 1." ? section.paragraphs : [];
-
-    for (const paragraph of paragraphs) {
-      const numberedItem = /^(\d+)\.\s*(.*)$/.exec(paragraph);
-
-      if (numberedItem) {
-        y = pushNumberedItem({
-          lines,
-          marker: `${numberedItem[1]}.`,
-          text: numberedItem[2] ?? "",
-          x: bodyX,
-          y,
-          width: bodyWidth,
-        });
-        continue;
-      }
-
-      y = pushWrappedLines({
-        lines,
-        text: paragraph,
-        x: bodyX,
-        y,
-        width: bodyWidth,
-      });
-    }
-
-    if (sectionIndex < sectionBlocks.length - 1) {
-      y += layoutConfig.sectionGap;
-    }
-  }
-
-  const rawContentBottomY = Math.max(...lines.map((line) => (line.y ?? 0) + (line.size ?? fontConfig.bodyRegularSize) * 0.35));
   const footerClearanceTargetY = footerConfig.signatureY - mm(10);
-  const availableStretch = Math.min(mm(14), Math.max(0, footerClearanceTargetY - rawContentBottomY));
-  const internalSectionGapCount = Math.max(0, sectionBlocks.length - 1);
+  const availableStretch = Math.max(0, footerClearanceTargetY - rawSectionBlocks[3].bottomY);
+  const extraPerGap =
+    rawSectionBlocks.length > 1
+      ? Math.min(sectionBlockConfig.maxExtraGapPerSection, availableStretch / (rawSectionBlocks.length - 1))
+      : 0;
+  const sectionBlocks = rawSectionBlocks.map((block, index) => shiftBlock(block, extraPerGap * index));
+  const lines = [
+    ...registerBlock.lines,
+    ...leftRoleBlock.lines,
+    ...titleBlock.lines,
+    ...introBlock.lines,
+    ...sectionBlocks.flatMap((block) => block.lines),
+  ].sort((leftLine, rightLine) => {
+    const yDiff = (leftLine.y ?? 0) - (rightLine.y ?? 0);
 
-  if (availableStretch > 0 && internalSectionGapCount > 0) {
-    const extraPerGap = availableStretch / internalSectionGapCount;
-
-    for (let sectionIndex = 1; sectionIndex < sectionStartIndices.length; sectionIndex += 1) {
-      const offset = extraPerGap * sectionIndex;
-
-      for (let lineIndex = sectionStartIndices[sectionIndex]; lineIndex < lines.length; lineIndex += 1) {
-        lines[lineIndex] = {
-          ...lines[lineIndex],
-          y: (lines[lineIndex]?.y ?? 0) + offset,
-        };
-      }
+    if (yDiff !== 0) {
+      return yDiff;
     }
-  }
+
+    return (leftLine.x ?? 0) - (rightLine.x ?? 0);
+  });
 
   return {
     lines,
-    contentBottomY: Math.max(...lines.map((line) => (line.y ?? 0) + (line.size ?? fontConfig.bodyRegularSize) * 0.35)),
+    contentBottomY: Math.max(introBlock.bottomY, ...sectionBlocks.map((block) => block.bottomY)),
   };
 }
 
@@ -806,7 +969,7 @@ async function buildPageSvg(input: {
   authorSnapshot: DocumentAuthorSnapshot;
   payload: AttorneyRequestDraftPayload;
 }) {
-  const qrDataUrl = await buildQrDataUrl(input);
+  const qrDataUrl = await buildQrDataUrl();
   const { lines, contentBottomY } = buildVisualLines(input);
   const pageBackground = `<rect width="100%" height="100%" fill="#ffffff"/>`;
   const contentLine = `<line x1="${layoutConfig.pagePadding.left}" y1="${layoutConfig.contentDividerY}" x2="${PAGE_WIDTH - layoutConfig.pagePadding.right}" y2="${layoutConfig.contentDividerY}" stroke="#111" stroke-width="2"/>`;

@@ -158,7 +158,7 @@ describe("attorney request foundation", () => {
     expect(artifact.previewHtml).toContain("Игорь АДВОКАТОВ");
     expect(artifact.previewHtml).toContain("Section 4. ");
     expect(artifact.previewHtml).toContain("Настоящий запрос вступает");
-    expect(artifact.previewHtml).toContain("его публикации.");
+    expect(artifact.previewHtml).toContain("публикации.");
     expect(artifact.previewHtml).toContain("SAN ANDREAS CAPITOL");
     expect(artifact.previewHtml).toContain("data:image/jpeg;base64,");
     expect(artifact.pdfDataUrl).toMatch(/^data:application\/pdf;base64,/);
