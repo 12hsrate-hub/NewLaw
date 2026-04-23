@@ -147,6 +147,11 @@ describe("attorney request foundation", () => {
     expect(artifact.pageCount).toBe(1);
     expect(artifact.previewText).toContain("BAR-2112");
     expect(artifact.previewText).toContain("Павел Доверитель");
+    expect(artifact.previewHtml).toContain("STATE OF SAN ANDREAS");
+    expect(artifact.previewHtml).toContain("BAR ASSOCIATION");
+    expect(artifact.previewHtml).toContain("San Andreas Register");
+    expect(artifact.previewHtml).toContain("SAN ANDREAS CAPITOL");
+    expect(artifact.previewHtml).toContain("data:image/png;base64,");
     expect(artifact.pdfDataUrl).toMatch(/^data:application\/pdf;base64,/);
     expect(artifact.jpgDataUrl).toMatch(/^data:image\/jpeg;base64,/);
     expect(Buffer.from(artifact.pdfDataUrl.split(",")[1] ?? "", "base64").subarray(0, 5).toString()).toBe("%PDF-");
