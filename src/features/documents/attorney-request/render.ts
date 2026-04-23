@@ -1,4 +1,6 @@
 import { Buffer } from "node:buffer";
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 
 import QRCode from "qrcode";
 import sharp from "sharp";
@@ -12,26 +14,43 @@ import type { AttorneyRequestDraftPayload } from "@/features/documents/attorney-
 import type { DocumentAuthorSnapshot } from "@/schemas/document";
 
 const PX_PER_MM = 96 / 25.4;
+const mm = (value: number) => value * PX_PER_MM;
+const pt = (value: number) => (value * 96) / 72;
 const PAGE_WIDTH = Math.round(210 * PX_PER_MM);
 const PAGE_HEIGHT = Math.round(297 * PX_PER_MM);
-const PAGE_PADDING_TOP = 10 * PX_PER_MM;
-const PAGE_PADDING_RIGHT = 16 * PX_PER_MM;
-const PAGE_PADDING_BOTTOM = 12 * PX_PER_MM;
-const PAGE_PADDING_LEFT = 16 * PX_PER_MM;
-const BODY_FONT_SIZE = 14;
+const PAGE_PADDING_TOP = mm(10);
+const PAGE_PADDING_RIGHT = mm(16);
+const PAGE_PADDING_BOTTOM = mm(12);
+const PAGE_PADDING_LEFT = mm(16);
+const BODY_FONT_SIZE = pt(12);
 const BODY_LINE_HEIGHT = BODY_FONT_SIZE * 1.45;
-const SECTION_GAP = 7 * PX_PER_MM;
-const LEFT_ROLE_WIDTH = 30 * PX_PER_MM;
-const SEAL_SIZE = 12 * PX_PER_MM;
-const SIGNATURE_WIDTH = 35 * PX_PER_MM;
-const QR_SIZE = 20 * PX_PER_MM;
+const SECTION_GAP = mm(7);
+const REGISTER_WIDTH = mm(46);
+const LEFT_ROLE_WIDTH = mm(30);
+const COLUMN_GAP = mm(4);
+const SEAL_SIZE = mm(12);
+const SIGNATURE_WIDTH = mm(35);
+const SIGNATURE_HEIGHT = mm(36);
+const QR_SIZE = mm(20);
 const CONTENT_START_Y = 207;
 const MAX_BODY_Y = 900;
 const TEXT_FONT = "Times New Roman, Liberation Serif, serif";
 const MONO_FONT = "Courier New, Liberation Mono, monospace";
+const SEAL_ASSET_DATA_URL = readLocalAssetDataUrl(
+  "src/features/documents/attorney-request/assets/bar-seal-reference.png",
+  "image/png",
+);
+const SIGNATURE_ASSET_DATA_URL: string | null = null;
+
+type SvgSegment = {
+  text: string;
+  bold?: boolean;
+  italic?: boolean;
+};
 
 type SvgLine = {
-  text: string;
+  text?: string;
+  segments?: SvgSegment[];
   bold?: boolean;
   italic?: boolean;
   x?: number;
@@ -62,6 +81,16 @@ function escapeXml(input: string) {
 
 function makeDataUrl(mediaType: string, content: Buffer) {
   return `data:${mediaType};base64,${content.toString("base64")}`;
+}
+
+function readLocalAssetDataUrl(relativePath: string, mediaType: string) {
+  const assetPath = join(process.cwd(), relativePath);
+
+  if (!existsSync(assetPath)) {
+    return null;
+  }
+
+  return makeDataUrl(mediaType, readFileSync(assetPath));
 }
 
 function getRequestDigits(requestNumber: string) {
@@ -211,8 +240,70 @@ function pushWrappedLines(input: {
   return y;
 }
 
+function pushSectionHeading(input: {
+  lines: SvgLine[];
+  label: string;
+  descriptor: string;
+  x: number;
+  y: number;
+}) {
+  input.lines.push({
+    segments: [
+      {
+        text: `${input.label} `,
+        bold: true,
+      },
+      {
+        text: input.descriptor,
+        italic: true,
+      },
+    ],
+    x: input.x,
+    y: input.y,
+    size: BODY_FONT_SIZE,
+  });
+
+  return input.y + BODY_LINE_HEIGHT;
+}
+
+function pushNumberedItem(input: {
+  lines: SvgLine[];
+  marker: string;
+  text: string;
+  x: number;
+  y: number;
+  width: number;
+}) {
+  const markerWidth = BODY_FONT_SIZE * 1.25;
+  const contentWidth = input.width - markerWidth;
+  const wrapped = wrapText(input.text, contentWidth);
+  let y = input.y;
+
+  for (const [index, text] of wrapped.entries()) {
+    input.lines.push({
+      text: index === 0 ? `${input.marker} ${text}` : text,
+      x: index === 0 ? input.x : input.x + markerWidth,
+      y,
+      size: BODY_FONT_SIZE,
+    });
+    y += BODY_LINE_HEIGHT;
+  }
+
+  return y;
+}
+
 function renderLine(line: SvgLine) {
-  return `<text x="${line.x ?? PAGE_PADDING_LEFT}" y="${line.y ?? PAGE_PADDING_TOP}" font-family="${line.family ?? TEXT_FONT}" font-size="${line.size ?? BODY_FONT_SIZE}"${line.bold ? ' font-weight="700"' : ""}${line.italic ? ' font-style="italic"' : ""}${line.anchor ? ` text-anchor="${line.anchor}"` : ""}>${escapeXml(line.text)}</text>`;
+  const content =
+    line.segments
+      ?.map((segment) => {
+        const weight = segment.bold ? ' font-weight="700"' : "";
+        const style = segment.italic ? ' font-style="italic"' : "";
+
+        return `<tspan${weight}${style}>${escapeXml(segment.text)}</tspan>`;
+      })
+      .join("") ?? escapeXml(line.text ?? "");
+
+  return `<text x="${line.x ?? PAGE_PADDING_LEFT}" y="${line.y ?? PAGE_PADDING_TOP}" font-family="${line.family ?? TEXT_FONT}" font-size="${line.size ?? BODY_FONT_SIZE}"${line.bold ? ' font-weight="700"' : ""}${line.italic ? ' font-style="italic"' : ""}${line.anchor ? ` text-anchor="${line.anchor}"` : ""}>${content}</text>`;
 }
 
 function buildPreviewText(input: {
@@ -268,26 +359,37 @@ async function buildQrDataUrl(input: {
 
 function buildSealSvg() {
   const x = PAGE_PADDING_LEFT;
-  const y = 22;
+  const y = mm(5.8);
   const cx = x + SEAL_SIZE / 2;
   const cy = y + SEAL_SIZE / 2;
 
-  return `<g opacity="0.82">
-    <circle cx="${cx}" cy="${cy}" r="${SEAL_SIZE / 2 - 1}" fill="#f4f0e8" stroke="#1f2937" stroke-width="1.4"/>
-    <circle cx="${cx}" cy="${cy}" r="${SEAL_SIZE / 2 - 5}" fill="none" stroke="#64748b" stroke-width="1"/>
-    <text x="${cx}" y="${cy - 1}" font-family="${TEXT_FONT}" font-size="7" font-weight="700" text-anchor="middle">SA</text>
-    <text x="${cx}" y="${cy + 7}" font-family="${TEXT_FONT}" font-size="5" text-anchor="middle">BAR</text>
+  if (SEAL_ASSET_DATA_URL) {
+    return `<image data-asset-slot="attorney-request-seal" href="${SEAL_ASSET_DATA_URL}" x="${x}" y="${y}" width="${SEAL_SIZE}" height="${SEAL_SIZE}" preserveAspectRatio="xMidYMid meet"/>`;
+  }
+
+  return `<g data-asset-slot="attorney-request-seal" opacity="0.88">
+    <circle cx="${cx}" cy="${cy}" r="${SEAL_SIZE / 2 - 1.3}" fill="#ebe7df" stroke="#242424" stroke-width="1.15"/>
+    <circle cx="${cx}" cy="${cy}" r="${SEAL_SIZE / 2 - 4.2}" fill="#f8f6ef" stroke="#5f6470" stroke-width="0.9"/>
+    <circle cx="${cx}" cy="${cy}" r="${SEAL_SIZE / 2 - 8.2}" fill="none" stroke="#8a6f4d" stroke-width="0.7"/>
+    <path d="M${cx - 9} ${cy - 1} C${cx - 4} ${cy - 8}, ${cx + 5} ${cy - 8}, ${cx + 9} ${cy - 1}" fill="none" stroke="#4b5563" stroke-width="0.8"/>
+    <path d="M${cx - 7} ${cy + 4} C${cx - 2} ${cy + 8}, ${cx + 5} ${cy + 8}, ${cx + 8} ${cy + 3}" fill="none" stroke="#4b5563" stroke-width="0.8"/>
+    <text x="${cx}" y="${cy - 1}" font-family="${TEXT_FONT}" font-size="5.6" font-weight="700" text-anchor="middle">BA</text>
   </g>`;
 }
 
 function buildSignatureSvg() {
   const x = PAGE_WIDTH / 2 - SIGNATURE_WIDTH / 2;
-  const y = 842;
+  const y = 825;
 
-  return `<g transform="translate(${x} ${y})" fill="none" stroke="#111111" stroke-width="1.5" stroke-linecap="round" opacity="0.86">
-    <ellipse cx="${SIGNATURE_WIDTH / 2}" cy="44" rx="${SIGNATURE_WIDTH * 0.35}" ry="54" transform="rotate(-18 ${SIGNATURE_WIDTH / 2} 44)"/>
-    <path d="M26 72 C46 34, 58 88, 76 36 C83 20, 86 84, 98 36 C103 20, 108 76, 116 44" />
-    <path d="M34 74 C58 66, 81 58, 113 30" />
+  if (SIGNATURE_ASSET_DATA_URL) {
+    return `<image data-asset-slot="attorney-request-signature" href="${SIGNATURE_ASSET_DATA_URL}" x="${x}" y="${y}" width="${SIGNATURE_WIDTH}" height="${SIGNATURE_HEIGHT}" preserveAspectRatio="xMidYMid meet"/>`;
+  }
+
+  return `<g data-asset-slot="attorney-request-signature" transform="translate(${x} ${y})" fill="none" stroke="#101010" stroke-width="1.45" stroke-linecap="round" stroke-linejoin="round" opacity="0.9">
+    <ellipse cx="${SIGNATURE_WIDTH * 0.47}" cy="${SIGNATURE_HEIGHT * 0.52}" rx="${SIGNATURE_WIDTH * 0.34}" ry="${SIGNATURE_HEIGHT * 0.43}" transform="rotate(-18 ${SIGNATURE_WIDTH * 0.47} ${SIGNATURE_HEIGHT * 0.52})"/>
+    <path d="M${SIGNATURE_WIDTH * 0.18} ${SIGNATURE_HEIGHT * 0.64} C${SIGNATURE_WIDTH * 0.28} ${SIGNATURE_HEIGHT * 0.31}, ${SIGNATURE_WIDTH * 0.42} ${SIGNATURE_HEIGHT * 0.78}, ${SIGNATURE_WIDTH * 0.53} ${SIGNATURE_HEIGHT * 0.33} C${SIGNATURE_WIDTH * 0.58} ${SIGNATURE_HEIGHT * 0.1}, ${SIGNATURE_WIDTH * 0.62} ${SIGNATURE_HEIGHT * 0.77}, ${SIGNATURE_WIDTH * 0.7} ${SIGNATURE_HEIGHT * 0.32} C${SIGNATURE_WIDTH * 0.74} ${SIGNATURE_HEIGHT * 0.12}, ${SIGNATURE_WIDTH * 0.79} ${SIGNATURE_HEIGHT * 0.68}, ${SIGNATURE_WIDTH * 0.87} ${SIGNATURE_HEIGHT * 0.42}"/>
+    <path d="M${SIGNATURE_WIDTH * 0.2} ${SIGNATURE_HEIGHT * 0.66} C${SIGNATURE_WIDTH * 0.37} ${SIGNATURE_HEIGHT * 0.58}, ${SIGNATURE_WIDTH * 0.58} ${SIGNATURE_HEIGHT * 0.46}, ${SIGNATURE_WIDTH * 0.87} ${SIGNATURE_HEIGHT * 0.22}"/>
+    <path d="M${SIGNATURE_WIDTH * 0.32} ${SIGNATURE_HEIGHT * 0.78} C${SIGNATURE_WIDTH * 0.52} ${SIGNATURE_HEIGHT * 0.86}, ${SIGNATURE_WIDTH * 0.77} ${SIGNATURE_HEIGHT * 0.81}, ${SIGNATURE_WIDTH * 0.96} ${SIGNATURE_HEIGHT * 0.66}"/>
   </g>`;
 }
 
@@ -296,10 +398,10 @@ function buildHeaderLines() {
   const right = PAGE_WIDTH - PAGE_PADDING_RIGHT;
   const center = PAGE_WIDTH / 2;
 
-  return `<line x1="${left}" y1="68" x2="${right}" y2="68" stroke="#111" stroke-width="2"/>
-  <line x1="${left}" y1="74" x2="${right}" y2="74" stroke="#111" stroke-width="1"/>
-  <text x="${center}" y="104" font-family="${TEXT_FONT}" font-size="26.666" font-weight="700" text-anchor="middle">STATE OF SAN ANDREAS</text>
-  <text x="${center}" y="132" font-family="${TEXT_FONT}" font-size="18.666" text-anchor="middle">BAR ASSOCIATION</text>`;
+  return `<line x1="${left}" y1="65" x2="${right}" y2="65" stroke="#111" stroke-width="2"/>
+  <line x1="${left}" y1="70" x2="${right}" y2="70" stroke="#111" stroke-width="1"/>
+  <text x="${center}" y="98" font-family="${TEXT_FONT}" font-size="${pt(20)}" font-weight="700" text-anchor="middle">STATE OF SAN ANDREAS</text>
+  <text x="${center}" y="124" font-family="${TEXT_FONT}" font-size="${pt(14)}" font-weight="400" text-anchor="middle">BAR ASSOCIATION</text>`;
 }
 
 function buildFooter(input: {
@@ -311,20 +413,31 @@ function buildFooter(input: {
   const requestDigits = getRequestDigits(input.payload.requestNumberNormalized);
   const parsedDate = parseDocumentDateLabel(input.payload.documentDateMsk);
   const stampYear = parsedDate?.year ?? new Date().getFullYear();
-  const leftRoleLines = wrapText(signerTitle?.footerRu ?? input.authorSnapshot.position, 150, 16)
-    .map((line, index) => `<text x="${PAGE_PADDING_LEFT}" y="${922 + index * 20}" font-family="${TEXT_FONT}" font-size="16">${escapeXml(line)}</text>`)
+  const footerTopY = 930;
+  const footerRoleSize = pt(12);
+  const footerLineHeight = footerRoleSize * 1.25;
+  const leftRoleLines = wrapText(signerTitle?.footerRu ?? input.authorSnapshot.position, LEFT_ROLE_WIDTH, footerRoleSize)
+    .map((line, index) => `<text x="${PAGE_PADDING_LEFT}" y="${footerTopY + index * footerLineHeight}" font-family="${TEXT_FONT}" font-size="${footerRoleSize}">${escapeXml(line)}</text>`)
     .join("");
   const filedDate = formatFiledDate(input.payload.documentDateMsk);
+  const stampLines = [
+    `|SAI Dec. ${stampYear}-BAR-`,
+    requestDigits || "0000",
+    `Filed ${filedDate}`,
+  ];
 
   return `<g>
     ${buildSignatureSvg()}
     ${leftRoleLines}
-    <text x="${PAGE_WIDTH - PAGE_PADDING_RIGHT}" y="922" font-family="${TEXT_FONT}" font-size="16" text-anchor="end">${escapeXml(input.authorSnapshot.fullName)}</text>
-    <text x="${PAGE_PADDING_LEFT}" y="1038" font-family="${MONO_FONT}" font-size="14.666">|SAI Dec. ${stampYear}-BAR-</text>
-    <text x="${PAGE_PADDING_LEFT}" y="1058" font-family="${MONO_FONT}" font-size="14.666">${escapeXml(requestDigits || "0000")}</text>
-    <text x="${PAGE_PADDING_LEFT}" y="1078" font-family="${MONO_FONT}" font-size="14.666">Filed ${escapeXml(filedDate)}</text>
-    <text x="${PAGE_WIDTH / 2}" y="1048" font-family="${TEXT_FONT}" font-size="17.333" text-anchor="middle">SAN ANDREAS CAPITOL</text>
-    <text x="${PAGE_WIDTH / 2}" y="1072" font-family="${TEXT_FONT}" font-size="16" font-style="italic" text-anchor="middle">${escapeXml(formatRegisterDate(input.payload.documentDateMsk))}</text>
+    <text x="${PAGE_WIDTH - PAGE_PADDING_RIGHT}" y="${footerTopY}" font-family="${TEXT_FONT}" font-size="${pt(12)}" text-anchor="end">${escapeXml(input.authorSnapshot.fullName)}</text>
+    ${stampLines
+      .map(
+        (line, index) =>
+          `<text x="${PAGE_PADDING_LEFT}" y="${1032 + index * pt(11) * 1.12}" font-family="${MONO_FONT}" font-size="${pt(11)}">${escapeXml(line)}</text>`,
+      )
+      .join("")}
+    <text x="${PAGE_WIDTH / 2}" y="1050" font-family="${TEXT_FONT}" font-size="${pt(13)}" text-anchor="middle">SAN ANDREAS CAPITOL</text>
+    <text x="${PAGE_WIDTH / 2}" y="1074" font-family="${TEXT_FONT}" font-size="${pt(12)}" font-style="italic" text-anchor="middle">${escapeXml(formatRegisterDate(input.payload.documentDateMsk))}</text>
     <image href="${input.qrDataUrl}" x="${PAGE_WIDTH - PAGE_PADDING_RIGHT - QR_SIZE}" y="${PAGE_HEIGHT - PAGE_PADDING_BOTTOM - QR_SIZE}" width="${QR_SIZE}" height="${QR_SIZE}"/>
   </g>`;
 }
@@ -334,51 +447,56 @@ function buildVisualLines(input: {
   payload: AttorneyRequestDraftPayload;
 }) {
   const lines: SvgLine[] = [];
-  const bodyX = PAGE_PADDING_LEFT + LEFT_ROLE_WIDTH;
+  const bodyX = PAGE_PADDING_LEFT + LEFT_ROLE_WIDTH + COLUMN_GAP;
   const bodyWidth = PAGE_WIDTH - PAGE_PADDING_RIGHT - bodyX;
   const signerTitle = input.payload.signerTitleSnapshot;
   const titleDate = formatRegisterDate(input.payload.documentDateMsk);
   const leftRole = signerTitle?.footerRu ?? input.authorSnapshot.position;
   const intro = `Я, действующий ${signerTitle?.bodyRu ?? input.authorSnapshot.position} ${input.authorSnapshot.fullName}, руководствуясь действующей Конституцией Штата Сан-Андреас, а также другими нормативно-правовыми актами Штата Сан-Андреас, заявляю:`;
 
-  lines.push({
+  let registerY = 164;
+  registerY = pushWrappedLines({
+    lines,
     text: "San Andreas Register",
     x: PAGE_PADDING_LEFT,
-    y: 164,
-    size: 16,
+    y: registerY,
+    width: REGISTER_WIDTH,
+    size: pt(12),
+    lineHeight: pt(12) * 1.12,
     bold: true,
   });
   lines.push({
     text: `No. ${input.payload.requestNumberNormalized}`,
     x: PAGE_PADDING_LEFT,
-    y: 184,
-    size: 15.333,
+    y: registerY,
+    size: pt(11.5),
   });
+  registerY += pt(11.5) * 1.12;
   lines.push({
     text: titleDate,
     x: PAGE_PADDING_LEFT,
-    y: 204,
-    size: 15.333,
+    y: registerY,
+    size: pt(11.5),
   });
 
   lines.push({
     text: "Title 1 —",
     x: PAGE_PADDING_LEFT,
     y: CONTENT_START_Y + 30,
-    size: 15,
+    size: BODY_FONT_SIZE,
     bold: true,
   });
 
   let roleY = CONTENT_START_Y + 54;
-  for (const roleLine of wrapText(leftRole, LEFT_ROLE_WIDTH, 15)) {
+  for (const roleLine of wrapText(leftRole, LEFT_ROLE_WIDTH, BODY_FONT_SIZE)) {
     lines.push({
       text: roleLine,
       x: PAGE_PADDING_LEFT,
       y: roleY,
-      size: 15,
+      size: BODY_FONT_SIZE,
       bold: true,
     });
-    roleY += 19;
+    roleY += BODY_LINE_HEIGHT * 0.95;
   }
 
   let y = CONTENT_START_Y + 30;
@@ -386,29 +504,29 @@ function buildVisualLines(input: {
     text: `Адвокатский запрос от ${titleDate}.`,
     x: bodyX,
     y,
-    size: 15,
+    size: BODY_FONT_SIZE,
     bold: true,
   });
-  y += 20;
+  y += BODY_LINE_HEIGHT * 0.94;
   lines.push({
     text: "О предоставлении запрашиваемой информации",
     x: bodyX,
     y,
-    size: 15,
+    size: BODY_FONT_SIZE,
     bold: true,
   });
-  y += 29;
+  y += BODY_LINE_HEIGHT * 1.32;
   y = pushWrappedLines({
     lines,
     text: intro,
     x: bodyX,
     y,
     width: bodyWidth,
-    size: 15,
-    lineHeight: 21,
+    size: BODY_FONT_SIZE,
+    lineHeight: BODY_LINE_HEIGHT,
     bold: true,
   });
-  y += 8;
+  y += mm(2);
 
   const sectionBlocks = [
     {
@@ -434,17 +552,29 @@ function buildVisualLines(input: {
   ];
 
   for (const section of sectionBlocks) {
-    lines.push({
-      text: `${section.label} ${section.subtitle}`,
+    y = pushSectionHeading({
+      lines,
+      label: section.label,
+      descriptor: section.subtitle,
       x: bodyX,
       y,
-      size: BODY_FONT_SIZE,
-      bold: true,
-      italic: true,
     });
-    y += BODY_LINE_HEIGHT;
 
     for (const paragraph of section.paragraphs) {
+      const numberedItem = /^(\d+)\.\s*(.*)$/.exec(paragraph);
+
+      if (numberedItem) {
+        y = pushNumberedItem({
+          lines,
+          marker: `${numberedItem[1]}.`,
+          text: numberedItem[2] ?? "",
+          x: bodyX,
+          y,
+          width: bodyWidth,
+        });
+        continue;
+      }
+
       y = pushWrappedLines({
         lines,
         text: paragraph,
