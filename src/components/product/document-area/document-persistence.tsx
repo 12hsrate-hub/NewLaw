@@ -537,6 +537,7 @@ export function OgpComplaintPersistedEditor(props: {
       fullName: string;
       passportNumber: string;
       position?: string;
+      address?: string;
       phone?: string;
       icEmail?: string;
       passportImageUrl?: string;
@@ -649,6 +650,7 @@ export function OgpComplaintPersistedEditor(props: {
         <DocumentDraftEditorClient
           authorSnapshot={{
             canUseRepresentative: props.document.authorSnapshot.accessFlags.includes("advocate"),
+            address: props.document.authorSnapshot.address,
             fullName: props.document.authorSnapshot.fullName,
             icEmail: props.document.authorSnapshot.icEmail,
             isProfileComplete: props.document.authorSnapshot.isProfileComplete,

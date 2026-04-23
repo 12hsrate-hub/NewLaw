@@ -87,6 +87,7 @@ function readAccessFlags(formData: FormData): CharacterAccessFlagKey[] {
 function readProfileDetails(formData: FormData) {
   return characterProfileFormSchema.parse({
     position: String(formData.get("position") ?? ""),
+    address: String(formData.get("address") ?? ""),
     phone: String(formData.get("phone") ?? ""),
     icEmail: String(formData.get("icEmail") ?? ""),
     passportImageUrl: String(formData.get("passportImageUrl") ?? ""),
@@ -149,6 +150,7 @@ export async function createCharacterAction(formData: FormData) {
     const selectionBehavior = readSelectionBehavior(formData);
     const profileDataJson = buildCharacterProfileDataJson({
       position: profileDetails.position,
+      address: profileDetails.address,
       phone: profileDetails.phone,
       icEmail: profileDetails.icEmail,
       passportImageUrl: profileDetails.passportImageUrl,
@@ -208,6 +210,7 @@ export async function updateCharacterAction(formData: FormData) {
     const profileDetails = readProfileDetails(formData);
     const profileDataJson = buildCharacterProfileDataJson({
       position: profileDetails.position,
+      address: profileDetails.address,
       phone: profileDetails.phone,
       icEmail: profileDetails.icEmail,
       passportImageUrl: profileDetails.passportImageUrl,

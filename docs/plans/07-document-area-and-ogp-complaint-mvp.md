@@ -232,14 +232,21 @@ Post-MVP note:
 
 - generation `BBCode` вызывается только для persisted `ogp_complaint` документа и всегда строится из сохранённого payload
 - generation deterministic: один и тот же persisted payload даёт предсказуемый `BBCode`
+- generation теперь template-driven для текущих OGP server templates и имеет две явные render-ветки:
+  - `ogp_self`
+  - `ogp_representative`
+- generation работает через единый normalized render context, а не через ad-hoc string assembly в action
 - generation работает для `self` и `representative`, при representative flow использует trustor snapshot из самого документа
 - generation использует единый shared validation contract для:
   - character profile в author snapshot
   - trustor snapshot внутри документа
   - обязательного OGP payload
 - trustor registry, если использовался как prefill, не становится live source of truth для generation; generator всегда читает только persisted trustor snapshot документа
-- `passportNumber`, `phone` и `passportImageUrl` проходят общую нормализацию и в generation/checklist сравниваются уже в canonical формате
-- `evidenceGroups` и `evidenceRows` со ссылками корректно попадают в итоговый `BBCode`
+- обязательный character/trustor generation context включает `fullName`, `passportNumber`, `address`, `phone`, `icEmail`, `passportImageUrl`; для character дополнительно требуется `position`
+- обязательный OGP payload включает `appealNumber`, `organizationName`, `subjectLabel`, `incidentAt`, `situationDescription`, `violationSummary` и минимум один usable evidence item
+- `appealNumber`, `passportNumber`, `phone` и `passportImageUrl` проходят общую нормализацию и в generation/checklist сравниваются уже в canonical формате
+- `evidenceGroups` и `evidenceRows` со ссылками корректно попадают в итоговый `BBCode`: evidence сортируется по `sortOrder`, берёт persisted `labelSnapshot` и рендерится как `[URL='...']labelSnapshot[/URL]`, элементы соединяются запятой
+- подпись внизу строится по правилу first-letter + "." + last-word, дата берётся на момент generation в часовом поясе Moscow и формате `DD.MM.YYYY`
 - generation честно блокируется при неполном обязательном profile или неполном complaint payload
 - вместо vague общей ошибки editor показывает точный blocking checklist с отдельными секциями:
   - `character profile issues`

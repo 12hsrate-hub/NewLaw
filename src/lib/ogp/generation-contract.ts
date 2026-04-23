@@ -5,11 +5,13 @@ export type OgpChecklistIssue = {
     | "fullName"
     | "position"
     | "passportNumber"
+    | "address"
     | "phone"
     | "icEmail"
     | "passportImageUrl"
     | "appealNumber"
-    | "objectOrganization"
+    | "organizationName"
+    | "subjectLabel"
     | "incidentAt"
     | "situationDescription"
     | "violationSummary"
@@ -29,6 +31,7 @@ export type OgpCharacterGenerationProfile = {
   fullName: string;
   position: string;
   passportNumber: string;
+  address: string;
   phone: string;
   icEmail: string;
   passportImageUrl: string;
@@ -37,6 +40,7 @@ export type OgpCharacterGenerationProfile = {
 export type OgpTrustorGenerationProfile = {
   fullName: string;
   passportNumber: string;
+  address: string;
   phone: string;
   icEmail: string;
   passportImageUrl: string;
@@ -48,7 +52,8 @@ export type OgpEvidenceLike = {
 
 export type OgpDocumentGenerationPayload = {
   appealNumber: string;
-  objectOrganization: string;
+  organizationName: string;
+  subjectLabel: string;
   incidentAt: string;
   situationDescription: string;
   violationSummary: string;
@@ -65,6 +70,7 @@ export type OgpGenerationValidationResult = {
 
 type CharacterProfileDataRecord = {
   position: string;
+  address: string;
   phone: string;
   icEmail: string;
   passportImageUrl: string;
@@ -74,6 +80,7 @@ type CharacterProfileDataRecord = {
 
 const phonePattern = /^\d{3}-\d{2}-\d{2}$/;
 const passportPattern = /^\d{1,6}$/;
+const digitsOnlyPattern = /^\d+$/;
 
 function normalizeText(value: string) {
   return value.trim().replace(/\s+/g, " ");
@@ -135,6 +142,8 @@ function validateIdentityFields(input: {
   phone: string;
   icEmail: string;
   passportImageUrl: string;
+  address?: string;
+  includeAddress?: boolean;
   includePosition?: boolean;
   position?: string;
 }) {
@@ -152,6 +161,10 @@ function validateIdentityFields(input: {
     if (normalizeText(input.position ?? "").length === 0) {
       issues.push(issue("position", "Должность", "Укажите должность."));
     }
+  }
+
+  if (input.includeAddress !== false && normalizeText(input.address ?? "").length === 0) {
+    issues.push(issue("address", "Адрес", "Укажите адрес."));
   }
 
   if (normalizedPassportNumber.length === 0) {
@@ -200,19 +213,46 @@ export function validateOgpTrustorProfile(input: OgpTrustorGenerationProfile) {
   });
 }
 
-function countEvidenceRows(groups: OgpEvidenceLike[]) {
-  return groups.reduce((count, group) => count + group.rows.length, 0);
+function readEvidenceText(row: unknown, key: string) {
+  if (!row || typeof row !== "object" || Array.isArray(row)) {
+    return "";
+  }
+
+  const value = (row as Record<string, unknown>)[key];
+
+  return typeof value === "string" ? normalizeText(value) : "";
+}
+
+function countUsableEvidenceRows(groups: OgpEvidenceLike[]) {
+  return groups.reduce(
+    (count, group) =>
+      count +
+      group.rows.filter((row) => {
+        const url = readEvidenceText(row, "url");
+        const labelSnapshot = readEvidenceText(row, "labelSnapshot") || readEvidenceText(row, "label");
+
+        return url.length > 0 && labelSnapshot.length > 0;
+      }).length,
+    0,
+  );
 }
 
 export function validateOgpDocumentPayload(input: OgpDocumentGenerationPayload) {
   const issues: OgpChecklistIssue[] = [];
+  const appealNumber = normalizeText(input.appealNumber);
 
-  if (normalizeText(input.appealNumber).length === 0) {
+  if (appealNumber.length === 0) {
     issues.push(issue("appealNumber", "Номер обращения", "Укажите номер обращения."));
+  } else if (!digitsOnlyPattern.test(appealNumber)) {
+    issues.push(issue("appealNumber", "Номер обращения", "Укажите номер обращения только цифрами."));
   }
 
-  if (normalizeText(input.objectOrganization).length === 0) {
-    issues.push(issue("objectOrganization", "Орган / подразделение", "Укажите орган или подразделение."));
+  if (normalizeText(input.organizationName).length === 0) {
+    issues.push(issue("organizationName", "Организация", "Укажите организацию."));
+  }
+
+  if (normalizeText(input.subjectLabel).length === 0) {
+    issues.push(issue("subjectLabel", "Субъект жалобы", "Укажите субъект жалобы."));
   }
 
   if (normalizeText(input.incidentAt).length === 0) {
@@ -227,7 +267,7 @@ export function validateOgpDocumentPayload(input: OgpDocumentGenerationPayload) 
     issues.push(issue("violationSummary", "Суть нарушения", "Заполните краткую суть нарушения."));
   }
 
-  if (countEvidenceRows(input.evidenceGroups) === 0) {
+  if (countUsableEvidenceRows(input.evidenceGroups) === 0) {
     issues.push(issue("evidenceList", "Доказательства", "Добавьте хотя бы один элемент в список доказательств."));
   }
 
@@ -303,6 +343,7 @@ export function readCharacterProfileData(
 
   return {
     position: normalizeText(readString("position")),
+    address: normalizeText(readString("address")),
     phone: normalizePhone(readString("phone")),
     icEmail: normalizeIcEmail(readString("icEmail")),
     passportImageUrl: normalizeSafeUrl(readString("passportImageUrl")),
@@ -313,6 +354,7 @@ export function readCharacterProfileData(
 
 export function buildCharacterProfileDataJson(input: {
   position: string;
+  address: string;
   phone: string;
   icEmail: string;
   passportImageUrl: string;
@@ -321,6 +363,7 @@ export function buildCharacterProfileDataJson(input: {
 }) {
   const normalized = {
     position: normalizeText(input.position),
+    address: normalizeText(input.address),
     phone: normalizePhone(input.phone),
     icEmail: normalizeIcEmail(input.icEmail),
     passportImageUrl: normalizeSafeUrl(input.passportImageUrl),
@@ -341,6 +384,7 @@ export function isOgpCharacterProfileComplete(input: {
   return validateOgpCharacterProfile({
     fullName: input.fullName,
     position: profileData.position,
+    address: profileData.address,
     passportNumber: input.passportNumber,
     phone: profileData.phone,
     icEmail: profileData.icEmail,
@@ -356,9 +400,10 @@ export function isOgpTrustorRepresentativeReady(input: {
   passportImageUrl: string | null;
 }) {
   return (
-    validateOgpTrustorProfile({
+    validateIdentityFields({
       fullName: input.fullName,
       passportNumber: input.passportNumber,
+      includeAddress: false,
       phone: input.phone ?? "",
       icEmail: input.icEmail ?? "",
       passportImageUrl: input.passportImageUrl ?? "",

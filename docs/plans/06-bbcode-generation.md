@@ -4,6 +4,8 @@
 
 Подготовить стабильную генерацию итогового форумного BBCode из документного слепка.
 
+Текущий OGP generator уже доведён до template-driven модели для текущих server templates: `ogp_self` и `ogp_representative` рендерятся через единый normalized render context и не читают live trustor registry.
+
 ## Что входит
 
 - серверная генерация BBCode
@@ -12,6 +14,8 @@
 - режим просмотра и копирования
 - сценарий `Пересобрать` через новый черновик-копию
 - публикационная ссылка форума и ручная синхронизация
+- template-driven OGP renderer для веток `ogp_self` и `ogp_representative`
+- единый generation validation contract для author snapshot, trustor snapshot и OGP payload
 
 ## Что не входит
 
@@ -36,10 +40,18 @@
 - автоподтягивание данных персонажа действует только до первой генерации
 - ссылка публикации одна
 - номер обращения не проверяется на уникальность
+- OGP generation использует только persisted document payload, persisted author snapshot, persisted trustor snapshot и persisted evidence snapshot
+- trustor registry может быть только prefill source до сохранения document snapshot, но не live source для generation
+- required OGP fields не расширяются неявно: `appealNumber`, `organizationName`, `subjectLabel`, `incidentAt`, `situationDescription`, `violationSummary`, минимум один evidence item
+- `appealNumber` в OGP generation contract — digits only
+- evidence рендерится из persisted evidence rows как `[URL='...']labelSnapshot[/URL]`, сортируется по `sortOrder` и соединяется запятой
+- bottom date берётся на момент generation в Moscow timezone и формате `DD.MM.YYYY`
+- подпись строится как первая буква первого слова + "." + последнее слово
 
 ## Критерии завершения
 
 - пользователь может получить итоговый BBCode
 - после генерации сохраняются все версионные поля
+- `self` и `representative` ветки дают детерминированный BBCode по текущим server templates
 - `Пересобрать` создает новый черновик, а не перезаписывает существующий документ
 - ссылка форума и ручная синхронизация работают по правилам MVP

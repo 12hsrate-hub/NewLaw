@@ -103,6 +103,7 @@ describe("claims document editor rewrite affordances", () => {
             sourceType: "inline_manual",
             fullName: "Пётр Доверитель",
             passportNumber: "TR-001",
+            address: "",
             phone: "",
             icEmail: "",
             passportImageUrl: "",

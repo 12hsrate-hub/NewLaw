@@ -27,6 +27,7 @@ export function applyTrustorRegistryPrefill(
     sourceType: "registry_prefill",
     fullName: trustor.fullName,
     passportNumber: normalizePassportNumber(trustor.passportNumber),
+    address: "",
     phone: normalizePhone(trustor.phone ?? ""),
     icEmail: normalizeIcEmail(trustor.icEmail ?? ""),
     passportImageUrl: normalizeSafeUrl(trustor.passportImageUrl ?? ""),

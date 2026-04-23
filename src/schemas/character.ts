@@ -27,6 +27,7 @@ export const characterFormSchema = z.object({
 
 export const characterProfileFormSchema = z.object({
   position: z.string().trim().max(160).default(""),
+  address: z.string().trim().max(240).default(""),
   phone: z.string().trim().max(64).default(""),
   icEmail: z.string().trim().max(320).default(""),
   passportImageUrl: z.string().trim().max(2_048).default(""),

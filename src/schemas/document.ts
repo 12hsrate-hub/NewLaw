@@ -71,6 +71,7 @@ export const ogpComplaintTrustorSnapshotSchema = z.object({
   sourceType: trustorSnapshotSourceTypeSchema.default("inline_manual"),
   fullName: z.string().trim().max(160).default(""),
   passportNumber: z.string().trim().max(64).default(""),
+  address: z.string().trim().max(240).default(""),
   phone: z.string().trim().max(64).default(""),
   icEmail: z.string().trim().max(320).default(""),
   passportImageUrl: z.string().trim().max(2_048).default(""),
@@ -79,6 +80,10 @@ export const ogpComplaintTrustorSnapshotSchema = z.object({
 
 export const ogpComplaintEvidenceRowSchema = z.object({
   id: z.string().trim().min(1).max(64),
+  mode: z.string().trim().max(64).default("link"),
+  templateKey: z.string().trim().max(120).default("custom"),
+  labelSnapshot: z.string().trim().max(240).default(""),
+  sortOrder: z.number().int().min(0).max(10_000).optional(),
   label: z.string().trim().max(240).default(""),
   url: z
     .string()
@@ -212,6 +217,7 @@ export const documentAuthorSnapshotSchema = z.object({
   nickname: z.string().trim().min(1),
   passportNumber: z.string().trim().min(1),
   position: z.string().trim().max(160).default(""),
+  address: z.string().trim().max(240).default(""),
   phone: z.string().trim().max(64).default(""),
   icEmail: z.string().trim().max(320).default(""),
   passportImageUrl: z.string().trim().max(2_048).default(""),

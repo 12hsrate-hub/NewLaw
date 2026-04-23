@@ -157,6 +157,12 @@ function CharacterGroup(props: { group: AccountCharactersServerGroup }) {
                     <span className="font-medium text-[var(--foreground)]">{character.position}</span>
                   </p>
                 ) : null}
+                {character.address ? (
+                  <p>
+                    Адрес:{" "}
+                    <span className="font-medium text-[var(--foreground)]">{character.address}</span>
+                  </p>
+                ) : null}
                 {character.phone ? (
                   <p>
                     Телефон:{" "}
@@ -201,6 +207,7 @@ function CharacterGroup(props: { group: AccountCharactersServerGroup }) {
                       nickname: character.nickname,
                       passportNumber: character.passportNumber,
                       position: character.position,
+                      address: character.address,
                       phone: character.phone,
                       icEmail: character.icEmail,
                       passportImageUrl: character.passportImageUrl,

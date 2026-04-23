@@ -29,6 +29,7 @@ function createBaseDocument() {
       nickname: "Игорь Юристов",
       passportNumber: "001",
       position: "Адвокат",
+      address: "Дом 10",
       phone: "123-45-67",
       icEmail: "lawyer@example.com",
       passportImageUrl: "https://example.com/lawyer-passport.png",
@@ -39,7 +40,7 @@ function createBaseDocument() {
     },
     formPayloadJson: {
       filingMode: "self",
-      appealNumber: "OGP-001",
+      appealNumber: "123",
       objectOrganization: "LSPD",
       objectFullName: "Officer Smoke",
       incidentAt: "2026-04-21T10:15",
@@ -54,9 +55,23 @@ function createBaseDocument() {
           rows: [
             {
               id: "row-1",
-              label: "Запись с бодикамеры",
+              mode: "link",
+              templateKey: "bodycam",
+              labelSnapshot: "Запись с бодикамеры",
+              sortOrder: 20,
+              label: "Устаревший label",
               url: "https://example.com/bodycam",
               note: "Основная ссылка",
+            },
+            {
+              id: "row-2",
+              mode: "link",
+              templateKey: "screenshot",
+              labelSnapshot: "Скрин нарушения",
+              sortOrder: 10,
+              label: "Устаревший screenshot label",
+              url: "https://example.com/screenshot",
+              note: "Дополнительная ссылка",
             },
           ],
         },
@@ -88,6 +103,7 @@ function createBaseDocument() {
       isProfileComplete: true,
       profileDataJson: {
         position: "Адвокат",
+        address: "Дом 10",
         phone: "123-45-67",
         icEmail: "lawyer@example.com",
         passportImageUrl: "https://example.com/lawyer-passport.png",
@@ -136,10 +152,18 @@ describe("document generation", () => {
         generatedFormSchemaVersion: "ogp_complaint_mvp_editor_v1",
       }),
     );
-    expect(markDocumentGeneratedRecord.mock.calls[0]?.[0].lastGeneratedBbcode).toContain("ЖАЛОБА В ОГП");
-    expect(markDocumentGeneratedRecord.mock.calls[0]?.[0].lastGeneratedBbcode).toContain("Номер обращения:");
-    expect(markDocumentGeneratedRecord.mock.calls[0]?.[0].lastGeneratedBbcode).toContain("OGP-001");
-    expect(markDocumentGeneratedRecord.mock.calls[0]?.[0].lastGeneratedBbcode).toContain("Запись с бодикамеры");
+    const generatedBbcode = markDocumentGeneratedRecord.mock.calls[0]?.[0].lastGeneratedBbcode;
+
+    expect(generatedBbcode).toContain("Жалоба в ОГП");
+    expect(generatedBbcode).toContain("Информация о заявителе");
+    expect(generatedBbcode).toContain("Номер обращения:");
+    expect(generatedBbcode).toContain("123");
+    expect(generatedBbcode).toContain(
+      "[URL='https://example.com/screenshot']Скрин нарушения[/URL], [URL='https://example.com/bodycam']Запись с бодикамеры[/URL]",
+    );
+    expect(generatedBbcode).not.toContain("Устаревший label");
+    expect(generatedBbcode).toContain("[right]И.Юристов");
+    expect(generatedBbcode).toContain("21.04.2026[/right]");
     expect(result.status).toBe("generated");
   });
 
@@ -148,7 +172,7 @@ describe("document generation", () => {
     const markDocumentGeneratedRecord = vi.fn().mockResolvedValue({
       ...baseDocument,
       status: "generated",
-      lastGeneratedBbcode: "[b]Доверитель:[/b] Пётр Доверитель",
+      lastGeneratedBbcode: "[b]Информация о подзащитном[/b]",
       generatedAt: new Date("2026-04-21T12:00:00.000Z"),
       generatedLawVersion: "current_primary_snapshot_v1:server-1:1:abc",
       generatedTemplateVersion: OGP_COMPLAINT_BBCODE_TEMPLATE_VERSION,
@@ -171,6 +195,7 @@ describe("document generation", () => {
               sourceType: "inline_manual",
               fullName: "Пётр Доверитель",
               passportNumber: "001",
+              address: "Дом 20",
               phone: "234-56-78",
               icEmail: "trustor@example.com",
               passportImageUrl: "https://example.com/trustor-passport.png",
@@ -185,9 +210,13 @@ describe("document generation", () => {
       },
     );
 
-    expect(markDocumentGeneratedRecord.mock.calls[0]?.[0].lastGeneratedBbcode).toContain("Доверитель:");
+    expect(markDocumentGeneratedRecord.mock.calls[0]?.[0].lastGeneratedBbcode).toContain("Жалоба в ОГП от представителя");
+    expect(markDocumentGeneratedRecord.mock.calls[0]?.[0].lastGeneratedBbcode).toContain("Информация о представителе");
+    expect(markDocumentGeneratedRecord.mock.calls[0]?.[0].lastGeneratedBbcode).toContain("Информация о подзащитном");
     expect(markDocumentGeneratedRecord.mock.calls[0]?.[0].lastGeneratedBbcode).toContain("Пётр Доверитель");
+    expect(markDocumentGeneratedRecord.mock.calls[0]?.[0].lastGeneratedBbcode).toContain("Дом 20");
     expect(markDocumentGeneratedRecord.mock.calls[0]?.[0].lastGeneratedBbcode).toContain("001");
+    expect(markDocumentGeneratedRecord.mock.calls[0]?.[0].lastGeneratedBbcode).toContain("[right]П.Доверитель");
   });
 
   it("блокирует generation при неполном профиле и неполном payload", async () => {
@@ -203,6 +232,7 @@ describe("document generation", () => {
             authorSnapshotJson: {
               ...createBaseDocument().authorSnapshotJson,
               position: "",
+              address: "",
               phone: "",
               icEmail: "",
               passportImageUrl: "",
@@ -229,6 +259,7 @@ describe("document generation", () => {
       expect(blockedError.validation.characterIssues).toEqual(
         expect.arrayContaining([
           expect.objectContaining({ fieldKey: "position" }),
+          expect.objectContaining({ fieldKey: "address" }),
           expect.objectContaining({ fieldKey: "phone" }),
           expect.objectContaining({ fieldKey: "icEmail" }),
           expect.objectContaining({ fieldKey: "passportImageUrl" }),

@@ -12,20 +12,27 @@ describe("OGP generation validation contract", () => {
         fullName: "Игорь Юристов",
         position: "Адвокат",
         passportNumber: "AA-001",
+        address: "Дом 10",
         phone: "1234567",
         icEmail: "Blackberry Lawyer #42",
         passportImageUrl: "https://example.com/passport.png",
       },
       trustorProfile: null,
       documentPayload: {
-        appealNumber: "OGP-001",
-        objectOrganization: "LSPD",
+        appealNumber: "123",
+        organizationName: "LSPD",
+        subjectLabel: "Сотрудник LSPD",
         incidentAt: "2026-04-23T12:00",
         situationDescription: "Описание ситуации",
         violationSummary: "Суть нарушения",
         evidenceGroups: [
           {
-            rows: [{}],
+            rows: [
+              {
+                labelSnapshot: "Запись с бодикамеры",
+                url: "https://example.com/bodycam",
+              },
+            ],
           },
         ],
       },

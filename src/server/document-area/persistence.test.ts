@@ -35,7 +35,7 @@ describe("document persistence foundation", () => {
         payload: {
           filingMode: "self",
           workingNotes: "Черновая заметка",
-          appealNumber: "OGP-001",
+          appealNumber: "2026001",
           evidenceGroups: [],
         },
       },
@@ -55,6 +55,7 @@ describe("document persistence foundation", () => {
           isProfileComplete: true,
           profileDataJson: {
             position: "Адвокат",
+            address: "Дом 10",
             phone: "123-45-67",
             icEmail: "lawyer@example.com",
             passportImageUrl: "https://example.com/lawyer-passport.png",
@@ -89,6 +90,7 @@ describe("document persistence foundation", () => {
           nickname: "Игорь Юристов",
           passportNumber: "001",
           position: "Адвокат",
+          address: "Дом 10",
           phone: "123-45-67",
           icEmail: "lawyer@example.com",
           passportImageUrl: "https://example.com/lawyer-passport.png",
@@ -99,7 +101,7 @@ describe("document persistence foundation", () => {
         },
         formPayloadJson: expect.objectContaining({
           filingMode: "self",
-          appealNumber: "OGP-001",
+          appealNumber: "2026001",
           workingNotes: "Черновая заметка",
           trustorSnapshot: null,
         }),
@@ -128,7 +130,7 @@ describe("document persistence foundation", () => {
         payload: {
           filingMode: "representative",
           workingNotes: "Представительский draft",
-          appealNumber: "OGP-REP-001",
+          appealNumber: "2026002",
           objectOrganization: "LSPD",
           objectFullName: "Сотрудник Полиции",
           incidentAt: "2026-04-21T10:30",
@@ -138,6 +140,10 @@ describe("document persistence foundation", () => {
             sourceType: "inline_manual",
             fullName: "Пётр Доверитель",
             passportNumber: "TR-001",
+            address: "Дом 20",
+            phone: "2345678",
+            icEmail: "trustor@example.com",
+            passportImageUrl: "https://example.com/trustor-passport.png",
             note: "Действую по доверенности",
           },
           evidenceGroups: [
@@ -172,6 +178,7 @@ describe("document persistence foundation", () => {
           isProfileComplete: true,
           profileDataJson: {
             position: "Адвокат",
+            address: "Дом 10",
             phone: "123-45-67",
             icEmail: "lawyer@example.com",
             passportImageUrl: "https://example.com/lawyer-passport.png",
@@ -195,9 +202,10 @@ describe("document persistence foundation", () => {
           trustorSnapshot: expect.objectContaining({
             fullName: "Пётр Доверитель",
             passportNumber: "001",
-            phone: "",
-            icEmail: "",
-            passportImageUrl: "",
+            address: "Дом 20",
+            phone: "234-56-78",
+            icEmail: "trustor@example.com",
+            passportImageUrl: "https://example.com/trustor-passport.png",
           }),
           evidenceGroups: [
             expect.objectContaining({

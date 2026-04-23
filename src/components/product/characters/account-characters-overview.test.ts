@@ -48,6 +48,7 @@ describe("account characters overview", () => {
                   profileNote: "Профиль для account zone",
                   profileSignature: "И. Юристов",
                   position: "Адвокат",
+                  address: "Дом 10",
                   phone: "123-45-67",
                   icEmail: "lawyer@example.com",
                   passportImageUrl: "https://example.com/passport.png",

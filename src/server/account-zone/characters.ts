@@ -27,6 +27,7 @@ export type AccountCharactersCharacterSummary = {
   profileNote: string | null;
   profileSignature: string | null;
   position: string | null;
+  address: string | null;
   phone: string | null;
   icEmail: string | null;
   passportImageUrl: string | null;
@@ -91,6 +92,7 @@ function buildCompactProfileSummary(profileDataJson: unknown): {
   profileNote: string | null;
   profileSignature: string | null;
   position: string | null;
+  address: string | null;
   phone: string | null;
   icEmail: string | null;
   passportImageUrl: string | null;
@@ -100,6 +102,7 @@ function buildCompactProfileSummary(profileDataJson: unknown): {
   const profileSignature = profileData.signature;
   const profileNote = profileData.note;
   const position = profileData.position || null;
+  const address = profileData.address || null;
   const phone = profileData.phone || null;
   const icEmail = profileData.icEmail || null;
   const passportImageUrl = profileData.passportImageUrl || null;
@@ -111,6 +114,7 @@ function buildCompactProfileSummary(profileDataJson: unknown): {
       profileNote,
       profileSignature,
       position,
+      address,
       phone,
       icEmail,
       passportImageUrl,
@@ -126,6 +130,7 @@ function buildCompactProfileSummary(profileDataJson: unknown): {
     profileNote,
     profileSignature,
     position,
+    address,
     phone,
     icEmail,
     passportImageUrl,
@@ -201,6 +206,7 @@ export async function getAccountCharactersOverviewContext(input: {
           profileNote: profileDataSummary.profileNote,
           profileSignature: profileDataSummary.profileSignature,
           position: profileDataSummary.position,
+          address: profileDataSummary.address,
           phone: profileDataSummary.phone,
           icEmail: profileDataSummary.icEmail,
           passportImageUrl: profileDataSummary.passportImageUrl,

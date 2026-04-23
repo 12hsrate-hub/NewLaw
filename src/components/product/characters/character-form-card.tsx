@@ -26,6 +26,7 @@ type CharacterFormValues = {
   fullName: string;
   nickname?: string;
   position?: string | null;
+  address?: string | null;
   phone?: string | null;
   icEmail?: string | null;
   passportImageUrl?: string | null;
@@ -193,6 +194,18 @@ export function CharacterFormCard({
               id={`${mode}-position`}
               name="position"
               placeholder="Например: Адвокат"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium" htmlFor={`${mode}-address`}>
+              Адрес
+            </label>
+            <Input
+              defaultValue={defaultValues?.address ?? ""}
+              id={`${mode}-address`}
+              name="address"
+              placeholder="Адрес проживания / регистрации"
             />
           </div>
 

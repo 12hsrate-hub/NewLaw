@@ -190,6 +190,7 @@ describe("character actions", () => {
     formData.set("nickname", "alice.stone");
     formData.set("passportNumber", "A-010");
     formData.set("position", "Адвокат");
+    formData.set("address", "Дом 10");
     formData.set("phone", "1234567");
     formData.set("icEmail", "alice.stone@example.com");
     formData.set("passportImageUrl", "https://example.com/passport.png");
@@ -214,6 +215,7 @@ describe("character actions", () => {
       isProfileComplete: true,
       profileDataJson: {
         position: "Адвокат",
+        address: "Дом 10",
         phone: "123-45-67",
         icEmail: "alice.stone@example.com",
         passportImageUrl: "https://example.com/passport.png",

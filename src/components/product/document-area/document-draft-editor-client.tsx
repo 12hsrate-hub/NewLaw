@@ -56,6 +56,7 @@ type SharedCharacterContext = {
   fullName: string;
   passportNumber: string;
   position?: string;
+  address?: string;
   phone?: string;
   icEmail?: string;
   passportImageUrl?: string;
@@ -174,6 +175,7 @@ function createEditorState(input: {
               sourceType: "inline_manual",
               fullName: "",
               passportNumber: "",
+              address: "",
               phone: "",
               icEmail: "",
               passportImageUrl: "",
@@ -258,6 +260,9 @@ function buildEmptyEvidenceGroup(): OgpComplaintEvidenceGroup {
 function buildEmptyEvidenceRow(): OgpComplaintEvidenceRow {
   return {
     id: createLocalId("evidence_row"),
+    mode: "link",
+    templateKey: "custom",
+    labelSnapshot: "",
     label: "",
     url: "",
     note: "",
@@ -269,6 +274,7 @@ function buildEmptyTrustorSnapshot(): OgpComplaintTrustorSnapshot {
     sourceType: "inline_manual",
     fullName: "",
     passportNumber: "",
+    address: "",
     phone: "",
     icEmail: "",
     passportImageUrl: "",
@@ -341,6 +347,7 @@ function buildGenerationBlockState(input: {
     characterProfile: {
       fullName: input.authorSnapshot.fullName,
       position: input.authorSnapshot.position ?? "",
+      address: input.authorSnapshot.address ?? "",
       passportNumber: input.authorSnapshot.passportNumber,
       phone: input.authorSnapshot.phone ?? "",
       icEmail: input.authorSnapshot.icEmail ?? "",
@@ -351,6 +358,7 @@ function buildGenerationBlockState(input: {
         ? {
             fullName: input.payload.trustorSnapshot.fullName,
             passportNumber: input.payload.trustorSnapshot.passportNumber,
+            address: input.payload.trustorSnapshot.address,
             phone: input.payload.trustorSnapshot.phone,
             icEmail: input.payload.trustorSnapshot.icEmail,
             passportImageUrl: input.payload.trustorSnapshot.passportImageUrl,
@@ -358,7 +366,8 @@ function buildGenerationBlockState(input: {
         : null,
     documentPayload: {
       appealNumber: input.payload.appealNumber,
-      objectOrganization: input.payload.objectOrganization,
+      organizationName: input.payload.objectOrganization,
+      subjectLabel: input.payload.objectFullName,
       incidentAt: input.payload.incidentAt,
       situationDescription: input.payload.situationDescription,
       violationSummary: input.payload.violationSummary,
@@ -740,7 +749,7 @@ function ComplaintFormFields(props: {
                 },
               });
             }}
-            placeholder="Например: OGP-2026-001"
+            placeholder="Например: 2026001"
             value={payload.appealNumber}
           />
         </div>
@@ -749,7 +758,7 @@ function ComplaintFormFields(props: {
       <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-2">
           <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`${props.mode}-object-organization`}>
-            Object organization
+            Organization name
           </label>
           <Input
             id={`${props.mode}-object-organization`}
@@ -770,7 +779,7 @@ function ComplaintFormFields(props: {
 
         <div className="space-y-2">
           <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`${props.mode}-object-full-name`}>
-            Object full name
+            Subject label
           </label>
           <Input
             id={`${props.mode}-object-full-name`}
@@ -931,6 +940,28 @@ function ComplaintFormFields(props: {
             </div>
           </div>
 
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`${props.mode}-trustor-address`}>
+              Trustor address
+            </label>
+            <Input
+              id={`${props.mode}-trustor-address`}
+              onChange={(event) => {
+                props.onStateChange({
+                  ...props.state,
+                  payload: {
+                    ...payload,
+                    trustorSnapshot: {
+                      ...(payload.trustorSnapshot ?? buildEmptyTrustorSnapshot()),
+                      address: event.target.value,
+                    },
+                  },
+                });
+              }}
+              value={payload.trustorSnapshot?.address ?? ""}
+            />
+          </div>
+
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`${props.mode}-trustor-phone`}>
@@ -973,8 +1004,7 @@ function ComplaintFormFields(props: {
                     },
                   });
                 }}
-                placeholder="trustor@example.com"
-                type="email"
+                placeholder="IC mail / Discord"
                 value={payload.trustorSnapshot?.icEmail ?? ""}
               />
             </div>

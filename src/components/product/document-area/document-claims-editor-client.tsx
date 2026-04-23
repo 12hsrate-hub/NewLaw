@@ -145,6 +145,9 @@ function buildEmptyEvidenceGroup(): OgpComplaintEvidenceGroup {
 function buildEmptyEvidenceRow(): OgpComplaintEvidenceRow {
   return {
     id: createLocalId("claim_evidence_row"),
+    mode: "link",
+    templateKey: "custom",
+    labelSnapshot: "",
     label: "",
     url: "",
     note: "",
@@ -156,6 +159,7 @@ function buildEmptyTrustorSnapshot(): OgpComplaintTrustorSnapshot {
     sourceType: "inline_manual",
     fullName: "",
     passportNumber: "",
+    address: "",
     phone: "",
     icEmail: "",
     passportImageUrl: "",

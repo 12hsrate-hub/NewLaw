@@ -249,6 +249,7 @@ type ClaimsEditorRouteContext =
           fullName: string;
           passportNumber: string;
           position?: string;
+          address?: string;
           phone?: string;
           icEmail?: string;
           passportImageUrl?: string;
@@ -320,6 +321,7 @@ type OgpComplaintEditorRouteContext =
           fullName: string;
           passportNumber: string;
           position?: string;
+          address?: string;
           phone?: string;
           icEmail?: string;
           passportImageUrl?: string;
@@ -864,6 +866,7 @@ export async function getClaimsEditorRouteContext(input: {
         fullName: authorSnapshot.fullName,
         passportNumber: authorSnapshot.passportNumber,
         position: authorSnapshot.position,
+        address: authorSnapshot.address,
         phone: authorSnapshot.phone,
         icEmail: authorSnapshot.icEmail,
         passportImageUrl: authorSnapshot.passportImageUrl,
@@ -969,6 +972,7 @@ export async function getOgpComplaintEditorRouteContext(input: {
         fullName: authorSnapshot.fullName,
         passportNumber: authorSnapshot.passportNumber,
         position: authorSnapshot.position,
+        address: authorSnapshot.address,
         phone: authorSnapshot.phone,
         icEmail: authorSnapshot.icEmail,
         passportImageUrl: authorSnapshot.passportImageUrl,
