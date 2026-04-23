@@ -536,6 +536,10 @@ export function OgpComplaintPersistedEditor(props: {
     authorSnapshot: {
       fullName: string;
       passportNumber: string;
+      position?: string;
+      phone?: string;
+      icEmail?: string;
+      passportImageUrl?: string;
       nickname: string;
       roleKeys: string[];
       accessFlags: string[];
@@ -646,8 +650,12 @@ export function OgpComplaintPersistedEditor(props: {
           authorSnapshot={{
             canUseRepresentative: props.document.authorSnapshot.accessFlags.includes("advocate"),
             fullName: props.document.authorSnapshot.fullName,
+            icEmail: props.document.authorSnapshot.icEmail,
             isProfileComplete: props.document.authorSnapshot.isProfileComplete,
             passportNumber: props.document.authorSnapshot.passportNumber,
+            passportImageUrl: props.document.authorSnapshot.passportImageUrl,
+            phone: props.document.authorSnapshot.phone,
+            position: props.document.authorSnapshot.position,
           }}
           documentId={props.document.id}
           generatedFormSchemaVersion={props.document.generatedFormSchemaVersion}

@@ -70,7 +70,7 @@ describe("/servers/[serverSlug]/documents/ogp-complaints/[documentId] page", () 
           nickname: "Игорь Юристов",
           roleKeys: ["lawyer"],
           accessFlags: ["advocate"],
-          isProfileComplete: false,
+          isProfileComplete: true,
         },
         trustorRegistry: [
           {
@@ -125,5 +125,10 @@ describe("/servers/[serverSlug]/documents/ogp-complaints/[documentId] page", () 
     expect(html).toContain("Forum integration");
     expect(html).toContain("Forum session state");
     expect(html).toContain("Опубликовать на форуме");
+    expect(html).not.toContain("Профиль персонажа неполный");
+    expect(html).not.toContain("Должность: Укажите должность.");
+    expect(html).not.toContain("Телефон: Укажите телефон.");
+    expect(html).not.toContain("IC email: Укажите IC email.");
+    expect(html).not.toContain("Ссылка на скрин паспорта: Укажите ссылку на скрин паспорта.");
   });
 });
