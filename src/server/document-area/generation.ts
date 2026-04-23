@@ -181,10 +181,10 @@ function renderEvidenceInline(payload: OgpComplaintDraftPayload) {
     .join(", ");
 }
 
-function renderSelfTextUrl(value: string) {
+function renderPassportUrl(value: string) {
   const url = value.trim();
 
-  return `[URL='${escapeBbcodeAttribute(url)}']${url}[/URL]`;
+  return `[URL='${escapeBbcodeAttribute(url)}']паспорт[/URL]`;
 }
 
 export function buildOgpRenderContext(input: {
@@ -246,7 +246,7 @@ function renderApplicantInfoBlock(context: OgpRenderContext) {
     `[*]Адрес проживания: ${context.authorAddress}`,
     `[*]Номер телефона: ${context.authorPhone}`,
     `[*]Адрес электронной почты: ${context.authorIcEmail}`,
-    `[*]Ксерокопия паспорта: ${renderSelfTextUrl(context.authorPassportUrl)}`,
+    `[*]Ксерокопия паспорта: ${renderPassportUrl(context.authorPassportUrl)}`,
     "[/LIST]",
   ].join("\n");
 }
@@ -260,7 +260,7 @@ function renderRepresentativeInfoBlock(context: OgpRenderContext) {
     `[*]Адрес проживания: ${context.authorAddress}`,
     `[*]Номер телефона: ${context.authorPhone}`,
     `[*]Адрес электронной почты: ${context.authorIcEmail}`,
-    `[*]Ксерокопия паспорта: ${renderSelfTextUrl(context.authorPassportUrl)}`,
+    `[*]Ксерокопия паспорта: ${renderPassportUrl(context.authorPassportUrl)}`,
     "[/LIST]",
   ].join("\n");
 }
@@ -274,7 +274,7 @@ function renderTrustorInfoBlock(context: OgpRenderContext) {
     `[*]Адрес проживания: ${context.trustorAddress}`,
     `[*]Номер телефона: ${context.trustorPhone}`,
     `[*]Адрес электронной почты: ${context.trustorIcEmail}`,
-    `[*]Ксерокопия паспорта: ${renderSelfTextUrl(context.trustorPassportUrl)}`,
+    `[*]Ксерокопия паспорта: ${renderPassportUrl(context.trustorPassportUrl)}`,
     "[/LIST]",
   ].join("\n");
 }
