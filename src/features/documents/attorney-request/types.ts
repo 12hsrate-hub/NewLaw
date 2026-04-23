@@ -1,5 +1,5 @@
 export const ATTORNEY_REQUEST_FORM_SCHEMA_VERSION = "attorney_request_v1";
-export const ATTORNEY_REQUEST_RENDERER_VERSION = "attorney_request_renderer_v7_image_reference";
+export const ATTORNEY_REQUEST_RENDERER_VERSION = "attorney_request_renderer_v8_image_reference_tuning";
 export const ATTORNEY_REQUEST_OUTPUT_FORMAT = "attorney_request_preview_pdf_jpg_v1";
 
 export type AttorneyRequestAddresseePresetKey =

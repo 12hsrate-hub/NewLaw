@@ -23,22 +23,22 @@ const MAX_BODY_Y = 900;
 const fontConfig = {
   textFamily: "Times New Roman, Liberation Serif, serif",
   monoFamily: "Courier New, Liberation Mono, monospace",
-  bodyRegularSize: pt(10.8),
-  bodyBoldSize: pt(11.1),
-  bodyLineHeight: pt(13.6),
-  sectionHeadingSize: pt(10.9),
-  introSize: pt(11.2),
-  introLineHeight: pt(14.2),
-  titleSize: pt(11.6),
-  registerTitleSize: pt(12),
-  registerBodySize: pt(11.5),
-  stateTitleSize: pt(20),
-  associationTitleSize: pt(14),
-  footerRoleSize: pt(12),
-  footerCenterTitleSize: pt(13),
-  footerCenterDateSize: pt(12),
-  footerNameSize: pt(12),
-  stampSize: pt(9.6),
+  bodyRegularSize: pt(13.6),
+  bodyBoldSize: pt(13.9),
+  bodyLineHeight: pt(18.8),
+  sectionHeadingSize: pt(13.6),
+  introSize: pt(14.1),
+  introLineHeight: pt(20.4),
+  titleSize: pt(15.8),
+  registerTitleSize: pt(15.6),
+  registerBodySize: pt(15),
+  stateTitleSize: pt(28),
+  associationTitleSize: pt(23),
+  footerRoleSize: pt(14.2),
+  footerCenterTitleSize: pt(14.2),
+  footerCenterDateSize: pt(12.8),
+  footerNameSize: pt(17),
+  stampSize: pt(14.2),
 } as const;
 
 const layoutConfig = {
@@ -49,40 +49,40 @@ const layoutConfig = {
     left: mm(16),
   },
   registerWidth: mm(46),
-  leftRoleWidth: mm(23),
-  columnGap: mm(3),
-  contentStartY: 202,
-  contentDividerY: 212,
-  bodyRightX: mm(183),
-  sectionGap: mm(4.2),
+  leftRoleWidth: mm(28),
+  columnGap: mm(4),
+  contentStartY: 215,
+  contentDividerY: 202,
+  bodyRightX: PAGE_WIDTH - mm(16),
+  sectionGap: mm(6.2),
 } as const;
 
 const headerConfig = {
-  sealSize: mm(12),
-  sealY: mm(5.8),
-  topLineY: 65,
-  secondLineY: 70,
-  stateTitleY: 98,
-  associationTitleY: 124,
-  registerY: 156,
+  sealSize: mm(14),
+  sealY: mm(4.4),
+  topLineY: 67,
+  secondLineY: 72,
+  stateTitleY: 108,
+  associationTitleY: 140,
+  registerY: 154,
 } as const;
 
 const footerConfig = {
-  topY: 930,
-  signatureY: 826,
+  topY: 928,
+  signatureY: 830,
   signatureWidth: mm(35),
   signatureHeight: mm(36),
-  stampY: 1032,
-  stampLineHeight: pt(9.6) * 1.08,
-  centerTitleY: 1050,
-  centerDateY: 1074,
+  stampY: 1018,
+  stampLineHeight: pt(14.2) * 1.48,
+  centerTitleY: 1038,
+  centerDateY: 1062,
   qrSize: mm(20),
 } as const;
 
 const assetConfig = {
   sealDataUrl: readLocalAssetDataUrl(
-    "src/features/documents/attorney-request/assets/bar-seal-reference.png",
-    "image/png",
+    "src/features/documents/attorney-request/assets/department-of-justice-seal-reference.jpg",
+    "image/jpeg",
   ),
   signatureDataUrl: null as string | null,
 } as const;
@@ -224,22 +224,42 @@ function buildSection4() {
   return "Настоящий запрос вступает в законную силу с момента его публикации.";
 }
 
+function buildSection1Intro(input: {
+  authorSnapshot: DocumentAuthorSnapshot;
+  payload: AttorneyRequestDraftPayload;
+}) {
+  const trustorName = input.payload.trustorSnapshot.fullName;
+  const contactEmail = input.payload.trustorSnapshot.icEmail || input.authorSnapshot.icEmail;
+
+  return `На основании заключенного договора ${input.payload.contractNumber} об оказании юридической помощи гр-ну ${trustorName} Настоящим адвокатским запросом требую предоставить ${input.authorSnapshot.fullName} используя систему меж. структурной связи либо на электронную почту ${contactEmail} информацию указанную далее:`;
+}
+
+function formatFooterName(fullName: string) {
+  const parts = fullName.trim().split(/\s+/).filter(Boolean);
+
+  if (parts.length <= 1) {
+    return fullName;
+  }
+
+  return [parts[0], ...parts.slice(1).map((part) => part.toLocaleUpperCase("ru-RU"))].join(" ");
+}
+
 function estimateTextWidth(input: string, size: number) {
   let units = 0;
 
   for (const char of input) {
     if (char === " ") {
-      units += 0.32;
+      units += 0.26;
     } else if (/[0-9]/.test(char)) {
-      units += 0.5;
+      units += 0.44;
     } else if (/[A-Za-z]/.test(char)) {
-      units += 0.52;
+      units += 0.46;
     } else if (/[А-Яа-яЁё]/.test(char)) {
-      units += 0.59;
+      units += 0.49;
     } else if (/[.,:;!?()[\]"'/-]/.test(char)) {
-      units += 0.3;
+      units += 0.25;
     } else {
-      units += 0.56;
+      units += 0.48;
     }
   }
 
@@ -284,6 +304,38 @@ function wrapText(input: string, width: number, size = fontConfig.bodyRegularSiz
   return result;
 }
 
+function wrapTextWithFirstWidth(input: string, firstWidth: number, restWidth: number, size = fontConfig.bodyRegularSize) {
+  const words = input.trim().split(/\s+/).filter(Boolean);
+  const lines: string[] = [];
+  let current = "";
+  let width = firstWidth;
+
+  for (const word of words) {
+    const candidate = current ? `${current} ${word}` : word;
+
+    if (estimateTextWidth(candidate, size) <= width) {
+      current = candidate;
+      continue;
+    }
+
+    if (current) {
+      lines.push(current);
+      current = word;
+      width = restWidth;
+      continue;
+    }
+
+    lines.push(word);
+    width = restWidth;
+  }
+
+  if (current) {
+    lines.push(current);
+  }
+
+  return lines;
+}
+
 function pushWrappedLines(input: {
   lines: SvgLine[];
   text: string;
@@ -316,31 +368,55 @@ function pushWrappedLines(input: {
   return y;
 }
 
-function pushSectionHeading(input: {
+function pushInlineSectionParagraph(input: {
   lines: SvgLine[];
   label: string;
   descriptor: string;
+  text: string;
   x: number;
   y: number;
+  width: number;
 }) {
+  const size = fontConfig.sectionHeadingSize;
+  const labelText = `${input.label} `;
+  const descriptorText = input.descriptor;
+  const prefixWidth = estimateTextWidth(`${labelText}${descriptorText} `, size) + 5;
+  const wrapped = wrapTextWithFirstWidth(input.text, Math.max(80, input.width - prefixWidth), input.width, size);
+  const firstLine = wrapped[0] ?? "";
+
   input.lines.push({
     segments: [
       {
-        text: input.label,
+        text: labelText,
         bold: true,
       },
       {
-        text: input.descriptor,
+        text: descriptorText,
         italic: true,
-        dx: 3,
+      },
+      {
+        text: firstLine,
+        dx: 5,
       },
     ],
     x: input.x,
     y: input.y,
-    size: fontConfig.sectionHeadingSize,
+    size,
   });
 
-  return input.y + fontConfig.bodyLineHeight;
+  let y = input.y + fontConfig.bodyLineHeight;
+
+  for (const line of wrapped.slice(1)) {
+    input.lines.push({
+      text: line,
+      x: input.x,
+      y,
+      size,
+    });
+    y += fontConfig.bodyLineHeight;
+  }
+
+  return y;
 }
 
 function pushNumberedItem(input: {
@@ -351,15 +427,13 @@ function pushNumberedItem(input: {
   y: number;
   width: number;
 }) {
-  const markerWidth = fontConfig.bodyRegularSize * 1.12;
-  const contentWidth = input.width - markerWidth;
-  const wrapped = wrapText(input.text, contentWidth);
+  const wrapped = wrapText(`${input.marker} ${input.text}`, input.width);
   let y = input.y;
 
-  for (const [index, text] of wrapped.entries()) {
+  for (const text of wrapped) {
     input.lines.push({
-      text: index === 0 ? `${input.marker} ${text}` : text,
-      x: index === 0 ? input.x : input.x + markerWidth,
+      text,
+      x: input.x,
       y,
       size: fontConfig.bodyRegularSize,
     });
@@ -402,7 +476,7 @@ function buildPreviewText(input: {
     `От: ${input.authorSnapshot.fullName}, ${signerTitle?.bodyRu ?? input.authorSnapshot.position}`,
     `Доверитель: ${input.payload.trustorSnapshot.fullName}, паспорт ${input.payload.trustorSnapshot.passportNumber}`,
     "",
-    "Section 1. Резолюция.",
+    `Section 1. Резолюция. ${buildSection1Intro(input)}`,
     ...input.payload.section1Items.map((item) => `${item.id}. ${item.text}`),
     "",
     `Section 2. Срок исполнения, причины отказа. ${buildSection2(input.payload)}`,
@@ -502,19 +576,18 @@ function buildFooter(input: {
     .join("");
   const filedDate = formatFiledDate(input.payload.documentDateMsk);
   const stampLines = [
-    `|SAI Dec. ${stampYear}-BAR-`,
-    requestDigits || "0000",
-    `Filed ${filedDate}`,
+    `[ SAR Doc. ${stampYear}-${requestDigits || "0000"}`,
+    `Filed ${filedDate}]`,
   ];
 
   return `<g>
     ${buildSignatureSvg()}
     ${leftRoleLines}
-    <text x="${PAGE_WIDTH - layoutConfig.pagePadding.right}" y="${footerTopY}" font-family="${fontConfig.textFamily}" font-size="${fontConfig.footerNameSize}" text-anchor="end">${escapeXml(input.authorSnapshot.fullName)}</text>
+    <text x="${PAGE_WIDTH - layoutConfig.pagePadding.right}" y="${footerTopY}" font-family="${fontConfig.textFamily}" font-size="${fontConfig.footerNameSize}" text-anchor="end">${escapeXml(formatFooterName(input.authorSnapshot.fullName))}</text>
     ${stampLines
       .map(
         (line, index) =>
-          `<text x="${layoutConfig.pagePadding.left}" y="${footerConfig.stampY + index * footerConfig.stampLineHeight}" font-family="${fontConfig.monoFamily}" font-size="${fontConfig.stampSize}" font-weight="700" letter-spacing="0.35">${escapeXml(line)}</text>`,
+          `<text x="${layoutConfig.pagePadding.left}" y="${footerConfig.stampY + index * footerConfig.stampLineHeight}" font-family="${fontConfig.monoFamily}" font-size="${fontConfig.stampSize}" font-weight="700" letter-spacing="1.1">${escapeXml(line)}</text>`,
       )
       .join("")}
     <text x="${PAGE_WIDTH / 2}" y="${footerConfig.centerTitleY}" font-family="${fontConfig.textFamily}" font-size="${fontConfig.footerCenterTitleSize}" text-anchor="middle">SAN ANDREAS CAPITOL</text>
@@ -563,12 +636,12 @@ function buildVisualLines(input: {
   lines.push({
     text: "Title 1 —",
     x: layoutConfig.pagePadding.left,
-    y: layoutConfig.contentStartY + 30,
+    y: layoutConfig.contentStartY,
     size: fontConfig.titleSize,
     bold: true,
   });
 
-  let roleY = layoutConfig.contentStartY + 54;
+  let roleY: number = layoutConfig.contentStartY + fontConfig.titleSize * 1.45;
   for (const roleLine of wrapText(leftRole, layoutConfig.leftRoleWidth, fontConfig.titleSize)) {
     lines.push({
       text: roleLine,
@@ -580,7 +653,7 @@ function buildVisualLines(input: {
     roleY += fontConfig.bodyLineHeight * 0.95;
   }
 
-  let y = layoutConfig.contentStartY + 30;
+  let y: number = layoutConfig.contentStartY;
   lines.push({
     text: `Адвокатский запрос от ${titleDate}.`,
     x: bodyX,
@@ -613,35 +686,43 @@ function buildVisualLines(input: {
     {
       label: "Section 1.",
       subtitle: "Резолюция.",
+      intro: buildSection1Intro(input),
       paragraphs: input.payload.section1Items.map((item) => `${item.id}. ${item.text}`),
     },
     {
       label: "Section 2.",
       subtitle: "Срок исполнения, причины отказа.",
+      intro: buildSection2(input.payload),
       paragraphs: [buildSection2(input.payload)],
     },
     {
       label: "Section 3.",
       subtitle: "Ответственность.",
+      intro: input.payload.section3Text,
       paragraphs: [input.payload.section3Text],
     },
     {
       label: "Section 4.",
       subtitle: "Вступление в силу.",
+      intro: buildSection4(),
       paragraphs: [buildSection4()],
     },
   ];
 
   for (const section of sectionBlocks) {
-    y = pushSectionHeading({
+    y = pushInlineSectionParagraph({
       lines,
       label: section.label,
       descriptor: section.subtitle,
+      text: section.intro,
       x: bodyX,
       y,
+      width: bodyWidth,
     });
 
-    for (const paragraph of section.paragraphs) {
+    const paragraphs = section.label === "Section 1." ? section.paragraphs : [];
+
+    for (const paragraph of paragraphs) {
       const numberedItem = /^(\d+)\.\s*(.*)$/.exec(paragraph);
 
       if (numberedItem) {

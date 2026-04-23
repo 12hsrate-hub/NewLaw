@@ -154,8 +154,12 @@ describe("attorney request foundation", () => {
     expect(artifact.previewHtml).toContain("San Andreas Register");
     expect(artifact.previewHtml).toContain("data-visual-reference=\"attorney_request_1703\"");
     expect(artifact.previewHtml).toContain("Lawyer");
+    expect(artifact.previewHtml).toContain("SAR Doc.");
+    expect(artifact.previewHtml).toContain("Игорь АДВОКАТОВ");
+    expect(artifact.previewHtml).toContain("Section 4. ");
+    expect(artifact.previewHtml).toContain("Настоящий запрос вступает в законную силу");
     expect(artifact.previewHtml).toContain("SAN ANDREAS CAPITOL");
-    expect(artifact.previewHtml).toContain("data:image/png;base64,");
+    expect(artifact.previewHtml).toContain("data:image/jpeg;base64,");
     expect(artifact.pdfDataUrl).toMatch(/^data:application\/pdf;base64,/);
     expect(artifact.jpgDataUrl).toMatch(/^data:image\/jpeg;base64,/);
     expect(Buffer.from(artifact.pdfDataUrl.split(",")[1] ?? "", "base64").subarray(0, 5).toString()).toBe("%PDF-");
