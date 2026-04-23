@@ -15,7 +15,8 @@
     "prisma:validate": "prisma validate",
     "prisma:generate": "node ./scripts/prisma-generate-retry.mjs",
     "prisma:generate:raw": "prisma generate",
-    "prisma:seed": "tsx prisma/seed.ts"
+    "prisma:seed": "tsx prisma/seed.ts",
+    "render:attorney-request-sample": "tsx scripts/render-attorney-request-sample.mts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

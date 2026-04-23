@@ -23,11 +23,13 @@ const MAX_BODY_Y = 900;
 const fontConfig = {
   textFamily: "Times New Roman, Liberation Serif, serif",
   monoFamily: "Courier New, Liberation Mono, monospace",
-  bodySize: pt(11.6),
-  bodyLineHeight: pt(15.4),
-  introSize: pt(11.8),
-  introLineHeight: pt(15.8),
-  titleSize: pt(12),
+  bodyRegularSize: pt(10.8),
+  bodyBoldSize: pt(11.1),
+  bodyLineHeight: pt(13.6),
+  sectionHeadingSize: pt(10.9),
+  introSize: pt(11.2),
+  introLineHeight: pt(14.2),
+  titleSize: pt(11.6),
   registerTitleSize: pt(12),
   registerBodySize: pt(11.5),
   stateTitleSize: pt(20),
@@ -37,7 +39,6 @@ const fontConfig = {
   footerCenterDateSize: pt(12),
   footerNameSize: pt(12),
   stampSize: pt(9.6),
-  wrapWidthFactor: 0.56,
 } as const;
 
 const layoutConfig = {
@@ -47,13 +48,13 @@ const layoutConfig = {
     bottom: mm(12),
     left: mm(16),
   },
-  contentRightPadding: mm(22),
   registerWidth: mm(46),
-  leftRoleWidth: mm(30),
-  columnGap: mm(4),
+  leftRoleWidth: mm(23),
+  columnGap: mm(3),
   contentStartY: 202,
   contentDividerY: 212,
-  sectionGap: mm(5.2),
+  bodyRightX: mm(183),
+  sectionGap: mm(4.2),
 } as const;
 
 const headerConfig = {
@@ -86,10 +87,24 @@ const assetConfig = {
   signatureDataUrl: null as string | null,
 } as const;
 
+const visualReferenceConfig = {
+  referenceName: "attorney_request_1703",
+  knownGaps: [
+    "Оригинальный asset подписи отсутствует: используется replace-ready векторная имитация.",
+    "Точный stamp-font эталона неизвестен: используется Courier/Liberation Mono approximation.",
+  ],
+  header: headerConfig,
+  layout: layoutConfig,
+  fonts: fontConfig,
+  footer: footerConfig,
+  assets: assetConfig,
+} as const;
+
 type SvgSegment = {
   text: string;
   bold?: boolean;
   italic?: boolean;
+  dx?: number;
 };
 
 type SvgLine = {
@@ -209,12 +224,29 @@ function buildSection4() {
   return "Настоящий запрос вступает в законную силу с момента его публикации.";
 }
 
-function estimateLineChars(width: number, size = fontConfig.bodySize) {
-  return Math.max(16, Math.floor(width / (size * fontConfig.wrapWidthFactor)));
+function estimateTextWidth(input: string, size: number) {
+  let units = 0;
+
+  for (const char of input) {
+    if (char === " ") {
+      units += 0.32;
+    } else if (/[0-9]/.test(char)) {
+      units += 0.5;
+    } else if (/[A-Za-z]/.test(char)) {
+      units += 0.52;
+    } else if (/[А-Яа-яЁё]/.test(char)) {
+      units += 0.59;
+    } else if (/[.,:;!?()[\]"'/-]/.test(char)) {
+      units += 0.3;
+    } else {
+      units += 0.56;
+    }
+  }
+
+  return units * size;
 }
 
-function wrapText(input: string, width: number, size = fontConfig.bodySize) {
-  const maxChars = estimateLineChars(width, size);
+function wrapText(input: string, width: number, size = fontConfig.bodyRegularSize) {
   const paragraphs = input.split("\n");
   const result: string[] = [];
 
@@ -232,7 +264,7 @@ function wrapText(input: string, width: number, size = fontConfig.bodySize) {
     for (const word of words) {
       const candidate = current ? `${current} ${word}` : word;
 
-      if (candidate.length <= maxChars) {
+      if (estimateTextWidth(candidate, size) <= width) {
         current = candidate;
         continue;
       }
@@ -264,7 +296,7 @@ function pushWrappedLines(input: {
   italic?: boolean;
   family?: string;
 }) {
-  const size = input.size ?? fontConfig.bodySize;
+  const size = input.size ?? fontConfig.bodyRegularSize;
   const lineHeight = input.lineHeight ?? fontConfig.bodyLineHeight;
   let y = input.y;
 
@@ -294,17 +326,18 @@ function pushSectionHeading(input: {
   input.lines.push({
     segments: [
       {
-        text: `${input.label} `,
+        text: input.label,
         bold: true,
       },
       {
         text: input.descriptor,
         italic: true,
+        dx: 3,
       },
     ],
     x: input.x,
     y: input.y,
-    size: fontConfig.bodySize,
+    size: fontConfig.sectionHeadingSize,
   });
 
   return input.y + fontConfig.bodyLineHeight;
@@ -318,7 +351,7 @@ function pushNumberedItem(input: {
   y: number;
   width: number;
 }) {
-  const markerWidth = fontConfig.bodySize * 1.16;
+  const markerWidth = fontConfig.bodyRegularSize * 1.12;
   const contentWidth = input.width - markerWidth;
   const wrapped = wrapText(input.text, contentWidth);
   let y = input.y;
@@ -328,7 +361,7 @@ function pushNumberedItem(input: {
       text: index === 0 ? `${input.marker} ${text}` : text,
       x: index === 0 ? input.x : input.x + markerWidth,
       y,
-      size: fontConfig.bodySize,
+      size: fontConfig.bodyRegularSize,
     });
     y += fontConfig.bodyLineHeight;
   }
@@ -342,12 +375,13 @@ function renderLine(line: SvgLine) {
       ?.map((segment) => {
         const weight = segment.bold ? ' font-weight="700"' : "";
         const style = segment.italic ? ' font-style="italic"' : "";
+        const dx = typeof segment.dx === "number" ? ` dx="${segment.dx}"` : "";
 
-        return `<tspan${weight}${style}>${escapeXml(segment.text)}</tspan>`;
+        return `<tspan${dx}${weight}${style}>${escapeXml(segment.text)}</tspan>`;
       })
       .join("") ?? escapeXml(line.text ?? "");
 
-  return `<text x="${line.x ?? layoutConfig.pagePadding.left}" y="${line.y ?? layoutConfig.pagePadding.top}" font-family="${line.family ?? fontConfig.textFamily}" font-size="${line.size ?? fontConfig.bodySize}"${line.bold ? ' font-weight="700"' : ""}${line.italic ? ' font-style="italic"' : ""}${line.anchor ? ` text-anchor="${line.anchor}"` : ""}>${content}</text>`;
+  return `<text x="${line.x ?? layoutConfig.pagePadding.left}" y="${line.y ?? layoutConfig.pagePadding.top}" font-family="${line.family ?? fontConfig.textFamily}" font-size="${line.size ?? fontConfig.bodyRegularSize}"${line.bold ? ' font-weight="700"' : ""}${line.italic ? ' font-style="italic"' : ""}${line.anchor ? ` text-anchor="${line.anchor}"` : ""} xml:space="preserve">${content}</text>`;
 }
 
 function buildPreviewText(input: {
@@ -495,10 +529,10 @@ function buildVisualLines(input: {
 }) {
   const lines: SvgLine[] = [];
   const bodyX = layoutConfig.pagePadding.left + layoutConfig.leftRoleWidth + layoutConfig.columnGap;
-  const bodyWidth = PAGE_WIDTH - layoutConfig.contentRightPadding - bodyX;
+  const bodyWidth = layoutConfig.bodyRightX - bodyX;
   const signerTitle = input.payload.signerTitleSnapshot;
   const titleDate = formatRegisterDate(input.payload.documentDateMsk);
-  const leftRole = signerTitle?.footerRu ?? input.authorSnapshot.position;
+  const leftRole = signerTitle?.leftColumnEn ?? input.authorSnapshot.position;
   const intro = `Я, действующий ${signerTitle?.bodyRu ?? input.authorSnapshot.position} ${input.authorSnapshot.fullName}, руководствуясь действующей Конституцией Штата Сан-Андреас, а также другими нормативно-правовыми актами Штата Сан-Андреас, заявляю:`;
 
   let registerY: number = headerConfig.registerY;
@@ -636,7 +670,7 @@ function buildVisualLines(input: {
 
   return {
     lines,
-    contentBottomY: Math.max(...lines.map((line) => (line.y ?? 0) + (line.size ?? fontConfig.bodySize) * 0.35)),
+    contentBottomY: Math.max(...lines.map((line) => (line.y ?? 0) + (line.size ?? fontConfig.bodyRegularSize) * 0.35)),
   };
 }
 
@@ -649,7 +683,7 @@ async function buildPageSvg(input: {
   const { lines, contentBottomY } = buildVisualLines(input);
   const pageBackground = `<rect width="100%" height="100%" fill="#ffffff"/>`;
   const contentLine = `<line x1="${layoutConfig.pagePadding.left}" y1="${layoutConfig.contentDividerY}" x2="${PAGE_WIDTH - layoutConfig.pagePadding.right}" y2="${layoutConfig.contentDividerY}" stroke="#111" stroke-width="2"/>`;
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${PAGE_WIDTH}" height="${PAGE_HEIGHT}" viewBox="0 0 ${PAGE_WIDTH} ${PAGE_HEIGHT}">
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${PAGE_WIDTH}" height="${PAGE_HEIGHT}" viewBox="0 0 ${PAGE_WIDTH} ${PAGE_HEIGHT}" data-visual-reference="${visualReferenceConfig.referenceName}">
     ${pageBackground}
     ${buildSealSvg()}
     ${buildHeaderLines()}

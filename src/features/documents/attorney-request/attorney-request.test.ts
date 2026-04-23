@@ -152,6 +152,8 @@ describe("attorney request foundation", () => {
     expect(artifact.previewHtml).toContain("STATE OF SAN ANDREAS");
     expect(artifact.previewHtml).toContain("BAR ASSOCIATION");
     expect(artifact.previewHtml).toContain("San Andreas Register");
+    expect(artifact.previewHtml).toContain("data-visual-reference=\"attorney_request_1703\"");
+    expect(artifact.previewHtml).toContain("Lawyer");
     expect(artifact.previewHtml).toContain("SAN ANDREAS CAPITOL");
     expect(artifact.previewHtml).toContain("data:image/png;base64,");
     expect(artifact.pdfDataUrl).toMatch(/^data:application\/pdf;base64,/);
@@ -164,15 +166,32 @@ describe("attorney request foundation", () => {
 
   it("рендерит типовой длинный запрос в одну страницу после визуального уплотнения", async () => {
     const payload = buildValidPayload();
-    payload.signerTitleSnapshot = resolveAttorneyRequestSignerTitle("Заместитель Главы Коллегии Адвокатов");
+    payload.requestNumberRawInput = "1703";
+    payload.requestNumberNormalized = "BAR-1703";
+    payload.contractNumber = "LS-103";
+    payload.targetOfficerInput = "Pavel Clayton";
+    payload.requestDate = "2025-10-30";
+    payload.timeFrom = "15:50";
+    payload.timeTo = "16:05";
+    payload.crossesMidnight = false;
+    payload.periodStartAt = "2025-10-30T12:50:00.000Z";
+    payload.periodEndAt = "2025-10-30T13:05:00.000Z";
+    payload.documentDateMsk = "31.10.2025";
+    payload.responseDueAtMsk = "2025-11-01T12:00:00.000Z";
+    payload.signerTitleSnapshot = resolveAttorneyRequestSignerTitle("Адвокат");
+    payload.trustorSnapshot = {
+      ...payload.trustorSnapshot,
+      fullName: "Marky Wexusov",
+      icEmail: "12hsrate@sa.com",
+    };
     payload.section1Items = [
       {
         id: "1",
-        text: "Прошу предоставить видеозаписи с записываемого устройства сотрудника Azod Panike за 05.04.2026 19:30 по 20:30 в отношении гражданина Greg Farmond.",
+        text: "Фиксацию процессуальных действий с боди-камеры указанного сотрудника за 30.10.2025 15:50 по 16:05 в отношении гр-на Marky Wexusov.",
       },
       {
         id: "2",
-        text: "В случае, если процессуальные действия проводились вне промежутка времени указанного в текущем документе, предоставить видеозапись всех процессуальных действий в отношении гражданина Greg Farmond за 05.04.2026.",
+        text: "В случае, если процессуальные действия проводились вне промежутка времени указанного в текущем документе, предоставить видеозапись всех процессуальных действий в отношении гр-на Marky Wexusov за 30.10.2025.",
       },
       {
         id: "3",
@@ -180,15 +199,15 @@ describe("attorney request foundation", () => {
       },
     ];
     payload.section3Text =
-      "Адвокатский запрос о предоставлении личных данных направлен Шефу LSPD и его заместителям. Адвокатский запрос о предоставлении видеозаписи направлен Azod Panike.";
+      "Адвокатский запрос о предоставлении личных данных направлен Директору FIB и его заместителям. Адвокатский запрос о предоставлении видеофиксации направлен Pavel Clayton.";
 
     await expect(
       renderAttorneyRequestArtifact({
         title: "Адвокатский запрос",
         authorSnapshot: {
           ...buildAuthorSnapshot(),
-          fullName: "Dom Perignon",
-          position: "Заместитель Главы Коллегии Адвокатов",
+          fullName: "Dom Dubolom",
+          position: "Адвокат",
         },
         payload,
       }),
