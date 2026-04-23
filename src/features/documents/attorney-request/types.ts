@@ -1,5 +1,5 @@
 export const ATTORNEY_REQUEST_FORM_SCHEMA_VERSION = "attorney_request_v1";
-export const ATTORNEY_REQUEST_RENDERER_VERSION = "attorney_request_renderer_v22_times_new_roman_pass";
+export const ATTORNEY_REQUEST_RENDERER_VERSION = "attorney_request_renderer_v24_justified_main_block_pass";
 export const ATTORNEY_REQUEST_OUTPUT_FORMAT = "attorney_request_preview_pdf_png_jpg_v2";
 
 export type AttorneyRequestAddresseePresetKey =

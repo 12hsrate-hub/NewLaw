@@ -38,13 +38,13 @@ const qrConfig = {
 const RASTER_SCALE = rasterConfig.exportScale;
 
 const headerBandConfig = {
-  dividerY: 186,
-  contentStartY: 206,
-  registerToDividerGap: mm(2.35),
+  dividerY: 192,
+  contentStartY: 212,
+  registerToDividerGap: mm(2.95),
 } as const;
 
 const footerBandConfig = {
-  liftY: 16,
+  liftY: 10,
   clearanceTargetGap: mm(7.1),
 } as const;
 
@@ -77,18 +77,18 @@ const layoutConfig = {
     left: mm(16),
   },
   registerWidth: mm(46),
-  leftRoleWidth: mm(18.5),
-  columnGap: mm(0.8),
+  leftRoleWidth: mm(16.6),
+  columnGap: mm(0.6),
   contentStartY: headerBandConfig.contentStartY,
   contentDividerY: headerBandConfig.dividerY,
-  contentLeftX: mm(33.2),
-  contentRightX: PAGE_WIDTH - mm(13),
+  contentLeftX: mm(30.9),
+  contentRightX: PAGE_WIDTH - mm(10.6),
   sectionGap: mm(5.2),
 } as const;
 
 const headerConfig = {
   sealSize: mm(12.8),
-  sealY: mm(3.2),
+  sealY: mm(3.8),
   topLineY: 57,
   secondLineY: 61.5,
   stateTitleY: 84.5,
@@ -112,8 +112,10 @@ const footerConfig = {
 const registerBlockConfig = {
   x: layoutConfig.pagePadding.left,
   width: layoutConfig.registerWidth,
-  titleLineHeight: fontConfig.registerTitleSize * 1.02,
-  bodyLineHeight: fontConfig.registerBodySize * 1.08,
+  titleLineHeight: fontConfig.registerTitleSize * 1.14,
+  titleToBodyGap: pt(2.6),
+  bodyLineHeight: fontConfig.registerBodySize * 1.24,
+  bodyLineGap: pt(1.7),
   registerToDividerGap: headerBandConfig.registerToDividerGap,
 } as const;
 
@@ -121,8 +123,8 @@ const leftRoleBlockConfig = {
   x: layoutConfig.pagePadding.left,
   width: layoutConfig.leftRoleWidth,
   titleY: layoutConfig.contentStartY,
-  roleY: layoutConfig.contentStartY + pt(27.2),
-  roleLineGap: pt(16.7),
+  roleY: layoutConfig.contentStartY + pt(20.8),
+  roleLineGap: pt(13.9),
 } as const;
 
 const titleBlockConfig = {
@@ -146,7 +148,7 @@ const sectionBlockConfig = {
   baseGap: mm(5.6),
   maxExtraGapPerSection: mm(6.5),
   itemMarkerGap: 2.8,
-  itemTextIndent: 15.4,
+  itemTextIndent: 0,
   itemLineHeight: pt(16.85),
 } as const;
 
@@ -198,6 +200,7 @@ type SvgLine = {
   size?: number;
   anchor?: "start" | "middle" | "end";
   family?: string;
+  justifyWidth?: number;
 };
 
 type RenderedBlock = {
@@ -424,6 +427,16 @@ function wrapTextWithFirstWidth(input: string, firstWidth: number, restWidth: nu
   return lines;
 }
 
+function shouldJustifyLine(text: string, width: number, size: number) {
+  const normalized = text.trim();
+
+  if (normalized.length === 0 || !normalized.includes(" ")) {
+    return false;
+  }
+
+  return estimateTextWidth(normalized, size) >= width * 0.64;
+}
+
 function pushWrappedLines(input: {
   lines: SvgLine[];
   text: string;
@@ -435,12 +448,14 @@ function pushWrappedLines(input: {
   bold?: boolean;
   italic?: boolean;
   family?: string;
+  justify?: boolean;
 }) {
   const size = input.size ?? fontConfig.bodyRegularSize;
   const lineHeight = input.lineHeight ?? fontConfig.bodyLineHeight;
+  const wrapped = wrapText(input.text, input.width, size);
   let y = input.y;
 
-  for (const text of wrapText(input.text, input.width, size)) {
+  for (const [index, text] of wrapped.entries()) {
     input.lines.push({
       text,
       x: input.x,
@@ -449,6 +464,10 @@ function pushWrappedLines(input: {
       bold: input.bold,
       italic: input.italic,
       family: input.family,
+      justifyWidth:
+        input.justify && index < wrapped.length - 1 && shouldJustifyLine(text, input.width, size)
+          ? input.width
+          : undefined,
     });
     y += lineHeight;
   }
@@ -506,6 +525,7 @@ function pushInlineSectionParagraph(input: {
   const prefixWidth = estimateTextWidth(`${labelText}${descriptorText} `, size) + 5;
   const wrapped = wrapTextWithFirstWidth(input.text, Math.max(80, input.width - prefixWidth), input.width, size);
   const firstLine = wrapped[0] ?? "";
+  const firstLineText = `${labelText}${descriptorText} ${firstLine}`.trim();
 
   input.lines.push({
     segments: [
@@ -525,16 +545,20 @@ function pushInlineSectionParagraph(input: {
     x: input.x,
     y: input.y,
     size,
+    justifyWidth:
+      wrapped.length > 1 && shouldJustifyLine(firstLineText, input.width, size) ? input.width : undefined,
   });
 
   let y = input.y + fontConfig.bodyLineHeight;
 
-  for (const line of wrapped.slice(1)) {
+  for (const [index, line] of wrapped.slice(1).entries()) {
     input.lines.push({
       text: line,
       x: input.x,
       y,
       size,
+      justifyWidth:
+        index < wrapped.length - 2 && shouldJustifyLine(line, input.width, size) ? input.width : undefined,
     });
     y += fontConfig.bodyLineHeight;
   }
@@ -550,17 +574,16 @@ function pushNumberedItem(input: {
   y: number;
   width: number;
 }) {
-  const markerWidth = sectionBlockConfig.itemTextIndent;
-  const markerAdvance = Math.max(
-    sectionBlockConfig.itemMarkerGap,
-    markerWidth - estimateTextWidth(input.marker, fontConfig.bodyRegularSize),
+  const wrapped = wrapText(
+    `${input.marker} ${input.text}`,
+    input.width,
+    fontConfig.bodyRegularSize,
   );
-  const wrapped = wrapText(input.text, Math.max(80, input.width - markerWidth), fontConfig.bodyRegularSize);
   let y = input.y;
 
   if (wrapped.length === 0) {
     input.lines.push({
-      text: input.marker,
+      text: `${input.marker} ${input.text}`.trim(),
       x: input.x,
       y,
       size: fontConfig.bodyRegularSize,
@@ -569,28 +592,16 @@ function pushNumberedItem(input: {
     return y + sectionBlockConfig.itemLineHeight;
   }
 
-  input.lines.push({
-    segments: [
-      {
-        text: input.marker,
-      },
-      {
-        text: wrapped[0] ?? "",
-        dx: markerAdvance,
-      },
-    ],
-    x: input.x,
-    y,
-    size: fontConfig.bodyRegularSize,
-  });
-  y += sectionBlockConfig.itemLineHeight;
-
-  for (const line of wrapped.slice(1)) {
+  for (const [index, line] of wrapped.entries()) {
     input.lines.push({
       text: line,
-      x: input.x + markerWidth,
+      x: input.x,
       y,
       size: fontConfig.bodyRegularSize,
+      justifyWidth:
+        index < wrapped.length - 1 && shouldJustifyLine(line, input.width, fontConfig.bodyRegularSize)
+          ? input.width
+          : undefined,
     });
     y += sectionBlockConfig.itemLineHeight;
   }
@@ -610,7 +621,7 @@ function renderLine(line: SvgLine) {
       })
       .join("") ?? escapeXml(line.text ?? "");
 
-  return `<text x="${line.x ?? layoutConfig.pagePadding.left}" y="${line.y ?? layoutConfig.pagePadding.top}" font-family="${line.family ?? fontConfig.textFamily}" font-size="${line.size ?? fontConfig.bodyRegularSize}"${line.bold ? ' font-weight="700"' : ""}${line.italic ? ' font-style="italic"' : ""}${line.anchor ? ` text-anchor="${line.anchor}"` : ""} xml:space="preserve">${content}</text>`;
+  return `<text x="${line.x ?? layoutConfig.pagePadding.left}" y="${line.y ?? layoutConfig.pagePadding.top}" font-family="${line.family ?? fontConfig.textFamily}" font-size="${line.size ?? fontConfig.bodyRegularSize}"${line.bold ? ' font-weight="700"' : ""}${line.italic ? ' font-style="italic"' : ""}${line.anchor ? ` text-anchor="${line.anchor}"` : ""}${typeof line.justifyWidth === "number" ? ` textLength="${line.justifyWidth}" lengthAdjust="spacing"` : ""} xml:space="preserve">${content}</text>`;
 }
 
 function buildPreviewText(input: {
@@ -760,13 +771,14 @@ function buildRegisterBlock(input: {
     lineHeight: registerBlockConfig.titleLineHeight,
     bold: true,
   });
+  y += registerBlockConfig.titleToBodyGap;
   lines.push({
     text: `No. ${input.requestNumberNormalized}`,
     x: registerBlockConfig.x,
     y,
     size: fontConfig.registerBodySize,
   });
-  y += registerBlockConfig.bodyLineHeight;
+  y += registerBlockConfig.bodyLineHeight + registerBlockConfig.bodyLineGap;
   lines.push({
     text: input.titleDate,
     x: registerBlockConfig.x,
@@ -844,6 +856,7 @@ function buildIntroBlock(input: {
     size: fontConfig.introSize,
     lineHeight: introBlockConfig.lineHeight,
     bold: true,
+    justify: true,
   });
 
   return finalizeBlock(lines, input.topY);
