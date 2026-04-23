@@ -88,7 +88,7 @@ describe("document.repository", () => {
         generatedArtifactJson: {
           family: "attorney_request",
           format: "attorney_request_preview_pdf_jpg_v1",
-          rendererVersion: "attorney_request_renderer_v10_reference_spacing",
+          rendererVersion: "attorney_request_renderer_v11_generated_reference_pass",
           previewHtml: "<main>preview</main>",
           previewText: "new preview",
           pdfDataUrl: "data:application/pdf;base64,JVBERi0=",
@@ -100,7 +100,7 @@ describe("document.repository", () => {
         generatedAt: new Date("2026-04-23T12:00:00.000Z"),
         generatedFormSchemaVersion: "attorney_request_v1",
         generatedOutputFormat: "attorney_request_preview_pdf_jpg_v1",
-        generatedRendererVersion: "attorney_request_renderer_v10_reference_spacing",
+        generatedRendererVersion: "attorney_request_renderer_v11_generated_reference_pass",
       },
       db as never,
     );

@@ -19,27 +19,35 @@ const pt = (value: number) => value;
 const PAGE_WIDTH = Math.round(210 * PX_PER_MM);
 const PAGE_HEIGHT = Math.round(297 * PX_PER_MM);
 const MAX_BODY_Y = 900;
-const RASTER_SCALE = 2;
+
+const rasterConfig = {
+  exportScale: 2,
+  jpegQuality: 98,
+  chromaSubsampling: "4:4:4" as const,
+  qrSourceScale: 4,
+} as const;
+
+const RASTER_SCALE = rasterConfig.exportScale;
 
 const fontConfig = {
   textFamily: "Times New Roman, Liberation Serif, serif",
   monoFamily: "Courier New, Liberation Mono, monospace",
-  bodyRegularSize: pt(12.4),
-  bodyBoldSize: pt(12.8),
-  bodyLineHeight: pt(16.2),
-  sectionHeadingSize: pt(12.4),
-  introSize: pt(13),
-  introLineHeight: pt(17.8),
-  titleSize: pt(14.2),
-  registerTitleSize: pt(13.6),
-  registerBodySize: pt(13.1),
-  stateTitleSize: pt(22),
-  associationTitleSize: pt(16.5),
-  footerRoleSize: pt(14.2),
-  footerCenterTitleSize: pt(14.2),
-  footerCenterDateSize: pt(12.8),
-  footerNameSize: pt(17),
-  stampSize: pt(14.2),
+  bodyRegularSize: pt(12.1),
+  bodyBoldSize: pt(12.35),
+  bodyLineHeight: pt(16.6),
+  sectionHeadingSize: pt(12.1),
+  introSize: pt(12.35),
+  introLineHeight: pt(17),
+  titleSize: pt(12.8),
+  registerTitleSize: pt(12.4),
+  registerBodySize: pt(11.8),
+  stateTitleSize: pt(21),
+  associationTitleSize: pt(15),
+  footerRoleSize: pt(12),
+  footerCenterTitleSize: pt(13),
+  footerCenterDateSize: pt(12),
+  footerNameSize: pt(12.8),
+  stampSize: pt(11),
 } as const;
 
 const layoutConfig = {
@@ -50,35 +58,40 @@ const layoutConfig = {
     left: mm(16),
   },
   registerWidth: mm(46),
-  leftRoleWidth: mm(28),
-  columnGap: mm(3.5),
-  contentStartY: 214,
-  contentDividerY: 190,
-  bodyRightX: PAGE_WIDTH - mm(27),
-  sectionGap: mm(5.2),
+  leftRoleWidth: mm(30),
+  columnGap: mm(4),
+  contentStartY: 198,
+  contentDividerY: 178,
+  bodyRightX: PAGE_WIDTH - mm(29),
+  sectionGap: mm(7),
 } as const;
 
 const headerConfig = {
-  sealSize: mm(14),
-  sealY: mm(4.4),
-  topLineY: 60,
-  secondLineY: 65,
-  stateTitleY: 88,
-  associationTitleY: 112,
-  registerY: 143,
+  sealSize: mm(12),
+  sealY: mm(5.2),
+  topLineY: 57,
+  secondLineY: 61.5,
+  stateTitleY: 84.5,
+  associationTitleY: 107.5,
+  registerY: 133,
 } as const;
 
 const footerConfig = {
-  topY: 928,
-  signatureY: 830,
+  topY: 914,
+  signatureY: 814,
   signatureWidth: mm(35),
-  signatureHeight: mm(36),
-  stampY: 1002,
-  stampLineHeight: pt(14.2) * 1.48,
-  centerTitleY: 1018,
-  centerDateY: 1042,
-  qrY: 1002,
+  signatureHeight: mm(38),
+  centerTopY: 996,
+  centerTitleY: 1008,
+  centerDateY: 1029,
+  qrY: 996,
   qrSize: mm(20),
+} as const;
+
+const stampConfig = {
+  topY: 996,
+  lineHeight: 13.1,
+  letterSpacing: 0.55,
 } as const;
 
 const assetConfig = {
@@ -94,13 +107,15 @@ const visualReferenceConfig = {
   knownGaps: [
     "Оригинальный asset подписи отсутствует: используется replace-ready векторная имитация.",
     "Точный stamp-font эталона неизвестен: используется Courier/Liberation Mono approximation.",
-    "Raster export renders at 2x scale to reduce JPG/PDF blur while keeping the same A4 layout contract.",
+    "Raster export keeps a generated-output-first calibration and uses a higher-quality JPEG pipeline within the current A4 contract.",
   ],
   header: headerConfig,
   layout: layoutConfig,
   fonts: fontConfig,
   footer: footerConfig,
+  stamp: stampConfig,
   assets: assetConfig,
+  raster: rasterConfig,
 } as const;
 
 type SvgSegment = {
@@ -252,17 +267,17 @@ function estimateTextWidth(input: string, size: number) {
 
   for (const char of input) {
     if (char === " ") {
-      units += 0.32;
+      units += 0.34;
     } else if (/[0-9]/.test(char)) {
-      units += 0.5;
+      units += 0.52;
     } else if (/[A-Za-z]/.test(char)) {
-      units += 0.53;
-    } else if (/[А-Яа-яЁё]/.test(char)) {
-      units += 0.58;
-    } else if (/[.,:;!?()[\]"'/-]/.test(char)) {
-      units += 0.31;
-    } else {
       units += 0.56;
+    } else if (/[А-Яа-яЁё]/.test(char)) {
+      units += 0.615;
+    } else if (/[.,:;!?()[\]"'/-]/.test(char)) {
+      units += 0.34;
+    } else {
+      units += 0.59;
     }
   }
 
@@ -430,13 +445,37 @@ function pushNumberedItem(input: {
   y: number;
   width: number;
 }) {
-  const wrapped = wrapText(`${input.marker} ${input.text}`, input.width);
-  let y = input.y;
+  const markerText = `${input.marker} `;
+  const markerWidth = estimateTextWidth(markerText, fontConfig.bodyRegularSize) + 6;
+  const wrapped = wrapTextWithFirstWidth(
+    input.text,
+    Math.max(60, input.width - markerWidth),
+    Math.max(60, input.width - markerWidth),
+    fontConfig.bodyRegularSize,
+  );
+  const [firstLine = "", ...restLines] = wrapped;
 
-  for (const text of wrapped) {
+  input.lines.push({
+    segments: [
+      {
+        text: markerText,
+      },
+      {
+        text: firstLine,
+        dx: 4,
+      },
+    ],
+    x: input.x,
+    y: input.y,
+    size: fontConfig.bodyRegularSize,
+  });
+
+  let y = input.y + fontConfig.bodyLineHeight;
+
+  for (const line of restLines) {
     input.lines.push({
-      text,
-      x: input.x,
+      text: line,
+      x: input.x + markerWidth,
       y,
       size: fontConfig.bodyRegularSize,
     });
@@ -508,7 +547,7 @@ async function buildQrDataUrl(input: {
   return QRCode.toDataURL(qrPayload, {
     errorCorrectionLevel: "M",
     margin: 0,
-    width: Math.round(footerConfig.qrSize * 2),
+    width: Math.round(footerConfig.qrSize * rasterConfig.qrSourceScale),
   });
 }
 
@@ -573,7 +612,7 @@ function buildFooter(input: {
   const stampYear = parsedDate?.year ?? new Date().getFullYear();
   const footerTopY = footerConfig.topY;
   const footerRoleSize = fontConfig.footerRoleSize;
-  const footerLineHeight = footerRoleSize * 1.25;
+  const footerLineHeight = footerRoleSize * 1.22;
   const leftRoleLines = wrapText(signerTitle?.footerRu ?? input.authorSnapshot.position, layoutConfig.leftRoleWidth, footerRoleSize)
     .map((line, index) => `<text x="${layoutConfig.pagePadding.left}" y="${footerTopY + index * footerLineHeight}" font-family="${fontConfig.textFamily}" font-size="${footerRoleSize}">${escapeXml(line)}</text>`)
     .join("");
@@ -590,7 +629,7 @@ function buildFooter(input: {
     ${stampLines
       .map(
         (line, index) =>
-          `<text x="${layoutConfig.pagePadding.left}" y="${footerConfig.stampY + index * footerConfig.stampLineHeight}" font-family="${fontConfig.monoFamily}" font-size="${fontConfig.stampSize}" font-weight="700" letter-spacing="1.1">${escapeXml(line)}</text>`,
+          `<text x="${layoutConfig.pagePadding.left}" y="${stampConfig.topY + fontConfig.stampSize + index * stampConfig.lineHeight}" font-family="${fontConfig.monoFamily}" font-size="${fontConfig.stampSize}" font-weight="700" letter-spacing="${stampConfig.letterSpacing}" xml:space="preserve">${escapeXml(line)}</text>`,
       )
       .join("")}
     <text x="${PAGE_WIDTH / 2}" y="${footerConfig.centerTitleY}" font-family="${fontConfig.textFamily}" font-size="${fontConfig.footerCenterTitleSize}" text-anchor="middle">SAN ANDREAS CAPITOL</text>
@@ -644,7 +683,7 @@ function buildVisualLines(input: {
     bold: true,
   });
 
-  let roleY: number = layoutConfig.contentStartY + fontConfig.titleSize * 1.45;
+  let roleY: number = layoutConfig.contentStartY + fontConfig.titleSize * 1.35;
   for (const roleLine of wrapText(leftRole, layoutConfig.leftRoleWidth, fontConfig.titleSize)) {
     lines.push({
       text: roleLine,
@@ -653,7 +692,7 @@ function buildVisualLines(input: {
       size: fontConfig.titleSize,
       bold: true,
     });
-    roleY += fontConfig.bodyLineHeight * 0.95;
+    roleY += fontConfig.bodyLineHeight * 0.88;
   }
 
   let y: number = layoutConfig.contentStartY;
@@ -664,7 +703,7 @@ function buildVisualLines(input: {
     size: fontConfig.titleSize,
     bold: true,
   });
-  y += fontConfig.bodyLineHeight * 0.94;
+  y += fontConfig.bodyLineHeight * 0.82;
   lines.push({
     text: "О предоставлении запрашиваемой информации",
     x: bodyX,
@@ -672,7 +711,7 @@ function buildVisualLines(input: {
     size: fontConfig.titleSize,
     bold: true,
   });
-  y += fontConfig.bodyLineHeight * 1.22;
+  y += fontConfig.bodyLineHeight * 1.06;
   y = pushWrappedLines({
     lines,
     text: intro,
@@ -683,7 +722,7 @@ function buildVisualLines(input: {
     lineHeight: fontConfig.introLineHeight,
     bold: true,
   });
-  y += mm(2);
+  y += mm(1.5);
 
   const sectionBlocks = [
     {
@@ -864,8 +903,8 @@ function buildRasterSvg(pageSvg: string) {
 async function buildPdfAndJpgDataUrls(pageSvg: string) {
   const jpg = await sharp(Buffer.from(buildRasterSvg(pageSvg)))
     .jpeg({
-      quality: 98,
-      chromaSubsampling: "4:4:4",
+      quality: rasterConfig.jpegQuality,
+      chromaSubsampling: rasterConfig.chromaSubsampling,
       mozjpeg: true,
     })
     .toBuffer();
