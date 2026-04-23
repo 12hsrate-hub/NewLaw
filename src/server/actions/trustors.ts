@@ -38,6 +38,8 @@ function readTrustorFormFields(formData: FormData) {
     fullName: String(formData.get("fullName") ?? ""),
     passportNumber: String(formData.get("passportNumber") ?? ""),
     phone: String(formData.get("phone") ?? ""),
+    icEmail: String(formData.get("icEmail") ?? ""),
+    passportImageUrl: String(formData.get("passportImageUrl") ?? ""),
     note: String(formData.get("note") ?? ""),
   };
 }
@@ -64,6 +66,8 @@ export async function createTrustorAction(formData: FormData) {
       fullName: trustorFormFields.fullName,
       passportNumber: trustorFormFields.passportNumber,
       phone: trustorFormFields.phone,
+      icEmail: trustorFormFields.icEmail,
+      passportImageUrl: trustorFormFields.passportImageUrl,
       note: trustorFormFields.note,
     });
 
@@ -96,6 +100,8 @@ export async function updateTrustorAction(formData: FormData) {
       fullName: trustorFormFields.fullName,
       passportNumber: trustorFormFields.passportNumber,
       phone: trustorFormFields.phone,
+      icEmail: trustorFormFields.icEmail,
+      passportImageUrl: trustorFormFields.passportImageUrl,
       note: trustorFormFields.note,
     });
 

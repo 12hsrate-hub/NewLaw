@@ -20,6 +20,10 @@ describe("character form card", () => {
           isProfileComplete: true,
           nickname: "alice.stone",
           passportNumber: "A-001",
+          position: "Адвокат",
+          phone: "123-45-67",
+          icEmail: "alice.stone@example.com",
+          passportImageUrl: "https://example.com/passport.png",
           profileNote: "Профиль для account zone",
           profileSignature: "А. Стоун",
           roleKeys: ["lawyer"],
@@ -38,7 +42,10 @@ describe("character form card", () => {
     expect(html).toContain('name="nickname"');
     expect(html).toContain('value="alice.stone"');
     expect(html).toContain('name="profileSignature"');
-    expect(html).toContain("Профиль персонажа заполнен");
+    expect(html).toContain("Ready state считается автоматически");
+    expect(html).toContain('value="Адвокат"');
+    expect(html).toContain('value="123-45-67"');
+    expect(html).toContain('value="alice.stone@example.com"');
     expect(html).toMatch(/name="roleKeys" checked="" value="lawyer"/);
     expect(html).toMatch(/name="accessFlags" checked="" value="advocate"/);
     expect(html).toMatch(/name="accessFlags" checked="" value="tester"/);

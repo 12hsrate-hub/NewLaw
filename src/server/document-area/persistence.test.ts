@@ -52,6 +52,12 @@ describe("document persistence foundation", () => {
           nickname: "Игорь Юристов",
           passportNumber: "AA-001",
           isProfileComplete: true,
+          profileDataJson: {
+            position: "Адвокат",
+            phone: "123-45-67",
+            icEmail: "lawyer@example.com",
+            passportImageUrl: "https://example.com/lawyer-passport.png",
+          },
           roles: [{ roleKey: "lawyer" }],
           accessFlags: [{ flagKey: "advocate" }],
         }),
@@ -80,7 +86,11 @@ describe("document persistence foundation", () => {
           serverName: "Blackberry",
           fullName: "Игорь Юристов",
           nickname: "Игорь Юристов",
-          passportNumber: "AA-001",
+          passportNumber: "001",
+          position: "Адвокат",
+          phone: "123-45-67",
+          icEmail: "lawyer@example.com",
+          passportImageUrl: "https://example.com/lawyer-passport.png",
           isProfileComplete: true,
           roleKeys: ["lawyer"],
           accessFlags: ["advocate"],
@@ -159,6 +169,12 @@ describe("document persistence foundation", () => {
           nickname: "Игорь Юристов",
           passportNumber: "AA-001",
           isProfileComplete: true,
+          profileDataJson: {
+            position: "Адвокат",
+            phone: "123-45-67",
+            icEmail: "lawyer@example.com",
+            passportImageUrl: "https://example.com/lawyer-passport.png",
+          },
           roles: [{ roleKey: "lawyer" }],
           accessFlags: [{ flagKey: "advocate" }],
         }),
@@ -177,7 +193,10 @@ describe("document persistence foundation", () => {
           filingMode: "representative",
           trustorSnapshot: expect.objectContaining({
             fullName: "Пётр Доверитель",
-            passportNumber: "TR-001",
+            passportNumber: "001",
+            phone: "",
+            icEmail: "",
+            passportImageUrl: "",
           }),
           evidenceGroups: [
             expect.objectContaining({
@@ -597,6 +616,12 @@ describe("document persistence foundation", () => {
           nickname: "Игорь Юристов",
           passportNumber: "AA-001",
           isProfileComplete: true,
+          profileDataJson: {
+            position: "Адвокат",
+            phone: "123-45-67",
+            icEmail: "lawyer@example.com",
+            passportImageUrl: "https://example.com/lawyer-passport.png",
+          },
           roles: [{ roleKey: "lawyer" }],
           accessFlags: [{ flagKey: "advocate" }],
         }),
@@ -618,7 +643,11 @@ describe("document persistence foundation", () => {
         authorSnapshotJson: expect.objectContaining({
           serverId: "server-1",
           characterId: "character-1",
-          passportNumber: "AA-001",
+          passportNumber: "001",
+          position: "Адвокат",
+          phone: "123-45-67",
+          icEmail: "lawyer@example.com",
+          passportImageUrl: "https://example.com/lawyer-passport.png",
         }),
         formPayloadJson: {
           filingMode: "self",
@@ -745,6 +774,9 @@ describe("document persistence foundation", () => {
             sourceType: "inline_manual",
             fullName: "Пётр Доверитель",
             passportNumber: "TR-001",
+            phone: "2345678",
+            icEmail: "trustor@example.com",
+            passportImageUrl: "https://example.com/trustor-passport.png",
             note: "Действую по доверенности",
           },
           evidenceGroups: [
@@ -801,6 +833,9 @@ describe("document persistence foundation", () => {
           trustorSnapshot: expect.objectContaining({
             fullName: "Пётр Доверитель",
             passportNumber: "TR-001",
+            phone: "2345678",
+            icEmail: "trustor@example.com",
+            passportImageUrl: "https://example.com/trustor-passport.png",
           }),
           evidenceGroups: [
             expect.objectContaining({

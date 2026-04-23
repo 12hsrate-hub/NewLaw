@@ -1,22 +1,35 @@
 import type { OgpComplaintTrustorSnapshot } from "@/schemas/document";
+import {
+  normalizeIcEmail,
+  normalizePassportNumber,
+  normalizePhone,
+  normalizeSafeUrl,
+} from "@/lib/ogp/generation-contract";
 
 export type TrustorRegistryPrefillOption = {
   id: string;
   fullName: string;
   passportNumber: string;
   phone: string | null;
+  icEmail?: string | null;
+  passportImageUrl?: string | null;
   note: string | null;
   isRepresentativeReady: boolean;
 };
 
 export function applyTrustorRegistryPrefill(
   trustor: TrustorRegistryPrefillOption,
-  currentSnapshot?: OgpComplaintTrustorSnapshot | null,
+  _currentSnapshot?: OgpComplaintTrustorSnapshot | null,
 ): OgpComplaintTrustorSnapshot {
+  void _currentSnapshot;
+
   return {
-    sourceType: currentSnapshot?.sourceType ?? "inline_manual",
+    sourceType: "registry_prefill",
     fullName: trustor.fullName,
-    passportNumber: trustor.passportNumber,
+    passportNumber: normalizePassportNumber(trustor.passportNumber),
+    phone: normalizePhone(trustor.phone ?? ""),
+    icEmail: normalizeIcEmail(trustor.icEmail ?? ""),
+    passportImageUrl: normalizeSafeUrl(trustor.passportImageUrl ?? ""),
     note: trustor.note ?? "",
   };
 }

@@ -26,7 +26,10 @@ export const characterFormSchema = z.object({
 });
 
 export const characterProfileFormSchema = z.object({
-  isProfileComplete: z.boolean().default(false),
+  position: z.string().trim().max(160).default(""),
+  phone: z.string().trim().max(64).default(""),
+  icEmail: z.string().trim().max(320).default(""),
+  passportImageUrl: z.string().trim().max(2_048).default(""),
   profileSignature: z.string().trim().max(160).default(""),
   profileNote: z.string().trim().max(500).default(""),
 });

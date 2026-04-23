@@ -6,6 +6,8 @@ const trustorFormFieldsSchema = z.object({
   fullName: z.string().trim().max(120).default(""),
   passportNumber: z.string().trim().max(64).default(""),
   phone: z.string().trim().max(64).default(""),
+  icEmail: z.string().trim().max(320).default(""),
+  passportImageUrl: z.string().trim().max(2_048).default(""),
   note: z.string().trim().max(500).default(""),
 });
 
@@ -19,12 +21,16 @@ function withTrustorCardValidation<TSchema extends z.ZodTypeAny>(schema: TSchema
       fullName?: string;
       passportNumber?: string;
       phone?: string;
+      icEmail?: string;
+      passportImageUrl?: string;
       note?: string;
     };
     const hasAnyValue = [
       trustorValue.fullName ?? "",
       trustorValue.passportNumber ?? "",
       trustorValue.phone ?? "",
+      trustorValue.icEmail ?? "",
+      trustorValue.passportImageUrl ?? "",
       trustorValue.note ?? "",
     ].some(
       (field) => field.trim().length > 0,

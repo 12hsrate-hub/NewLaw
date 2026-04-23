@@ -83,6 +83,8 @@ describe("trustor actions", () => {
       fullName: "Иван Доверителев",
       passportNumber: "AA-001",
       phone: "+7 900 000-00-00",
+      icEmail: "",
+      passportImageUrl: "",
       note: "Проверенный представитель",
     });
     expect(revalidatePathMock).toHaveBeenCalledWith("/account/trustors?server=blackberry");
@@ -114,6 +116,8 @@ describe("trustor actions", () => {
       fullName: "Пётр Представителев",
       passportNumber: "BB-002",
       phone: "",
+      icEmail: "",
+      passportImageUrl: "",
       note: "Обновлённая карточка",
     });
   });
@@ -186,6 +190,8 @@ describe("trustor actions", () => {
       fullName: "   ",
       passportNumber: "   ",
       phone: "   ",
+      icEmail: "",
+      passportImageUrl: "",
       note: "   ",
     });
   });

@@ -5,6 +5,10 @@ import { redirect } from "next/navigation";
 import { isRedirectError } from "next/dist/client/components/redirect-error";
 
 import {
+  buildCharacterProfileDataJson,
+  isOgpCharacterProfileComplete,
+} from "@/lib/ogp/generation-contract";
+import {
   type CharacterAccessFlagKey,
   characterAccessFlagKeySchema,
   characterAccessFlagSelectionSchema,
@@ -82,24 +86,13 @@ function readAccessFlags(formData: FormData): CharacterAccessFlagKey[] {
 
 function readProfileDetails(formData: FormData) {
   return characterProfileFormSchema.parse({
-    isProfileComplete: formData.get("isProfileComplete") === "on",
+    position: String(formData.get("position") ?? ""),
+    phone: String(formData.get("phone") ?? ""),
+    icEmail: String(formData.get("icEmail") ?? ""),
+    passportImageUrl: String(formData.get("passportImageUrl") ?? ""),
     profileSignature: String(formData.get("profileSignature") ?? ""),
     profileNote: String(formData.get("profileNote") ?? ""),
   });
-}
-
-function buildProfileDataJson(input: {
-  profileSignature: string;
-  profileNote: string;
-}) {
-  const profileDataJson = {
-    signature: input.profileSignature.trim(),
-    note: input.profileNote.trim(),
-  };
-
-  return Object.values(profileDataJson).some((value) => value.length > 0)
-    ? profileDataJson
-    : null;
 }
 
 function readSelectionBehavior(formData: FormData): CharacterSelectionBehavior {
@@ -154,6 +147,14 @@ export async function createCharacterAction(formData: FormData) {
     const characterFormFields = readCharacterFormFields(formData);
     const profileDetails = readProfileDetails(formData);
     const selectionBehavior = readSelectionBehavior(formData);
+    const profileDataJson = buildCharacterProfileDataJson({
+      position: profileDetails.position,
+      phone: profileDetails.phone,
+      icEmail: profileDetails.icEmail,
+      passportImageUrl: profileDetails.passportImageUrl,
+      signature: profileDetails.profileSignature,
+      note: profileDetails.profileNote,
+    });
     const createdCharacter = await createCharacterManually({
       accountId: account.id,
       serverId,
@@ -162,8 +163,12 @@ export async function createCharacterAction(formData: FormData) {
       passportNumber: characterFormFields.passportNumber,
       roleKeys: readRoleKeys(formData),
       accessFlags: readAccessFlags(formData),
-      isProfileComplete: profileDetails.isProfileComplete,
-      profileDataJson: buildProfileDataJson(profileDetails),
+      isProfileComplete: isOgpCharacterProfileComplete({
+        fullName: characterFormFields.fullName,
+        passportNumber: characterFormFields.passportNumber,
+        profileDataJson,
+      }),
+      profileDataJson,
     });
 
     await handlePostCreateSelection({
@@ -201,6 +206,14 @@ export async function updateCharacterAction(formData: FormData) {
     const characterId = String(formData.get("characterId") ?? "");
     const characterFormFields = readCharacterFormFields(formData);
     const profileDetails = readProfileDetails(formData);
+    const profileDataJson = buildCharacterProfileDataJson({
+      position: profileDetails.position,
+      phone: profileDetails.phone,
+      icEmail: profileDetails.icEmail,
+      passportImageUrl: profileDetails.passportImageUrl,
+      signature: profileDetails.profileSignature,
+      note: profileDetails.profileNote,
+    });
 
     await updateCharacterManually({
       accountId: account.id,
@@ -211,8 +224,12 @@ export async function updateCharacterAction(formData: FormData) {
       passportNumber: characterFormFields.passportNumber,
       roleKeys: readRoleKeys(formData),
       accessFlags: readAccessFlags(formData),
-      isProfileComplete: profileDetails.isProfileComplete,
-      profileDataJson: buildProfileDataJson(profileDetails),
+      isProfileComplete: isOgpCharacterProfileComplete({
+        fullName: characterFormFields.fullName,
+        passportNumber: characterFormFields.passportNumber,
+        profileDataJson,
+      }),
+      profileDataJson,
     });
 
     revalidateCharacterRoutes(redirectTo);

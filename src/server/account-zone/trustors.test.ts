@@ -49,8 +49,10 @@ describe("account-zone trustors", () => {
         accountId: "account-1",
         serverId: "server-1",
         fullName: "Иван Доверителев",
-        passportNumber: "AA-001",
-        phone: "+7 900 000-00-00",
+        passportNumber: "001",
+        phone: "123-45-67",
+        icEmail: "trustor@example.com",
+        passportImageUrl: "https://example.com/trustor-passport.png",
         note: "Проверенный представитель",
       },
       {
@@ -60,6 +62,8 @@ describe("account-zone trustors", () => {
         fullName: "   ",
         passportNumber: "   ",
         phone: null,
+        icEmail: null,
+        passportImageUrl: null,
         note: null,
       },
     ] as never);

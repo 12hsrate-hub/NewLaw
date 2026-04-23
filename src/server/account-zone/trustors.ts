@@ -1,5 +1,6 @@
 import { listTrustorsForAccount } from "@/db/repositories/trustor.repository";
 import { getServers } from "@/db/repositories/server.repository";
+import { isOgpTrustorRepresentativeReady } from "@/lib/ogp/generation-contract";
 import {
   buildAccountTrustorsCreateHref,
   buildAccountTrustorsFocusHref,
@@ -17,6 +18,8 @@ export type AccountTrustorSummary = {
   fullName: string;
   passportNumber: string;
   phone: string | null;
+  icEmail?: string | null;
+  passportImageUrl?: string | null;
   note: string | null;
   isRepresentativeReady: boolean;
 };
@@ -55,10 +58,6 @@ function buildViewerSummary(input: {
   };
 }
 
-function isRepresentativeReady(input: { fullName: string; passportNumber: string }) {
-  return input.fullName.trim().length > 0 && input.passportNumber.trim().length > 0;
-}
-
 export async function getAccountTrustorsOverviewContext(input: {
   nextPath: string;
   focusedServerCode?: string | null;
@@ -91,10 +90,15 @@ export async function getAccountTrustorsOverviewContext(input: {
         fullName: trustor.fullName,
         passportNumber: trustor.passportNumber,
         phone: trustor.phone,
+        icEmail: trustor.icEmail,
+        passportImageUrl: trustor.passportImageUrl,
         note: trustor.note,
-        isRepresentativeReady: isRepresentativeReady({
+        isRepresentativeReady: isOgpTrustorRepresentativeReady({
           fullName: trustor.fullName,
           passportNumber: trustor.passportNumber,
+          phone: trustor.phone,
+          icEmail: trustor.icEmail,
+          passportImageUrl: trustor.passportImageUrl,
         }),
       })),
     } satisfies AccountTrustorsServerGroup;

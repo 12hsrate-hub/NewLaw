@@ -58,6 +58,8 @@ export async function createTrustorRecord(
     fullName: string;
     passportNumber: string;
     phone: string | null;
+    icEmail: string | null;
+    passportImageUrl: string | null;
     note: string | null;
   },
   db: PrismaLike = prisma,
@@ -69,6 +71,8 @@ export async function createTrustorRecord(
       fullName: input.fullName,
       passportNumber: input.passportNumber,
       phone: input.phone,
+      icEmail: input.icEmail,
+      passportImageUrl: input.passportImageUrl,
       note: input.note,
     },
   });
@@ -80,6 +84,8 @@ export async function updateTrustorRecord(
     fullName: string;
     passportNumber: string;
     phone: string | null;
+    icEmail: string | null;
+    passportImageUrl: string | null;
     note: string | null;
   },
   db: PrismaLike = prisma,
@@ -92,6 +98,8 @@ export async function updateTrustorRecord(
       fullName: input.fullName,
       passportNumber: input.passportNumber,
       phone: input.phone,
+      icEmail: input.icEmail,
+      passportImageUrl: input.passportImageUrl,
       note: input.note,
     },
   });

@@ -10,6 +10,8 @@ describe("trustor registry prefill", () => {
         fullName: "Иван Доверителев",
         passportNumber: "AA-001",
         phone: "+7 900 000-00-00",
+        icEmail: "trustor@example.com",
+        passportImageUrl: "https://example.com/passport.png",
         note: "Проверенный представитель",
         isRepresentativeReady: true,
       },
@@ -17,14 +19,20 @@ describe("trustor registry prefill", () => {
         sourceType: "inline_manual",
         fullName: "Старое имя",
         passportNumber: "OLD-1",
+        phone: "",
+        icEmail: "",
+        passportImageUrl: "",
         note: "Старая заметка",
       },
     );
 
     expect(result).toEqual({
-      sourceType: "inline_manual",
+      sourceType: "registry_prefill",
       fullName: "Иван Доверителев",
-      passportNumber: "AA-001",
+      passportNumber: "001",
+      phone: "+7 900 000-00-00",
+      icEmail: "trustor@example.com",
+      passportImageUrl: "https://example.com/passport.png",
       note: "Проверенный представитель",
     });
   });

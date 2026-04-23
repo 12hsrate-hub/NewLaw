@@ -151,6 +151,32 @@ function CharacterGroup(props: { group: AccountCharactersServerGroup }) {
                     </span>
                   </p>
                 ) : null}
+                {character.position ? (
+                  <p>
+                    Должность:{" "}
+                    <span className="font-medium text-[var(--foreground)]">{character.position}</span>
+                  </p>
+                ) : null}
+                {character.phone ? (
+                  <p>
+                    Телефон:{" "}
+                    <span className="font-medium text-[var(--foreground)]">{character.phone}</span>
+                  </p>
+                ) : null}
+                {character.icEmail ? (
+                  <p>
+                    IC email:{" "}
+                    <span className="font-medium text-[var(--foreground)]">{character.icEmail}</span>
+                  </p>
+                ) : null}
+                {character.passportImageUrl ? (
+                  <p>
+                    Скрин паспорта:{" "}
+                    <span className="font-medium text-[var(--foreground)]">
+                      {character.passportImageUrl}
+                    </span>
+                  </p>
+                ) : null}
                 {character.profileNote ? (
                   <p>
                     Profile note:{" "}
@@ -174,6 +200,10 @@ function CharacterGroup(props: { group: AccountCharactersServerGroup }) {
                       isProfileComplete: character.isProfileComplete,
                       nickname: character.nickname,
                       passportNumber: character.passportNumber,
+                      position: character.position,
+                      phone: character.phone,
+                      icEmail: character.icEmail,
+                      passportImageUrl: character.passportImageUrl,
                       profileNote: character.profileNote,
                       profileSignature: character.profileSignature,
                       roleKeys: character.roleKeys,

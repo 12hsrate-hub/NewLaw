@@ -18,6 +18,7 @@ import {
   readOgpComplaintDraftPayload,
 } from "@/server/document-area/persistence";
 import { readClaimsGeneratedArtifact } from "@/server/document-area/claims-rendering";
+import { isOgpTrustorRepresentativeReady } from "@/lib/ogp/generation-contract";
 import { buildAccountCharactersBridgeHref } from "@/lib/routes/account-characters";
 import type { TrustorRegistryPrefillOption } from "@/lib/trustors/registry-prefill";
 import type {
@@ -247,6 +248,10 @@ type ClaimsEditorRouteContext =
         authorSnapshot: {
           fullName: string;
           passportNumber: string;
+          position?: string;
+          phone?: string;
+          icEmail?: string;
+          passportImageUrl?: string;
           nickname: string;
           roleKeys: string[];
           accessFlags: string[];
@@ -314,6 +319,10 @@ type OgpComplaintEditorRouteContext =
         authorSnapshot: {
           fullName: string;
           passportNumber: string;
+          position?: string;
+          phone?: string;
+          icEmail?: string;
+          passportImageUrl?: string;
           nickname: string;
           roleKeys: string[];
           accessFlags: string[];
@@ -388,9 +397,16 @@ function buildDocumentTrustorRegistrySummary(
     fullName: trustor.fullName,
     passportNumber: trustor.passportNumber,
     phone: trustor.phone,
+    icEmail: trustor.icEmail,
+    passportImageUrl: trustor.passportImageUrl,
     note: trustor.note,
-    isRepresentativeReady:
-      trustor.fullName.trim().length > 0 && trustor.passportNumber.trim().length > 0,
+    isRepresentativeReady: isOgpTrustorRepresentativeReady({
+      fullName: trustor.fullName,
+      passportNumber: trustor.passportNumber,
+      phone: trustor.phone,
+      icEmail: trustor.icEmail,
+      passportImageUrl: trustor.passportImageUrl,
+    }),
   })) satisfies DocumentTrustorRegistrySummary[];
 }
 
@@ -847,6 +863,10 @@ export async function getClaimsEditorRouteContext(input: {
       authorSnapshot: {
         fullName: authorSnapshot.fullName,
         passportNumber: authorSnapshot.passportNumber,
+        position: authorSnapshot.position,
+        phone: authorSnapshot.phone,
+        icEmail: authorSnapshot.icEmail,
+        passportImageUrl: authorSnapshot.passportImageUrl,
         nickname: authorSnapshot.nickname,
         roleKeys: authorSnapshot.roleKeys,
         accessFlags: authorSnapshot.accessFlags,
@@ -948,6 +968,10 @@ export async function getOgpComplaintEditorRouteContext(input: {
       authorSnapshot: {
         fullName: authorSnapshot.fullName,
         passportNumber: authorSnapshot.passportNumber,
+        position: authorSnapshot.position,
+        phone: authorSnapshot.phone,
+        icEmail: authorSnapshot.icEmail,
+        passportImageUrl: authorSnapshot.passportImageUrl,
         nickname: authorSnapshot.nickname,
         roleKeys: authorSnapshot.roleKeys,
         accessFlags: authorSnapshot.accessFlags,

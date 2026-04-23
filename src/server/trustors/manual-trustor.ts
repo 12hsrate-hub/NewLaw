@@ -1,4 +1,11 @@
 import {
+  normalizeIcEmail,
+  normalizePassportNumber,
+  normalizePhone,
+  normalizeSafeUrl,
+  normalizeOptionalText as normalizeOptionalTextForOgp,
+} from "@/lib/ogp/generation-contract";
+import {
   createTrustorRecord,
   getTrustorByIdForAccount,
   softDeleteTrustorRecord,
@@ -44,14 +51,10 @@ function normalizeFullName(fullName: string) {
     .join(" ");
 }
 
-function normalizePassportNumber(passportNumber: string) {
-  return passportNumber.trim().toUpperCase();
-}
-
 function normalizeOptionalText(value: string) {
-  const normalized = value.trim().replace(/\s+/g, " ");
+  const normalized = normalizeOptionalTextForOgp(value);
 
-  return normalized.length > 0 ? normalized : null;
+  return normalized;
 }
 
 export async function createTrustorManually(
@@ -65,7 +68,9 @@ export async function createTrustorManually(
     serverId: parsed.serverId,
     fullName: normalizeFullName(parsed.fullName),
     passportNumber: normalizePassportNumber(parsed.passportNumber),
-    phone: normalizeOptionalText(parsed.phone),
+    phone: normalizeOptionalText(normalizePhone(parsed.phone)),
+    icEmail: normalizeOptionalText(normalizeIcEmail(parsed.icEmail)),
+    passportImageUrl: normalizeOptionalText(normalizeSafeUrl(parsed.passportImageUrl)),
     note: normalizeOptionalText(parsed.note),
   });
 }
@@ -84,11 +89,13 @@ export async function updateTrustorManually(
     throw new TrustorNotFoundError();
   }
 
-  return repository.updateTrustorRecord({
+    return repository.updateTrustorRecord({
     trustorId: parsed.trustorId,
     fullName: normalizeFullName(parsed.fullName),
     passportNumber: normalizePassportNumber(parsed.passportNumber),
-    phone: normalizeOptionalText(parsed.phone),
+    phone: normalizeOptionalText(normalizePhone(parsed.phone)),
+    icEmail: normalizeOptionalText(normalizeIcEmail(parsed.icEmail)),
+    passportImageUrl: normalizeOptionalText(normalizeSafeUrl(parsed.passportImageUrl)),
     note: normalizeOptionalText(parsed.note),
   });
 }

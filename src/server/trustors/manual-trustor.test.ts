@@ -40,8 +40,10 @@ describe("createTrustorManually", () => {
       accountId: "21631886-7b4d-4be2-b6e9-95322d0dca41",
       serverId: "server-1",
       fullName: "Иван Доверителев",
-      passportNumber: "AA-001",
+      passportNumber: "001",
       phone: "+7 900 000-00-00",
+      icEmail: null,
+      passportImageUrl: null,
       note: "Проверенный представитель",
     });
   });
@@ -92,8 +94,10 @@ describe("updateTrustorManually", () => {
     expect(repository.updateTrustorRecord).toHaveBeenCalledWith({
       trustorId: "trustor-1",
       fullName: "Пётр Представителев",
-      passportNumber: "BB-002",
+      passportNumber: "002",
       phone: null,
+      icEmail: null,
+      passportImageUrl: null,
       note: "Обновлённая карточка",
     });
   });

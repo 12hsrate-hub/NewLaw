@@ -6,6 +6,9 @@ import {
   updateCharacterRecord,
 } from "@/db/repositories/character.repository";
 import {
+  normalizePassportNumber as normalizeOgpPassportNumber,
+} from "@/lib/ogp/generation-contract";
+import {
   type CharacterAccessFlagKey,
   type CharacterRoleKey,
   createCharacterInputSchema,
@@ -72,7 +75,7 @@ function normalizeNickname(input: {
 }
 
 function normalizePassportNumber(passportNumber: string) {
-  return passportNumber.trim().toUpperCase();
+  return normalizeOgpPassportNumber(passportNumber);
 }
 
 function uniqueRoleKeys(roleKeys: CharacterRoleKey[]) {

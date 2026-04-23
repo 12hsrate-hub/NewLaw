@@ -46,6 +46,10 @@ import type {
 type SharedCharacterContext = {
   fullName: string;
   passportNumber: string;
+  position?: string;
+  phone?: string;
+  icEmail?: string;
+  passportImageUrl?: string;
   isProfileComplete: boolean;
   canUseRepresentative: boolean;
 };
@@ -152,6 +156,9 @@ function buildEmptyTrustorSnapshot(): OgpComplaintTrustorSnapshot {
     sourceType: "inline_manual",
     fullName: "",
     passportNumber: "",
+    phone: "",
+    icEmail: "",
+    passportImageUrl: "",
     note: "",
   };
 }

@@ -26,7 +26,6 @@ import {
   DocumentGenerationBlockedError,
   DocumentPublicationMetadataStateError,
   generateOwnedOgpComplaintBbcode,
-  mapGenerationBlockingReasonsToMessages,
   updateOwnedDocumentPublicationMetadata,
 } from "@/server/document-area/generation";
 import {
@@ -305,7 +304,7 @@ export async function generateOgpComplaintBbcodeAction(input: {
       return {
         ok: false as const,
         error: "generation-blocked" as const,
-        reasons: mapGenerationBlockingReasonsToMessages(error.reasons),
+        validation: error.validation,
       };
     }
 

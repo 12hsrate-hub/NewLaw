@@ -110,6 +110,22 @@ export function DocumentTrustorRegistryPrefill(props: {
               </span>
             </p>
           ) : null}
+          {selectedTrustor.icEmail ? (
+            <p>
+              IC email registry:{" "}
+              <span className="font-medium text-[var(--foreground)]">
+                {selectedTrustor.icEmail}
+              </span>
+            </p>
+          ) : null}
+          {selectedTrustor.passportImageUrl ? (
+            <p>
+              Скрин паспорта registry:{" "}
+              <span className="font-medium text-[var(--foreground)]">
+                {selectedTrustor.passportImageUrl}
+              </span>
+            </p>
+          ) : null}
           {selectedTrustor.note ? (
             <p>
               Note для snapshot:{" "}

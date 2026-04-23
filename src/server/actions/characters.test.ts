@@ -189,9 +189,12 @@ describe("character actions", () => {
     formData.set("fullName", "Alice Stone");
     formData.set("nickname", "alice.stone");
     formData.set("passportNumber", "A-010");
+    formData.set("position", "Адвокат");
+    formData.set("phone", "1234567");
+    formData.set("icEmail", "alice.stone@example.com");
+    formData.set("passportImageUrl", "https://example.com/passport.png");
     formData.set("profileSignature", "А. Стоун");
     formData.set("profileNote", "Профиль для server group");
-    formData.set("isProfileComplete", "on");
     formData.set("selectionBehavior", "account_zone");
     formData.set("redirectTo", "/account/characters?server=blackberry");
 
@@ -210,6 +213,10 @@ describe("character actions", () => {
       accessFlags: [],
       isProfileComplete: true,
       profileDataJson: {
+        position: "Адвокат",
+        phone: "123-45-67",
+        icEmail: "alice.stone@example.com",
+        passportImageUrl: "https://example.com/passport.png",
         signature: "А. Стоун",
         note: "Профиль для server group",
       },

@@ -9,6 +9,8 @@ type TrustorFormValues = {
   fullName?: string;
   passportNumber?: string;
   phone?: string | null;
+  icEmail?: string | null;
+  passportImageUrl?: string | null;
   note?: string | null;
 };
 
@@ -80,6 +82,32 @@ export function TrustorFormCard({
             id={`${mode}-trustor-phone`}
             name="phone"
             placeholder="+7 900 000-00-00"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-medium" htmlFor={`${mode}-trustor-ic-email`}>
+            IC email
+          </label>
+          <Input
+            defaultValue={defaultValues?.icEmail ?? ""}
+            id={`${mode}-trustor-ic-email`}
+            name="icEmail"
+            placeholder="trustor@example.com"
+            type="email"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-medium" htmlFor={`${mode}-trustor-passport-image-url`}>
+            Ссылка на скрин паспорта
+          </label>
+          <Input
+            defaultValue={defaultValues?.passportImageUrl ?? ""}
+            id={`${mode}-trustor-passport-image-url`}
+            name="passportImageUrl"
+            placeholder="https://..."
+            type="url"
           />
         </div>
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { startTransition, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import Link from "next/link";
 
 import {
   applyOgpRewriteSuggestion,
@@ -14,6 +15,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  buildOgpGenerationValidationResult,
+  type OgpChecklistIssue,
+  type OgpGenerationReadyState,
+} from "@/lib/ogp/generation-contract";
 import {
   applyTrustorRegistryPrefill,
   type TrustorRegistryPrefillOption,
@@ -48,6 +54,10 @@ import type { ForumConnectionSummary } from "@/schemas/forum-integration";
 type SharedCharacterContext = {
   fullName: string;
   passportNumber: string;
+  position?: string;
+  phone?: string;
+  icEmail?: string;
+  passportImageUrl?: string;
   isProfileComplete: boolean;
   canUseRepresentative: boolean;
 };
@@ -122,6 +132,13 @@ type OgpComplaintGenerationState = {
   forumLastSyncError: string | null;
 };
 
+type OgpGenerationBlockState = {
+  readyState: OgpGenerationReadyState;
+  characterIssues: OgpChecklistIssue[];
+  trustorIssues: OgpChecklistIssue[];
+  documentIssues: OgpChecklistIssue[];
+};
+
 type OgpRewriteSuggestionState = {
   sectionKey: OgpDocumentRewriteSectionKey;
   sectionLabel: string;
@@ -156,6 +173,9 @@ function createEditorState(input: {
               sourceType: "inline_manual",
               fullName: "",
               passportNumber: "",
+              phone: "",
+              icEmail: "",
+              passportImageUrl: "",
               note: "",
             })
           : null,
@@ -248,6 +268,9 @@ function buildEmptyTrustorSnapshot(): OgpComplaintTrustorSnapshot {
     sourceType: "inline_manual",
     fullName: "",
     passportNumber: "",
+    phone: "",
+    icEmail: "",
+    passportImageUrl: "",
     note: "",
   };
 }
@@ -290,6 +313,101 @@ function createGenerationState(input: {
 
 function ComplaintFieldHint(props: { children: string }) {
   return <p className="text-xs leading-5 text-[var(--muted)]">{props.children}</p>;
+}
+
+function buildGenerationBlockState(input: {
+  authorSnapshot: SharedCharacterContext;
+  payload: OgpComplaintDraftPayload;
+}): OgpGenerationBlockState {
+  const validation = buildOgpGenerationValidationResult({
+    characterProfile: {
+      fullName: input.authorSnapshot.fullName,
+      position: input.authorSnapshot.position ?? "",
+      passportNumber: input.authorSnapshot.passportNumber,
+      phone: input.authorSnapshot.phone ?? "",
+      icEmail: input.authorSnapshot.icEmail ?? "",
+      passportImageUrl: input.authorSnapshot.passportImageUrl ?? "",
+    },
+    trustorProfile:
+      input.payload.filingMode === "representative" && input.payload.trustorSnapshot
+        ? {
+            fullName: input.payload.trustorSnapshot.fullName,
+            passportNumber: input.payload.trustorSnapshot.passportNumber,
+            phone: input.payload.trustorSnapshot.phone,
+            icEmail: input.payload.trustorSnapshot.icEmail,
+            passportImageUrl: input.payload.trustorSnapshot.passportImageUrl,
+          }
+        : null,
+    documentPayload: {
+      appealNumber: input.payload.appealNumber,
+      objectOrganization: input.payload.objectOrganization,
+      incidentAt: input.payload.incidentAt,
+      situationDescription: input.payload.situationDescription,
+      violationSummary: input.payload.violationSummary,
+      evidenceGroups: input.payload.evidenceGroups,
+    },
+  });
+
+  return {
+    readyState: validation.readyState,
+    characterIssues: validation.characterIssues,
+    trustorIssues: validation.trustorIssues,
+    documentIssues: validation.documentIssues,
+  };
+}
+
+function formatGenerationReadyState(readyState: OgpGenerationReadyState) {
+  if (readyState === "generation_ready") {
+    return "Generation ready";
+  }
+
+  if (readyState === "blocked_by_character_profile") {
+    return "Blocked by character profile";
+  }
+
+  if (readyState === "blocked_by_trustor_snapshot") {
+    return "Blocked by trustor snapshot";
+  }
+
+  if (readyState === "blocked_by_document_payload") {
+    return "Blocked by document payload";
+  }
+
+  return "Blocked by multiple sections";
+}
+
+function GenerationChecklistSection(props: {
+  title: string;
+  issues: OgpChecklistIssue[];
+  href?: string;
+  hrefLabel?: string;
+}) {
+  if (!props.issues.length) {
+    return null;
+  }
+
+  return (
+    <div className="space-y-2 rounded-2xl border border-[var(--border)] bg-white/80 p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h4 className="text-sm font-semibold text-[var(--foreground)]">{props.title}</h4>
+        {props.href && props.hrefLabel ? (
+          <Link
+            className="text-sm font-medium text-[var(--accent)] transition hover:opacity-80"
+            href={props.href}
+          >
+            {props.hrefLabel}
+          </Link>
+        ) : null}
+      </div>
+      <ul className="space-y-2 text-sm leading-6 text-[var(--muted)]">
+        {props.issues.map((item) => (
+          <li key={`${props.title}-${item.fieldKey}`}>
+            <span className="font-medium text-[var(--foreground)]">{item.label}:</span> {item.message}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
 }
 
 function EvidenceGroupsEditor(props: {
@@ -524,8 +642,9 @@ function ComplaintFormFields(props: {
         <p>Сервер и персонаж уже показаны явно. Персонаж: {props.characterLabel}.</p>
         {!props.profileComplete ? (
           <p className="mt-2 text-[var(--accent)]">
-            Профиль персонажа неполный. Редактирование жалобы доступно, но future generation позже
-            должна будет блокироваться до заполнения обязательных profile fields.
+            Профиль персонажа неполный для OGP generation. Редактирование жалобы доступно, но
+            persisted generation будет заблокирована точным checklist до заполнения обязательных
+            profile fields.
           </p>
         ) : null}
         {!props.representativeAllowed ? (
@@ -537,7 +656,7 @@ function ComplaintFormFields(props: {
         {props.updatedAtLabel ? <p className="mt-2">Последнее сохранение: {props.updatedAtLabel}</p> : null}
       </div>
 
-      <div className="space-y-2">
+      <div className="space-y-2" id="document-required-fields-section">
         <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`${props.mode}-document-title`}>
           Название документа
         </label>
@@ -722,7 +841,7 @@ function ComplaintFormFields(props: {
       </div>
 
       {payload.filingMode === "representative" ? (
-        <div className="space-y-4 rounded-3xl border border-[var(--border)] bg-white/70 p-4">
+        <div className="space-y-4 rounded-3xl border border-[var(--border)] bg-white/70 p-4" id="trustor-snapshot-section">
           <div className="space-y-1">
             <h3 className="text-lg font-semibold">Trustor snapshot</h3>
             <ComplaintFieldHint>
@@ -794,6 +913,79 @@ function ComplaintFormFields(props: {
             </div>
           </div>
 
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`${props.mode}-trustor-phone`}>
+                Trustor phone
+              </label>
+              <Input
+                id={`${props.mode}-trustor-phone`}
+                onChange={(event) => {
+                  props.onStateChange({
+                    ...props.state,
+                    payload: {
+                      ...payload,
+                      trustorSnapshot: {
+                        ...(payload.trustorSnapshot ?? buildEmptyTrustorSnapshot()),
+                        phone: event.target.value,
+                      },
+                    },
+                  });
+                }}
+                placeholder="123-45-67"
+                value={payload.trustorSnapshot?.phone ?? ""}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`${props.mode}-trustor-ic-email`}>
+                Trustor IC email
+              </label>
+              <Input
+                id={`${props.mode}-trustor-ic-email`}
+                onChange={(event) => {
+                  props.onStateChange({
+                    ...props.state,
+                    payload: {
+                      ...payload,
+                      trustorSnapshot: {
+                        ...(payload.trustorSnapshot ?? buildEmptyTrustorSnapshot()),
+                        icEmail: event.target.value,
+                      },
+                    },
+                  });
+                }}
+                placeholder="trustor@example.com"
+                type="email"
+                value={payload.trustorSnapshot?.icEmail ?? ""}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`${props.mode}-trustor-passport-image-url`}>
+              Trustor passport image URL
+            </label>
+            <Input
+              id={`${props.mode}-trustor-passport-image-url`}
+              onChange={(event) => {
+                props.onStateChange({
+                  ...props.state,
+                  payload: {
+                    ...payload,
+                    trustorSnapshot: {
+                      ...(payload.trustorSnapshot ?? buildEmptyTrustorSnapshot()),
+                      passportImageUrl: event.target.value,
+                    },
+                  },
+                });
+              }}
+              placeholder="https://..."
+              type="url"
+              value={payload.trustorSnapshot?.passportImageUrl ?? ""}
+            />
+          </div>
+
           <div className="space-y-2">
             <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`${props.mode}-trustor-note`}>
               Trustor note
@@ -819,7 +1011,7 @@ function ComplaintFormFields(props: {
         </div>
       ) : null}
 
-      <div className="space-y-4 rounded-3xl border border-[var(--border)] bg-white/70 p-4">
+      <div className="space-y-4 rounded-3xl border border-[var(--border)] bg-white/70 p-4" id="evidence-links-section">
         <div className="space-y-1">
           <h3 className="text-lg font-semibold">Evidence links</h3>
           <ComplaintFieldHint>
@@ -992,6 +1184,14 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
   const lastAutoSaveKeyRef = useRef<string | null>(null);
 
   const representativeAllowed = props.authorSnapshot.canUseRepresentative;
+  const persistedGenerationBlockState = useMemo(
+    () =>
+      buildGenerationBlockState({
+        authorSnapshot: props.authorSnapshot,
+        payload: savedState.payload,
+      }),
+    [props.authorSnapshot, savedState.payload],
+  );
 
   useEffect(() => {
     if (!representativeAllowed && editorState.payload.filingMode === "representative") {
@@ -1035,6 +1235,13 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
 
   const isDirty = !areStatesEqual(editorState, savedState);
   const canGenerateFromPersistedState = !isDirty;
+  const generationReadinessLabel = useMemo(() => {
+    if (isDirty) {
+      return "Сначала сохраните черновик, затем generation будет проверяться по persisted состоянию.";
+    }
+
+    return formatGenerationReadyState(persistedGenerationBlockState.readyState);
+  }, [isDirty, persistedGenerationBlockState.readyState]);
   const hasAutomationOwnedIdentity = Boolean(
     generationState.forumThreadId && generationState.forumPostId,
   );
@@ -1164,7 +1371,9 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
 
     if (!result.ok) {
       if (result.error === "generation-blocked") {
-        setGenerationMessage(result.reasons.join(" "));
+        setGenerationMessage(
+          "Generation пока заблокирована. Ниже показан точный checklist по persisted character profile, trustor snapshot и document payload.",
+        );
         return;
       }
 
@@ -1730,10 +1939,59 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
         >
           Сгенерировать BBCode
         </Button>
+        <span className="text-sm text-[var(--muted)]">{generationReadinessLabel}</span>
       </div>
 
       {saveMessage ? <p className="text-sm text-[var(--muted)]">{saveMessage}</p> : null}
       {generationMessage ? <p className="text-sm text-[var(--muted)]">{generationMessage}</p> : null}
+
+      <div className="space-y-4 rounded-3xl border border-[var(--border)] bg-white/70 p-4">
+        <div className="space-y-1">
+          <h3 className="text-lg font-semibold">Generation checklist</h3>
+          <ComplaintFieldHint>
+            OGP BBCode generation читает только persisted document snapshot и даёт точный список
+            блокеров вместо общего сообщения про незаполненный профиль.
+          </ComplaintFieldHint>
+        </div>
+        <p className="text-sm leading-6 text-[var(--muted)]">
+          Current state:{" "}
+          <span className="font-medium text-[var(--foreground)]">
+            {formatGenerationReadyState(persistedGenerationBlockState.readyState)}
+          </span>
+        </p>
+        {persistedGenerationBlockState.readyState === "generation_ready" ? (
+          <div className="rounded-2xl border border-[var(--border)] bg-white/80 p-4 text-sm leading-6 text-[var(--muted)]">
+            Persisted complaint snapshot готов к generation. Генератор возьмёт character snapshot,
+            trustor snapshot и document payload без live dependency от trustor registry.
+          </div>
+        ) : null}
+        <GenerationChecklistSection
+          href={`/account/characters?server=${encodeURIComponent(props.server.code)}`}
+          hrefLabel="Открыть профиль персонажа"
+          issues={persistedGenerationBlockState.characterIssues}
+          title="Character profile issues"
+        />
+        <GenerationChecklistSection
+          href={
+            savedState.payload.trustorSnapshot?.sourceType === "registry_prefill"
+              ? `/account/trustors?server=${encodeURIComponent(props.server.code)}`
+              : "#trustor-snapshot-section"
+          }
+          hrefLabel={
+            savedState.payload.trustorSnapshot?.sourceType === "registry_prefill"
+              ? "Открыть trustors registry"
+              : "Исправить trustor snapshot"
+          }
+          issues={persistedGenerationBlockState.trustorIssues}
+          title="Trustor snapshot issues"
+        />
+        <GenerationChecklistSection
+          href="#document-required-fields-section"
+          hrefLabel="Исправить поля документа"
+          issues={persistedGenerationBlockState.documentIssues}
+          title="Document payload issues"
+        />
+      </div>
 
       <div className="space-y-4 rounded-3xl border border-[var(--border)] bg-white/70 p-4">
         <div className="space-y-1">

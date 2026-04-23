@@ -3,7 +3,7 @@ import { z } from "zod";
 export const documentTypes = ["ogp_complaint", "rehabilitation", "lawsuit"] as const;
 export const documentStatuses = ["draft", "generated", "published"] as const;
 export const ogpComplaintFilingModes = ["self", "representative"] as const;
-export const trustorSnapshotSourceTypes = ["inline_manual"] as const;
+export const trustorSnapshotSourceTypes = ["inline_manual", "registry_prefill"] as const;
 export const claimDocumentTypes = ["rehabilitation", "lawsuit"] as const;
 export const claimsStructuredPreviewFormat = "claims_structured_preview_v1" as const;
 export const ogpForumSyncStates = [
@@ -71,6 +71,9 @@ export const ogpComplaintTrustorSnapshotSchema = z.object({
   sourceType: trustorSnapshotSourceTypeSchema.default("inline_manual"),
   fullName: z.string().trim().max(160).default(""),
   passportNumber: z.string().trim().max(64).default(""),
+  phone: z.string().trim().max(64).default(""),
+  icEmail: z.string().trim().max(320).default(""),
+  passportImageUrl: z.string().trim().max(2_048).default(""),
   note: z.string().max(2_000).default(""),
 });
 
@@ -208,6 +211,10 @@ export const documentAuthorSnapshotSchema = z.object({
   fullName: z.string().trim().min(1),
   nickname: z.string().trim().min(1),
   passportNumber: z.string().trim().min(1),
+  position: z.string().trim().max(160).default(""),
+  phone: z.string().trim().max(64).default(""),
+  icEmail: z.string().trim().max(320).default(""),
+  passportImageUrl: z.string().trim().max(2_048).default(""),
   isProfileComplete: z.boolean(),
   roleKeys: z.array(z.string()),
   accessFlags: z.array(z.string()),

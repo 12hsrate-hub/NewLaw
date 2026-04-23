@@ -1,6 +1,7 @@
 import { getServers } from "@/db/repositories/server.repository";
 import { listCharactersForAccount } from "@/db/repositories/character.repository";
 import { getUserServerStates } from "@/db/repositories/user-server-state.repository";
+import { readCharacterProfileData } from "@/lib/ogp/generation-contract";
 import {
   buildAccountCharactersBridgeHref,
   buildAccountCharactersFocusHref,
@@ -25,6 +26,10 @@ export type AccountCharactersCharacterSummary = {
   compactProfileSummary: string | null;
   profileNote: string | null;
   profileSignature: string | null;
+  position: string | null;
+  phone: string | null;
+  icEmail: string | null;
+  passportImageUrl: string | null;
   isDefaultForServer: boolean;
 };
 
@@ -85,20 +90,19 @@ function buildCompactProfileSummary(profileDataJson: unknown): {
   compactProfileSummary: string | null;
   profileNote: string | null;
   profileSignature: string | null;
+  position: string | null;
+  phone: string | null;
+  icEmail: string | null;
+  passportImageUrl: string | null;
 } {
   const fieldCount = countProfileDataFields(profileDataJson);
-  const profileRecord =
-    profileDataJson && typeof profileDataJson === "object" && !Array.isArray(profileDataJson)
-      ? (profileDataJson as Record<string, unknown>)
-      : null;
-  const profileSignature =
-    typeof profileRecord?.signature === "string" && profileRecord.signature.trim().length > 0
-      ? profileRecord.signature.trim()
-      : null;
-  const profileNote =
-    typeof profileRecord?.note === "string" && profileRecord.note.trim().length > 0
-      ? profileRecord.note.trim()
-      : null;
+  const profileData = readCharacterProfileData(profileDataJson);
+  const profileSignature = profileData.signature;
+  const profileNote = profileData.note;
+  const position = profileData.position || null;
+  const phone = profileData.phone || null;
+  const icEmail = profileData.icEmail || null;
+  const passportImageUrl = profileData.passportImageUrl || null;
 
   if (fieldCount === 0) {
     return {
@@ -106,6 +110,10 @@ function buildCompactProfileSummary(profileDataJson: unknown): {
       compactProfileSummary: null,
       profileNote,
       profileSignature,
+      position,
+      phone,
+      icEmail,
+      passportImageUrl,
     };
   }
 
@@ -117,6 +125,10 @@ function buildCompactProfileSummary(profileDataJson: unknown): {
         : `Сохранено ${fieldCount} дополнительных полей профиля`,
     profileNote,
     profileSignature,
+    position,
+    phone,
+    icEmail,
+    passportImageUrl,
   };
 }
 
@@ -188,6 +200,10 @@ export async function getAccountCharactersOverviewContext(input: {
           compactProfileSummary: profileDataSummary.compactProfileSummary,
           profileNote: profileDataSummary.profileNote,
           profileSignature: profileDataSummary.profileSignature,
+          position: profileDataSummary.position,
+          phone: profileDataSummary.phone,
+          icEmail: profileDataSummary.icEmail,
+          passportImageUrl: profileDataSummary.passportImageUrl,
           isDefaultForServer: defaultCharacter?.id === character.id,
         };
       }),

@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   DocumentPublicationMetadataStateError,
+  DocumentGenerationBlockedError,
   generateOwnedOgpComplaintBbcode,
   OGP_COMPLAINT_BBCODE_TEMPLATE_VERSION,
   updateOwnedDocumentPublicationMetadata,
@@ -26,7 +27,11 @@ function createBaseDocument() {
       serverName: "Blackberry",
       fullName: "Игорь Юристов",
       nickname: "Игорь Юристов",
-      passportNumber: "AA-001",
+      passportNumber: "001",
+      position: "Адвокат",
+      phone: "123-45-67",
+      icEmail: "lawyer@example.com",
+      passportImageUrl: "https://example.com/lawyer-passport.png",
       isProfileComplete: true,
       roleKeys: ["lawyer"],
       accessFlags: ["advocate"],
@@ -81,7 +86,12 @@ function createBaseDocument() {
       nickname: "Игорь Юристов",
       passportNumber: "AA-001",
       isProfileComplete: true,
-      profileDataJson: null,
+      profileDataJson: {
+        position: "Адвокат",
+        phone: "123-45-67",
+        icEmail: "lawyer@example.com",
+        passportImageUrl: "https://example.com/lawyer-passport.png",
+      },
       deletedAt: null,
       createdAt: new Date("2026-04-21T10:00:00.000Z"),
       updatedAt: new Date("2026-04-21T10:00:00.000Z"),
@@ -160,7 +170,10 @@ describe("document generation", () => {
             trustorSnapshot: {
               sourceType: "inline_manual",
               fullName: "Пётр Доверитель",
-              passportNumber: "TR-001",
+              passportNumber: "001",
+              phone: "234-56-78",
+              icEmail: "trustor@example.com",
+              passportImageUrl: "https://example.com/trustor-passport.png",
               note: "Действую по доверенности",
             },
           },
@@ -174,7 +187,7 @@ describe("document generation", () => {
 
     expect(markDocumentGeneratedRecord.mock.calls[0]?.[0].lastGeneratedBbcode).toContain("Доверитель:");
     expect(markDocumentGeneratedRecord.mock.calls[0]?.[0].lastGeneratedBbcode).toContain("Пётр Доверитель");
-    expect(markDocumentGeneratedRecord.mock.calls[0]?.[0].lastGeneratedBbcode).toContain("TR-001");
+    expect(markDocumentGeneratedRecord.mock.calls[0]?.[0].lastGeneratedBbcode).toContain("001");
   });
 
   it("блокирует generation при неполном профиле и неполном payload", async () => {
@@ -189,6 +202,10 @@ describe("document generation", () => {
             ...createBaseDocument(),
             authorSnapshotJson: {
               ...createBaseDocument().authorSnapshotJson,
+              position: "",
+              phone: "",
+              icEmail: "",
+              passportImageUrl: "",
               isProfileComplete: false,
             },
             formPayloadJson: {
@@ -203,8 +220,28 @@ describe("document generation", () => {
           now: () => new Date("2026-04-21T12:00:00.000Z"),
         },
       ),
-    ).rejects.toMatchObject({
-      reasons: expect.arrayContaining(["profile_incomplete", "appeal_number_missing", "violation_summary_missing"]),
+    ).rejects.toSatisfy((error: unknown) => {
+      expect(error).toBeInstanceOf(DocumentGenerationBlockedError);
+
+      const blockedError = error as DocumentGenerationBlockedError;
+
+      expect(blockedError.validation.readyState).toBe("blocked_by_multiple_sections");
+      expect(blockedError.validation.characterIssues).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ fieldKey: "position" }),
+          expect.objectContaining({ fieldKey: "phone" }),
+          expect.objectContaining({ fieldKey: "icEmail" }),
+          expect.objectContaining({ fieldKey: "passportImageUrl" }),
+        ]),
+      );
+      expect(blockedError.validation.documentIssues).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ fieldKey: "appealNumber" }),
+          expect.objectContaining({ fieldKey: "violationSummary" }),
+        ]),
+      );
+
+      return true;
     });
   });
 

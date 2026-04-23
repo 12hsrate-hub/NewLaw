@@ -233,8 +233,18 @@ Post-MVP note:
 - generation `BBCode` вызывается только для persisted `ogp_complaint` документа и всегда строится из сохранённого payload
 - generation deterministic: один и тот же persisted payload даёт предсказуемый `BBCode`
 - generation работает для `self` и `representative`, при representative flow использует trustor snapshot из самого документа
+- generation использует единый shared validation contract для:
+  - character profile в author snapshot
+  - trustor snapshot внутри документа
+  - обязательного OGP payload
+- trustor registry, если использовался как prefill, не становится live source of truth для generation; generator всегда читает только persisted trustor snapshot документа
+- `passportNumber`, `phone` и `passportImageUrl` проходят общую нормализацию и в generation/checklist сравниваются уже в canonical формате
 - `evidenceGroups` и `evidenceRows` со ссылками корректно попадают в итоговый `BBCode`
 - generation честно блокируется при неполном обязательном profile или неполном complaint payload
+- вместо vague общей ошибки editor показывает точный blocking checklist с отдельными секциями:
+  - `character profile issues`
+  - `trustor snapshot issues`
+  - `document payload issues`
 - при успешной generation сохраняются:
   - `last_generated_bbcode`
   - `generated_at`

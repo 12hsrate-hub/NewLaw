@@ -259,6 +259,8 @@ model Trustor {
   fullName       String
   passportNumber String
   phone          String?
+  icEmail        String?
+  passportImageUrl String?
   note           String?
   deletedAt      DateTime?
   account        Account   @relation(fields: [accountId], references: [id], onDelete: Cascade)

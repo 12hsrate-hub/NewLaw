@@ -116,6 +116,20 @@ function TrustorGroup(props: { group: AccountTrustorsServerGroup }) {
                     <span className="font-medium text-[var(--foreground)]">{trustor.phone}</span>
                   </p>
                 ) : null}
+                {trustor.icEmail ? (
+                  <p>
+                    IC email:{" "}
+                    <span className="font-medium text-[var(--foreground)]">{trustor.icEmail}</span>
+                  </p>
+                ) : null}
+                {trustor.passportImageUrl ? (
+                  <p>
+                    Скрин паспорта:{" "}
+                    <span className="font-medium text-[var(--foreground)]">
+                      {trustor.passportImageUrl}
+                    </span>
+                  </p>
+                ) : null}
                 {trustor.note ? (
                   <p>
                     Примечание:{" "}
@@ -135,6 +149,8 @@ function TrustorGroup(props: { group: AccountTrustorsServerGroup }) {
                       fullName: trustor.fullName,
                       passportNumber: trustor.passportNumber,
                       phone: trustor.phone,
+                      icEmail: trustor.icEmail,
+                      passportImageUrl: trustor.passportImageUrl,
                       note: trustor.note,
                     }}
                     mode="edit"

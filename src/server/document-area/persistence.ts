@@ -3,6 +3,13 @@ import { ZodError } from "zod";
 import { createDocumentRecord, getDocumentByIdForAccount, updateDocumentDraftRecord } from "@/db/repositories/document.repository";
 import { getCharacterByIdForAccount } from "@/db/repositories/character.repository";
 import { getServerByCode } from "@/db/repositories/server.repository";
+import {
+  normalizeIcEmail,
+  normalizePassportNumber,
+  normalizePhone,
+  normalizeSafeUrl,
+  readCharacterProfileData,
+} from "@/lib/ogp/generation-contract";
 import { setActiveCharacterSelection, setActiveServerSelection } from "@/server/app-shell/selection";
 import {
   claimDocumentTypeSchema,
@@ -86,6 +93,8 @@ function buildAuthorSnapshot(input: {
   server: NonNullable<Awaited<ReturnType<typeof getServerByCode>>>;
   capturedAt: Date;
 }) {
+  const profileData = readCharacterProfileData(input.character.profileDataJson);
+
   return documentAuthorSnapshotSchema.parse({
     characterId: input.character.id,
     serverId: input.server.id,
@@ -93,7 +102,11 @@ function buildAuthorSnapshot(input: {
     serverName: input.server.name,
     fullName: input.character.fullName,
     nickname: input.character.nickname,
-    passportNumber: input.character.passportNumber,
+    passportNumber: normalizePassportNumber(input.character.passportNumber),
+    position: profileData.position,
+    phone: profileData.phone,
+    icEmail: profileData.icEmail,
+    passportImageUrl: profileData.passportImageUrl,
     isProfileComplete: input.character.isProfileComplete,
     roleKeys: input.character.roles.map((role) => role.roleKey),
     accessFlags: input.character.accessFlags.map((flag) => flag.flagKey),
@@ -115,12 +128,15 @@ function normalizeOgpComplaintDraftPayload(input: unknown): OgpComplaintDraftPay
       ...parsed,
       trustorSnapshot:
         parsed.filingMode === "representative"
-          ? (parsed.trustorSnapshot ?? {
-              sourceType: "inline_manual",
-              fullName: "",
-              passportNumber: "",
-              note: "",
-            })
+          ? {
+              sourceType: parsed.trustorSnapshot?.sourceType ?? "inline_manual",
+              fullName: parsed.trustorSnapshot?.fullName.trim() ?? "",
+              passportNumber: normalizePassportNumber(parsed.trustorSnapshot?.passportNumber ?? ""),
+              phone: normalizePhone(parsed.trustorSnapshot?.phone ?? ""),
+              icEmail: normalizeIcEmail(parsed.trustorSnapshot?.icEmail ?? ""),
+              passportImageUrl: normalizeSafeUrl(parsed.trustorSnapshot?.passportImageUrl ?? ""),
+              note: parsed.trustorSnapshot?.note ?? "",
+            }
           : null,
     };
   } catch (error) {
@@ -137,6 +153,9 @@ function buildEmptyTrustorSnapshot() {
     sourceType: "inline_manual" as const,
     fullName: "",
     passportNumber: "",
+    phone: "",
+    icEmail: "",
+    passportImageUrl: "",
     note: "",
   };
 }

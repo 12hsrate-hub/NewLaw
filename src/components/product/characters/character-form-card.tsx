@@ -24,10 +24,14 @@ type CharacterFormValues = {
   accessFlags?: string[];
   characterId?: string;
   fullName: string;
-  isProfileComplete?: boolean;
   nickname?: string;
+  position?: string | null;
+  phone?: string | null;
+  icEmail?: string | null;
+  passportImageUrl?: string | null;
   profileNote?: string | null;
   profileSignature?: string | null;
+  isProfileComplete?: boolean;
   passportNumber: string;
   roleKeys?: string[];
 };
@@ -175,14 +179,62 @@ export function CharacterFormCard({
             нет document payload и нет server-scoped workflow логики.
           </p>
 
-          <label className="flex items-center gap-3 rounded-2xl border border-[var(--border)] bg-white/70 px-4 py-3 text-sm">
-            <input
-              defaultChecked={defaultValues?.isProfileComplete ?? false}
-              name="isProfileComplete"
-              type="checkbox"
+          <div className="rounded-2xl border border-[var(--border)] bg-white/70 px-4 py-3 text-sm leading-6 text-[var(--muted)]">
+            Ready state считается автоматически из generation-required profile fields для OGP и не
+            хранится отдельным ручным чекбоксом.
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium" htmlFor={`${mode}-position`}>
+              Должность
+            </label>
+            <Input
+              defaultValue={defaultValues?.position ?? ""}
+              id={`${mode}-position`}
+              name="position"
+              placeholder="Например: Адвокат"
             />
-            <span>Профиль персонажа заполнен и готов к server-scoped document flows</span>
-          </label>
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-2">
+            <div className="space-y-2">
+              <label className="text-sm font-medium" htmlFor={`${mode}-phone`}>
+                Телефон
+              </label>
+              <Input
+                defaultValue={defaultValues?.phone ?? ""}
+                id={`${mode}-phone`}
+                name="phone"
+                placeholder="123-45-67"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium" htmlFor={`${mode}-icEmail`}>
+                IC email
+              </label>
+              <Input
+                defaultValue={defaultValues?.icEmail ?? ""}
+                id={`${mode}-icEmail`}
+                name="icEmail"
+                placeholder="lawyer@example.com"
+                type="email"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium" htmlFor={`${mode}-passportImageUrl`}>
+              Ссылка на скрин паспорта
+            </label>
+            <Input
+              defaultValue={defaultValues?.passportImageUrl ?? ""}
+              id={`${mode}-passportImageUrl`}
+              name="passportImageUrl"
+              placeholder="https://..."
+              type="url"
+            />
+          </div>
 
           <div className="space-y-2">
             <label className="text-sm font-medium" htmlFor={`${mode}-profileSignature`}>

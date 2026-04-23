@@ -7,6 +7,10 @@ import {
 } from "@/db/repositories/document.repository";
 import { listCurrentPrimaryLawVersionIdsByServer } from "@/db/repositories/law.repository";
 import {
+  buildOgpGenerationValidationResult,
+  type OgpGenerationValidationResult,
+} from "@/lib/ogp/generation-contract";
+import {
   documentPublicationUrlSchema,
   type DocumentAuthorSnapshot,
   type OgpComplaintDraftPayload,
@@ -19,20 +23,6 @@ import {
 
 export const OGP_COMPLAINT_BBCODE_TEMPLATE_VERSION = "ogp_complaint_bbcode_template_v1";
 export const OGP_COMPLAINT_GENERATION_LAW_SNAPSHOT_VERSION = "current_primary_snapshot_v1";
-
-const generationBlockingReasonLabels = {
-  profile_incomplete: "Профиль персонажа неполный. Для генерации нужно заполнить обязательные поля профиля.",
-  appeal_number_missing: "Для генерации укажите appeal number.",
-  object_organization_missing: "Для генерации укажите object organization.",
-  object_full_name_missing: "Для генерации укажите object full name.",
-  incident_at_missing: "Для генерации укажите дату и время инцидента.",
-  situation_description_missing: "Для генерации заполните situation description.",
-  violation_summary_missing: "Для генерации заполните violation summary.",
-  trustor_full_name_missing: "Для representative filing укажите ФИО доверителя.",
-  trustor_passport_missing: "Для representative filing укажите паспорт доверителя.",
-} as const;
-
-export type OgpComplaintGenerationBlockingReason = keyof typeof generationBlockingReasonLabels;
 
 type DocumentGenerationDependencies = {
   getDocumentByIdForAccount: typeof getDocumentByIdForAccount;
@@ -51,7 +41,7 @@ const defaultDependencies: DocumentGenerationDependencies = {
 };
 
 export class DocumentGenerationBlockedError extends Error {
-  constructor(readonly reasons: OgpComplaintGenerationBlockingReason[]) {
+  constructor(readonly validation: OgpGenerationValidationResult) {
     super("Документ пока нельзя сгенерировать в BBCode.");
     this.name = "DocumentGenerationBlockedError";
   }
@@ -104,6 +94,9 @@ function renderTrustorBlock(payload: OgpComplaintDraftPayload) {
   return [
     `[b]Доверитель:[/b] ${toBulletLine(payload.trustorSnapshot.fullName)}`,
     `[b]Паспорт доверителя:[/b] ${toBulletLine(payload.trustorSnapshot.passportNumber)}`,
+    `[b]Телефон доверителя:[/b] ${toBulletLine(payload.trustorSnapshot.phone)}`,
+    `[b]IC email доверителя:[/b] ${toBulletLine(payload.trustorSnapshot.icEmail)}`,
+    `[b]Скрин паспорта доверителя:[/b] ${toBulletLine(payload.trustorSnapshot.passportImageUrl)}`,
     payload.trustorSnapshot.note.trim().length > 0
       ? `[b]Примечание по доверителю:[/b] ${payload.trustorSnapshot.note.trim()}`
       : null,
@@ -159,7 +152,11 @@ function buildOgpComplaintBbcode(input: {
     `[b]Номер обращения:[/b] ${toBulletLine(input.payload.appealNumber)}`,
     `[b]Режим подачи:[/b] ${input.payload.filingMode === "representative" ? "Через представителя" : "Лично"}`,
     `[b]Заявитель:[/b] ${input.authorSnapshot.fullName}`,
+    `[b]Должность заявителя:[/b] ${toBulletLine(input.authorSnapshot.position)}`,
     `[b]Паспорт заявителя:[/b] ${input.authorSnapshot.passportNumber}`,
+    `[b]Телефон заявителя:[/b] ${toBulletLine(input.authorSnapshot.phone)}`,
+    `[b]IC email заявителя:[/b] ${toBulletLine(input.authorSnapshot.icEmail)}`,
+    `[b]Скрин паспорта заявителя:[/b] ${toBulletLine(input.authorSnapshot.passportImageUrl)}`,
     trustorBlock,
     `[b]Орган / подразделение:[/b] ${toBulletLine(input.payload.objectOrganization)}`,
     `[b]Объект жалобы:[/b] ${toBulletLine(input.payload.objectFullName)}`,
@@ -175,52 +172,38 @@ function buildOgpComplaintBbcode(input: {
   return descriptiveSections.filter(Boolean).join("\n");
 }
 
-function getOgpComplaintGenerationBlockingReasons(input: {
+function getOgpComplaintGenerationValidation(input: {
   authorSnapshot: DocumentAuthorSnapshot;
   payload: OgpComplaintDraftPayload;
 }) {
-  const reasons: OgpComplaintGenerationBlockingReason[] = [];
-  const payload = input.payload;
-
-  if (!input.authorSnapshot.isProfileComplete) {
-    reasons.push("profile_incomplete");
-  }
-
-  if (payload.appealNumber.trim().length === 0) {
-    reasons.push("appeal_number_missing");
-  }
-
-  if (payload.objectOrganization.trim().length === 0) {
-    reasons.push("object_organization_missing");
-  }
-
-  if (payload.objectFullName.trim().length === 0) {
-    reasons.push("object_full_name_missing");
-  }
-
-  if (payload.incidentAt.trim().length === 0) {
-    reasons.push("incident_at_missing");
-  }
-
-  if (payload.situationDescription.trim().length === 0) {
-    reasons.push("situation_description_missing");
-  }
-
-  if (payload.violationSummary.trim().length === 0) {
-    reasons.push("violation_summary_missing");
-  }
-
-  if (payload.filingMode === "representative") {
-    if (!payload.trustorSnapshot || payload.trustorSnapshot.fullName.trim().length === 0) {
-      reasons.push("trustor_full_name_missing");
-    }
-
-    if (!payload.trustorSnapshot || payload.trustorSnapshot.passportNumber.trim().length === 0) {
-      reasons.push("trustor_passport_missing");
-    }
-  }
-
-  return reasons;
+  return buildOgpGenerationValidationResult({
+    characterProfile: {
+      fullName: input.authorSnapshot.fullName,
+      position: input.authorSnapshot.position,
+      passportNumber: input.authorSnapshot.passportNumber,
+      phone: input.authorSnapshot.phone,
+      icEmail: input.authorSnapshot.icEmail,
+      passportImageUrl: input.authorSnapshot.passportImageUrl,
+    },
+    trustorProfile:
+      input.payload.filingMode === "representative" && input.payload.trustorSnapshot
+        ? {
+            fullName: input.payload.trustorSnapshot.fullName,
+            passportNumber: input.payload.trustorSnapshot.passportNumber,
+            phone: input.payload.trustorSnapshot.phone,
+            icEmail: input.payload.trustorSnapshot.icEmail,
+            passportImageUrl: input.payload.trustorSnapshot.passportImageUrl,
+          }
+        : null,
+    documentPayload: {
+      appealNumber: input.payload.appealNumber,
+      objectOrganization: input.payload.objectOrganization,
+      incidentAt: input.payload.incidentAt,
+      situationDescription: input.payload.situationDescription,
+      violationSummary: input.payload.violationSummary,
+      evidenceGroups: input.payload.evidenceGroups,
+    },
+  });
 }
 
 function buildGeneratedLawVersion(serverId: string, currentVersionIds: string[]) {
@@ -234,12 +217,6 @@ function buildGeneratedLawVersion(serverId: string, currentVersionIds: string[])
     .slice(0, 20);
 
   return `${OGP_COMPLAINT_GENERATION_LAW_SNAPSHOT_VERSION}:${serverId}:${currentVersionIds.length}:${hash}`;
-}
-
-export function mapGenerationBlockingReasonsToMessages(
-  reasons: OgpComplaintGenerationBlockingReason[],
-) {
-  return reasons.map((reason) => generationBlockingReasonLabels[reason]);
 }
 
 export async function generateOwnedOgpComplaintBbcode(
@@ -260,13 +237,13 @@ export async function generateOwnedOgpComplaintBbcode(
 
   const authorSnapshot = readDocumentAuthorSnapshot(document.authorSnapshotJson);
   const payload = readOgpComplaintDraftPayload(document.formPayloadJson);
-  const blockingReasons = getOgpComplaintGenerationBlockingReasons({
+  const validation = getOgpComplaintGenerationValidation({
     authorSnapshot,
     payload,
   });
 
-  if (blockingReasons.length > 0) {
-    throw new DocumentGenerationBlockedError(blockingReasons);
+  if (!validation.isReady) {
+    throw new DocumentGenerationBlockedError(validation);
   }
 
   const generatedAt = dependencies.now();
