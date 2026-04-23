@@ -40,22 +40,22 @@ const RASTER_SCALE = rasterConfig.exportScale;
 const fontConfig = {
   textFamily: "Times New Roman, Liberation Serif, serif",
   monoFamily: "Courier New, Liberation Mono, monospace",
-  bodyRegularSize: pt(12.05),
-  bodyBoldSize: pt(12.25),
-  bodyLineHeight: pt(16.9),
-  sectionHeadingSize: pt(12),
-  introSize: pt(12.02),
-  introLineHeight: pt(16.55),
-  titleSize: pt(12.8),
-  registerTitleSize: pt(12),
-  registerBodySize: pt(11.5),
+  bodyRegularSize: pt(12.3),
+  bodyBoldSize: pt(12.3),
+  bodyLineHeight: pt(17.12),
+  sectionHeadingSize: pt(11.9),
+  introSize: pt(11.82),
+  introLineHeight: pt(16.02),
+  titleSize: pt(12.46),
+  registerTitleSize: pt(11.92),
+  registerBodySize: pt(11.32),
   stateTitleSize: pt(21),
   associationTitleSize: pt(15),
   footerRoleSize: pt(12),
-  footerCenterTitleSize: pt(13),
-  footerCenterDateSize: pt(12),
-  footerNameSize: pt(12.8),
-  stampSize: pt(11),
+  footerCenterTitleSize: pt(12.85),
+  footerCenterDateSize: pt(11.8),
+  footerNameSize: pt(12.45),
+  stampSize: pt(10.7),
 } as const;
 
 const layoutConfig = {
@@ -66,18 +66,18 @@ const layoutConfig = {
     left: mm(16),
   },
   registerWidth: mm(46),
-  leftRoleWidth: mm(18.7),
-  columnGap: mm(1.2),
+  leftRoleWidth: mm(17.7),
+  columnGap: mm(0.8),
   contentStartY: 198,
   contentDividerY: 178,
-  contentLeftX: mm(36.1),
-  contentRightX: PAGE_WIDTH - mm(15.7),
+  contentLeftX: mm(33.7),
+  contentRightX: PAGE_WIDTH - mm(13.5),
   sectionGap: mm(5.2),
 } as const;
 
 const headerConfig = {
-  sealSize: mm(12.2),
-  sealY: mm(2.62),
+  sealSize: mm(12.8),
+  sealY: mm(3.2),
   topLineY: 57,
   secondLineY: 61.5,
   stateTitleY: 84.5,
@@ -101,25 +101,25 @@ const footerConfig = {
 const registerBlockConfig = {
   x: layoutConfig.pagePadding.left,
   width: layoutConfig.registerWidth,
-  topY: headerConfig.registerY,
-  titleLineHeight: fontConfig.registerTitleSize * 1.02,
-  bodyLineHeight: fontConfig.registerBodySize * 1.09,
+  titleLineHeight: fontConfig.registerTitleSize * 0.94,
+  bodyLineHeight: fontConfig.registerBodySize * 0.98,
+  registerToDividerGap: mm(1.45),
 } as const;
 
 const leftRoleBlockConfig = {
   x: layoutConfig.pagePadding.left,
   width: layoutConfig.leftRoleWidth,
   titleY: layoutConfig.contentStartY,
-  roleY: layoutConfig.contentStartY + pt(26.4),
-  roleLineGap: pt(16.1),
+  roleY: layoutConfig.contentStartY + pt(29.6),
+  roleLineGap: pt(17.8),
 } as const;
 
 const titleBlockConfig = {
   x: layoutConfig.contentLeftX,
   width: layoutConfig.contentRightX - layoutConfig.contentLeftX,
   titleY: layoutConfig.contentStartY,
-  subtitleGap: pt(15),
-  subtitleToIntroGap: pt(15.2),
+  subtitleGap: pt(14.9),
+  subtitleToIntroGap: pt(15.1),
 } as const;
 
 const introBlockConfig = {
@@ -131,17 +131,18 @@ const introBlockConfig = {
 const sectionBlockConfig = {
   x: titleBlockConfig.x,
   width: titleBlockConfig.width,
-  introToSection1Gap: mm(4.1),
-  baseGap: mm(5.8),
-  maxExtraGapPerSection: mm(4.2),
-  itemMarkerGap: 4.5,
-  itemLineHeight: pt(17.1),
+  introToSection1Gap: mm(5.25),
+  baseGap: mm(5.6),
+  maxExtraGapPerSection: mm(8),
+  itemMarkerGap: 2.8,
+  itemTextIndent: 14.2,
+  itemLineHeight: pt(16.85),
 } as const;
 
 const stampConfig = {
   topY: 1008,
-  lineHeight: 13.1,
-  letterSpacing: 0.55,
+  lineHeight: 12.2,
+  letterSpacing: 0.32,
 } as const;
 
 const assetConfig = {
@@ -279,7 +280,7 @@ function formatFiledDate(dateLabel: string) {
     return dateLabel;
   }
 
-  return `${String(parsed.month).padStart(2, "0")}-${String(parsed.day).padStart(2, "0")}-${String(parsed.year).slice(-2)}.1`;
+  return `${String(parsed.month).padStart(2, "0")}-${String(parsed.day).padStart(2, "0")}-${String(parsed.year).slice(-2)}.`;
 }
 
 function formatMskDateTime(iso: string) {
@@ -476,6 +477,10 @@ function shiftBlock(block: RenderedBlock, offsetY: number) {
   };
 }
 
+function anchorBlockToBottomGap(block: RenderedBlock, bottomY: number, gap: number) {
+  return shiftBlock(block, bottomY - gap - block.bottomY);
+}
+
 function pushInlineSectionParagraph(input: {
   lines: SvgLine[];
   label: string;
@@ -535,7 +540,11 @@ function pushNumberedItem(input: {
   y: number;
   width: number;
 }) {
-  const markerWidth = estimateTextWidth(input.marker, fontConfig.bodyRegularSize) + sectionBlockConfig.itemMarkerGap;
+  const markerWidth = sectionBlockConfig.itemTextIndent;
+  const markerAdvance = Math.max(
+    sectionBlockConfig.itemMarkerGap,
+    markerWidth - estimateTextWidth(input.marker, fontConfig.bodyRegularSize),
+  );
   const wrapped = wrapText(input.text, Math.max(80, input.width - markerWidth), fontConfig.bodyRegularSize);
   let y = input.y;
 
@@ -557,7 +566,7 @@ function pushNumberedItem(input: {
       },
       {
         text: wrapped[0] ?? "",
-        dx: sectionBlockConfig.itemMarkerGap,
+        dx: markerAdvance,
       },
     ],
     x: input.x,
@@ -704,7 +713,7 @@ function buildFooter(input: {
     .join("");
   const filedDate = formatFiledDate(input.payload.documentDateMsk);
   const stampLines = [
-    `[ SAR Doc. ${stampYear}-${requestDigits || "0000"}`,
+    `[SAR Doc. ${stampYear}-${requestDigits || "0000"}`,
     `Filed ${filedDate}]`,
   ];
 
@@ -715,7 +724,7 @@ function buildFooter(input: {
     ${stampLines
       .map(
         (line, index) =>
-          `<text x="${layoutConfig.pagePadding.left}" y="${stampConfig.topY + fontConfig.stampSize + index * stampConfig.lineHeight}" font-family="${fontConfig.monoFamily}" font-size="${fontConfig.stampSize}" font-weight="700" letter-spacing="${stampConfig.letterSpacing}" xml:space="preserve">${escapeXml(line)}</text>`,
+          `<text x="${layoutConfig.pagePadding.left}" y="${stampConfig.topY + fontConfig.stampSize + index * stampConfig.lineHeight}" font-family="${fontConfig.monoFamily}" font-size="${fontConfig.stampSize}" font-weight="600" letter-spacing="${stampConfig.letterSpacing}" xml:space="preserve">${escapeXml(line)}</text>`,
       )
       .join("")}
     <text x="${PAGE_WIDTH / 2}" y="${footerConfig.centerTitleY}" font-family="${fontConfig.textFamily}" font-size="${fontConfig.footerCenterTitleSize}" text-anchor="middle">SAN ANDREAS CAPITOL</text>
@@ -729,7 +738,7 @@ function buildRegisterBlock(input: {
   titleDate: string;
 }) {
   const lines: SvgLine[] = [];
-  let y: number = registerBlockConfig.topY;
+  let y = 0;
 
   y = pushWrappedLines({
     lines,
@@ -755,7 +764,11 @@ function buildRegisterBlock(input: {
     size: fontConfig.registerBodySize,
   });
 
-  return finalizeBlock(lines, registerBlockConfig.topY);
+  return anchorBlockToBottomGap(
+    finalizeBlock(lines, 0),
+    layoutConfig.contentDividerY,
+    registerBlockConfig.registerToDividerGap,
+  );
 }
 
 function buildLeftRoleBlock(leftRole: string) {
@@ -935,7 +948,7 @@ function buildVisualLines(input: {
     rawSectionBlocks[2].bottomY + sectionBlockConfig.baseGap - rawSectionBlocks[3].topY,
   );
 
-  const footerClearanceTargetY = footerConfig.signatureY - mm(10);
+  const footerClearanceTargetY = footerConfig.signatureY - mm(1.2);
   const availableStretch = Math.max(0, footerClearanceTargetY - rawSectionBlocks[3].bottomY);
   const extraPerGap =
     rawSectionBlocks.length > 1
