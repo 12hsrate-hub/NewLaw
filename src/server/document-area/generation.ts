@@ -21,7 +21,7 @@ import {
   readOgpComplaintDraftPayload,
 } from "@/server/document-area/persistence";
 
-export const OGP_COMPLAINT_BBCODE_TEMPLATE_VERSION = "ogp_complaint_bbcode_template_v2";
+export const OGP_COMPLAINT_BBCODE_TEMPLATE_VERSION = "ogp_complaint_bbcode_template_v3";
 export const OGP_COMPLAINT_GENERATION_LAW_SNAPSHOT_VERSION = "current_primary_snapshot_v1";
 
 type OgpTemplateBranch = "ogp_self" | "ogp_representative";
@@ -189,10 +189,6 @@ export function buildOgpRenderContext(input: {
   const trustorSnapshot = input.payload.trustorSnapshot;
   const filingMode: OgpTemplateBranch =
     input.payload.filingMode === "representative" ? "ogp_representative" : "ogp_self";
-  const signatureSource =
-    filingMode === "ogp_representative" && trustorSnapshot
-      ? trustorSnapshot.fullName
-      : input.authorSnapshot.fullName;
 
   return {
     filingMode,
@@ -204,7 +200,7 @@ export function buildOgpRenderContext(input: {
     violationSummary: normalizeTextBlock(input.payload.violationSummary),
     evidenceBbcodeInline: renderEvidenceInline(input.payload),
     generatedDateMsk: formatMoscowDate(input.generatedAt),
-    signatureShort: buildSignatureShort(signatureSource),
+    signatureShort: buildSignatureShort(input.authorSnapshot.fullName),
     authorFullName: normalizeInlineText(input.authorSnapshot.fullName),
     authorPosition: normalizeInlineText(input.authorSnapshot.position),
     authorPassportNumber: normalizeInlineText(input.authorSnapshot.passportNumber),
@@ -221,68 +217,98 @@ export function buildOgpRenderContext(input: {
   };
 }
 
-function renderCommonComplaintBlock(context: OgpRenderContext) {
+function renderComplaintList(context: OgpRenderContext) {
   return [
-    `[b]Номер обращения:[/b] ${context.appealNumber}`,
-    `[b]Организация:[/b] ${context.organizationName}`,
-    `[b]Субъект жалобы:[/b] ${context.subjectLabel}`,
-    `[b]Дата и время инцидента:[/b] ${context.incidentAtFormatted}`,
-    "",
-    "[b]Описание ситуации:[/b]",
-    context.situationDescription,
-    "",
-    "[b]Суть нарушения:[/b]",
-    context.violationSummary,
-    "",
-    `[b]Доказательства:[/b] ${context.evidenceBbcodeInline}`,
+    "[B]Суть обращения:[/B]",
+    "[LIST=1]",
+    `[*]Организация, в которой состоит объект заявления: ${context.organizationName}`,
+    `[*]Объект заявления (имя и фамилия, удостоверение, бейджик, нашивка, жетон): ${context.subjectLabel}`,
+    `[*]Подробное описание ситуации: ${context.situationDescription}`,
+    `[*]Формулировка сути нарушения: ${context.violationSummary}`,
+    `[*]Дата и время описываемых событий: ${context.incidentAtFormatted}`,
+    `[*]Доказательства: ${context.evidenceBbcodeInline}`,
+    "[/LIST]",
+  ].join("\n");
+}
+
+function renderApplicantInfoBlock(context: OgpRenderContext) {
+  return [
+    "[B]Информация о заявителе:[/B]",
+    "[LIST=1]",
+    `[*]Имя, фамилия: ${context.authorFullName}`,
+    `[*]Номер паспорта: ${context.authorPassportNumber}`,
+    `[*]Адрес проживания: ${context.authorAddress}`,
+    `[*]Номер телефона: ${context.authorPhone}`,
+    `[*]Адрес электронной почты (( ${context.authorIcEmail} )):`,
+    `[*]Ксерокопия паспорта (( ${context.authorPassportUrl} )):`,
+    "[/LIST]",
+  ].join("\n");
+}
+
+function renderRepresentativeInfoBlock(context: OgpRenderContext) {
+  return [
+    "[B]Информация о представителе:[/B]",
+    "[LIST=1]",
+    `[*]Имя, фамилия: ${context.authorFullName}`,
+    `[*]Номер паспорта: ${context.authorPassportNumber}`,
+    `[*]Адрес проживания: ${context.authorAddress}`,
+    `[*]Номер телефона: ${context.authorPhone}`,
+    `[*]Адрес электронной почты (( ${context.authorIcEmail} )):`,
+    `[*]Ксерокопия паспорта (( ${context.authorPassportUrl} )):`,
+    "[/LIST]",
+  ].join("\n");
+}
+
+function renderTrustorInfoBlock(context: OgpRenderContext) {
+  return [
+    "[B]Информация о подзащитном:[/B]",
+    "[LIST=1]",
+    `[*]Имя, фамилия: ${context.trustorFullName}`,
+    `[*]Номер паспорта: ${context.trustorPassportNumber}`,
+    `[*]Адрес проживания: ${context.trustorAddress}`,
+    `[*]Номер телефона: ${context.trustorPhone}`,
+    `[*]Адрес электронной почты (( ${context.trustorIcEmail} )):`,
+    `[*]Ксерокопия паспорта (( ${context.trustorPassportUrl} )):`,
+    "[/LIST]",
+  ].join("\n");
+}
+
+function renderSignatureBlock(context: OgpRenderContext) {
+  return [
+    "[RIGHT][/RIGHT]",
+    `[B][FONT=trebuchet ms]Дата: [/FONT][/B][FONT=trebuchet ms][U]${context.generatedDateMsk}[/U] г.[/FONT]`,
+    `[B][FONT=trebuchet ms]Подпись: [/FONT][/B][FONT=trebuchet ms][U]${context.signatureShort}[/U][/FONT]`,
   ].join("\n");
 }
 
 export function renderOgpSelfBbcode(context: OgpRenderContext) {
   return [
-    "[center][b]Жалоба в ОГП[/b][/center]",
-    "",
-    "[b]Информация о заявителе[/b]",
-    `[b]ФИО:[/b] ${context.authorFullName}`,
-    `[b]Должность:[/b] ${context.authorPosition}`,
-    `[b]Паспорт:[/b] ${context.authorPassportNumber}`,
-    `[b]Адрес:[/b] ${context.authorAddress}`,
-    `[b]Телефон:[/b] ${context.authorPhone}`,
-    `[b]IC email:[/b] ${context.authorIcEmail}`,
-    `[b]Скрин паспорта:[/b] ${context.authorPassportUrl}`,
-    "",
-    renderCommonComplaintBlock(context),
-    "",
-    `[right]${context.signatureShort}`,
-    `${context.generatedDateMsk}[/right]`,
+    "[RIGHT][I]To: Attorney General's office,",
+    "San-Andreas, Burton, Eastbourne Way,",
+    "Dear Attorney General Konstantin Belonozhkin,[/I][/RIGHT]",
+    "[CENTER]",
+    `[SIZE=5]Обращение №${context.appealNumber}[/SIZE]`,
+    `Я, гражданин штата Сан-Андреас ${context.authorFullName}, обращаюсь к Вам с просьбой рассмотреть следующую ситуацию и принять необходимые меры в соответствии с законом :`,
+    "[/CENTER]",
+    renderComplaintList(context),
+    renderApplicantInfoBlock(context),
+    renderSignatureBlock(context),
   ].join("\n");
 }
 
 export function renderOgpRepresentativeBbcode(context: OgpRenderContext) {
   return [
-    "[center][b]Жалоба в ОГП от представителя[/b][/center]",
-    "",
-    "[b]Информация о представителе[/b]",
-    `[b]ФИО:[/b] ${context.authorFullName}`,
-    `[b]Должность:[/b] ${context.authorPosition}`,
-    `[b]Паспорт:[/b] ${context.authorPassportNumber}`,
-    `[b]Адрес:[/b] ${context.authorAddress}`,
-    `[b]Телефон:[/b] ${context.authorPhone}`,
-    `[b]IC email:[/b] ${context.authorIcEmail}`,
-    `[b]Скрин паспорта:[/b] ${context.authorPassportUrl}`,
-    "",
-    "[b]Информация о подзащитном[/b]",
-    `[b]ФИО:[/b] ${context.trustorFullName}`,
-    `[b]Паспорт:[/b] ${context.trustorPassportNumber}`,
-    `[b]Адрес:[/b] ${context.trustorAddress}`,
-    `[b]Телефон:[/b] ${context.trustorPhone}`,
-    `[b]IC email:[/b] ${context.trustorIcEmail}`,
-    `[b]Скрин паспорта:[/b] ${context.trustorPassportUrl}`,
-    "",
-    renderCommonComplaintBlock(context),
-    "",
-    `[right]${context.signatureShort}`,
-    `${context.generatedDateMsk}[/right]`,
+    "[RIGHT][I]To: Attorney General's office,",
+    "San-Andreas, Burton, Eastbourne Way,",
+    "Dear Attorney General Konstantin Belonozhkin,[/I][/RIGHT]",
+    "[CENTER]",
+    `[SIZE=5]Обращение №${context.appealNumber}[/SIZE]`,
+    `Я, гражданин штата Сан-Андреас ${context.authorFullName}, являясь законным представителем гражданина ${context.trustorFullName} и в его интересах, обращаюсь к Вам с просьбой рассмотреть следующую ситуацию и принять необходимые меры в соответствии с законом :`,
+    "[/CENTER]",
+    renderComplaintList(context),
+    renderRepresentativeInfoBlock(context),
+    renderTrustorInfoBlock(context),
+    renderSignatureBlock(context),
   ].join("\n");
 }
 

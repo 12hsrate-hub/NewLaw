@@ -154,16 +154,27 @@ describe("document generation", () => {
     );
     const generatedBbcode = markDocumentGeneratedRecord.mock.calls[0]?.[0].lastGeneratedBbcode;
 
-    expect(generatedBbcode).toContain("Жалоба в ОГП");
-    expect(generatedBbcode).toContain("Информация о заявителе");
-    expect(generatedBbcode).toContain("Номер обращения:");
-    expect(generatedBbcode).toContain("123");
+    expect(generatedBbcode).toContain("[RIGHT][I]To: Attorney General's office,");
+    expect(generatedBbcode).toContain("[SIZE=5]Обращение №123[/SIZE]");
+    expect(generatedBbcode).toContain(
+      "Я, гражданин штата Сан-Андреас Игорь Юристов, обращаюсь к Вам с просьбой рассмотреть следующую ситуацию",
+    );
+    expect(generatedBbcode).toContain("[B]Суть обращения:[/B]");
+    expect(generatedBbcode).toContain(
+      "[*]Организация, в которой состоит объект заявления: LSPD",
+    );
+    expect(generatedBbcode).toContain(
+      "[*]Объект заявления (имя и фамилия, удостоверение, бейджик, нашивка, жетон): Officer Smoke",
+    );
+    expect(generatedBbcode).toContain("[B]Информация о заявителе:[/B]");
+    expect(generatedBbcode).toContain("[*]Адрес проживания: Дом 10");
+    expect(generatedBbcode).not.toContain("Должность:");
     expect(generatedBbcode).toContain(
       "[URL='https://example.com/screenshot']Скрин нарушения[/URL], [URL='https://example.com/bodycam']Запись с бодикамеры[/URL]",
     );
     expect(generatedBbcode).not.toContain("Устаревший label");
-    expect(generatedBbcode).toContain("[right]И.Юристов");
-    expect(generatedBbcode).toContain("21.04.2026[/right]");
+    expect(generatedBbcode).toContain("[B][FONT=trebuchet ms]Дата: [/FONT][/B][FONT=trebuchet ms][U]21.04.2026[/U] г.[/FONT]");
+    expect(generatedBbcode).toContain("[B][FONT=trebuchet ms]Подпись: [/FONT][/B][FONT=trebuchet ms][U]И.Юристов[/U][/FONT]");
     expect(result.status).toBe("generated");
   });
 
@@ -210,13 +221,18 @@ describe("document generation", () => {
       },
     );
 
-    expect(markDocumentGeneratedRecord.mock.calls[0]?.[0].lastGeneratedBbcode).toContain("Жалоба в ОГП от представителя");
-    expect(markDocumentGeneratedRecord.mock.calls[0]?.[0].lastGeneratedBbcode).toContain("Информация о представителе");
-    expect(markDocumentGeneratedRecord.mock.calls[0]?.[0].lastGeneratedBbcode).toContain("Информация о подзащитном");
-    expect(markDocumentGeneratedRecord.mock.calls[0]?.[0].lastGeneratedBbcode).toContain("Пётр Доверитель");
-    expect(markDocumentGeneratedRecord.mock.calls[0]?.[0].lastGeneratedBbcode).toContain("Дом 20");
-    expect(markDocumentGeneratedRecord.mock.calls[0]?.[0].lastGeneratedBbcode).toContain("001");
-    expect(markDocumentGeneratedRecord.mock.calls[0]?.[0].lastGeneratedBbcode).toContain("[right]П.Доверитель");
+    const generatedBbcode = markDocumentGeneratedRecord.mock.calls[0]?.[0].lastGeneratedBbcode;
+
+    expect(generatedBbcode).toContain("[B]Информация о представителе:[/B]");
+    expect(generatedBbcode).toContain("[B]Информация о подзащитном:[/B]");
+    expect(generatedBbcode).toContain(
+      "являясь законным представителем гражданина Пётр Доверитель и в его интересах",
+    );
+    expect(generatedBbcode).toContain("Пётр Доверитель");
+    expect(generatedBbcode).toContain("Дом 20");
+    expect(generatedBbcode).toContain("001");
+    expect(generatedBbcode).toContain("[B][FONT=trebuchet ms]Подпись: [/FONT][/B][FONT=trebuchet ms][U]И.Юристов[/U][/FONT]");
+    expect(generatedBbcode).not.toContain("[U]П.Доверитель[/U]");
   });
 
   it("блокирует generation при неполном профиле и неполном payload", async () => {

@@ -46,7 +46,7 @@
 - `appealNumber` в OGP generation contract — digits only
 - evidence рендерится из persisted evidence rows как `[URL='...']labelSnapshot[/URL]`, сортируется по `sortOrder` и соединяется запятой
 - bottom date берётся на момент generation в Moscow timezone и формате `DD.MM.YYYY`
-- подпись строится как первая буква первого слова + "." + последнее слово
+- подпись строится из author/representative profile как первая буква первого слова + "." + последнее слово; в representative flow доверитель не становится источником подписи
 
 ## Критерии завершения
 
