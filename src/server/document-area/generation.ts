@@ -181,6 +181,12 @@ function renderEvidenceInline(payload: OgpComplaintDraftPayload) {
     .join(", ");
 }
 
+function renderSelfTextUrl(value: string) {
+  const url = value.trim();
+
+  return `[URL='${escapeBbcodeAttribute(url)}']${url}[/URL]`;
+}
+
 export function buildOgpRenderContext(input: {
   authorSnapshot: DocumentAuthorSnapshot;
   payload: OgpComplaintDraftPayload;
@@ -239,8 +245,8 @@ function renderApplicantInfoBlock(context: OgpRenderContext) {
     `[*]Номер паспорта: ${context.authorPassportNumber}`,
     `[*]Адрес проживания: ${context.authorAddress}`,
     `[*]Номер телефона: ${context.authorPhone}`,
-    `[*]Адрес электронной почты (( ${context.authorIcEmail} )):`,
-    `[*]Ксерокопия паспорта (( ${context.authorPassportUrl} )):`,
+    `[*]Адрес электронной почты: ${context.authorIcEmail}`,
+    `[*]Ксерокопия паспорта: ${renderSelfTextUrl(context.authorPassportUrl)}`,
     "[/LIST]",
   ].join("\n");
 }
@@ -253,8 +259,8 @@ function renderRepresentativeInfoBlock(context: OgpRenderContext) {
     `[*]Номер паспорта: ${context.authorPassportNumber}`,
     `[*]Адрес проживания: ${context.authorAddress}`,
     `[*]Номер телефона: ${context.authorPhone}`,
-    `[*]Адрес электронной почты (( ${context.authorIcEmail} )):`,
-    `[*]Ксерокопия паспорта (( ${context.authorPassportUrl} )):`,
+    `[*]Адрес электронной почты: ${context.authorIcEmail}`,
+    `[*]Ксерокопия паспорта: ${renderSelfTextUrl(context.authorPassportUrl)}`,
     "[/LIST]",
   ].join("\n");
 }
@@ -267,8 +273,8 @@ function renderTrustorInfoBlock(context: OgpRenderContext) {
     `[*]Номер паспорта: ${context.trustorPassportNumber}`,
     `[*]Адрес проживания: ${context.trustorAddress}`,
     `[*]Номер телефона: ${context.trustorPhone}`,
-    `[*]Адрес электронной почты (( ${context.trustorIcEmail} )):`,
-    `[*]Ксерокопия паспорта (( ${context.trustorPassportUrl} )):`,
+    `[*]Адрес электронной почты: ${context.trustorIcEmail}`,
+    `[*]Ксерокопия паспорта: ${renderSelfTextUrl(context.trustorPassportUrl)}`,
     "[/LIST]",
   ].join("\n");
 }

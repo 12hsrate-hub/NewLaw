@@ -168,6 +168,12 @@ describe("document generation", () => {
     );
     expect(generatedBbcode).toContain("[B]Информация о заявителе:[/B]");
     expect(generatedBbcode).toContain("[*]Адрес проживания: Дом 10");
+    expect(generatedBbcode).toContain("[*]Адрес электронной почты: lawyer@example.com");
+    expect(generatedBbcode).toContain(
+      "[*]Ксерокопия паспорта: [URL='https://example.com/lawyer-passport.png']https://example.com/lawyer-passport.png[/URL]",
+    );
+    expect(generatedBbcode).not.toContain("Адрес электронной почты ((");
+    expect(generatedBbcode).not.toContain("Ксерокопия паспорта ((");
     expect(generatedBbcode).not.toContain("Должность:");
     expect(generatedBbcode).toContain(
       "[URL='https://example.com/screenshot']Скрин нарушения[/URL], [URL='https://example.com/bodycam']Запись с бодикамеры[/URL]",
@@ -230,6 +236,10 @@ describe("document generation", () => {
     );
     expect(generatedBbcode).toContain("Пётр Доверитель");
     expect(generatedBbcode).toContain("Дом 20");
+    expect(generatedBbcode).toContain("[*]Адрес электронной почты: trustor@example.com");
+    expect(generatedBbcode).toContain(
+      "[*]Ксерокопия паспорта: [URL='https://example.com/trustor-passport.png']https://example.com/trustor-passport.png[/URL]",
+    );
     expect(generatedBbcode).toContain("001");
     expect(generatedBbcode).toContain("[B][FONT=trebuchet ms]Подпись: [/FONT][/B][FONT=trebuchet ms][U]И.Юристов[/U][/FONT]");
     expect(generatedBbcode).not.toContain("[U]П.Доверитель[/U]");
