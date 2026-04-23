@@ -19,21 +19,22 @@ const pt = (value: number) => value;
 const PAGE_WIDTH = Math.round(210 * PX_PER_MM);
 const PAGE_HEIGHT = Math.round(297 * PX_PER_MM);
 const MAX_BODY_Y = 900;
+const RASTER_SCALE = 2;
 
 const fontConfig = {
   textFamily: "Times New Roman, Liberation Serif, serif",
   monoFamily: "Courier New, Liberation Mono, monospace",
-  bodyRegularSize: pt(13.6),
-  bodyBoldSize: pt(13.9),
-  bodyLineHeight: pt(18.8),
-  sectionHeadingSize: pt(13.6),
-  introSize: pt(14.1),
-  introLineHeight: pt(20.4),
-  titleSize: pt(15.8),
-  registerTitleSize: pt(15.6),
-  registerBodySize: pt(15),
-  stateTitleSize: pt(28),
-  associationTitleSize: pt(23),
+  bodyRegularSize: pt(12.4),
+  bodyBoldSize: pt(12.8),
+  bodyLineHeight: pt(16.2),
+  sectionHeadingSize: pt(12.4),
+  introSize: pt(13),
+  introLineHeight: pt(17.8),
+  titleSize: pt(14.2),
+  registerTitleSize: pt(13.6),
+  registerBodySize: pt(13.1),
+  stateTitleSize: pt(22),
+  associationTitleSize: pt(16.5),
   footerRoleSize: pt(14.2),
   footerCenterTitleSize: pt(14.2),
   footerCenterDateSize: pt(12.8),
@@ -50,21 +51,21 @@ const layoutConfig = {
   },
   registerWidth: mm(46),
   leftRoleWidth: mm(28),
-  columnGap: mm(4),
-  contentStartY: 215,
-  contentDividerY: 202,
-  bodyRightX: PAGE_WIDTH - mm(16),
-  sectionGap: mm(6.2),
+  columnGap: mm(3.5),
+  contentStartY: 214,
+  contentDividerY: 190,
+  bodyRightX: PAGE_WIDTH - mm(27),
+  sectionGap: mm(5.2),
 } as const;
 
 const headerConfig = {
   sealSize: mm(14),
   sealY: mm(4.4),
-  topLineY: 67,
-  secondLineY: 72,
-  stateTitleY: 108,
-  associationTitleY: 140,
-  registerY: 154,
+  topLineY: 60,
+  secondLineY: 65,
+  stateTitleY: 88,
+  associationTitleY: 112,
+  registerY: 143,
 } as const;
 
 const footerConfig = {
@@ -72,10 +73,11 @@ const footerConfig = {
   signatureY: 830,
   signatureWidth: mm(35),
   signatureHeight: mm(36),
-  stampY: 1018,
+  stampY: 1002,
   stampLineHeight: pt(14.2) * 1.48,
-  centerTitleY: 1038,
-  centerDateY: 1062,
+  centerTitleY: 1018,
+  centerDateY: 1042,
+  qrY: 1002,
   qrSize: mm(20),
 } as const;
 
@@ -92,6 +94,7 @@ const visualReferenceConfig = {
   knownGaps: [
     "Оригинальный asset подписи отсутствует: используется replace-ready векторная имитация.",
     "Точный stamp-font эталона неизвестен: используется Courier/Liberation Mono approximation.",
+    "Raster export renders at 2x scale to reduce JPG/PDF blur while keeping the same A4 layout contract.",
   ],
   header: headerConfig,
   layout: layoutConfig,
@@ -249,17 +252,17 @@ function estimateTextWidth(input: string, size: number) {
 
   for (const char of input) {
     if (char === " ") {
-      units += 0.26;
+      units += 0.32;
     } else if (/[0-9]/.test(char)) {
-      units += 0.44;
+      units += 0.5;
     } else if (/[A-Za-z]/.test(char)) {
-      units += 0.46;
+      units += 0.53;
     } else if (/[А-Яа-яЁё]/.test(char)) {
-      units += 0.49;
+      units += 0.58;
     } else if (/[.,:;!?()[\]"'/-]/.test(char)) {
-      units += 0.25;
+      units += 0.31;
     } else {
-      units += 0.48;
+      units += 0.56;
     }
   }
 
@@ -592,7 +595,7 @@ function buildFooter(input: {
       .join("")}
     <text x="${PAGE_WIDTH / 2}" y="${footerConfig.centerTitleY}" font-family="${fontConfig.textFamily}" font-size="${fontConfig.footerCenterTitleSize}" text-anchor="middle">SAN ANDREAS CAPITOL</text>
     <text x="${PAGE_WIDTH / 2}" y="${footerConfig.centerDateY}" font-family="${fontConfig.textFamily}" font-size="${fontConfig.footerCenterDateSize}" font-style="italic" text-anchor="middle">${escapeXml(formatRegisterDate(input.payload.documentDateMsk))}</text>
-    <image href="${input.qrDataUrl}" x="${PAGE_WIDTH - layoutConfig.pagePadding.right - footerConfig.qrSize}" y="${PAGE_HEIGHT - layoutConfig.pagePadding.bottom - footerConfig.qrSize}" width="${footerConfig.qrSize}" height="${footerConfig.qrSize}"/>
+    <image href="${input.qrDataUrl}" x="${PAGE_WIDTH - layoutConfig.pagePadding.right - footerConfig.qrSize}" y="${footerConfig.qrY}" width="${footerConfig.qrSize}" height="${footerConfig.qrSize}"/>
   </g>`;
 }
 
@@ -807,7 +810,11 @@ function buildPreviewHtml(input: {
 </html>`;
 }
 
-function buildPdfFromJpeg(jpeg: Buffer) {
+function buildPdfFromJpeg(input: {
+  jpeg: Buffer;
+  imageWidth: number;
+  imageHeight: number;
+}) {
   const offsets: number[] = [];
   const chunks: Buffer[] = [];
   const push = (chunk: string | Buffer) => {
@@ -830,8 +837,8 @@ function buildPdfFromJpeg(jpeg: Buffer) {
     `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${PAGE_WIDTH} ${PAGE_HEIGHT}] /Resources << /XObject << /Im0 4 0 R >> >> /Contents 5 0 R >>`,
   ]);
   object(4, [
-    `<< /Type /XObject /Subtype /Image /Width ${PAGE_WIDTH} /Height ${PAGE_HEIGHT} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpeg.length} >>\nstream\n`,
-    jpeg,
+    `<< /Type /XObject /Subtype /Image /Width ${input.imageWidth} /Height ${input.imageHeight} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${input.jpeg.length} >>\nstream\n`,
+    input.jpeg,
     "\nendstream",
   ]);
   const content = Buffer.from(`q\n${PAGE_WIDTH} 0 0 ${PAGE_HEIGHT} 0 0 cm\n/Im0 Do\nQ\n`, "binary");
@@ -847,9 +854,27 @@ function buildPdfFromJpeg(jpeg: Buffer) {
   return Buffer.concat(chunks);
 }
 
+function buildRasterSvg(pageSvg: string) {
+  return pageSvg.replace(
+    `width="${PAGE_WIDTH}" height="${PAGE_HEIGHT}"`,
+    `width="${PAGE_WIDTH * RASTER_SCALE}" height="${PAGE_HEIGHT * RASTER_SCALE}"`,
+  );
+}
+
 async function buildPdfAndJpgDataUrls(pageSvg: string) {
-  const jpg = await sharp(Buffer.from(pageSvg)).jpeg({ quality: 95 }).toBuffer();
-  const pdf = buildPdfFromJpeg(jpg);
+  const jpg = await sharp(Buffer.from(buildRasterSvg(pageSvg)))
+    .jpeg({
+      quality: 98,
+      chromaSubsampling: "4:4:4",
+      mozjpeg: true,
+    })
+    .toBuffer();
+  const metadata = await sharp(jpg).metadata();
+  const pdf = buildPdfFromJpeg({
+    jpeg: jpg,
+    imageWidth: metadata.width ?? PAGE_WIDTH * RASTER_SCALE,
+    imageHeight: metadata.height ?? PAGE_HEIGHT * RASTER_SCALE,
+  });
 
   return {
     pdfDataUrl: makeDataUrl("application/pdf", pdf),
