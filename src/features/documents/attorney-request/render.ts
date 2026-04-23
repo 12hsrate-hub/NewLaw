@@ -18,29 +18,73 @@ const mm = (value: number) => value * PX_PER_MM;
 const pt = (value: number) => value;
 const PAGE_WIDTH = Math.round(210 * PX_PER_MM);
 const PAGE_HEIGHT = Math.round(297 * PX_PER_MM);
-const PAGE_PADDING_TOP = mm(10);
-const PAGE_PADDING_RIGHT = mm(16);
-const PAGE_PADDING_BOTTOM = mm(12);
-const PAGE_PADDING_LEFT = mm(16);
-const BODY_FONT_SIZE = pt(12);
-const BODY_LINE_HEIGHT = BODY_FONT_SIZE * 1.45;
-const SECTION_GAP = mm(7);
-const REGISTER_WIDTH = mm(46);
-const LEFT_ROLE_WIDTH = mm(30);
-const COLUMN_GAP = mm(4);
-const SEAL_SIZE = mm(12);
-const SIGNATURE_WIDTH = mm(35);
-const SIGNATURE_HEIGHT = mm(36);
-const QR_SIZE = mm(20);
-const CONTENT_START_Y = 207;
 const MAX_BODY_Y = 900;
-const TEXT_FONT = "Times New Roman, Liberation Serif, serif";
-const MONO_FONT = "Courier New, Liberation Mono, monospace";
-const SEAL_ASSET_DATA_URL = readLocalAssetDataUrl(
-  "src/features/documents/attorney-request/assets/bar-seal-reference.png",
-  "image/png",
-);
-const SIGNATURE_ASSET_DATA_URL: string | null = null;
+
+const fontConfig = {
+  textFamily: "Times New Roman, Liberation Serif, serif",
+  monoFamily: "Courier New, Liberation Mono, monospace",
+  bodySize: pt(11.6),
+  bodyLineHeight: pt(15.4),
+  introSize: pt(11.8),
+  introLineHeight: pt(15.8),
+  titleSize: pt(12),
+  registerTitleSize: pt(12),
+  registerBodySize: pt(11.5),
+  stateTitleSize: pt(20),
+  associationTitleSize: pt(14),
+  footerRoleSize: pt(12),
+  footerCenterTitleSize: pt(13),
+  footerCenterDateSize: pt(12),
+  footerNameSize: pt(12),
+  stampSize: pt(9.6),
+  wrapWidthFactor: 0.56,
+} as const;
+
+const layoutConfig = {
+  pagePadding: {
+    top: mm(10),
+    right: mm(16),
+    bottom: mm(12),
+    left: mm(16),
+  },
+  contentRightPadding: mm(22),
+  registerWidth: mm(46),
+  leftRoleWidth: mm(30),
+  columnGap: mm(4),
+  contentStartY: 202,
+  contentDividerY: 212,
+  sectionGap: mm(5.2),
+} as const;
+
+const headerConfig = {
+  sealSize: mm(12),
+  sealY: mm(5.8),
+  topLineY: 65,
+  secondLineY: 70,
+  stateTitleY: 98,
+  associationTitleY: 124,
+  registerY: 156,
+} as const;
+
+const footerConfig = {
+  topY: 930,
+  signatureY: 826,
+  signatureWidth: mm(35),
+  signatureHeight: mm(36),
+  stampY: 1032,
+  stampLineHeight: pt(9.6) * 1.08,
+  centerTitleY: 1050,
+  centerDateY: 1074,
+  qrSize: mm(20),
+} as const;
+
+const assetConfig = {
+  sealDataUrl: readLocalAssetDataUrl(
+    "src/features/documents/attorney-request/assets/bar-seal-reference.png",
+    "image/png",
+  ),
+  signatureDataUrl: null as string | null,
+} as const;
 
 type SvgSegment = {
   text: string;
@@ -165,11 +209,11 @@ function buildSection4() {
   return "Настоящий запрос вступает в законную силу с момента его публикации.";
 }
 
-function estimateLineChars(width: number, size = BODY_FONT_SIZE) {
-  return Math.max(16, Math.floor(width / (size * 0.5)));
+function estimateLineChars(width: number, size = fontConfig.bodySize) {
+  return Math.max(16, Math.floor(width / (size * fontConfig.wrapWidthFactor)));
 }
 
-function wrapText(input: string, width: number, size = BODY_FONT_SIZE) {
+function wrapText(input: string, width: number, size = fontConfig.bodySize) {
   const maxChars = estimateLineChars(width, size);
   const paragraphs = input.split("\n");
   const result: string[] = [];
@@ -220,8 +264,8 @@ function pushWrappedLines(input: {
   italic?: boolean;
   family?: string;
 }) {
-  const size = input.size ?? BODY_FONT_SIZE;
-  const lineHeight = input.lineHeight ?? BODY_LINE_HEIGHT;
+  const size = input.size ?? fontConfig.bodySize;
+  const lineHeight = input.lineHeight ?? fontConfig.bodyLineHeight;
   let y = input.y;
 
   for (const text of wrapText(input.text, input.width, size)) {
@@ -260,10 +304,10 @@ function pushSectionHeading(input: {
     ],
     x: input.x,
     y: input.y,
-    size: BODY_FONT_SIZE,
+    size: fontConfig.bodySize,
   });
 
-  return input.y + BODY_LINE_HEIGHT;
+  return input.y + fontConfig.bodyLineHeight;
 }
 
 function pushNumberedItem(input: {
@@ -274,7 +318,7 @@ function pushNumberedItem(input: {
   y: number;
   width: number;
 }) {
-  const markerWidth = BODY_FONT_SIZE * 1.25;
+  const markerWidth = fontConfig.bodySize * 1.16;
   const contentWidth = input.width - markerWidth;
   const wrapped = wrapText(input.text, contentWidth);
   let y = input.y;
@@ -284,9 +328,9 @@ function pushNumberedItem(input: {
       text: index === 0 ? `${input.marker} ${text}` : text,
       x: index === 0 ? input.x : input.x + markerWidth,
       y,
-      size: BODY_FONT_SIZE,
+      size: fontConfig.bodySize,
     });
-    y += BODY_LINE_HEIGHT;
+    y += fontConfig.bodyLineHeight;
   }
 
   return y;
@@ -303,7 +347,7 @@ function renderLine(line: SvgLine) {
       })
       .join("") ?? escapeXml(line.text ?? "");
 
-  return `<text x="${line.x ?? PAGE_PADDING_LEFT}" y="${line.y ?? PAGE_PADDING_TOP}" font-family="${line.family ?? TEXT_FONT}" font-size="${line.size ?? BODY_FONT_SIZE}"${line.bold ? ' font-weight="700"' : ""}${line.italic ? ' font-style="italic"' : ""}${line.anchor ? ` text-anchor="${line.anchor}"` : ""}>${content}</text>`;
+  return `<text x="${line.x ?? layoutConfig.pagePadding.left}" y="${line.y ?? layoutConfig.pagePadding.top}" font-family="${line.family ?? fontConfig.textFamily}" font-size="${line.size ?? fontConfig.bodySize}"${line.bold ? ' font-weight="700"' : ""}${line.italic ? ' font-style="italic"' : ""}${line.anchor ? ` text-anchor="${line.anchor}"` : ""}>${content}</text>`;
 }
 
 function buildPreviewText(input: {
@@ -353,55 +397,58 @@ async function buildQrDataUrl(input: {
   return QRCode.toDataURL(qrPayload, {
     errorCorrectionLevel: "M",
     margin: 0,
-    width: Math.round(QR_SIZE * 2),
+    width: Math.round(footerConfig.qrSize * 2),
   });
 }
 
 function buildSealSvg() {
-  const x = PAGE_PADDING_LEFT;
-  const y = mm(5.8);
-  const cx = x + SEAL_SIZE / 2;
-  const cy = y + SEAL_SIZE / 2;
+  const x = layoutConfig.pagePadding.left;
+  const y = headerConfig.sealY;
+  const size = headerConfig.sealSize;
+  const cx = x + size / 2;
+  const cy = y + size / 2;
 
-  if (SEAL_ASSET_DATA_URL) {
-    return `<image data-asset-slot="attorney-request-seal" href="${SEAL_ASSET_DATA_URL}" x="${x}" y="${y}" width="${SEAL_SIZE}" height="${SEAL_SIZE}" preserveAspectRatio="xMidYMid meet"/>`;
+  if (assetConfig.sealDataUrl) {
+    return `<image data-asset-slot="attorney-request-seal" href="${assetConfig.sealDataUrl}" x="${x}" y="${y}" width="${size}" height="${size}" preserveAspectRatio="xMidYMid meet"/>`;
   }
 
   return `<g data-asset-slot="attorney-request-seal" opacity="0.88">
-    <circle cx="${cx}" cy="${cy}" r="${SEAL_SIZE / 2 - 1.3}" fill="#ebe7df" stroke="#242424" stroke-width="1.15"/>
-    <circle cx="${cx}" cy="${cy}" r="${SEAL_SIZE / 2 - 4.2}" fill="#f8f6ef" stroke="#5f6470" stroke-width="0.9"/>
-    <circle cx="${cx}" cy="${cy}" r="${SEAL_SIZE / 2 - 8.2}" fill="none" stroke="#8a6f4d" stroke-width="0.7"/>
+    <circle cx="${cx}" cy="${cy}" r="${size / 2 - 1.3}" fill="#ebe7df" stroke="#242424" stroke-width="1.15"/>
+    <circle cx="${cx}" cy="${cy}" r="${size / 2 - 4.2}" fill="#f8f6ef" stroke="#5f6470" stroke-width="0.9"/>
+    <circle cx="${cx}" cy="${cy}" r="${size / 2 - 8.2}" fill="none" stroke="#8a6f4d" stroke-width="0.7"/>
     <path d="M${cx - 9} ${cy - 1} C${cx - 4} ${cy - 8}, ${cx + 5} ${cy - 8}, ${cx + 9} ${cy - 1}" fill="none" stroke="#4b5563" stroke-width="0.8"/>
     <path d="M${cx - 7} ${cy + 4} C${cx - 2} ${cy + 8}, ${cx + 5} ${cy + 8}, ${cx + 8} ${cy + 3}" fill="none" stroke="#4b5563" stroke-width="0.8"/>
-    <text x="${cx}" y="${cy - 1}" font-family="${TEXT_FONT}" font-size="5.6" font-weight="700" text-anchor="middle">BA</text>
+    <text x="${cx}" y="${cy - 1}" font-family="${fontConfig.textFamily}" font-size="5.6" font-weight="700" text-anchor="middle">BA</text>
   </g>`;
 }
 
 function buildSignatureSvg() {
-  const x = PAGE_WIDTH / 2 - SIGNATURE_WIDTH / 2;
-  const y = 825;
+  const width = footerConfig.signatureWidth;
+  const height = footerConfig.signatureHeight;
+  const x = PAGE_WIDTH / 2 - width / 2;
+  const y = footerConfig.signatureY;
 
-  if (SIGNATURE_ASSET_DATA_URL) {
-    return `<image data-asset-slot="attorney-request-signature" href="${SIGNATURE_ASSET_DATA_URL}" x="${x}" y="${y}" width="${SIGNATURE_WIDTH}" height="${SIGNATURE_HEIGHT}" preserveAspectRatio="xMidYMid meet"/>`;
+  if (assetConfig.signatureDataUrl) {
+    return `<image data-asset-slot="attorney-request-signature" href="${assetConfig.signatureDataUrl}" x="${x}" y="${y}" width="${width}" height="${height}" preserveAspectRatio="xMidYMid meet"/>`;
   }
 
   return `<g data-asset-slot="attorney-request-signature" transform="translate(${x} ${y})" fill="none" stroke="#101010" stroke-width="1.45" stroke-linecap="round" stroke-linejoin="round" opacity="0.9">
-    <ellipse cx="${SIGNATURE_WIDTH * 0.47}" cy="${SIGNATURE_HEIGHT * 0.52}" rx="${SIGNATURE_WIDTH * 0.34}" ry="${SIGNATURE_HEIGHT * 0.43}" transform="rotate(-18 ${SIGNATURE_WIDTH * 0.47} ${SIGNATURE_HEIGHT * 0.52})"/>
-    <path d="M${SIGNATURE_WIDTH * 0.18} ${SIGNATURE_HEIGHT * 0.64} C${SIGNATURE_WIDTH * 0.28} ${SIGNATURE_HEIGHT * 0.31}, ${SIGNATURE_WIDTH * 0.42} ${SIGNATURE_HEIGHT * 0.78}, ${SIGNATURE_WIDTH * 0.53} ${SIGNATURE_HEIGHT * 0.33} C${SIGNATURE_WIDTH * 0.58} ${SIGNATURE_HEIGHT * 0.1}, ${SIGNATURE_WIDTH * 0.62} ${SIGNATURE_HEIGHT * 0.77}, ${SIGNATURE_WIDTH * 0.7} ${SIGNATURE_HEIGHT * 0.32} C${SIGNATURE_WIDTH * 0.74} ${SIGNATURE_HEIGHT * 0.12}, ${SIGNATURE_WIDTH * 0.79} ${SIGNATURE_HEIGHT * 0.68}, ${SIGNATURE_WIDTH * 0.87} ${SIGNATURE_HEIGHT * 0.42}"/>
-    <path d="M${SIGNATURE_WIDTH * 0.2} ${SIGNATURE_HEIGHT * 0.66} C${SIGNATURE_WIDTH * 0.37} ${SIGNATURE_HEIGHT * 0.58}, ${SIGNATURE_WIDTH * 0.58} ${SIGNATURE_HEIGHT * 0.46}, ${SIGNATURE_WIDTH * 0.87} ${SIGNATURE_HEIGHT * 0.22}"/>
-    <path d="M${SIGNATURE_WIDTH * 0.32} ${SIGNATURE_HEIGHT * 0.78} C${SIGNATURE_WIDTH * 0.52} ${SIGNATURE_HEIGHT * 0.86}, ${SIGNATURE_WIDTH * 0.77} ${SIGNATURE_HEIGHT * 0.81}, ${SIGNATURE_WIDTH * 0.96} ${SIGNATURE_HEIGHT * 0.66}"/>
+    <ellipse cx="${width * 0.47}" cy="${height * 0.52}" rx="${width * 0.34}" ry="${height * 0.43}" transform="rotate(-18 ${width * 0.47} ${height * 0.52})"/>
+    <path d="M${width * 0.18} ${height * 0.64} C${width * 0.28} ${height * 0.31}, ${width * 0.42} ${height * 0.78}, ${width * 0.53} ${height * 0.33} C${width * 0.58} ${height * 0.1}, ${width * 0.62} ${height * 0.77}, ${width * 0.7} ${height * 0.32} C${width * 0.74} ${height * 0.12}, ${width * 0.79} ${height * 0.68}, ${width * 0.87} ${height * 0.42}"/>
+    <path d="M${width * 0.2} ${height * 0.66} C${width * 0.37} ${height * 0.58}, ${width * 0.58} ${height * 0.46}, ${width * 0.87} ${height * 0.22}"/>
+    <path d="M${width * 0.32} ${height * 0.78} C${width * 0.52} ${height * 0.86}, ${width * 0.77} ${height * 0.81}, ${width * 0.96} ${height * 0.66}"/>
   </g>`;
 }
 
 function buildHeaderLines() {
-  const left = PAGE_PADDING_LEFT;
-  const right = PAGE_WIDTH - PAGE_PADDING_RIGHT;
+  const left = layoutConfig.pagePadding.left;
+  const right = PAGE_WIDTH - layoutConfig.pagePadding.right;
   const center = PAGE_WIDTH / 2;
 
-  return `<line x1="${left}" y1="65" x2="${right}" y2="65" stroke="#111" stroke-width="2"/>
-  <line x1="${left}" y1="70" x2="${right}" y2="70" stroke="#111" stroke-width="1"/>
-  <text x="${center}" y="98" font-family="${TEXT_FONT}" font-size="${pt(20)}" font-weight="700" text-anchor="middle">STATE OF SAN ANDREAS</text>
-  <text x="${center}" y="124" font-family="${TEXT_FONT}" font-size="${pt(14)}" font-weight="400" text-anchor="middle">BAR ASSOCIATION</text>`;
+  return `<line x1="${left}" y1="${headerConfig.topLineY}" x2="${right}" y2="${headerConfig.topLineY}" stroke="#111" stroke-width="2"/>
+  <line x1="${left}" y1="${headerConfig.secondLineY}" x2="${right}" y2="${headerConfig.secondLineY}" stroke="#111" stroke-width="1"/>
+  <text x="${center}" y="${headerConfig.stateTitleY}" font-family="${fontConfig.textFamily}" font-size="${fontConfig.stateTitleSize}" font-weight="700" text-anchor="middle">STATE OF SAN ANDREAS</text>
+  <text x="${center}" y="${headerConfig.associationTitleY}" font-family="${fontConfig.textFamily}" font-size="${fontConfig.associationTitleSize}" font-weight="400" text-anchor="middle">BAR ASSOCIATION</text>`;
 }
 
 function buildFooter(input: {
@@ -413,11 +460,11 @@ function buildFooter(input: {
   const requestDigits = getRequestDigits(input.payload.requestNumberNormalized);
   const parsedDate = parseDocumentDateLabel(input.payload.documentDateMsk);
   const stampYear = parsedDate?.year ?? new Date().getFullYear();
-  const footerTopY = 930;
-  const footerRoleSize = pt(12);
+  const footerTopY = footerConfig.topY;
+  const footerRoleSize = fontConfig.footerRoleSize;
   const footerLineHeight = footerRoleSize * 1.25;
-  const leftRoleLines = wrapText(signerTitle?.footerRu ?? input.authorSnapshot.position, LEFT_ROLE_WIDTH, footerRoleSize)
-    .map((line, index) => `<text x="${PAGE_PADDING_LEFT}" y="${footerTopY + index * footerLineHeight}" font-family="${TEXT_FONT}" font-size="${footerRoleSize}">${escapeXml(line)}</text>`)
+  const leftRoleLines = wrapText(signerTitle?.footerRu ?? input.authorSnapshot.position, layoutConfig.leftRoleWidth, footerRoleSize)
+    .map((line, index) => `<text x="${layoutConfig.pagePadding.left}" y="${footerTopY + index * footerLineHeight}" font-family="${fontConfig.textFamily}" font-size="${footerRoleSize}">${escapeXml(line)}</text>`)
     .join("");
   const filedDate = formatFiledDate(input.payload.documentDateMsk);
   const stampLines = [
@@ -429,16 +476,16 @@ function buildFooter(input: {
   return `<g>
     ${buildSignatureSvg()}
     ${leftRoleLines}
-    <text x="${PAGE_WIDTH - PAGE_PADDING_RIGHT}" y="${footerTopY}" font-family="${TEXT_FONT}" font-size="${pt(12)}" text-anchor="end">${escapeXml(input.authorSnapshot.fullName)}</text>
+    <text x="${PAGE_WIDTH - layoutConfig.pagePadding.right}" y="${footerTopY}" font-family="${fontConfig.textFamily}" font-size="${fontConfig.footerNameSize}" text-anchor="end">${escapeXml(input.authorSnapshot.fullName)}</text>
     ${stampLines
       .map(
         (line, index) =>
-          `<text x="${PAGE_PADDING_LEFT}" y="${1032 + index * pt(11) * 1.12}" font-family="${MONO_FONT}" font-size="${pt(11)}">${escapeXml(line)}</text>`,
+          `<text x="${layoutConfig.pagePadding.left}" y="${footerConfig.stampY + index * footerConfig.stampLineHeight}" font-family="${fontConfig.monoFamily}" font-size="${fontConfig.stampSize}" font-weight="700" letter-spacing="0.35">${escapeXml(line)}</text>`,
       )
       .join("")}
-    <text x="${PAGE_WIDTH / 2}" y="1050" font-family="${TEXT_FONT}" font-size="${pt(13)}" text-anchor="middle">SAN ANDREAS CAPITOL</text>
-    <text x="${PAGE_WIDTH / 2}" y="1074" font-family="${TEXT_FONT}" font-size="${pt(12)}" font-style="italic" text-anchor="middle">${escapeXml(formatRegisterDate(input.payload.documentDateMsk))}</text>
-    <image href="${input.qrDataUrl}" x="${PAGE_WIDTH - PAGE_PADDING_RIGHT - QR_SIZE}" y="${PAGE_HEIGHT - PAGE_PADDING_BOTTOM - QR_SIZE}" width="${QR_SIZE}" height="${QR_SIZE}"/>
+    <text x="${PAGE_WIDTH / 2}" y="${footerConfig.centerTitleY}" font-family="${fontConfig.textFamily}" font-size="${fontConfig.footerCenterTitleSize}" text-anchor="middle">SAN ANDREAS CAPITOL</text>
+    <text x="${PAGE_WIDTH / 2}" y="${footerConfig.centerDateY}" font-family="${fontConfig.textFamily}" font-size="${fontConfig.footerCenterDateSize}" font-style="italic" text-anchor="middle">${escapeXml(formatRegisterDate(input.payload.documentDateMsk))}</text>
+    <image href="${input.qrDataUrl}" x="${PAGE_WIDTH - layoutConfig.pagePadding.right - footerConfig.qrSize}" y="${PAGE_HEIGHT - layoutConfig.pagePadding.bottom - footerConfig.qrSize}" width="${footerConfig.qrSize}" height="${footerConfig.qrSize}"/>
   </g>`;
 }
 
@@ -447,83 +494,83 @@ function buildVisualLines(input: {
   payload: AttorneyRequestDraftPayload;
 }) {
   const lines: SvgLine[] = [];
-  const bodyX = PAGE_PADDING_LEFT + LEFT_ROLE_WIDTH + COLUMN_GAP;
-  const bodyWidth = PAGE_WIDTH - PAGE_PADDING_RIGHT - bodyX;
+  const bodyX = layoutConfig.pagePadding.left + layoutConfig.leftRoleWidth + layoutConfig.columnGap;
+  const bodyWidth = PAGE_WIDTH - layoutConfig.contentRightPadding - bodyX;
   const signerTitle = input.payload.signerTitleSnapshot;
   const titleDate = formatRegisterDate(input.payload.documentDateMsk);
   const leftRole = signerTitle?.footerRu ?? input.authorSnapshot.position;
   const intro = `Я, действующий ${signerTitle?.bodyRu ?? input.authorSnapshot.position} ${input.authorSnapshot.fullName}, руководствуясь действующей Конституцией Штата Сан-Андреас, а также другими нормативно-правовыми актами Штата Сан-Андреас, заявляю:`;
 
-  let registerY = 164;
+  let registerY: number = headerConfig.registerY;
   registerY = pushWrappedLines({
     lines,
     text: "San Andreas Register",
-    x: PAGE_PADDING_LEFT,
+    x: layoutConfig.pagePadding.left,
     y: registerY,
-    width: REGISTER_WIDTH,
-    size: pt(12),
-    lineHeight: pt(12) * 1.12,
+    width: layoutConfig.registerWidth,
+    size: fontConfig.registerTitleSize,
+    lineHeight: fontConfig.registerTitleSize * 1.12,
     bold: true,
   });
   lines.push({
     text: `No. ${input.payload.requestNumberNormalized}`,
-    x: PAGE_PADDING_LEFT,
+    x: layoutConfig.pagePadding.left,
     y: registerY,
-    size: pt(11.5),
+    size: fontConfig.registerBodySize,
   });
-  registerY += pt(11.5) * 1.12;
+  registerY += fontConfig.registerBodySize * 1.12;
   lines.push({
     text: titleDate,
-    x: PAGE_PADDING_LEFT,
+    x: layoutConfig.pagePadding.left,
     y: registerY,
-    size: pt(11.5),
+    size: fontConfig.registerBodySize,
   });
 
   lines.push({
     text: "Title 1 —",
-    x: PAGE_PADDING_LEFT,
-    y: CONTENT_START_Y + 30,
-    size: BODY_FONT_SIZE,
+    x: layoutConfig.pagePadding.left,
+    y: layoutConfig.contentStartY + 30,
+    size: fontConfig.titleSize,
     bold: true,
   });
 
-  let roleY = CONTENT_START_Y + 54;
-  for (const roleLine of wrapText(leftRole, LEFT_ROLE_WIDTH, BODY_FONT_SIZE)) {
+  let roleY = layoutConfig.contentStartY + 54;
+  for (const roleLine of wrapText(leftRole, layoutConfig.leftRoleWidth, fontConfig.titleSize)) {
     lines.push({
       text: roleLine,
-      x: PAGE_PADDING_LEFT,
+      x: layoutConfig.pagePadding.left,
       y: roleY,
-      size: BODY_FONT_SIZE,
+      size: fontConfig.titleSize,
       bold: true,
     });
-    roleY += BODY_LINE_HEIGHT * 0.95;
+    roleY += fontConfig.bodyLineHeight * 0.95;
   }
 
-  let y = CONTENT_START_Y + 30;
+  let y = layoutConfig.contentStartY + 30;
   lines.push({
     text: `Адвокатский запрос от ${titleDate}.`,
     x: bodyX,
     y,
-    size: BODY_FONT_SIZE,
+    size: fontConfig.titleSize,
     bold: true,
   });
-  y += BODY_LINE_HEIGHT * 0.94;
+  y += fontConfig.bodyLineHeight * 0.94;
   lines.push({
     text: "О предоставлении запрашиваемой информации",
     x: bodyX,
     y,
-    size: BODY_FONT_SIZE,
+    size: fontConfig.titleSize,
     bold: true,
   });
-  y += BODY_LINE_HEIGHT * 1.32;
+  y += fontConfig.bodyLineHeight * 1.22;
   y = pushWrappedLines({
     lines,
     text: intro,
     x: bodyX,
     y,
     width: bodyWidth,
-    size: BODY_FONT_SIZE,
-    lineHeight: BODY_LINE_HEIGHT,
+    size: fontConfig.introSize,
+    lineHeight: fontConfig.introLineHeight,
     bold: true,
   });
   y += mm(2);
@@ -584,12 +631,12 @@ function buildVisualLines(input: {
       });
     }
 
-    y += SECTION_GAP;
+    y += layoutConfig.sectionGap;
   }
 
   return {
     lines,
-    contentBottomY: Math.max(...lines.map((line) => (line.y ?? 0) + (line.size ?? BODY_FONT_SIZE) * 0.35)),
+    contentBottomY: Math.max(...lines.map((line) => (line.y ?? 0) + (line.size ?? fontConfig.bodySize) * 0.35)),
   };
 }
 
@@ -601,7 +648,7 @@ async function buildPageSvg(input: {
   const qrDataUrl = await buildQrDataUrl(input);
   const { lines, contentBottomY } = buildVisualLines(input);
   const pageBackground = `<rect width="100%" height="100%" fill="#ffffff"/>`;
-  const contentLine = `<line x1="${PAGE_PADDING_LEFT}" y1="216" x2="${PAGE_WIDTH - PAGE_PADDING_RIGHT}" y2="216" stroke="#111" stroke-width="2"/>`;
+  const contentLine = `<line x1="${layoutConfig.pagePadding.left}" y1="${layoutConfig.contentDividerY}" x2="${PAGE_WIDTH - layoutConfig.pagePadding.right}" y2="${layoutConfig.contentDividerY}" stroke="#111" stroke-width="2"/>`;
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${PAGE_WIDTH}" height="${PAGE_HEIGHT}" viewBox="0 0 ${PAGE_WIDTH} ${PAGE_HEIGHT}">
     ${pageBackground}
     ${buildSealSvg()}
