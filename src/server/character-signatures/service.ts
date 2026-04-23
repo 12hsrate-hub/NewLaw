@@ -69,6 +69,13 @@ export class CharacterSignatureStorageUnavailableError extends Error {
   }
 }
 
+export function isCharacterSignatureAspectRatioAccepted(aspectRatio: number) {
+  return (
+    aspectRatio >= characterSignatureUploadLimits.minAcceptedAspectRatio &&
+    aspectRatio <= characterSignatureUploadLimits.maxAspectRatio
+  );
+}
+
 function normalizeMimeType(input: string, fileName: string) {
   const normalizedInput = input.trim().toLowerCase();
 
@@ -227,10 +234,7 @@ export async function uploadCharacterSignatureForCharacter(input: {
 
   const aspectRatio = width / height;
 
-  if (
-    aspectRatio < characterSignatureUploadLimits.minAspectRatio ||
-    aspectRatio > characterSignatureUploadLimits.maxAspectRatio
-  ) {
+  if (!isCharacterSignatureAspectRatioAccepted(aspectRatio)) {
     throw new CharacterSignatureDimensionsError(
       "Подпись должна быть примерно в широком формате: допустимое соотношение сторон от 2:1 до 5:1.",
     );

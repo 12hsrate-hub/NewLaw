@@ -17,6 +17,7 @@ export const characterSignatureUploadLimits = {
   minHeight: 100,
   maxWidth: 1_200,
   maxHeight: 400,
+  minAcceptedAspectRatio: 1.9,
   minAspectRatio: 2,
   maxAspectRatio: 5,
   recommendedWidth: 600,
