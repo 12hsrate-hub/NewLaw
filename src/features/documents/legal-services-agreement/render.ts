@@ -31,9 +31,9 @@ const PAGE_BORDER_Y = mm(18.1);
 const PAGE_BORDER_WIDTH = mm(194.8);
 const PAGE_BORDER_HEIGHT = mm(248.6);
 const QR_X = mm(10.8);
-const QR_Y = mm(248.8);
+const QR_Y = mm(251.2);
 const QR_SIZE = mm(10.6);
-const PAGE_TEXT_BOTTOM = QR_Y - mm(4.2);
+const PAGE_TEXT_BOTTOM = QR_Y - mm(6.2);
 const assetCache = new Map<string, string>();
 
 const ASSETS_DIR = join(
@@ -165,6 +165,7 @@ const PAGE1_LAYOUT = {
     width: mm(90.4),
     titleY: mm(44.1),
     subtitleY: mm(50.1),
+    centerOffsetX: -mm(8.4),
   },
   metaLeftDate: {
     x: mm(16.2),
@@ -178,20 +179,21 @@ const PAGE1_LAYOUT = {
     titleGap: pt(7.9),
   },
   introBlock: {
-    x: mm(15.2),
+    x: mm(14.8),
     y: mm(68.1),
-    width: mm(183),
+    width: mm(187.8),
   },
   sectionTitle: {
     x: PAGE_BORDER_X,
     y: mm(101.2),
     width: PAGE_BORDER_WIDTH,
+    centerOffsetX: -mm(7.2),
   },
   bodyTextFrame: {
-    x: mm(15.2),
+    x: mm(14.8),
     y: mm(108.4),
-    width: mm(183),
-    maxBottomY: PAGE_TEXT_BOTTOM - pt(4.5),
+    width: mm(187.8),
+    maxBottomY: PAGE_TEXT_BOTTOM - pt(2.8),
     paragraphGap: pt(2.3),
   },
   qrBlock: {
@@ -442,17 +444,17 @@ function estimateTextWidth(input: string, size: number) {
 
   for (const char of input) {
     if (char === " ") {
-      units += 0.31;
+      units += 0.28;
     } else if (/[0-9]/.test(char)) {
-      units += 0.5;
+      units += 0.47;
     } else if (/[A-Za-z]/.test(char)) {
-      units += 0.5;
+      units += 0.47;
     } else if (/[А-Яа-яЁё]/.test(char)) {
-      units += 0.57;
+      units += 0.52;
     } else if (/[.,:;!?()[\]"'/-]/.test(char)) {
-      units += 0.3;
+      units += 0.27;
     } else {
-      units += 0.54;
+      units += 0.49;
     }
   }
 
@@ -1022,7 +1024,7 @@ function buildPage1(input: {
     overlays: [
       buildTextBlock({
         text: `Договор №${readNormalizedValue(fields.agreementNumber)}`,
-        x: PAGE1_LAYOUT.titleStack.x,
+        x: PAGE1_LAYOUT.titleStack.x + PAGE1_LAYOUT.titleStack.centerOffsetX,
         y: PAGE1_LAYOUT.titleStack.titleY,
         width: PAGE1_LAYOUT.titleStack.width,
         fontSize: PAGE1_PRINT_TOKENS.titleLine1Size,
@@ -1033,7 +1035,7 @@ function buildPage1(input: {
       }),
       buildTextBlock({
         text: "На оказание юридических услуг от",
-        x: PAGE1_LAYOUT.titleStack.x,
+        x: PAGE1_LAYOUT.titleStack.x + PAGE1_LAYOUT.titleStack.centerOffsetX,
         y: PAGE1_LAYOUT.titleStack.subtitleY,
         width: PAGE1_LAYOUT.titleStack.width,
         fontSize: PAGE1_PRINT_TOKENS.titleLine2Size,
@@ -1084,7 +1086,7 @@ function buildPage1(input: {
       }),
       buildTextBlock({
         text: "1. Предмет договора (поручения)",
-        x: PAGE1_LAYOUT.sectionTitle.x,
+        x: PAGE1_LAYOUT.sectionTitle.x + PAGE1_LAYOUT.sectionTitle.centerOffsetX,
         y: PAGE1_LAYOUT.sectionTitle.y,
         width: PAGE1_LAYOUT.sectionTitle.width,
         fontSize: PAGE1_PRINT_TOKENS.sectionTitleSize,
