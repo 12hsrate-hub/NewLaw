@@ -25,6 +25,15 @@ export type CharacterWithAssignments = Omit<
   activeSignatureId?: CharacterWithAssignmentsBase["activeSignatureId"];
 };
 
+export type InternalCharacterAssignmentReviewItem = Prisma.CharacterGetPayload<{
+  include: {
+    account: true;
+    server: true;
+    roles: true;
+    accessFlags: true;
+  };
+}>;
+
 type CharacterQueryInput = {
   accountId: string;
   serverId: string;
@@ -104,6 +113,39 @@ export async function listCharactersForAccount(
       roles: true,
       accessFlags: true,
       activeSignature: true,
+    },
+    orderBy: [{ serverId: "asc" }, { createdAt: "asc" }],
+  });
+}
+
+export async function listCharactersForInternalAssignmentReview(
+  db: PrismaLike = prisma,
+): Promise<InternalCharacterAssignmentReviewItem[]> {
+  return db.character.findMany({
+    where: {
+      deletedAt: null,
+      OR: [
+        {
+          accessFlags: {
+            some: {},
+          },
+        },
+        {
+          roles: {
+            some: {
+              roleKey: {
+                not: "citizen",
+              },
+            },
+          },
+        },
+      ],
+    },
+    include: {
+      account: true,
+      server: true,
+      roles: true,
+      accessFlags: true,
     },
     orderBy: [{ serverId: "asc" }, { createdAt: "asc" }],
   });

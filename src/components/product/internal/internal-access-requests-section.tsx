@@ -160,6 +160,100 @@ export function InternalAccessRequestsSection(props: {
           ))}
         </div>
       )}
+
+      <Card className="space-y-4 border-[#d7c4b6] bg-white/80">
+        <div className="space-y-2">
+          <p className="text-xs uppercase tracking-[0.24em] text-[#8c5a36]">Assignment review</p>
+          <h3 className="text-2xl font-semibold">Текущие роли и access flags</h3>
+          <p className="max-w-3xl text-sm leading-6 text-[#6f6258]">
+            Это nondestructive internal список для ручной проверки уже выданных назначений. Он не
+            меняет существующие данные и помогает отделить легитимные назначения от старых
+            self-assignment сценариев.
+          </p>
+        </div>
+
+        {props.context.assignmentReviewCharacters.length === 0 ? (
+          <div className="rounded-2xl border border-[var(--border)] bg-white/60 px-4 py-4 text-sm leading-6 text-[#6f6258]">
+            Сейчас нет персонажей с небазовыми ролями или access flags.
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {props.context.assignmentReviewCharacters.map((entry) => (
+              <div
+                className="space-y-4 rounded-2xl border border-[var(--border)] bg-white/60 p-4"
+                key={entry.id}
+              >
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge className="bg-white/70 text-[#1e1916]">{entry.server.name}</Badge>
+                  <span className="text-xs uppercase tracking-[0.18em] text-[#6f6258]">
+                    {entry.server.code}
+                  </span>
+                </div>
+
+                <div className="grid gap-4 xl:grid-cols-2">
+                  <div className="space-y-2 text-sm leading-6 text-[#6f6258]">
+                    <p>
+                      Аккаунт:{" "}
+                      <span className="font-medium text-[#1e1916]">
+                        {entry.account.login} ({entry.account.email})
+                      </span>
+                    </p>
+                    <p>
+                      Персонаж:{" "}
+                      <span className="font-medium text-[#1e1916]">
+                        {entry.character.fullName}
+                      </span>
+                    </p>
+                    <p>
+                      Паспорт:{" "}
+                      <span className="font-medium text-[#1e1916]">
+                        {entry.character.passportNumber}
+                      </span>
+                    </p>
+                    <p>
+                      Создан: <span className="font-medium text-[#1e1916]">{entry.createdAt}</span>
+                    </p>
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2 rounded-2xl border border-[var(--border)] bg-white/70 px-4 py-3">
+                      <p className="text-xs uppercase tracking-[0.18em] text-[#8c5a36]">Roles</p>
+                      <div className="flex flex-wrap gap-2">
+                        {entry.roleKeys.length ? (
+                          entry.roleKeys.map((roleKey) => (
+                            <Badge className="bg-white text-[#1e1916]" key={roleKey}>
+                              {roleKey}
+                            </Badge>
+                          ))
+                        ) : (
+                          <span className="text-sm text-[#6f6258]">Нет ролей</span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="space-y-2 rounded-2xl border border-[var(--border)] bg-white/70 px-4 py-3">
+                      <p className="text-xs uppercase tracking-[0.18em] text-[#8c5a36]">
+                        Access flags
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {entry.accessFlags.length ? (
+                          entry.accessFlags.map((accessFlag) => (
+                            <Badge className="bg-white text-[#1e1916]" key={accessFlag}>
+                              {accessFlag}
+                            </Badge>
+                          ))
+                        ) : (
+                          <span className="text-sm text-[#6f6258]">Нет access flags</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
     </section>
   );
 }

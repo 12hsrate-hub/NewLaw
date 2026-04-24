@@ -130,6 +130,29 @@ describe("internal target route skeletons", () => {
           createdAt: "2026-04-24T10:00:00.000Z",
         },
       ],
+      assignmentReviewCharacters: [
+        {
+          id: "character-1",
+          account: {
+            id: "account-1",
+            email: "user@example.com",
+            login: "user",
+          },
+          server: {
+            id: "server-1",
+            code: "blackberry",
+            name: "Blackberry",
+          },
+          character: {
+            id: "character-1",
+            fullName: "Игорь Юристов",
+            passportNumber: "AA-001",
+          },
+          roleKeys: ["citizen", "lawyer"],
+          accessFlags: ["advocate"],
+          createdAt: "2026-04-24T09:00:00.000Z",
+        },
+      ],
     });
   });
 
@@ -185,6 +208,9 @@ describe("internal target route skeletons", () => {
     expect(html).toContain("Заявка одобрена");
     expect(html).toContain("Одобрить");
     expect(html).toContain("Отклонить");
+    expect(html).toContain("Текущие роли и access flags");
+    expect(html).toContain("lawyer");
+    expect(html).toContain("advocate");
   });
 
   it("рендерит /internal/health как real internal section внутри /internal contour", async () => {

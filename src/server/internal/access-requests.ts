@@ -1,4 +1,5 @@
 import { listPendingCharacterAccessRequestsForInternal } from "@/db/repositories/character-access-request.repository";
+import { listCharactersForInternalAssignmentReview } from "@/db/repositories/character.repository";
 
 export type InternalAccessRequestListItem = {
   id: string;
@@ -24,10 +25,34 @@ export type InternalAccessRequestListItem = {
 
 export type InternalAccessRequestsContext = {
   pendingRequests: InternalAccessRequestListItem[];
+  assignmentReviewCharacters: {
+    id: string;
+    account: {
+      id: string;
+      email: string;
+      login: string;
+    };
+    server: {
+      id: string;
+      code: string;
+      name: string;
+    };
+    character: {
+      id: string;
+      fullName: string;
+      passportNumber: string;
+    };
+    roleKeys: string[];
+    accessFlags: string[];
+    createdAt: string;
+  }[];
 };
 
 export async function getInternalAccessRequestsContext(): Promise<InternalAccessRequestsContext> {
-  const pendingRequests = await listPendingCharacterAccessRequestsForInternal();
+  const [pendingRequests, assignmentReviewCharacters] = await Promise.all([
+    listPendingCharacterAccessRequestsForInternal(),
+    listCharactersForInternalAssignmentReview(),
+  ]);
 
   return {
     pendingRequests: pendingRequests.map((request) => ({
@@ -50,6 +75,27 @@ export async function getInternalAccessRequestsContext(): Promise<InternalAccess
       requestType: request.requestType,
       requestComment: request.requestComment,
       createdAt: request.createdAt.toISOString(),
+    })),
+    assignmentReviewCharacters: assignmentReviewCharacters.map((character) => ({
+      id: character.id,
+      account: {
+        id: character.account.id,
+        email: character.account.email,
+        login: character.account.login,
+      },
+      server: {
+        id: character.server.id,
+        code: character.server.code,
+        name: character.server.name,
+      },
+      character: {
+        id: character.id,
+        fullName: character.fullName,
+        passportNumber: character.passportNumber,
+      },
+      roleKeys: character.roles.map((role) => role.roleKey),
+      accessFlags: character.accessFlags.map((flag) => flag.flagKey),
+      createdAt: character.createdAt.toISOString(),
     })),
   };
 }
