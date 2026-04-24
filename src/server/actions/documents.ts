@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
+import { redirect, RedirectType } from "next/navigation";
 import { isRedirectError } from "next/dist/client/components/redirect-error";
 import { ZodError } from "zod";
 
@@ -73,6 +73,10 @@ function buildStatusRedirect(path: string, status: string) {
   const nextQuery = params.toString();
 
   return nextQuery ? `${pathname}?${nextQuery}` : pathname;
+}
+
+function replaceRedirectWithStatus(path: string, status: string): never {
+  redirect(buildStatusRedirect(path, status), RedirectType.replace);
 }
 
 function parsePayloadJson(payloadJson: FormDataEntryValue | null) {
@@ -151,11 +155,9 @@ export async function createOgpComplaintDraftAction(formData: FormData) {
       documentType: "ogp_complaint",
     });
 
-    redirect(
-      buildStatusRedirect(
-        `/servers/${document.server.code}/documents/ogp-complaints/${document.id}`,
-        "draft-created",
-      ),
+    replaceRedirectWithStatus(
+      `/servers/${document.server.code}/documents/ogp-complaints/${document.id}`,
+      "draft-created",
     );
   } catch (error) {
     if (isRedirectError(error)) {
@@ -163,22 +165,22 @@ export async function createOgpComplaintDraftAction(formData: FormData) {
     }
 
     if (error instanceof DocumentServerUnavailableError) {
-      redirect(buildStatusRedirect(nextPath, "server-unavailable"));
+      replaceRedirectWithStatus(nextPath, "server-unavailable");
     }
 
     if (error instanceof DocumentCharacterUnavailableError) {
-      redirect(buildStatusRedirect(nextPath, "character-unavailable"));
+      replaceRedirectWithStatus(nextPath, "character-unavailable");
     }
 
     if (error instanceof DocumentRepresentativeAccessError) {
-      redirect(buildStatusRedirect(nextPath, "representative-not-allowed"));
+      replaceRedirectWithStatus(nextPath, "representative-not-allowed");
     }
 
     if (error instanceof DocumentValidationError || error instanceof SyntaxError || error instanceof ZodError) {
-      redirect(buildStatusRedirect(nextPath, "invalid-payload"));
+      replaceRedirectWithStatus(nextPath, "invalid-payload");
     }
 
-    redirect(buildStatusRedirect(nextPath, "document-create-error"));
+    replaceRedirectWithStatus(nextPath, "document-create-error");
   }
 }
 
@@ -210,11 +212,9 @@ export async function createClaimDraftAction(formData: FormData) {
       documentType: document.documentType,
     });
 
-    redirect(
-      buildStatusRedirect(
-        `/servers/${document.server.code}/documents/claims/${document.id}`,
-        "draft-created",
-      ),
+    replaceRedirectWithStatus(
+      `/servers/${document.server.code}/documents/claims/${document.id}`,
+      "draft-created",
     );
   } catch (error) {
     if (isRedirectError(error)) {
@@ -222,22 +222,22 @@ export async function createClaimDraftAction(formData: FormData) {
     }
 
     if (error instanceof DocumentServerUnavailableError) {
-      redirect(buildStatusRedirect(nextPath, "server-unavailable"));
+      replaceRedirectWithStatus(nextPath, "server-unavailable");
     }
 
     if (error instanceof DocumentCharacterUnavailableError) {
-      redirect(buildStatusRedirect(nextPath, "character-unavailable"));
+      replaceRedirectWithStatus(nextPath, "character-unavailable");
     }
 
     if (error instanceof DocumentRepresentativeAccessError) {
-      redirect(buildStatusRedirect(nextPath, "representative-not-allowed"));
+      replaceRedirectWithStatus(nextPath, "representative-not-allowed");
     }
 
     if (error instanceof DocumentValidationError || error instanceof SyntaxError || error instanceof ZodError) {
-      redirect(buildStatusRedirect(nextPath, "invalid-payload"));
+      replaceRedirectWithStatus(nextPath, "invalid-payload");
     }
 
-    redirect(buildStatusRedirect(nextPath, "document-create-error"));
+    replaceRedirectWithStatus(nextPath, "document-create-error");
   }
 }
 
@@ -267,11 +267,9 @@ export async function createAttorneyRequestDraftAction(formData: FormData) {
       documentType: "attorney_request",
     });
 
-    redirect(
-      buildStatusRedirect(
-        `/servers/${document.server.code}/documents/attorney-requests/${document.id}`,
-        "draft-created",
-      ),
+    replaceRedirectWithStatus(
+      `/servers/${document.server.code}/documents/attorney-requests/${document.id}`,
+      "draft-created",
     );
   } catch (error) {
     if (isRedirectError(error)) {
@@ -279,22 +277,22 @@ export async function createAttorneyRequestDraftAction(formData: FormData) {
     }
 
     if (error instanceof DocumentServerUnavailableError) {
-      redirect(buildStatusRedirect(nextPath, "server-unavailable"));
+      replaceRedirectWithStatus(nextPath, "server-unavailable");
     }
 
     if (error instanceof DocumentCharacterUnavailableError) {
-      redirect(buildStatusRedirect(nextPath, "character-unavailable"));
+      replaceRedirectWithStatus(nextPath, "character-unavailable");
     }
 
     if (error instanceof DocumentAttorneyRoleRequiredError) {
-      redirect(buildStatusRedirect(nextPath, "attorney-role-required"));
+      replaceRedirectWithStatus(nextPath, "attorney-role-required");
     }
 
     if (error instanceof DocumentValidationError || error instanceof SyntaxError || error instanceof ZodError) {
-      redirect(buildStatusRedirect(nextPath, "invalid-payload"));
+      replaceRedirectWithStatus(nextPath, "invalid-payload");
     }
 
-    redirect(buildStatusRedirect(nextPath, "document-create-error"));
+    replaceRedirectWithStatus(nextPath, "document-create-error");
   }
 }
 
@@ -324,11 +322,9 @@ export async function createLegalServicesAgreementDraftAction(formData: FormData
       documentType: "legal_services_agreement",
     });
 
-    redirect(
-      buildStatusRedirect(
-        `/servers/${document.server.code}/documents/legal-services-agreements/${document.id}`,
-        "draft-created",
-      ),
+    replaceRedirectWithStatus(
+      `/servers/${document.server.code}/documents/legal-services-agreements/${document.id}`,
+      "draft-created",
     );
   } catch (error) {
     if (isRedirectError(error)) {
@@ -336,18 +332,18 @@ export async function createLegalServicesAgreementDraftAction(formData: FormData
     }
 
     if (error instanceof DocumentServerUnavailableError) {
-      redirect(buildStatusRedirect(nextPath, "server-unavailable"));
+      replaceRedirectWithStatus(nextPath, "server-unavailable");
     }
 
     if (error instanceof DocumentCharacterUnavailableError) {
-      redirect(buildStatusRedirect(nextPath, "character-unavailable"));
+      replaceRedirectWithStatus(nextPath, "character-unavailable");
     }
 
     if (error instanceof DocumentValidationError || error instanceof SyntaxError || error instanceof ZodError) {
-      redirect(buildStatusRedirect(nextPath, "invalid-payload"));
+      replaceRedirectWithStatus(nextPath, "invalid-payload");
     }
 
-    redirect(buildStatusRedirect(nextPath, "document-create-error"));
+    replaceRedirectWithStatus(nextPath, "document-create-error");
   }
 }
 
