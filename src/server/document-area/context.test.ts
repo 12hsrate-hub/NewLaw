@@ -9,6 +9,8 @@ vi.mock("@/db/repositories/document.repository", () => ({
   countDocumentsByAccountAndServerAndType: vi.fn(),
   createDocumentRecord: vi.fn(),
   getDocumentByIdForAccount: vi.fn(),
+  listDocumentCountsByAccountAndServerGrouped: vi.fn(),
+  listDocumentCountsByAccountGrouped: vi.fn(),
   listDocumentsByAccount: vi.fn(),
   listDocumentsByAccountAndServerAndType: vi.fn(),
   updateDocumentAuthorSnapshotRecord: vi.fn(),
@@ -42,8 +44,9 @@ vi.mock("@/server/forum-integration/service", () => ({
 
 import { getCharactersByServer } from "@/db/repositories/character.repository";
 import {
-  countDocumentsByAccountAndServerAndType,
   getDocumentByIdForAccount,
+  listDocumentCountsByAccountAndServerGrouped,
+  listDocumentCountsByAccountGrouped,
   listDocumentsByAccount,
   listDocumentsByAccountAndServerAndType,
 } from "@/db/repositories/document.repository";
@@ -95,6 +98,8 @@ const blackberryServer = {
 describe("document area context", () => {
   beforeEach(() => {
     vi.mocked(listTrustorsForAccountAndServer).mockResolvedValue([]);
+    vi.mocked(listDocumentCountsByAccountGrouped).mockResolvedValue([]);
+    vi.mocked(listDocumentCountsByAccountAndServerGrouped).mockResolvedValue([]);
   });
 
   it("строит /account/documents как persisted cross-server overview", async () => {
@@ -135,7 +140,23 @@ describe("document area context", () => {
         ],
       },
     ]);
-    vi.mocked(countDocumentsByAccountAndServerAndType).mockResolvedValue(1);
+    vi.mocked(listDocumentCountsByAccountGrouped).mockResolvedValue([
+      {
+        serverId: "server-1",
+        documentType: "ogp_complaint",
+        _count: { _all: 1 },
+      },
+      {
+        serverId: "server-1",
+        documentType: "rehabilitation",
+        _count: { _all: 1 },
+      },
+      {
+        serverId: "server-1",
+        documentType: "lawsuit",
+        _count: { _all: 1 },
+      },
+    ]);
     vi.mocked(listDocumentsByAccount).mockResolvedValue([
       {
         id: "document-1",
@@ -275,7 +296,55 @@ describe("document area context", () => {
         ],
       },
     ]);
-    vi.mocked(countDocumentsByAccountAndServerAndType).mockResolvedValue(2);
+    vi.mocked(listDocumentCountsByAccountGrouped).mockResolvedValue([
+      {
+        serverId: "server-1",
+        documentType: "ogp_complaint",
+        _count: { _all: 2 },
+      },
+      {
+        serverId: "server-1",
+        documentType: "rehabilitation",
+        _count: { _all: 2 },
+      },
+      {
+        serverId: "server-1",
+        documentType: "lawsuit",
+        _count: { _all: 2 },
+      },
+      {
+        serverId: "server-1",
+        documentType: "attorney_request",
+        _count: { _all: 2 },
+      },
+      {
+        serverId: "server-1",
+        documentType: "legal_services_agreement",
+        _count: { _all: 2 },
+      },
+    ]);
+    vi.mocked(listDocumentCountsByAccountAndServerGrouped).mockResolvedValue([
+      {
+        documentType: "ogp_complaint",
+        _count: { _all: 2 },
+      },
+      {
+        documentType: "rehabilitation",
+        _count: { _all: 2 },
+      },
+      {
+        documentType: "lawsuit",
+        _count: { _all: 2 },
+      },
+      {
+        documentType: "attorney_request",
+        _count: { _all: 2 },
+      },
+      {
+        documentType: "legal_services_agreement",
+        _count: { _all: 2 },
+      },
+    ]);
 
     const result = await getServerDocumentsRouteContext({
       serverSlug: "blackberry",
@@ -362,7 +431,13 @@ describe("document area context", () => {
         updatedAt: new Date("2026-04-21T10:15:00.000Z"),
       },
     ]);
-    vi.mocked(countDocumentsByAccountAndServerAndType).mockResolvedValue(1);
+    vi.mocked(listDocumentCountsByAccountGrouped).mockResolvedValue([
+      {
+        serverId: "server-1",
+        documentType: "ogp_complaint",
+        _count: { _all: 1 },
+      },
+    ]);
 
     const result = await getOgpComplaintFamilyRouteContext({
       serverSlug: "blackberry",
@@ -397,7 +472,7 @@ describe("document area context", () => {
     vi.mocked(getServers).mockResolvedValue([blackberryServer]);
     vi.mocked(getServerByCode).mockResolvedValue(blackberryServer);
     vi.mocked(getCharactersByServer).mockResolvedValue([]);
-    vi.mocked(countDocumentsByAccountAndServerAndType).mockResolvedValue(0);
+    vi.mocked(listDocumentCountsByAccountGrouped).mockResolvedValue([]);
     vi.mocked(getUserServerStates).mockResolvedValue([]);
     vi.mocked(getDocumentByIdForAccount).mockResolvedValue({
       id: "document-1",
@@ -549,10 +624,18 @@ describe("document area context", () => {
         accessFlags: [],
       },
     ]);
-    vi.mocked(countDocumentsByAccountAndServerAndType)
-      .mockResolvedValueOnce(1)
-      .mockResolvedValueOnce(1)
-      .mockResolvedValueOnce(0);
+    vi.mocked(listDocumentCountsByAccountGrouped).mockResolvedValue([
+      {
+        serverId: "server-1",
+        documentType: "rehabilitation",
+        _count: { _all: 1 },
+      },
+      {
+        serverId: "server-1",
+        documentType: "lawsuit",
+        _count: { _all: 1 },
+      },
+    ]);
     vi.mocked(listDocumentsByAccount).mockResolvedValue([
       {
         id: "claim-1",

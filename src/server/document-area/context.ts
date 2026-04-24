@@ -1,8 +1,9 @@
 import { getCharactersByServer } from "@/db/repositories/character.repository";
 import { listTrustorsForAccountAndServer } from "@/db/repositories/trustor.repository";
 import {
-  countDocumentsByAccountAndServerAndType,
   getDocumentByIdForAccount,
+  listDocumentCountsByAccountAndServerGrouped,
+  listDocumentCountsByAccountGrouped,
   listDocumentsByAccount,
   listDocumentsByAccountAndServerAndType,
 } from "@/db/repositories/document.repository";
@@ -46,6 +47,12 @@ import type { ForumConnectionSummary } from "@/schemas/forum-integration";
 
 type AccountDocumentRecord = Awaited<ReturnType<typeof listDocumentsByAccount>>[number];
 type ServerDocumentRecord = Awaited<ReturnType<typeof listDocumentsByAccountAndServerAndType>>[number];
+type GroupedAccountDocumentCountRow = Awaited<
+  ReturnType<typeof listDocumentCountsByAccountGrouped>
+>[number];
+type GroupedServerDocumentCountRow = Awaited<
+  ReturnType<typeof listDocumentCountsByAccountAndServerGrouped>
+>[number];
 
 export type DocumentAreaServerSummary = {
   id: string;
@@ -798,51 +805,41 @@ function buildPersistedDocumentListItem(
 }
 
 async function buildDocumentAreaServerSummaries(accountId: string) {
-  const [servers, serverStates] = await Promise.all([
+  const [servers, serverStates, groupedCounts] = await Promise.all([
     getServers(),
     getUserServerStates(accountId),
+    listDocumentCountsByAccountGrouped(accountId),
   ]);
+
+  const countMap = buildDocumentTypeCountMap(groupedCounts);
 
   const serverSummaries = await Promise.all(
     servers.map(async (server) => {
-      const [
-        characters,
-        ogpComplaintDocumentCount,
-        rehabilitationDocumentCount,
-        lawsuitDocumentCount,
-        attorneyRequestDocumentCount,
-        legalServicesAgreementDocumentCount,
-      ] = await Promise.all([
-        getCharactersByServer({
-          accountId,
-          serverId: server.id,
-        }),
-        countDocumentsByAccountAndServerAndType({
-          accountId,
-          serverId: server.id,
-          documentType: "ogp_complaint",
-        }),
-        countDocumentsByAccountAndServerAndType({
-          accountId,
-          serverId: server.id,
-          documentType: "rehabilitation",
-        }),
-        countDocumentsByAccountAndServerAndType({
-          accountId,
-          serverId: server.id,
-          documentType: "lawsuit",
-        }),
-        countDocumentsByAccountAndServerAndType({
-          accountId,
-          serverId: server.id,
-          documentType: "attorney_request",
-        }),
-        countDocumentsByAccountAndServerAndType({
-          accountId,
-          serverId: server.id,
-          documentType: "legal_services_agreement",
-        }),
-      ]);
+      const characters = await getCharactersByServer({
+        accountId,
+        serverId: server.id,
+      });
+      const ogpComplaintDocumentCount = readDocumentTypeCount(
+        countMap,
+        server.id,
+        "ogp_complaint",
+      );
+      const rehabilitationDocumentCount = readDocumentTypeCount(
+        countMap,
+        server.id,
+        "rehabilitation",
+      );
+      const lawsuitDocumentCount = readDocumentTypeCount(countMap, server.id, "lawsuit");
+      const attorneyRequestDocumentCount = readDocumentTypeCount(
+        countMap,
+        server.id,
+        "attorney_request",
+      );
+      const legalServicesAgreementDocumentCount = readDocumentTypeCount(
+        countMap,
+        server.id,
+        "legal_services_agreement",
+      );
       const selectedCharacter = buildSelectedCharacterSummary({
         serverId: server.id,
         characters,
@@ -866,6 +863,27 @@ async function buildDocumentAreaServerSummaries(accountId: string) {
   );
 
   return serverSummaries;
+}
+
+function buildDocumentTypeCountMap(
+  rows: ReadonlyArray<GroupedAccountDocumentCountRow | GroupedServerDocumentCountRow>,
+) {
+  const map = new Map<string, number>();
+
+  for (const row of rows) {
+    const serverId = "serverId" in row ? row.serverId : "__single_server__";
+    map.set(`${serverId}:${row.documentType}`, row._count._all);
+  }
+
+  return map;
+}
+
+function readDocumentTypeCount(
+  map: Map<string, number>,
+  serverId: string,
+  documentType: DocumentAreaPersistedListItem["documentType"],
+) {
+  return map.get(`${serverId}:${documentType}`) ?? 0;
 }
 
 export async function getAccountDocumentsOverviewContext(
@@ -908,15 +926,7 @@ export async function getServerDocumentsRouteContext(input: {
     };
   }
 
-  const [
-    characters,
-    trustorRegistryRecords,
-    ogpComplaintDocumentCount,
-    rehabilitationDocumentCount,
-    lawsuitDocumentCount,
-    attorneyRequestDocumentCount,
-    legalServicesAgreementDocumentCount,
-  ] = await Promise.all([
+  const [characters, trustorRegistryRecords, groupedCounts] = await Promise.all([
     getCharactersByServer({
       accountId: account.id,
       serverId: server.id,
@@ -925,32 +935,37 @@ export async function getServerDocumentsRouteContext(input: {
       accountId: account.id,
       serverId: server.id,
     }),
-    countDocumentsByAccountAndServerAndType({
+    listDocumentCountsByAccountAndServerGrouped({
       accountId: account.id,
       serverId: server.id,
-      documentType: "ogp_complaint",
-    }),
-    countDocumentsByAccountAndServerAndType({
-      accountId: account.id,
-      serverId: server.id,
-      documentType: "rehabilitation",
-    }),
-    countDocumentsByAccountAndServerAndType({
-      accountId: account.id,
-      serverId: server.id,
-      documentType: "lawsuit",
-    }),
-    countDocumentsByAccountAndServerAndType({
-      accountId: account.id,
-      serverId: server.id,
-      documentType: "attorney_request",
-    }),
-    countDocumentsByAccountAndServerAndType({
-      accountId: account.id,
-      serverId: server.id,
-      documentType: "legal_services_agreement",
     }),
   ]);
+  const groupedCountMap = buildDocumentTypeCountMap(groupedCounts);
+  const ogpComplaintDocumentCount = readDocumentTypeCount(
+    groupedCountMap,
+    "__single_server__",
+    "ogp_complaint",
+  );
+  const rehabilitationDocumentCount = readDocumentTypeCount(
+    groupedCountMap,
+    "__single_server__",
+    "rehabilitation",
+  );
+  const lawsuitDocumentCount = readDocumentTypeCount(
+    groupedCountMap,
+    "__single_server__",
+    "lawsuit",
+  );
+  const attorneyRequestDocumentCount = readDocumentTypeCount(
+    groupedCountMap,
+    "__single_server__",
+    "attorney_request",
+  );
+  const legalServicesAgreementDocumentCount = readDocumentTypeCount(
+    groupedCountMap,
+    "__single_server__",
+    "legal_services_agreement",
+  );
   const selectedCharacter = buildSelectedCharacterSummary({
     serverId: server.id,
     characters,

@@ -192,6 +192,42 @@ export async function countDocumentsByAccountAndServerAndType(
   });
 }
 
+export async function listDocumentCountsByAccountGrouped(
+  accountId: string,
+  db: PrismaLike = prisma,
+) {
+  return db.document.groupBy({
+    by: ["serverId", "documentType"],
+    where: {
+      accountId,
+      deletedAt: null,
+    },
+    _count: {
+      _all: true,
+    },
+  });
+}
+
+export async function listDocumentCountsByAccountAndServerGrouped(
+  input: {
+    accountId: string;
+    serverId: string;
+  },
+  db: PrismaLike = prisma,
+) {
+  return db.document.groupBy({
+    by: ["documentType"],
+    where: {
+      accountId: input.accountId,
+      serverId: input.serverId,
+      deletedAt: null,
+    },
+    _count: {
+      _all: true,
+    },
+  });
+}
+
 export async function updateDocumentDraftRecord(
   input: {
     documentId: string;
