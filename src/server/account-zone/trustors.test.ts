@@ -13,11 +13,11 @@ vi.mock("@/db/repositories/trustor.repository", () => ({
 }));
 
 vi.mock("@/db/repositories/document.repository", () => ({
-  listDocumentsByAccount: vi.fn(),
+  listAttorneyRequestDocumentsByAccount: vi.fn(),
 }));
 
 import { listTrustorsForAccount } from "@/db/repositories/trustor.repository";
-import { listDocumentsByAccount } from "@/db/repositories/document.repository";
+import { listAttorneyRequestDocumentsByAccount } from "@/db/repositories/document.repository";
 import { getServers } from "@/db/repositories/server.repository";
 import { requireProtectedAccountContext } from "@/server/auth/protected";
 import { getAccountTrustorsOverviewContext } from "@/server/account-zone/trustors";
@@ -72,7 +72,7 @@ describe("account-zone trustors", () => {
         note: null,
       },
     ] as never);
-    vi.mocked(listDocumentsByAccount).mockResolvedValue([] as never);
+    vi.mocked(listAttorneyRequestDocumentsByAccount).mockResolvedValue([] as never);
 
     const result = await getAccountTrustorsOverviewContext({
       nextPath: "/account/trustors",
@@ -99,5 +99,37 @@ describe("account-zone trustors", () => {
     expect(result.serverGroups[0]?.trustors[1]?.isRepresentativeReady).toBe(false);
     expect(result.serverGroups[1]?.server.code).toBe("rainbow");
     expect(result.serverGroups[1]?.trustorCount).toBe(0);
+  });
+
+  it("не падает, если ancillary-загрузка адвокатских запросов временно недоступна", async () => {
+    vi.mocked(getServers).mockResolvedValue([
+      {
+        id: "server-1",
+        code: "blackberry",
+        name: "Blackberry",
+      },
+    ] as never);
+    vi.mocked(listTrustorsForAccount).mockResolvedValue([
+      {
+        id: "trustor-1",
+        accountId: "account-1",
+        serverId: "server-1",
+        fullName: "Иван Доверителев",
+        passportNumber: "001",
+        phone: "123-45-67",
+        icEmail: "trustor@example.com",
+        passportImageUrl: null,
+        note: null,
+      },
+    ] as never);
+    vi.mocked(listAttorneyRequestDocumentsByAccount).mockRejectedValue(
+      new Error("temporary document query failure"),
+    );
+
+    const result = await getAccountTrustorsOverviewContext({
+      nextPath: "/account/trustors",
+    });
+
+    expect(result.serverGroups[0]?.trustors[0]?.attorneyRequests).toEqual([]);
   });
 });

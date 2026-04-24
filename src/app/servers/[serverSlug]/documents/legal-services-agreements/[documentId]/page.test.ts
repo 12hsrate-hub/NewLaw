@@ -115,4 +115,45 @@ describe("/servers/[serverSlug]/documents/legal-services-agreements/[documentId]
     expect(html).toContain("Скачать страницу 1");
     expect(html).toContain("Nick Name");
   });
+
+  it("показывает degraded state для документа с повреждёнными данными", async () => {
+    vi.mocked(getLegalServicesAgreementEditorRouteContext).mockResolvedValue({
+      status: "invalid_document_data",
+      account: {
+        id: "account-1",
+        email: "user@example.com",
+        login: "tester",
+        isSuperAdmin: false,
+        mustChangePassword: false,
+      },
+      server: {
+        id: "server-1",
+        code: "blackberry",
+        name: "Blackberry",
+      },
+      servers: [],
+      document: {
+        id: "agreement-broken",
+        title: "Договор на оказание юридических услуг",
+        status: "draft",
+        createdAt: "2026-04-24T09:00:00.000Z",
+        updatedAt: "2026-04-24T09:10:00.000Z",
+        snapshotCapturedAt: "2026-04-24T09:00:00.000Z",
+        dataHealth: "invalid_payload",
+      },
+    });
+
+    const html = renderToStaticMarkup(
+      await LegalServicesAgreementEditorPage({
+        params: Promise.resolve({
+          serverSlug: "blackberry",
+          documentId: "agreement-broken",
+        }),
+      }),
+    );
+
+    expect(html).toContain("Требует восстановления");
+    expect(html).toContain("agreement-broken");
+    expect(html).toContain("договорам");
+  });
 });

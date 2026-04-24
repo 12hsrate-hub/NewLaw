@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/db/repositories/character.repository", () => ({
   getCharactersByServer: vi.fn(),
+  listCharactersForAccount: vi.fn(),
   getCharacterByIdForAccount: vi.fn(),
 }));
 
@@ -42,7 +43,7 @@ vi.mock("@/server/forum-integration/service", () => ({
   getAccountForumConnectionSummary: vi.fn(),
 }));
 
-import { getCharactersByServer } from "@/db/repositories/character.repository";
+import { getCharactersByServer, listCharactersForAccount } from "@/db/repositories/character.repository";
 import {
   getDocumentByIdForAccount,
   listDocumentCountsByAccountAndServerGrouped,
@@ -58,6 +59,7 @@ import {
   getAccountDocumentsOverviewContext,
   getClaimsEditorRouteContext,
   getClaimsFamilyRouteContext,
+  getLegalServicesAgreementEditorRouteContext,
   getOgpComplaintEditorRouteContext,
   getOgpComplaintFamilyRouteContext,
   getServerDocumentsRouteContext,
@@ -97,9 +99,11 @@ const blackberryServer = {
 
 describe("document area context", () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     vi.mocked(listTrustorsForAccountAndServer).mockResolvedValue([]);
     vi.mocked(listDocumentCountsByAccountGrouped).mockResolvedValue([]);
     vi.mocked(listDocumentCountsByAccountAndServerGrouped).mockResolvedValue([]);
+    vi.mocked(listCharactersForAccount).mockResolvedValue([]);
   });
 
   it("строит /account/documents как persisted cross-server overview", async () => {
@@ -116,7 +120,7 @@ describe("document area context", () => {
         updatedAt: new Date("2026-04-21T10:00:00.000Z"),
       },
     ]);
-    vi.mocked(getCharactersByServer).mockResolvedValue([
+    vi.mocked(listCharactersForAccount).mockResolvedValue([
       {
         id: "character-2",
         accountId: accountContext.account.id,
@@ -227,7 +231,7 @@ describe("document area context", () => {
         code: "blackberry",
         selectedCharacterId: "character-2",
         ogpComplaintDocumentCount: 1,
-        claimsDocumentCount: 2,
+        claimsDocumentCount: 0,
       }),
     );
     expect(result.documents[0]).toEqual(
@@ -238,6 +242,7 @@ describe("document area context", () => {
         appealNumber: "OGP-001",
         objectOrganization: "LSPD",
         objectFullName: "Сотрудник Полиции",
+        dataHealth: "ok",
       }),
     );
   });
@@ -997,6 +1002,297 @@ describe("document area context", () => {
         rehabilitationBasis: "",
         harmSummary: "",
       });
+    }
+  });
+
+  it("account documents overview не падает на битом attorney_request payload", async () => {
+    vi.mocked(requireProtectedAccountContext).mockResolvedValue(accountContext);
+    vi.mocked(getServers).mockResolvedValue([blackberryServer]);
+    vi.mocked(listDocumentsByAccount).mockResolvedValue([
+      {
+        id: "attorney-broken",
+        accountId: accountContext.account.id,
+        serverId: "server-1",
+        characterId: "character-2",
+        trustorId: null,
+        documentType: "attorney_request",
+        title: "Адвокатский запрос",
+        status: "draft",
+        formSchemaVersion: "attorney_request_v1",
+        snapshotCapturedAt: new Date("2026-04-24T10:00:00.000Z"),
+        authorSnapshotJson: {
+          characterId: "character-2",
+          serverId: "server-1",
+          serverCode: "blackberry",
+          serverName: "Blackberry",
+          fullName: "Игорь Юристов",
+          nickname: "Игорь Юристов",
+          passportNumber: "AA-002",
+          isProfileComplete: true,
+          roleKeys: ["lawyer"],
+          accessFlags: ["advocate"],
+          capturedAt: "2026-04-24T10:00:00.000Z",
+        },
+        formPayloadJson: {
+          broken: true,
+        },
+        generatedArtifactJson: null,
+        generatedArtifactText: null,
+        generatedOutputFormat: null,
+        generatedRendererVersion: null,
+        lastGeneratedBbcode: null,
+        generatedAt: null,
+        generatedLawVersion: null,
+        generatedTemplateVersion: null,
+        generatedFormSchemaVersion: null,
+        publicationUrl: null,
+        isSiteForumSynced: false,
+        forumSyncState: "not_published",
+        forumThreadId: null,
+        forumPostId: null,
+        forumPublishedBbcodeHash: null,
+        forumLastPublishedAt: null,
+        forumLastSyncError: null,
+        isModifiedAfterGeneration: false,
+        deletedAt: null,
+        createdAt: new Date("2026-04-24T10:00:00.000Z"),
+        updatedAt: new Date("2026-04-24T10:05:00.000Z"),
+        server: blackberryServer,
+      },
+    ] as never);
+
+    const result = await getAccountDocumentsOverviewContext("/account/documents");
+
+    expect(result.documents[0]).toEqual(
+      expect.objectContaining({
+        id: "attorney-broken",
+        dataHealth: "invalid_payload",
+        requestNumber: null,
+        trustorName: null,
+        workingNotesPreview: "Документ требует восстановления данных.",
+      }),
+    );
+  });
+
+  it("account documents overview не падает на битом legal_services_agreement payload", async () => {
+    vi.mocked(requireProtectedAccountContext).mockResolvedValue(accountContext);
+    vi.mocked(getServers).mockResolvedValue([blackberryServer]);
+    vi.mocked(listDocumentsByAccount).mockResolvedValue([
+      {
+        id: "agreement-broken",
+        accountId: accountContext.account.id,
+        serverId: "server-1",
+        characterId: "character-2",
+        trustorId: null,
+        documentType: "legal_services_agreement",
+        title: "Договор",
+        status: "draft",
+        formSchemaVersion: "legal_services_agreement_v1",
+        snapshotCapturedAt: new Date("2026-04-24T10:00:00.000Z"),
+        authorSnapshotJson: {
+          characterId: "character-2",
+          serverId: "server-1",
+          serverCode: "blackberry",
+          serverName: "Blackberry",
+          fullName: "Игорь Юристов",
+          nickname: "Игорь Юристов",
+          passportNumber: "AA-002",
+          isProfileComplete: true,
+          roleKeys: ["lawyer"],
+          accessFlags: ["advocate"],
+          capturedAt: "2026-04-24T10:00:00.000Z",
+        },
+        formPayloadJson: {
+          broken: true,
+        },
+        generatedArtifactJson: null,
+        generatedArtifactText: null,
+        generatedOutputFormat: null,
+        generatedRendererVersion: null,
+        lastGeneratedBbcode: null,
+        generatedAt: null,
+        generatedLawVersion: null,
+        generatedTemplateVersion: null,
+        generatedFormSchemaVersion: null,
+        publicationUrl: null,
+        isSiteForumSynced: false,
+        forumSyncState: "not_published",
+        forumThreadId: null,
+        forumPostId: null,
+        forumPublishedBbcodeHash: null,
+        forumLastPublishedAt: null,
+        forumLastSyncError: null,
+        isModifiedAfterGeneration: false,
+        deletedAt: null,
+        createdAt: new Date("2026-04-24T10:00:00.000Z"),
+        updatedAt: new Date("2026-04-24T10:05:00.000Z"),
+        server: blackberryServer,
+      },
+    ] as never);
+
+    const result = await getAccountDocumentsOverviewContext("/account/documents");
+
+    expect(result.documents[0]).toEqual(
+      expect.objectContaining({
+        id: "agreement-broken",
+        dataHealth: "invalid_payload",
+        agreementNumber: null,
+        trustorName: null,
+        workingNotesPreview: "Документ требует восстановления данных.",
+      }),
+    );
+  });
+
+  it("account documents overview не падает на invalid authorSnapshotJson", async () => {
+    vi.mocked(requireProtectedAccountContext).mockResolvedValue(accountContext);
+    vi.mocked(getServers).mockResolvedValue([blackberryServer]);
+    vi.mocked(listDocumentsByAccount).mockResolvedValue([
+      {
+        id: "broken-author",
+        accountId: accountContext.account.id,
+        serverId: "server-1",
+        characterId: "character-2",
+        trustorId: null,
+        documentType: "ogp_complaint",
+        title: "Жалоба",
+        status: "draft",
+        formSchemaVersion: "ogp_complaint_mvp_editor_v1",
+        snapshotCapturedAt: new Date("2026-04-24T10:00:00.000Z"),
+        authorSnapshotJson: {
+          broken: true,
+        },
+        formPayloadJson: {
+          filingMode: "self",
+          appealNumber: "OGP-001",
+          objectOrganization: "LSPD",
+          objectFullName: "Сотрудник Полиции",
+          workingNotes: "Черновая заметка",
+          evidenceGroups: [],
+        },
+        generatedArtifactJson: null,
+        generatedArtifactText: null,
+        generatedOutputFormat: null,
+        generatedRendererVersion: null,
+        lastGeneratedBbcode: null,
+        generatedAt: null,
+        generatedLawVersion: null,
+        generatedTemplateVersion: null,
+        generatedFormSchemaVersion: null,
+        publicationUrl: null,
+        isSiteForumSynced: false,
+        forumSyncState: "not_published",
+        forumThreadId: null,
+        forumPostId: null,
+        forumPublishedBbcodeHash: null,
+        forumLastPublishedAt: null,
+        forumLastSyncError: null,
+        isModifiedAfterGeneration: false,
+        deletedAt: null,
+        createdAt: new Date("2026-04-24T10:00:00.000Z"),
+        updatedAt: new Date("2026-04-24T10:05:00.000Z"),
+        server: blackberryServer,
+      },
+    ] as never);
+
+    const result = await getAccountDocumentsOverviewContext("/account/documents");
+
+    expect(result.documents[0]).toEqual(
+      expect.objectContaining({
+        id: "broken-author",
+        dataHealth: "invalid_payload",
+        authorSnapshot: {
+          fullName: "Данные персонажа повреждены",
+          passportNumber: "не указан",
+        },
+      }),
+    );
+  });
+
+  it("legal services agreement editor context возвращает invalid_document_data вместо throw", async () => {
+    vi.mocked(requireProtectedAccountContext).mockResolvedValue(accountContext);
+    vi.mocked(getServers).mockResolvedValue([blackberryServer]);
+    vi.mocked(getServerByCode).mockResolvedValue(blackberryServer);
+    vi.mocked(getDocumentByIdForAccount).mockResolvedValue({
+      id: "agreement-broken",
+      accountId: accountContext.account.id,
+      serverId: "server-1",
+      characterId: "character-1",
+      trustorId: "trustor-1",
+      documentType: "legal_services_agreement",
+      title: "Договор",
+      status: "draft",
+      formSchemaVersion: "legal_services_agreement_contract_v1",
+      snapshotCapturedAt: new Date("2026-04-24T10:00:00.000Z"),
+      authorSnapshotJson: {
+        characterId: "character-1",
+        serverId: "server-1",
+        serverCode: "blackberry",
+        serverName: "Blackberry",
+        fullName: "Игорь Юристов",
+        nickname: "Игорь Юристов",
+        passportNumber: "AA-002",
+        isProfileComplete: true,
+        roleKeys: ["lawyer"],
+        accessFlags: ["advocate"],
+        capturedAt: "2026-04-24T10:00:00.000Z",
+      },
+      formPayloadJson: {
+        broken: true,
+      },
+      generatedArtifactJson: null,
+      generatedArtifactText: null,
+      generatedOutputFormat: null,
+      generatedRendererVersion: null,
+      lastGeneratedBbcode: null,
+      generatedAt: null,
+      generatedLawVersion: null,
+      generatedTemplateVersion: null,
+      generatedFormSchemaVersion: null,
+      publicationUrl: null,
+      isSiteForumSynced: false,
+      forumSyncState: "not_published",
+      forumThreadId: null,
+      forumPostId: null,
+      forumPublishedBbcodeHash: null,
+      forumLastPublishedAt: null,
+      forumLastSyncError: null,
+      isModifiedAfterGeneration: false,
+      deletedAt: null,
+      createdAt: new Date("2026-04-24T10:00:00.000Z"),
+      updatedAt: new Date("2026-04-24T10:05:00.000Z"),
+      server: blackberryServer,
+      character: {
+        id: "character-1",
+        accountId: accountContext.account.id,
+        serverId: "server-1",
+        fullName: "Игорь Юристов",
+        nickname: "Игорь Юристов",
+        passportNumber: "AA-002",
+        isProfileComplete: true,
+        profileDataJson: null,
+        deletedAt: null,
+        createdAt: new Date("2026-04-24T10:00:00.000Z"),
+        updatedAt: new Date("2026-04-24T10:00:00.000Z"),
+        roles: [],
+        accessFlags: [],
+        activeSignature: null,
+      },
+    } as never);
+
+    const result = await getLegalServicesAgreementEditorRouteContext({
+      serverSlug: "blackberry",
+      documentId: "agreement-broken",
+      nextPath: "/servers/blackberry/documents/legal-services-agreements/agreement-broken",
+    });
+
+    expect(result.status).toBe("invalid_document_data");
+    if (result.status === "invalid_document_data") {
+      expect(result.document).toEqual(
+        expect.objectContaining({
+          id: "agreement-broken",
+          dataHealth: "invalid_payload",
+        }),
+      );
     }
   });
 });

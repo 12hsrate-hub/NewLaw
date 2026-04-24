@@ -129,6 +129,16 @@ export class DocumentValidationError extends Error {
   }
 }
 
+export type SafeDocumentReadResult<T> =
+  | {
+      ok: true;
+      data: T;
+    }
+  | {
+      ok: false;
+      message: string;
+    };
+
 function buildAuthorSnapshot(input: {
   character: NonNullable<Awaited<ReturnType<typeof getCharacterByIdForAccount>>>;
   server: {
@@ -680,6 +690,73 @@ export function readDocumentSignatureSnapshot(snapshot: unknown): DocumentSignat
   return documentSignatureSnapshotSchema.parse(snapshot);
 }
 
+function buildSafeReadErrorMessage(error: unknown) {
+  if (error instanceof ZodError) {
+    const issue = error.issues[0];
+
+    if (!issue) {
+      return "Invalid document data.";
+    }
+
+    const path = issue.path.length > 0 ? issue.path.join(".") : "root";
+
+    return `Invalid document data at ${path}: ${issue.message}`;
+  }
+
+  if (error instanceof DocumentValidationError) {
+    return error.message;
+  }
+
+  if (error instanceof Error && error.message.trim().length > 0) {
+    return error.message;
+  }
+
+  return "Unknown document data error.";
+}
+
+export function safeReadDocumentAuthorSnapshot(
+  snapshot: unknown,
+): SafeDocumentReadResult<DocumentAuthorSnapshot> {
+  const parsed = documentAuthorSnapshotSchema.safeParse(snapshot);
+
+  if (parsed.success) {
+    return {
+      ok: true,
+      data: parsed.data,
+    };
+  }
+
+  return {
+    ok: false,
+    message: buildSafeReadErrorMessage(parsed.error),
+  };
+}
+
+export function safeReadDocumentSignatureSnapshot(
+  snapshot: unknown,
+): SafeDocumentReadResult<DocumentSignatureSnapshot | null> {
+  if (!snapshot) {
+    return {
+      ok: true,
+      data: null,
+    };
+  }
+
+  const parsed = documentSignatureSnapshotSchema.safeParse(snapshot);
+
+  if (parsed.success) {
+    return {
+      ok: true,
+      data: parsed.data,
+    };
+  }
+
+  return {
+    ok: false,
+    message: buildSafeReadErrorMessage(parsed.error),
+  };
+}
+
 export function readOgpComplaintDraftPayload(payload: unknown) {
   try {
     return normalizeOgpComplaintDraftPayload(payload);
@@ -721,6 +798,38 @@ export function readAttorneyRequestDraftPayload(payload: unknown) {
 
 export function readLegalServicesAgreementDraftPayload(payload: unknown) {
   return legalServicesAgreementDraftPayloadSchema.parse(payload);
+}
+
+export function safeReadAttorneyRequestDraftPayload(
+  payload: unknown,
+): SafeDocumentReadResult<AttorneyRequestDraftPayload> {
+  try {
+    return {
+      ok: true,
+      data: readAttorneyRequestDraftPayload(payload),
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      message: buildSafeReadErrorMessage(error),
+    };
+  }
+}
+
+export function safeReadLegalServicesAgreementDraftPayload(
+  payload: unknown,
+): SafeDocumentReadResult<LegalServicesAgreementDraftPayload> {
+  try {
+    return {
+      ok: true,
+      data: readLegalServicesAgreementDraftPayload(payload),
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      message: buildSafeReadErrorMessage(error),
+    };
+  }
 }
 
 export async function createInitialOgpComplaintDraft(

@@ -68,6 +68,7 @@ describe("/servers/[serverSlug]/documents/legal-services-agreements page", () =>
             fullName: "Dom Perignon",
             passportNumber: "240434",
           },
+          dataHealth: "ok",
           workingNotesPreview: "",
           generatedAt: null,
           publicationUrl: null,

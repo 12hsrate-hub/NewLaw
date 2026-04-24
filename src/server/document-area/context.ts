@@ -1,4 +1,4 @@
-import { getCharactersByServer } from "@/db/repositories/character.repository";
+import { getCharactersByServer, listCharactersForAccount } from "@/db/repositories/character.repository";
 import { listTrustorsForAccountAndServer } from "@/db/repositories/trustor.repository";
 import {
   getDocumentByIdForAccount,
@@ -13,13 +13,13 @@ import { requireProtectedAccountContext } from "@/server/auth/protected";
 import { resolveActiveCharacterId } from "@/server/app-shell/state";
 import { getAccountForumConnectionSummary } from "@/server/forum-integration/service";
 import {
-  readDocumentAuthorSnapshot,
+  safeReadDocumentAuthorSnapshot,
   readClaimsDraftPayload,
   isClaimsDocumentType,
   readOgpComplaintDraftPayload,
-  readAttorneyRequestDraftPayload,
-  readDocumentSignatureSnapshot,
-  readLegalServicesAgreementDraftPayload,
+  safeReadAttorneyRequestDraftPayload,
+  safeReadDocumentSignatureSnapshot,
+  safeReadLegalServicesAgreementDraftPayload,
 } from "@/server/document-area/persistence";
 import { readClaimsGeneratedArtifact } from "@/server/document-area/claims-rendering";
 import {
@@ -53,6 +53,7 @@ type GroupedAccountDocumentCountRow = Awaited<
 type GroupedServerDocumentCountRow = Awaited<
   ReturnType<typeof listDocumentCountsByAccountAndServerGrouped>
 >[number];
+type AccountCharacterRecord = Awaited<ReturnType<typeof listCharactersForAccount>>[number];
 
 export type DocumentAreaServerSummary = {
   id: string;
@@ -95,6 +96,7 @@ export type DocumentAreaPersistedListItem = {
     fullName: string;
     passportNumber: string;
   };
+  dataHealth: "ok" | "invalid_payload";
   workingNotesPreview: string;
   generatedAt: string | null;
   publicationUrl: string | null;
@@ -289,6 +291,26 @@ type LegalServicesAgreementFamilyRouteContext =
       documents: DocumentAreaPersistedListItem[];
     };
 
+type InvalidDocumentDataEditorRouteContext = {
+  status: "invalid_document_data";
+  account: AccountDocumentsOverviewContext["account"];
+  server: {
+    id: string;
+    code: string;
+    name: string;
+  };
+  servers: DocumentAreaServerSummary[];
+  document: {
+    id: string;
+    title: string;
+    status: "draft" | "generated" | "published";
+    createdAt: string;
+    updatedAt: string;
+    snapshotCapturedAt: string;
+    dataHealth: "invalid_payload";
+  };
+};
+
 type AttorneyRequestEditorRouteContext =
   | {
       status: "server_not_found";
@@ -307,6 +329,7 @@ type AttorneyRequestEditorRouteContext =
       servers: DocumentAreaServerSummary[];
       documentId: string;
     }
+  | InvalidDocumentDataEditorRouteContext
   | {
       status: "ready";
       account: AccountDocumentsOverviewContext["account"];
@@ -371,6 +394,7 @@ type LegalServicesAgreementEditorRouteContext =
       servers: DocumentAreaServerSummary[];
       documentId: string;
     }
+  | InvalidDocumentDataEditorRouteContext
   | {
       status: "ready";
       account: AccountDocumentsOverviewContext["account"];
@@ -433,6 +457,7 @@ type ClaimsEditorRouteContext =
       servers: DocumentAreaServerSummary[];
       documentId: string;
     }
+  | InvalidDocumentDataEditorRouteContext
   | {
       status: "ready";
       account: AccountDocumentsOverviewContext["account"];
@@ -497,6 +522,7 @@ type OgpComplaintEditorRouteContext =
       servers: DocumentAreaServerSummary[];
       documentId: string;
     }
+  | InvalidDocumentDataEditorRouteContext
   | {
       status: "ready";
       account: AccountDocumentsOverviewContext["account"];
@@ -639,14 +665,139 @@ function buildDocumentTrustorRegistrySummary(
   })) satisfies DocumentTrustorRegistrySummary[];
 }
 
+const INVALID_DOCUMENT_WORKING_NOTES_PREVIEW = "Документ требует восстановления данных.";
+
+function buildInvalidDocumentAuthorSnapshotSummary() {
+  return {
+    fullName: "Данные персонажа повреждены",
+    passportNumber: "не указан",
+  } satisfies DocumentAreaPersistedListItem["authorSnapshot"];
+}
+
+function buildInvalidPersistedDocumentListItem(
+  document: AccountDocumentRecord | (ServerDocumentRecord & { server: AccountDocumentRecord["server"] }),
+): DocumentAreaPersistedListItem {
+  const subtype = isClaimsDocumentType(document.documentType) ? document.documentType : null;
+
+  return {
+    id: document.id,
+    title: document.title,
+    documentType: document.documentType,
+    status: document.status,
+    filingMode: null,
+    subtype,
+    appealNumber: null,
+    objectFullName: null,
+    objectOrganization: null,
+    requestNumber: null,
+    agreementNumber: null,
+    trustorName: null,
+    server: {
+      id: document.server.id,
+      code: document.server.code,
+      name: document.server.name,
+    },
+    authorSnapshot: buildInvalidDocumentAuthorSnapshotSummary(),
+    dataHealth: "invalid_payload",
+    workingNotesPreview: INVALID_DOCUMENT_WORKING_NOTES_PREVIEW,
+    generatedAt: document.generatedAt?.toISOString() ?? null,
+    publicationUrl: document.publicationUrl,
+    isSiteForumSynced: document.isSiteForumSynced,
+    forumSyncState: document.documentType === "ogp_complaint" ? document.forumSyncState : null,
+    forumThreadId: document.documentType === "ogp_complaint" ? document.forumThreadId : null,
+    forumPostId: document.documentType === "ogp_complaint" ? document.forumPostId : null,
+    forumLastPublishedAt:
+      document.documentType === "ogp_complaint"
+        ? document.forumLastPublishedAt?.toISOString() ?? null
+        : null,
+    forumLastSyncError: document.documentType === "ogp_complaint" ? document.forumLastSyncError : null,
+    isModifiedAfterGeneration: document.isModifiedAfterGeneration,
+    snapshotCapturedAt: document.snapshotCapturedAt.toISOString(),
+    updatedAt: document.updatedAt.toISOString(),
+    createdAt: document.createdAt.toISOString(),
+  };
+}
+
+function logDocumentListItemParseFailure(input: {
+  document: AccountDocumentRecord | (ServerDocumentRecord & { server: AccountDocumentRecord["server"] });
+  message: string;
+}) {
+  console.error("DOCUMENT_LIST_ITEM_PARSE_FAILED", {
+    documentId: input.document.id,
+    documentType: input.document.documentType,
+    accountId: input.document.accountId,
+    serverId: input.document.serverId,
+    message: input.message,
+  });
+}
+
+function logDocumentEditorContextParseFailure(input: {
+  accountId: string;
+  document: NonNullable<Awaited<ReturnType<typeof getDocumentByIdForAccount>>>;
+  message: string;
+}) {
+  console.error("DOCUMENT_EDITOR_CONTEXT_PARSE_FAILED", {
+    documentId: input.document.id,
+    documentType: input.document.documentType,
+    accountId: input.accountId,
+    serverId: input.document.serverId,
+    message: input.message,
+  });
+}
+
+function buildInvalidDocumentDataEditorRouteContext(input: {
+  account: AccountDocumentsOverviewContext["account"];
+  server: {
+    id: string;
+    code: string;
+    name: string;
+  };
+  servers: DocumentAreaServerSummary[];
+  document: NonNullable<Awaited<ReturnType<typeof getDocumentByIdForAccount>>>;
+}): InvalidDocumentDataEditorRouteContext {
+  return {
+    status: "invalid_document_data",
+    account: input.account,
+    server: input.server,
+    servers: input.servers,
+    document: {
+      id: input.document.id,
+      title: input.document.title,
+      status: input.document.status,
+      createdAt: input.document.createdAt.toISOString(),
+      updatedAt: input.document.updatedAt.toISOString(),
+      snapshotCapturedAt: input.document.snapshotCapturedAt.toISOString(),
+      dataHealth: "invalid_payload",
+    },
+  };
+}
+
 function buildPersistedDocumentListItem(
   document: AccountDocumentRecord | (ServerDocumentRecord & { server: AccountDocumentRecord["server"] }),
 ) {
-  const authorSnapshot = readDocumentAuthorSnapshot(document.authorSnapshotJson);
+  const authorSnapshot = safeReadDocumentAuthorSnapshot(document.authorSnapshotJson);
   const subtype = isClaimsDocumentType(document.documentType) ? document.documentType : null;
 
+  if (!authorSnapshot.ok) {
+    logDocumentListItemParseFailure({
+      document,
+      message: authorSnapshot.message,
+    });
+
+    return buildInvalidPersistedDocumentListItem(document);
+  }
+
   if (document.documentType === "attorney_request") {
-    const payload = readAttorneyRequestDraftPayload(document.formPayloadJson);
+    const payload = safeReadAttorneyRequestDraftPayload(document.formPayloadJson);
+
+    if (!payload.ok) {
+      logDocumentListItemParseFailure({
+        document,
+        message: payload.message,
+      });
+
+      return buildInvalidPersistedDocumentListItem(document);
+    }
 
     return {
       id: document.id,
@@ -658,18 +809,19 @@ function buildPersistedDocumentListItem(
       appealNumber: null,
       objectFullName: null,
       objectOrganization: null,
-      requestNumber: payload.requestNumberNormalized,
-      trustorName: payload.trustorSnapshot.fullName,
+      requestNumber: payload.data.requestNumberNormalized,
+      trustorName: payload.data.trustorSnapshot.fullName,
       server: {
         id: document.server.id,
         code: document.server.code,
         name: document.server.name,
       },
       authorSnapshot: {
-        fullName: authorSnapshot.fullName,
-        passportNumber: authorSnapshot.passportNumber,
+        fullName: authorSnapshot.data.fullName,
+        passportNumber: authorSnapshot.data.passportNumber,
       },
-      workingNotesPreview: payload.workingNotes.slice(0, 240),
+      dataHealth: "ok",
+      workingNotesPreview: payload.data.workingNotes.slice(0, 240),
       generatedAt: document.generatedAt?.toISOString() ?? null,
       publicationUrl: document.publicationUrl,
       isSiteForumSynced: document.isSiteForumSynced,
@@ -686,7 +838,16 @@ function buildPersistedDocumentListItem(
   }
 
   if (document.documentType === "legal_services_agreement") {
-    const payload = readLegalServicesAgreementDraftPayload(document.formPayloadJson);
+    const payload = safeReadLegalServicesAgreementDraftPayload(document.formPayloadJson);
+
+    if (!payload.ok) {
+      logDocumentListItemParseFailure({
+        document,
+        message: payload.message,
+      });
+
+      return buildInvalidPersistedDocumentListItem(document);
+    }
 
     return {
       id: document.id,
@@ -698,18 +859,19 @@ function buildPersistedDocumentListItem(
       appealNumber: null,
       objectFullName: null,
       objectOrganization: null,
-      agreementNumber: payload.manualFields.agreementNumber,
-      trustorName: payload.trustorSnapshot.fullName,
+      agreementNumber: payload.data.manualFields.agreementNumber,
+      trustorName: payload.data.trustorSnapshot.fullName,
       server: {
         id: document.server.id,
         code: document.server.code,
         name: document.server.name,
       },
       authorSnapshot: {
-        fullName: authorSnapshot.fullName,
-        passportNumber: authorSnapshot.passportNumber,
+        fullName: authorSnapshot.data.fullName,
+        passportNumber: authorSnapshot.data.passportNumber,
       },
-      workingNotesPreview: payload.workingNotes.slice(0, 240),
+      dataHealth: "ok",
+      workingNotesPreview: payload.data.workingNotes.slice(0, 240),
       generatedAt: document.generatedAt?.toISOString() ?? null,
       publicationUrl: document.publicationUrl,
       isSiteForumSynced: document.isSiteForumSynced,
@@ -746,9 +908,10 @@ function buildPersistedDocumentListItem(
         name: document.server.name,
       },
       authorSnapshot: {
-        fullName: authorSnapshot.fullName,
-        passportNumber: authorSnapshot.passportNumber,
+        fullName: authorSnapshot.data.fullName,
+        passportNumber: authorSnapshot.data.passportNumber,
       },
+      dataHealth: "ok",
       workingNotesPreview: payload.workingNotes.slice(0, 240),
       generatedAt: document.generatedAt?.toISOString() ?? null,
       publicationUrl: document.publicationUrl,
@@ -785,9 +948,10 @@ function buildPersistedDocumentListItem(
       name: document.server.name,
     },
     authorSnapshot: {
-      fullName: authorSnapshot.fullName,
-      passportNumber: authorSnapshot.passportNumber,
+      fullName: authorSnapshot.data.fullName,
+      passportNumber: authorSnapshot.data.passportNumber,
     },
+    dataHealth: "ok",
     workingNotesPreview: payload.workingNotes.slice(0, 240),
     generatedAt: document.generatedAt?.toISOString() ?? null,
     publicationUrl: document.publicationUrl,
@@ -804,65 +968,88 @@ function buildPersistedDocumentListItem(
   } satisfies DocumentAreaPersistedListItem;
 }
 
+function buildDocumentTypeCountMapFromDocuments(
+  documents: ReadonlyArray<
+    AccountDocumentRecord | (ServerDocumentRecord & { server: AccountDocumentRecord["server"] })
+  >,
+) {
+  const map = new Map<string, number>();
+
+  for (const document of documents) {
+    const key = `${document.serverId}:${document.documentType}`;
+    map.set(key, (map.get(key) ?? 0) + 1);
+  }
+
+  return map;
+}
+
+function buildDocumentAreaServerSummariesFromLoadedData(input: {
+  servers: Awaited<ReturnType<typeof getServers>>;
+  serverStates: Awaited<ReturnType<typeof getUserServerStates>>;
+  characters: AccountCharacterRecord[];
+  countMap: Map<string, number>;
+}) {
+  return input.servers.map((server) => {
+    const serverCharacters = input.characters.filter((character) => character.serverId === server.id);
+    const ogpComplaintDocumentCount = readDocumentTypeCount(
+      input.countMap,
+      server.id,
+      "ogp_complaint",
+    );
+    const rehabilitationDocumentCount = readDocumentTypeCount(
+      input.countMap,
+      server.id,
+      "rehabilitation",
+    );
+    const lawsuitDocumentCount = readDocumentTypeCount(input.countMap, server.id, "lawsuit");
+    const attorneyRequestDocumentCount = readDocumentTypeCount(
+      input.countMap,
+      server.id,
+      "attorney_request",
+    );
+    const legalServicesAgreementDocumentCount = readDocumentTypeCount(
+      input.countMap,
+      server.id,
+      "legal_services_agreement",
+    );
+    const selectedCharacter = buildSelectedCharacterSummary({
+      serverId: server.id,
+      characters: serverCharacters,
+      serverStates: input.serverStates,
+    });
+
+    return {
+      id: server.id,
+      code: server.code,
+      name: server.name,
+      characterCount: serverCharacters.length,
+      selectedCharacterId: selectedCharacter?.id ?? null,
+      selectedCharacterName: selectedCharacter?.fullName ?? null,
+      selectedCharacterSource: selectedCharacter?.source ?? "none",
+      ogpComplaintDocumentCount,
+      claimsDocumentCount: rehabilitationDocumentCount + lawsuitDocumentCount,
+      attorneyRequestDocumentCount,
+      legalServicesAgreementDocumentCount,
+    } satisfies DocumentAreaServerSummary;
+  });
+}
+
 async function buildDocumentAreaServerSummaries(accountId: string) {
-  const [servers, serverStates, groupedCounts] = await Promise.all([
+  const [servers, serverStates, groupedCounts, characters] = await Promise.all([
     getServers(),
     getUserServerStates(accountId),
     listDocumentCountsByAccountGrouped(accountId),
+    listCharactersForAccount(accountId),
   ]);
 
   const countMap = buildDocumentTypeCountMap(groupedCounts);
 
-  const serverSummaries = await Promise.all(
-    servers.map(async (server) => {
-      const characters = await getCharactersByServer({
-        accountId,
-        serverId: server.id,
-      });
-      const ogpComplaintDocumentCount = readDocumentTypeCount(
-        countMap,
-        server.id,
-        "ogp_complaint",
-      );
-      const rehabilitationDocumentCount = readDocumentTypeCount(
-        countMap,
-        server.id,
-        "rehabilitation",
-      );
-      const lawsuitDocumentCount = readDocumentTypeCount(countMap, server.id, "lawsuit");
-      const attorneyRequestDocumentCount = readDocumentTypeCount(
-        countMap,
-        server.id,
-        "attorney_request",
-      );
-      const legalServicesAgreementDocumentCount = readDocumentTypeCount(
-        countMap,
-        server.id,
-        "legal_services_agreement",
-      );
-      const selectedCharacter = buildSelectedCharacterSummary({
-        serverId: server.id,
-        characters,
-        serverStates,
-      });
-
-      return {
-        id: server.id,
-        code: server.code,
-        name: server.name,
-        characterCount: characters.length,
-        selectedCharacterId: selectedCharacter?.id ?? null,
-        selectedCharacterName: selectedCharacter?.fullName ?? null,
-        selectedCharacterSource: selectedCharacter?.source ?? "none",
-        ogpComplaintDocumentCount,
-        claimsDocumentCount: rehabilitationDocumentCount + lawsuitDocumentCount,
-        attorneyRequestDocumentCount,
-        legalServicesAgreementDocumentCount,
-      } satisfies DocumentAreaServerSummary;
-    }),
-  );
-
-  return serverSummaries;
+  return buildDocumentAreaServerSummariesFromLoadedData({
+    servers,
+    serverStates,
+    characters,
+    countMap,
+  });
 }
 
 function buildDocumentTypeCountMap(
@@ -892,14 +1079,22 @@ export async function getAccountDocumentsOverviewContext(
   const { account } = await requireProtectedAccountContext(nextPath, undefined, {
     allowMustChangePassword: true,
   });
-  const [servers, documents] = await Promise.all([
-    buildDocumentAreaServerSummaries(account.id),
+  const [servers, serverStates, characters, documents] = await Promise.all([
+    getServers(),
+    getUserServerStates(account.id),
+    listCharactersForAccount(account.id),
     listDocumentsByAccount(account.id),
   ]);
+  const countMap = buildDocumentTypeCountMapFromDocuments(documents);
 
   return {
     account,
-    servers,
+    servers: buildDocumentAreaServerSummariesFromLoadedData({
+      servers,
+      serverStates,
+      characters,
+      countMap,
+    }),
     documents: documents.map((document) => buildPersistedDocumentListItem(document)),
   };
 }
@@ -1325,7 +1520,27 @@ export async function getClaimsEditorRouteContext(input: {
     };
   }
 
-  const authorSnapshot = readDocumentAuthorSnapshot(document.authorSnapshotJson);
+  const authorSnapshot = safeReadDocumentAuthorSnapshot(document.authorSnapshotJson);
+
+  if (!authorSnapshot.ok) {
+    logDocumentEditorContextParseFailure({
+      accountId: account.id,
+      document,
+      message: authorSnapshot.message,
+    });
+
+    return buildInvalidDocumentDataEditorRouteContext({
+      account,
+      server: {
+        id: server.id,
+        code: server.code,
+        name: server.name,
+      },
+      servers,
+      document,
+    });
+  }
+
   const payload = readClaimsDraftPayload(document.documentType, document.formPayloadJson);
   const generatedArtifact = readClaimsGeneratedArtifact(document.generatedArtifactJson);
   const trustorRegistry = buildDocumentTrustorRegistrySummary(
@@ -1364,17 +1579,17 @@ export async function getClaimsEditorRouteContext(input: {
         name: document.server.name,
       },
       authorSnapshot: {
-        fullName: authorSnapshot.fullName,
-        passportNumber: authorSnapshot.passportNumber,
-        position: authorSnapshot.position,
-        address: authorSnapshot.address,
-        phone: authorSnapshot.phone,
-        icEmail: authorSnapshot.icEmail,
-        passportImageUrl: authorSnapshot.passportImageUrl,
-        nickname: authorSnapshot.nickname,
-        roleKeys: authorSnapshot.roleKeys,
-        accessFlags: authorSnapshot.accessFlags,
-        isProfileComplete: authorSnapshot.isProfileComplete,
+        fullName: authorSnapshot.data.fullName,
+        passportNumber: authorSnapshot.data.passportNumber,
+        position: authorSnapshot.data.position,
+        address: authorSnapshot.data.address,
+        phone: authorSnapshot.data.phone,
+        icEmail: authorSnapshot.data.icEmail,
+        passportImageUrl: authorSnapshot.data.passportImageUrl,
+        nickname: authorSnapshot.data.nickname,
+        roleKeys: authorSnapshot.data.roleKeys,
+        accessFlags: authorSnapshot.data.accessFlags,
+        isProfileComplete: authorSnapshot.data.isProfileComplete,
       },
       trustorRegistry,
       payload,
@@ -1423,8 +1638,48 @@ export async function getLegalServicesAgreementEditorRouteContext(input: {
     };
   }
 
-  const authorSnapshot = readDocumentAuthorSnapshot(document.authorSnapshotJson);
-  const payload = readLegalServicesAgreementDraftPayload(document.formPayloadJson);
+  const authorSnapshot = safeReadDocumentAuthorSnapshot(document.authorSnapshotJson);
+
+  if (!authorSnapshot.ok) {
+    logDocumentEditorContextParseFailure({
+      accountId: account.id,
+      document,
+      message: authorSnapshot.message,
+    });
+
+    return buildInvalidDocumentDataEditorRouteContext({
+      account,
+      server: {
+        id: server.id,
+        code: server.code,
+        name: server.name,
+      },
+      servers,
+      document,
+    });
+  }
+
+  const payload = safeReadLegalServicesAgreementDraftPayload(document.formPayloadJson);
+
+  if (!payload.ok) {
+    logDocumentEditorContextParseFailure({
+      accountId: account.id,
+      document,
+      message: payload.message,
+    });
+
+    return buildInvalidDocumentDataEditorRouteContext({
+      account,
+      server: {
+        id: server.id,
+        code: server.code,
+        name: server.name,
+      },
+      servers,
+      document,
+    });
+  }
+
   const generatedArtifact = readLegalServicesAgreementGeneratedArtifact(document.generatedArtifactJson);
 
   return {
@@ -1455,19 +1710,19 @@ export async function getLegalServicesAgreementEditorRouteContext(input: {
         name: document.server.name,
       },
       authorSnapshot: {
-        fullName: authorSnapshot.fullName,
-        passportNumber: authorSnapshot.passportNumber,
-        position: authorSnapshot.position,
-        address: authorSnapshot.address,
-        phone: authorSnapshot.phone,
-        icEmail: authorSnapshot.icEmail,
-        passportImageUrl: authorSnapshot.passportImageUrl,
-        nickname: authorSnapshot.nickname,
-        roleKeys: authorSnapshot.roleKeys,
-        accessFlags: authorSnapshot.accessFlags,
-        isProfileComplete: authorSnapshot.isProfileComplete,
+        fullName: authorSnapshot.data.fullName,
+        passportNumber: authorSnapshot.data.passportNumber,
+        position: authorSnapshot.data.position,
+        address: authorSnapshot.data.address,
+        phone: authorSnapshot.data.phone,
+        icEmail: authorSnapshot.data.icEmail,
+        passportImageUrl: authorSnapshot.data.passportImageUrl,
+        nickname: authorSnapshot.data.nickname,
+        roleKeys: authorSnapshot.data.roleKeys,
+        accessFlags: authorSnapshot.data.accessFlags,
+        isProfileComplete: authorSnapshot.data.isProfileComplete,
       },
-      payload,
+      payload: payload.data,
     },
   };
 }
@@ -1513,9 +1768,61 @@ export async function getAttorneyRequestEditorRouteContext(input: {
     };
   }
 
-  const authorSnapshot = readDocumentAuthorSnapshot(document.authorSnapshotJson);
-  const signatureSnapshot = readDocumentSignatureSnapshot(document.signatureSnapshotJson);
-  const payload = readAttorneyRequestDraftPayload(document.formPayloadJson);
+  const authorSnapshot = safeReadDocumentAuthorSnapshot(document.authorSnapshotJson);
+
+  if (!authorSnapshot.ok) {
+    logDocumentEditorContextParseFailure({
+      accountId: account.id,
+      document,
+      message: authorSnapshot.message,
+    });
+
+    return buildInvalidDocumentDataEditorRouteContext({
+      account,
+      server: {
+        id: server.id,
+        code: server.code,
+        name: server.name,
+      },
+      servers,
+      document,
+    });
+  }
+
+  const signatureSnapshot = safeReadDocumentSignatureSnapshot(document.signatureSnapshotJson);
+  let normalizedSignatureSnapshot: DocumentSignatureSnapshot | null = null;
+
+  if (!signatureSnapshot.ok) {
+    logDocumentEditorContextParseFailure({
+      accountId: account.id,
+      document,
+      message: `Invalid signature snapshot: ${signatureSnapshot.message}`,
+    });
+  } else {
+    normalizedSignatureSnapshot = signatureSnapshot.data;
+  }
+
+  const payload = safeReadAttorneyRequestDraftPayload(document.formPayloadJson);
+
+  if (!payload.ok) {
+    logDocumentEditorContextParseFailure({
+      accountId: account.id,
+      document,
+      message: payload.message,
+    });
+
+    return buildInvalidDocumentDataEditorRouteContext({
+      account,
+      server: {
+        id: server.id,
+        code: server.code,
+        name: server.name,
+      },
+      servers,
+      document,
+    });
+  }
+
   const generatedArtifact = readAttorneyRequestGeneratedArtifact(document.generatedArtifactJson);
 
   return {
@@ -1546,21 +1853,21 @@ export async function getAttorneyRequestEditorRouteContext(input: {
         name: document.server.name,
       },
       authorSnapshot: {
-        fullName: authorSnapshot.fullName,
-        passportNumber: authorSnapshot.passportNumber,
-        position: authorSnapshot.position,
-        address: authorSnapshot.address,
-        phone: authorSnapshot.phone,
-        icEmail: authorSnapshot.icEmail,
-        passportImageUrl: authorSnapshot.passportImageUrl,
-        nickname: authorSnapshot.nickname,
-        roleKeys: authorSnapshot.roleKeys,
-        accessFlags: authorSnapshot.accessFlags,
-        isProfileComplete: authorSnapshot.isProfileComplete,
+        fullName: authorSnapshot.data.fullName,
+        passportNumber: authorSnapshot.data.passportNumber,
+        position: authorSnapshot.data.position,
+        address: authorSnapshot.data.address,
+        phone: authorSnapshot.data.phone,
+        icEmail: authorSnapshot.data.icEmail,
+        passportImageUrl: authorSnapshot.data.passportImageUrl,
+        nickname: authorSnapshot.data.nickname,
+        roleKeys: authorSnapshot.data.roleKeys,
+        accessFlags: authorSnapshot.data.accessFlags,
+        isProfileComplete: authorSnapshot.data.isProfileComplete,
       },
-      signatureSnapshot,
-      hasActiveCharacterSignature: Boolean(document.character.activeSignature),
-      payload,
+      signatureSnapshot: normalizedSignatureSnapshot,
+      hasActiveCharacterSignature: Boolean(document.character?.activeSignature),
+      payload: payload.data,
     },
   };
 }
@@ -1606,7 +1913,27 @@ export async function getOgpComplaintEditorRouteContext(input: {
     };
   }
 
-  const authorSnapshot = readDocumentAuthorSnapshot(document.authorSnapshotJson);
+  const authorSnapshot = safeReadDocumentAuthorSnapshot(document.authorSnapshotJson);
+
+  if (!authorSnapshot.ok) {
+    logDocumentEditorContextParseFailure({
+      accountId: account.id,
+      document,
+      message: authorSnapshot.message,
+    });
+
+    return buildInvalidDocumentDataEditorRouteContext({
+      account,
+      server: {
+        id: server.id,
+        code: server.code,
+        name: server.name,
+      },
+      servers,
+      document,
+    });
+  }
+
   const payload = readOgpComplaintDraftPayload(document.formPayloadJson);
   const forumConnection = await getAccountForumConnectionSummary(account.id);
   const trustorRegistry = buildDocumentTrustorRegistrySummary(
@@ -1653,17 +1980,17 @@ export async function getOgpComplaintEditorRouteContext(input: {
         name: document.server.name,
       },
       authorSnapshot: {
-        fullName: authorSnapshot.fullName,
-        passportNumber: authorSnapshot.passportNumber,
-        position: authorSnapshot.position,
-        address: authorSnapshot.address,
-        phone: authorSnapshot.phone,
-        icEmail: authorSnapshot.icEmail,
-        passportImageUrl: authorSnapshot.passportImageUrl,
-        nickname: authorSnapshot.nickname,
-        roleKeys: authorSnapshot.roleKeys,
-        accessFlags: authorSnapshot.accessFlags,
-        isProfileComplete: authorSnapshot.isProfileComplete,
+        fullName: authorSnapshot.data.fullName,
+        passportNumber: authorSnapshot.data.passportNumber,
+        position: authorSnapshot.data.position,
+        address: authorSnapshot.data.address,
+        phone: authorSnapshot.data.phone,
+        icEmail: authorSnapshot.data.icEmail,
+        passportImageUrl: authorSnapshot.data.passportImageUrl,
+        nickname: authorSnapshot.data.nickname,
+        roleKeys: authorSnapshot.data.roleKeys,
+        accessFlags: authorSnapshot.data.accessFlags,
+        isProfileComplete: authorSnapshot.data.isProfileComplete,
       },
       trustorRegistry,
       payload,

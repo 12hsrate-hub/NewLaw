@@ -1,5 +1,5 @@
 import { listTrustorsForAccount } from "@/db/repositories/trustor.repository";
-import { listDocumentsByAccount } from "@/db/repositories/document.repository";
+import { listAttorneyRequestDocumentsByAccount } from "@/db/repositories/document.repository";
 import { getServers } from "@/db/repositories/server.repository";
 import { isOgpTrustorRepresentativeReady } from "@/lib/ogp/generation-contract";
 import {
@@ -74,11 +74,21 @@ export async function getAccountTrustorsOverviewContext(input: {
     allowMustChangePassword: true,
   });
   const focusedServerCode = input.focusedServerCode?.trim().toLowerCase() || null;
-  const [servers, trustors, documents] = await Promise.all([
+  const [servers, trustors] = await Promise.all([
     getServers(),
     listTrustorsForAccount(account.id),
-    listDocumentsByAccount(account.id),
   ]);
+  const serverCodeById = new Map(servers.map((server) => [server.id, server.code]));
+  let attorneyRequestDocuments: Awaited<ReturnType<typeof listAttorneyRequestDocumentsByAccount>> = [];
+
+  try {
+    attorneyRequestDocuments = await listAttorneyRequestDocumentsByAccount(account.id);
+  } catch (error) {
+    console.error("ACCOUNT_TRUSTORS_ATTORNEY_REQUESTS_LOAD_FAILED", {
+      accountId: account.id,
+      message: error instanceof Error ? error.message : String(error),
+    });
+  }
 
   const serverGroups = servers.map((server) => {
     const serverTrustors = trustors.filter((trustor) => trustor.serverId === server.id);
@@ -109,10 +119,9 @@ export async function getAccountTrustorsOverviewContext(input: {
           icEmail: trustor.icEmail,
           passportImageUrl: trustor.passportImageUrl,
         }),
-        attorneyRequests: documents
+        attorneyRequests: attorneyRequestDocuments
           .filter(
             (document) =>
-              document.documentType === "attorney_request" &&
               document.trustorId === trustor.id &&
               document.serverId === server.id,
           )
@@ -120,7 +129,7 @@ export async function getAccountTrustorsOverviewContext(input: {
             id: document.id,
             title: document.title,
             status: document.status,
-            serverCode: document.server.code,
+            serverCode: serverCodeById.get(document.serverId) ?? server.code,
             updatedAt: document.updatedAt.toISOString(),
           })),
       })),
