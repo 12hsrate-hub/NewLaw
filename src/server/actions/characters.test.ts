@@ -40,6 +40,13 @@ vi.mock("@/server/characters/manual-character", () => ({
   updateCharacterManually: vi.fn(),
 }));
 
+vi.mock("@/server/characters/access-requests", () => ({
+  CharacterAccessRequestAlreadyExistsError: class CharacterAccessRequestAlreadyExistsError extends Error {},
+  CharacterAccessRequestAlreadyGrantedError: class CharacterAccessRequestAlreadyGrantedError extends Error {},
+  CharacterAccessRequestCharacterNotFoundError: class CharacterAccessRequestCharacterNotFoundError extends Error {},
+  createCharacterAccessRequest: vi.fn(),
+}));
+
 vi.mock("@/server/app-shell/selection", () => ({
   setActiveServerSelection: vi.fn(),
   setActiveCharacterSelection: vi.fn(),
@@ -58,10 +65,17 @@ vi.mock("@/server/character-signatures/service", () => ({
 
 import {
   createCharacterAction,
+  createCharacterAccessRequestAction,
   removeActiveCharacterSignatureAction,
   uploadCharacterSignatureAction,
   updateCharacterAction,
 } from "@/server/actions/characters";
+import {
+  CharacterAccessRequestAlreadyExistsError,
+  CharacterAccessRequestAlreadyGrantedError,
+  CharacterAccessRequestCharacterNotFoundError,
+  createCharacterAccessRequest,
+} from "@/server/characters/access-requests";
 import {
   CharacterLimitExceededError,
   CharacterNotFoundError,
@@ -97,7 +111,7 @@ describe("character actions", () => {
     } as never);
   });
 
-  it("создает персонажа вручную и делает его активным для текущего сервера", async () => {
+  it("создает персонажа вручную с безопасными значениями и делает его активным для текущего сервера", async () => {
     vi.mocked(createCharacterManually).mockResolvedValue({
       id: "character-1",
     } as never);
@@ -122,8 +136,6 @@ describe("character actions", () => {
       fullName: "Alice Stone",
       nickname: "",
       passportNumber: "A-001",
-      roleKeys: ["lawyer"],
-      accessFlags: ["advocate", "tester"],
       isProfileComplete: false,
       profileDataJson: null,
     });
@@ -167,7 +179,7 @@ describe("character actions", () => {
     await expectRedirect(createCharacterAction(formData), "/app?status=passport-conflict");
   });
 
-  it("создает персонажа с пустыми roles и access flags, если они не выбраны", async () => {
+  it("создает персонажа без чтения self-service roles и access flags", async () => {
     vi.mocked(createCharacterManually).mockResolvedValue({
       id: "character-2",
     } as never);
@@ -189,8 +201,6 @@ describe("character actions", () => {
       fullName: "Bob Stone",
       nickname: "",
       passportNumber: "B-001",
-      roleKeys: [],
-      accessFlags: [],
       isProfileComplete: false,
       profileDataJson: null,
     });
@@ -228,8 +238,6 @@ describe("character actions", () => {
       fullName: "Alice Stone",
       nickname: "alice.stone",
       passportNumber: "A-010",
-      roleKeys: [],
-      accessFlags: [],
       isProfileComplete: true,
       profileDataJson: {
         position: "Адвокат",
@@ -275,7 +283,7 @@ describe("character actions", () => {
     expect(setActiveCharacterSelection).not.toHaveBeenCalled();
   });
 
-  it("сохраняет выбранные roles и access flags при редактировании своего персонажа", async () => {
+  it("при редактировании игнорирует self-service roles и access flags", async () => {
     vi.mocked(updateCharacterManually).mockResolvedValue({
       id: "character-1",
     } as never);
@@ -300,8 +308,6 @@ describe("character actions", () => {
       fullName: "Alice Stone",
       nickname: "alice.stone.updated",
       passportNumber: "A-777",
-      roleKeys: ["lawyer"],
-      accessFlags: ["advocate", "tester"],
       isProfileComplete: false,
       profileDataJson: null,
     });
@@ -322,7 +328,14 @@ describe("character actions", () => {
     await expectRedirect(updateCharacterAction(formData), "/app?status=character-not-found");
   });
 
-  it("безопасно отклоняет мусорные role/access значения из формы", async () => {
+  it("игнорирует подменённые role/access значения из формы и всё равно создаёт персонажа безопасно", async () => {
+    vi.mocked(createCharacterManually).mockResolvedValue({
+      id: "character-safe",
+    } as never);
+    vi.mocked(setActiveServerSelection).mockResolvedValue({} as never);
+    vi.mocked(setActiveCharacterSelection).mockResolvedValue({} as never);
+    vi.mocked(countCharactersByServer).mockResolvedValue(1 as never);
+
     const formData = new FormData();
     formData.set("serverId", "server-1");
     formData.set("fullName", "Alice Stone");
@@ -331,8 +344,88 @@ describe("character actions", () => {
     formData.append("accessFlags", "god_mode");
     formData.set("redirectTo", "/app");
 
-    await expectRedirect(createCharacterAction(formData), "/app?status=character-create-error");
-    expect(createCharacterManually).not.toHaveBeenCalled();
+    await expectRedirect(createCharacterAction(formData), "/app?status=character-created");
+    expect(createCharacterManually).toHaveBeenCalledWith({
+      accountId: "21631886-7b4d-4be2-b6e9-95322d0dca41",
+      serverId: "server-1",
+      fullName: "Alice Stone",
+      nickname: "",
+      passportNumber: "A-001",
+      isProfileComplete: false,
+      profileDataJson: null,
+    });
+  });
+
+  it("создаёт заявку на адвокатский доступ через account zone", async () => {
+    vi.mocked(createCharacterAccessRequest).mockResolvedValue({
+      id: "request-1",
+    } as never);
+
+    const formData = new FormData();
+    formData.set("characterId", "character-1");
+    formData.set("requestType", "advocate_access");
+    formData.set("requestComment", "Нужен адвокатский доступ");
+    formData.set("redirectTo", "/account/characters?server=blackberry");
+
+    await expectRedirect(
+      createCharacterAccessRequestAction(formData),
+      "/account/characters?server=blackberry&status=character-access-request-created",
+    );
+
+    expect(createCharacterAccessRequest).toHaveBeenCalledWith({
+      accountId: "21631886-7b4d-4be2-b6e9-95322d0dca41",
+      characterId: "character-1",
+      requestType: "advocate_access",
+      requestComment: "Нужен адвокатский доступ",
+    });
+  });
+
+  it("не даёт создать дубль pending-заявки", async () => {
+    vi.mocked(createCharacterAccessRequest).mockRejectedValue(
+      new CharacterAccessRequestAlreadyExistsError(),
+    );
+
+    const formData = new FormData();
+    formData.set("characterId", "character-1");
+    formData.set("requestType", "advocate_access");
+    formData.set("redirectTo", "/account/characters?server=blackberry");
+
+    await expectRedirect(
+      createCharacterAccessRequestAction(formData),
+      "/account/characters?server=blackberry&status=character-access-request-pending-exists",
+    );
+  });
+
+  it("не даёт создавать заявку, если advocate уже выдан", async () => {
+    vi.mocked(createCharacterAccessRequest).mockRejectedValue(
+      new CharacterAccessRequestAlreadyGrantedError(),
+    );
+
+    const formData = new FormData();
+    formData.set("characterId", "character-1");
+    formData.set("requestType", "advocate_access");
+    formData.set("redirectTo", "/account/characters?server=blackberry");
+
+    await expectRedirect(
+      createCharacterAccessRequestAction(formData),
+      "/account/characters?server=blackberry&status=character-access-request-already-granted",
+    );
+  });
+
+  it("безопасно отклоняет заявку на чужого или отсутствующего персонажа", async () => {
+    vi.mocked(createCharacterAccessRequest).mockRejectedValue(
+      new CharacterAccessRequestCharacterNotFoundError(),
+    );
+
+    const formData = new FormData();
+    formData.set("characterId", "character-404");
+    formData.set("requestType", "advocate_access");
+    formData.set("redirectTo", "/account/characters?server=blackberry");
+
+    await expectRedirect(
+      createCharacterAccessRequestAction(formData),
+      "/account/characters?server=blackberry&status=character-access-request-not-found",
+    );
   });
 
   it("загружает подпись персонажа и возвращает warning status для не-png варианта", async () => {

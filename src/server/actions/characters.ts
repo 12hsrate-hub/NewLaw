@@ -10,18 +10,19 @@ import {
 } from "@/lib/ogp/generation-contract";
 import { characterSignatureActionInputSchema } from "@/schemas/character-signature";
 import {
-  type CharacterAccessFlagKey,
-  characterAccessFlagKeySchema,
-  characterAccessFlagSelectionSchema,
   characterFormSchema,
   characterProfileFormSchema,
-  type CharacterRoleKey,
-  characterRoleKeySchema,
-  characterRoleSelectionSchema,
   type CharacterSelectionBehavior,
+  createCharacterAccessRequestInputSchema,
   characterSelectionBehaviorSchema,
 } from "@/schemas/character";
 import { countCharactersByServer } from "@/db/repositories/character.repository";
+import {
+  CharacterAccessRequestAlreadyExistsError,
+  CharacterAccessRequestAlreadyGrantedError,
+  CharacterAccessRequestCharacterNotFoundError,
+  createCharacterAccessRequest,
+} from "@/server/characters/access-requests";
 import {
   CharacterLimitExceededError,
   CharacterNotFoundError,
@@ -75,26 +76,6 @@ function readCharacterFormFields(formData: FormData) {
   });
 }
 
-function readRoleKeys(formData: FormData): CharacterRoleKey[] {
-  return characterRoleSelectionSchema.parse(
-    formData
-      .getAll("roleKeys")
-      .map((value) => String(value))
-      .filter(Boolean)
-      .map((value) => characterRoleKeySchema.parse(value)),
-  );
-}
-
-function readAccessFlags(formData: FormData): CharacterAccessFlagKey[] {
-  return characterAccessFlagSelectionSchema.parse(
-    formData
-      .getAll("accessFlags")
-      .map((value) => String(value))
-      .filter(Boolean)
-      .map((value) => characterAccessFlagKeySchema.parse(value)),
-  );
-}
-
 function readProfileDetails(formData: FormData) {
   return characterProfileFormSchema.parse({
     position: String(formData.get("position") ?? ""),
@@ -109,6 +90,15 @@ function readProfileDetails(formData: FormData) {
 
 function readSelectionBehavior(formData: FormData): CharacterSelectionBehavior {
   return characterSelectionBehaviorSchema.parse(String(formData.get("selectionBehavior") ?? "app_shell"));
+}
+
+function readCharacterAccessRequestFields(formData: FormData, accountId: string) {
+  return createCharacterAccessRequestInputSchema.parse({
+    accountId,
+    characterId: String(formData.get("characterId") ?? ""),
+    requestType: String(formData.get("requestType") ?? "advocate_access"),
+    requestComment: String(formData.get("requestComment") ?? ""),
+  });
 }
 
 async function handlePostCreateSelection(input: {
@@ -150,6 +140,45 @@ function revalidateCharacterRoutes(redirectTo: string) {
   revalidatePath(redirectTo);
 }
 
+export async function createCharacterAccessRequestAction(formData: FormData) {
+  const redirectTo = getRedirectTarget(formData);
+  const { account } = await requireProtectedAccountContext(redirectTo, undefined, {
+    allowMustChangePassword: true,
+  });
+
+  try {
+    const requestFields = readCharacterAccessRequestFields(formData, account.id);
+
+    await createCharacterAccessRequest({
+      accountId: account.id,
+      characterId: requestFields.characterId,
+      requestType: requestFields.requestType,
+      requestComment: requestFields.requestComment,
+    });
+
+    revalidateCharacterRoutes(redirectTo);
+    redirect(buildStatusRedirect(redirectTo, "character-access-request-created"));
+  } catch (error) {
+    if (isRedirectError(error)) {
+      throw error;
+    }
+
+    if (error instanceof CharacterAccessRequestCharacterNotFoundError) {
+      redirect(buildStatusRedirect(redirectTo, "character-access-request-not-found"));
+    }
+
+    if (error instanceof CharacterAccessRequestAlreadyExistsError) {
+      redirect(buildStatusRedirect(redirectTo, "character-access-request-pending-exists"));
+    }
+
+    if (error instanceof CharacterAccessRequestAlreadyGrantedError) {
+      redirect(buildStatusRedirect(redirectTo, "character-access-request-already-granted"));
+    }
+
+    redirect(buildStatusRedirect(redirectTo, "character-access-request-create-error"));
+  }
+}
+
 export async function createCharacterAction(formData: FormData) {
   const redirectTo = getRedirectTarget(formData);
   const { account } = await requireProtectedAccountContext(redirectTo);
@@ -174,8 +203,6 @@ export async function createCharacterAction(formData: FormData) {
       fullName: characterFormFields.fullName,
       nickname: characterFormFields.nickname,
       passportNumber: characterFormFields.passportNumber,
-      roleKeys: readRoleKeys(formData),
-      accessFlags: readAccessFlags(formData),
       isProfileComplete: isOgpCharacterProfileComplete({
         fullName: characterFormFields.fullName,
         passportNumber: characterFormFields.passportNumber,
@@ -236,8 +263,6 @@ export async function updateCharacterAction(formData: FormData) {
       fullName: characterFormFields.fullName,
       nickname: characterFormFields.nickname,
       passportNumber: characterFormFields.passportNumber,
-      roleKeys: readRoleKeys(formData),
-      accessFlags: readAccessFlags(formData),
       isProfileComplete: isOgpCharacterProfileComplete({
         fullName: characterFormFields.fullName,
         passportNumber: characterFormFields.passportNumber,

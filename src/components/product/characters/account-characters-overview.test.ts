@@ -11,6 +11,10 @@ vi.mock("@/components/product/characters/character-signature-card", () => ({
   CharacterSignatureCard: (props: { characterId: string }) => `CharacterSignatureCard:${props.characterId}`,
 }));
 
+vi.mock("@/server/actions/characters", () => ({
+  createCharacterAccessRequestAction: "createCharacterAccessRequestAction",
+}));
+
 import { AccountCharactersOverview } from "@/components/product/characters/account-characters-overview";
 
 describe("account characters overview", () => {
@@ -40,6 +44,14 @@ describe("account characters overview", () => {
               isFocused: true,
               characters: [
                 {
+                  advocateAccessRequest: {
+                    canSubmit: true,
+                    requestType: "advocate_access",
+                    status: "rejected",
+                    requestComment: "Хочу подавать документы как адвокат",
+                    reviewComment: "Нужны дополнительные данные",
+                    createdAt: "2026-04-24T10:00:00.000Z",
+                  },
                   id: "character-1",
                   fullName: "Игорь Юристов",
                   nickname: "Игорь Юристов",
@@ -94,6 +106,9 @@ describe("account characters overview", () => {
     expect(html).toContain("CharacterSignatureCard:character-1");
     expect(html).toContain('/account/characters?server=blackberry#create-character-blackberry');
     expect(html).toContain("Карточка персонажа сохранена");
+    expect(html).toContain("Запросить адвокатский доступ");
+    expect(html).toContain("Заявка отклонена");
+    expect(html).toContain("Нужны дополнительные данные");
     expect(html).toContain("Заметка профиля");
     expect(html).toContain("Подпись для документов");
     expect(html).toContain("Персонажей пока нет");

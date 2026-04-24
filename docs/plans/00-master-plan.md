@@ -29,6 +29,9 @@ Source of truth:
   - post-MVP line
   - operational maturity
 
+При этом закрытый MVP не отменяет возможные обязательные correction-задачи, если в текущем repo-state обнаружена неправильная access-control модель.
+Такие correction-линии нужно фиксировать отдельно от post-MVP expansion и не трактовать как “MVP снова открыт”.
+
 ## Что уже закрыто по текущему repo-state
 
 ### Core platform
@@ -133,7 +136,22 @@ Current MVP-level AI scope уже покрыт:
 - это не переводит template documents в required MVP scope
 - активный source-of-truth для этой линии — [12-post-mvp-template-documents.md](./12-post-mvp-template-documents.md)
 
-## Что остаётся активными future/post-MVP линиями
+## Что остаётся активными линиями
+
+### `13-character-access-requests-and-role-approval`
+
+Статус: `active / security correction`
+
+Это не post-MVP enhancement и не scope growth.
+
+Зафиксировано:
+
+- текущий repo-state реально позволяет self-service назначение `roleKeys` и `accessFlags`
+- обычный пользователь не должен иметь возможности сам выдавать себе `lawyer`, `advocate`, `server_editor`, `server_admin`, `tester`
+- новый персонаж должен создаваться только как безопасный профиль `citizen`
+- адвокатский доступ должен выдаваться только через заявку пользователя и admin approve
+
+Эта линия обязательна, потому что исправляет неправильную access-control модель, а не добавляет новую продуктовую ветку.
 
 ### `08-ai-integration`
 
@@ -188,12 +206,13 @@ Current MVP-level AI scope уже покрыт:
 
 ## Реальные незакрытые вопросы
 
-Незакрытыми остаются только future-level решения:
+Незакрытыми остаются:
 
-1. Нужно ли расширять grounded document AI дальше уже реализованного first legal rollout.
-2. Какой объём template documents line нужен beyond уже реализованных `attorney_request` и `legal_services_agreement`.
-3. Нужна ли deeper trustors expansion beyond current `/account/trustors` convenience layer.
-4. Нужно ли после MVP физически удалять временную forum automation line или достаточно прекратить её развитие.
+1. Как быстро закрыть обязательную access-control correction по self-service ролям и адвокатскому доступу.
+2. Нужно ли расширять grounded document AI дальше уже реализованного first legal rollout.
+3. Какой объём template documents line нужен beyond уже реализованных `attorney_request` и `legal_services_agreement`.
+4. Нужна ли deeper trustors expansion beyond current `/account/trustors` convenience layer.
+5. Нужно ли после MVP физически удалять временную forum automation line или достаточно прекратить её развитие.
 
 ## What Comes After MVP
 

@@ -9,7 +9,7 @@ vi.mock("@/server/actions/characters", () => ({
 import { CharacterFormCard } from "@/components/product/characters/character-form-card";
 
 describe("character form card", () => {
-  it("в edit-режиме подгружает существующие roles и access flags", () => {
+  it("в edit-режиме не рендерит self-service roles и access flags", () => {
     const html = renderToStaticMarkup(
       <CharacterFormCard
         defaultValues={{
@@ -24,10 +24,11 @@ describe("character form card", () => {
       />,
     );
 
-    expect(html).toContain("Роли персонажа");
-    expect(html).toContain("Доступы персонажа");
-    expect(html).toMatch(/value="lawyer"[^>]*checked=""/);
-    expect(html).toMatch(/value="advocate"[^>]*checked=""/);
-    expect(html).toMatch(/value="tester"[^>]*checked=""/);
+    expect(html).toContain("Редактирование персонажа");
+    expect(html).toContain("Компактный профиль персонажа");
+    expect(html).not.toContain("Роли персонажа");
+    expect(html).not.toContain("Доступы персонажа");
+    expect(html).not.toContain('name="roleKeys"');
+    expect(html).not.toContain('name="accessFlags"');
   });
 });

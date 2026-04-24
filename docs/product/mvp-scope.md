@@ -29,6 +29,24 @@
 - `super_admin` — признак уровня аккаунта
 - `Account -> Server -> Characters -> Documents` остаётся базовой иерархией проекта
 
+### Обязательная correction-policy для character access model
+
+Согласованная модель доступа для персонажей такая:
+
+- пользователь не выбирает роли сам
+- пользователь не выбирает `accessFlags` сам
+- self-service создание персонажа включает только профильные поля
+- новый персонаж получает безопасную базовую роль `citizen`
+- адвокатский доступ выдаётся только после заявки пользователя и одобрения администратора
+- представительские document flows доступны только персонажу с `accessFlag: advocate`
+
+Важно:
+
+- это не новая продуктовая линия и не расширение scope
+- это обязательная security correction текущей access-model
+- текущий repo-state ещё должен быть приведён к этой модели отдельной active correction-задачей
+- source-of-truth для correction-линии: [docs/plans/13-character-access-requests-and-role-approval.md](../plans/13-character-access-requests-and-role-approval.md)
+
 ### Документы внутри закрытого MVP
 
 В current agreed MVP уже входят и считаются закрытыми:

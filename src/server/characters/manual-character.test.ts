@@ -33,8 +33,6 @@ describe("createCharacterManually", () => {
         fullName: "ivan ivanov",
         nickname: "",
         passportNumber: "pass-1",
-          roleKeys: ["citizen"],
-          accessFlags: [],
           isProfileComplete: false,
           profileDataJson: null,
         },
@@ -59,8 +57,6 @@ describe("createCharacterManually", () => {
         fullName: "ivan ivanov",
         nickname: "",
         passportNumber: "pass-1",
-          roleKeys: ["citizen"],
-          accessFlags: [],
           isProfileComplete: false,
           profileDataJson: null,
         },
@@ -69,7 +65,7 @@ describe("createCharacterManually", () => {
     ).rejects.toBeInstanceOf(CharacterPassportConflictError);
   });
 
-  it("создает персонажа вручную с отдельным nickname, если он передан явно", async () => {
+  it("создает персонажа вручную с безопасными self-service ролями и отдельным nickname", async () => {
     const repository = createRepositoryMock();
 
     repository.countCharactersByServer.mockResolvedValue(1);
@@ -88,8 +84,6 @@ describe("createCharacterManually", () => {
         fullName: "ivan ivanov",
         nickname: "ivan.ivanov",
         passportNumber: "pass-1",
-        roleKeys: ["citizen", "citizen"],
-        accessFlags: ["tester", "tester"],
         isProfileComplete: true,
         profileDataJson: {
           signature: "И. Иванов",
@@ -112,11 +106,11 @@ describe("createCharacterManually", () => {
         note: "Полный профиль",
       },
       roleKeys: ["citizen"],
-      accessFlags: ["tester"],
+      accessFlags: [],
     });
   });
 
-  it("разрешает создание персонажа с пустыми roles и access flags", async () => {
+  it("создает персонажа с citizen и пустыми access flags даже без явных назначений", async () => {
     const repository = createRepositoryMock();
 
     repository.countCharactersByServer.mockResolvedValue(0);
@@ -135,8 +129,6 @@ describe("createCharacterManually", () => {
         fullName: "ivan ivanov",
         nickname: "",
         passportNumber: "pass-77",
-        roleKeys: [],
-        accessFlags: [],
         isProfileComplete: false,
         profileDataJson: null,
       },
@@ -151,9 +143,42 @@ describe("createCharacterManually", () => {
       passportNumber: "77",
       isProfileComplete: false,
       profileDataJson: null,
-      roleKeys: [],
+      roleKeys: ["citizen"],
       accessFlags: [],
     });
+  });
+
+  it("игнорирует попытку self-service передать служебные роли и доступы напрямую", async () => {
+    const repository = createRepositoryMock();
+
+    repository.countCharactersByServer.mockResolvedValue(0);
+    repository.findCharacterByPassport.mockResolvedValue(null);
+    repository.createCharacterRecord.mockResolvedValue({
+      id: "character-safe",
+      fullName: "Ivan Sokolov",
+      nickname: "ivan.sokolov",
+      passportNumber: "SAFE-1",
+    });
+
+    await createCharacterManually(
+      {
+        accountId: "21631886-7b4d-4be2-b6e9-95322d0dca41",
+        serverId: "server-1",
+        fullName: "ivan sokolov",
+        nickname: "ivan.sokolov",
+        passportNumber: "safe-1",
+        isProfileComplete: false,
+        profileDataJson: null,
+      } as never,
+      repository,
+    );
+
+    expect(repository.createCharacterRecord).toHaveBeenCalledWith(
+      expect.objectContaining({
+        roleKeys: ["citizen"],
+        accessFlags: [],
+      }),
+    );
   });
 
   it("fallback-ит nickname к normalized fullName, если nickname не передан", async () => {
@@ -175,8 +200,6 @@ describe("createCharacterManually", () => {
         fullName: "ivan smirnov",
         nickname: "",
         passportNumber: "pass-88",
-        roleKeys: [],
-        accessFlags: [],
         isProfileComplete: false,
         profileDataJson: null,
       },
@@ -191,7 +214,7 @@ describe("createCharacterManually", () => {
       passportNumber: "88",
       isProfileComplete: false,
       profileDataJson: null,
-      roleKeys: [],
+      roleKeys: ["citizen"],
       accessFlags: [],
     });
   });
@@ -218,8 +241,6 @@ describe("updateCharacterManually", () => {
         fullName: "ivan ivanov",
         nickname: "",
         passportNumber: "pass-2",
-          roleKeys: ["lawyer"],
-          accessFlags: ["advocate"],
           isProfileComplete: false,
           profileDataJson: null,
         },
@@ -242,8 +263,6 @@ describe("updateCharacterManually", () => {
         fullName: "ivan ivanov",
         nickname: "",
         passportNumber: "pass-2",
-          roleKeys: ["lawyer"],
-          accessFlags: ["advocate"],
           isProfileComplete: false,
           profileDataJson: null,
         },
@@ -252,7 +271,7 @@ describe("updateCharacterManually", () => {
     ).rejects.toBeInstanceOf(CharacterNotFoundError);
   });
 
-  it("обновляет персонажа вручную с нормализацией полей", async () => {
+  it("обновляет персонажа вручную без изменения ролей и access flags", async () => {
     const repository = createRepositoryMock();
 
     repository.getCharacterByIdForAccount.mockResolvedValue({
@@ -273,8 +292,6 @@ describe("updateCharacterManually", () => {
         fullName: "ivan petrov",
         nickname: "petrov.law",
         passportNumber: "pass-9",
-        roleKeys: ["lawyer", "lawyer"],
-        accessFlags: ["advocate", "tester", "tester"],
         isProfileComplete: true,
         profileDataJson: {
           signature: "И. Петров",
@@ -296,8 +313,6 @@ describe("updateCharacterManually", () => {
         signature: "И. Петров",
         note: "Account editor updated",
       },
-      roleKeys: ["lawyer"],
-      accessFlags: ["advocate", "tester"],
     });
   });
 });

@@ -20,6 +20,17 @@ enum CharacterAccessFlagKey {
   tester
 }
 
+enum CharacterAccessRequestType {
+  advocate_access
+}
+
+enum CharacterAccessRequestStatus {
+  pending
+  approved
+  rejected
+  cancelled
+}
+
 enum AccountSecurityReason {
   admin_reset
   security_policy
@@ -37,6 +48,7 @@ enum AuditActionKey {
   forum_connection_saved
   forum_connection_validated
   forum_connection_disabled
+  character_role_assignment_changed_admin
 }
 
 enum AuditLogStatus {
@@ -187,6 +199,8 @@ model Account {
   aiRequests              AIRequest[]
   documents               Document[]
   trustors                Trustor[]
+  characterAccessRequests CharacterAccessRequest[] @relation("CharacterAccessRequestOwner")
+  reviewedCharacterAccessRequests CharacterAccessRequest[] @relation("CharacterAccessRequestReviewer")
   forumSessionConnections ForumSessionConnection[]
   ogpForumPublicationAttempts OgpForumPublicationAttempt[]
   createdAt               DateTime               @default(now())
@@ -211,6 +225,7 @@ model Server {
   aiRequests      AIRequest[]
   documents       Document[]
   trustors        Trustor[]
+  characterAccessRequests CharacterAccessRequest[]
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
 }
@@ -250,6 +265,7 @@ model Character {
   activeInStates    UserServerState[]     @relation("ActiveCharacter")
   signatures        CharacterSignature[]  @relation("CharacterSignatureHistory")
   documents         Document[]
+  accessRequests    CharacterAccessRequest[]
   createdAt         DateTime              @default(now())
   updatedAt         DateTime              @updatedAt
 
@@ -314,6 +330,30 @@ model CharacterAccessFlag {
   createdAt   DateTime                 @default(now())
 
   @@unique([characterId, flagKey])
+}
+
+model CharacterAccessRequest {
+  id                  String                     @id @default(cuid())
+  accountId           String                     @db.Uuid
+  serverId            String
+  characterId         String
+  requestType         CharacterAccessRequestType
+  status              CharacterAccessRequestStatus @default(pending)
+  requestComment      String?
+  reviewComment       String?
+  reviewedByAccountId String?                    @db.Uuid
+  reviewedAt          DateTime?
+  account             Account                    @relation("CharacterAccessRequestOwner", fields: [accountId], references: [id], onDelete: Cascade)
+  server              Server                     @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  character           Character                  @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  reviewedByAccount   Account?                   @relation("CharacterAccessRequestReviewer", fields: [reviewedByAccountId], references: [id], onDelete: SetNull)
+  createdAt           DateTime                   @default(now())
+  updatedAt           DateTime                   @updatedAt
+
+  @@index([accountId, createdAt])
+  @@index([serverId, status, createdAt])
+  @@index([characterId, requestType, status, createdAt])
+  @@index([reviewedByAccountId, reviewedAt])
 }
 
 model AuditLog {

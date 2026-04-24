@@ -10,7 +10,7 @@ vi.mock("@/server/actions/characters", () => ({
 import { CharacterFormCard } from "@/components/product/characters/character-form-card";
 
 describe("character form card", () => {
-  it("в edit-режиме подгружает существующие roles, access flags и compact profile subsection", () => {
+  it("в edit-режиме рендерит только профильные поля без self-service ролей и доступов", () => {
     const html = renderToStaticMarkup(
       createElement(CharacterFormCard, {
         defaultValues: {
@@ -35,18 +35,16 @@ describe("character form card", () => {
       }),
     );
 
-    expect(html).toContain("Роли персонажа");
-    expect(html).toContain("Доступы персонажа");
     expect(html).toContain("Компактный профиль персонажа");
     expect(html).toContain('name="nickname"');
     expect(html).toContain('value="alice.stone"');
     expect(html).toContain("Система сама проверит");
+    expect(html).toContain("Изменения сохраняются только в профильных полях этой карточки персонажа.");
     expect(html).toContain('value="Адвокат"');
     expect(html).toContain('value="123-45-67"');
     expect(html).toContain('value="alice.stone@example.com"');
-    expect(html).toMatch(/name="roleKeys" checked="" value="lawyer"/);
-    expect(html).toMatch(/name="accessFlags" checked="" value="advocate"/);
-    expect(html).toMatch(/name="accessFlags" checked="" value="tester"/);
+    expect(html).not.toContain('name="roleKeys"');
+    expect(html).not.toContain('name="accessFlags"');
     expect(html).toContain('value="account_zone"');
     expect(html).toContain('value="/account/characters?server=blackberry"');
   });

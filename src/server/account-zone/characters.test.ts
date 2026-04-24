@@ -8,6 +8,10 @@ vi.mock("@/db/repositories/character.repository", () => ({
   listCharactersForAccount: vi.fn(),
 }));
 
+vi.mock("@/db/repositories/character-access-request.repository", () => ({
+  listCharacterAccessRequestsForAccount: vi.fn(),
+}));
+
 vi.mock("@/db/repositories/user-server-state.repository", () => ({
   getUserServerStates: vi.fn(),
 }));
@@ -18,6 +22,7 @@ vi.mock("@/server/auth/protected", () => ({
 
 import { getServers } from "@/db/repositories/server.repository";
 import { listCharactersForAccount } from "@/db/repositories/character.repository";
+import { listCharacterAccessRequestsForAccount } from "@/db/repositories/character-access-request.repository";
 import { getUserServerStates } from "@/db/repositories/user-server-state.repository";
 import { requireProtectedAccountContext } from "@/server/auth/protected";
 import { getAccountCharactersOverviewContext } from "@/server/account-zone/characters";
@@ -75,6 +80,22 @@ describe("getAccountCharactersOverviewContext", () => {
         activeCharacterId: null,
       },
     ] as never);
+    vi.mocked(listCharacterAccessRequestsForAccount).mockResolvedValue([
+      {
+        id: "request-1",
+        accountId: "account-1",
+        serverId: "server-1",
+        characterId: "character-1",
+        requestType: "advocate_access",
+        status: "pending",
+        requestComment: "Нужен адвокатский доступ",
+        reviewComment: null,
+        reviewedByAccountId: null,
+        reviewedAt: null,
+        createdAt: new Date("2026-04-24T10:00:00.000Z"),
+        updatedAt: new Date("2026-04-24T10:00:00.000Z"),
+      },
+    ] as never);
 
     const context = await getAccountCharactersOverviewContext({
       nextPath: "/account/characters",
@@ -106,6 +127,14 @@ describe("getAccountCharactersOverviewContext", () => {
     expect(context.serverGroups[0].characters[0].profileSignature).toBe("И. Юристов");
     expect(context.serverGroups[0].characters[0].profileNote).toBeNull();
     expect(context.serverGroups[0].characters[0].isDefaultForServer).toBe(true);
+    expect(context.serverGroups[0].characters[0].advocateAccessRequest).toEqual({
+      canSubmit: false,
+      requestType: "advocate_access",
+      status: "granted",
+      requestComment: null,
+      reviewComment: null,
+      createdAt: null,
+    });
     expect(context.serverGroups[1].server.code).toBe("rainbow");
     expect(context.serverGroups[1].characterCount).toBe(0);
     expect(context.serverGroups[1].defaultCharacterId).toBeNull();
@@ -154,6 +183,22 @@ describe("getAccountCharactersOverviewContext", () => {
         activeCharacterId: "missing-character",
       },
     ] as never);
+    vi.mocked(listCharacterAccessRequestsForAccount).mockResolvedValue([
+      {
+        id: "request-2",
+        accountId: "account-1",
+        serverId: "server-1",
+        characterId: "character-1",
+        requestType: "advocate_access",
+        status: "rejected",
+        requestComment: "Пробная заявка",
+        reviewComment: "Недостаточно данных",
+        reviewedByAccountId: "admin-1",
+        reviewedAt: new Date("2026-04-24T11:00:00.000Z"),
+        createdAt: new Date("2026-04-24T10:00:00.000Z"),
+        updatedAt: new Date("2026-04-24T11:00:00.000Z"),
+      },
+    ] as never);
 
     const context = await getAccountCharactersOverviewContext({
       nextPath: "/account/characters",
@@ -162,5 +207,13 @@ describe("getAccountCharactersOverviewContext", () => {
     expect(context.serverGroups[0].defaultCharacterId).toBeNull();
     expect(context.serverGroups[0].defaultCharacterLabel).toBeNull();
     expect(context.serverGroups[0].characters[0].isDefaultForServer).toBe(false);
+    expect(context.serverGroups[0].characters[0].advocateAccessRequest).toEqual({
+      canSubmit: true,
+      requestType: "advocate_access",
+      status: "rejected",
+      requestComment: "Пробная заявка",
+      reviewComment: "Недостаточно данных",
+      createdAt: "2026-04-24T10:00:00.000Z",
+    });
   });
 });

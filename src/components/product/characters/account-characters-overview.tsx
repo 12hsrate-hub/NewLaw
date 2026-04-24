@@ -4,6 +4,7 @@ import type {
   AccountCharactersOverviewContext,
   AccountCharactersServerGroup,
 } from "@/server/account-zone/characters";
+import { createCharacterAccessRequestAction } from "@/server/actions/characters";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { CharacterFormCard } from "@/components/product/characters/character-form-card";
@@ -46,10 +47,35 @@ const statusLabels: Record<string, string> = {
     "Проверьте размеры подписи: допустимо от 300×100 до 1200×400 px и от 2:1 до 5:1. Код: CHARACTER_SIGNATURE_INVALID_DIMENSIONS.",
   "character-signature-upload-error":
     "Не удалось сохранить подпись персонажа. Попробуйте снова позже. Код: CHARACTER_SIGNATURE_UPLOAD_FAILED.",
+  "character-access-request-created":
+    "Заявка на адвокатский доступ отправлена и ожидает рассмотрения администратором.",
+  "character-access-request-not-found":
+    "Не удалось найти персонажа для заявки на доступ. Код: CHARACTER_ACCESS_REQUEST_CHARACTER_NOT_FOUND.",
+  "character-access-request-pending-exists":
+    "По этому персонажу уже есть заявка на рассмотрении. Код: CHARACTER_ACCESS_REQUEST_PENDING_EXISTS.",
+  "character-access-request-already-granted":
+    "У персонажа уже выдан адвокатский доступ. Новая заявка не требуется. Код: CHARACTER_ACCESS_REQUEST_ALREADY_GRANTED.",
+  "character-access-request-create-error":
+    "Не удалось отправить заявку на адвокатский доступ. Попробуйте снова позже. Код: CHARACTER_ACCESS_REQUEST_CREATE_FAILED.",
 };
 
 function formatLabels(values: string[], labels: Record<string, string>) {
   return values.length ? values.map((value) => labels[value] ?? value).join(", ") : "не заданы";
+}
+
+function formatAdvocateAccessStatus(input: {
+  status: "not_requested" | "pending" | "rejected" | "granted";
+}) {
+  switch (input.status) {
+    case "pending":
+      return "Заявка на рассмотрении";
+    case "rejected":
+      return "Заявка отклонена";
+    case "granted":
+      return "Адвокатский доступ выдан";
+    default:
+      return "Доступ не запрошен";
+  }
 }
 
 function CharacterGroup(props: { group: AccountCharactersServerGroup }) {
@@ -154,6 +180,30 @@ function CharacterGroup(props: { group: AccountCharactersServerGroup }) {
                   </span>
                 </p>
                 <p>
+                  Адвокатский доступ:{" "}
+                  <span className="font-medium text-[var(--foreground)]">
+                    {formatAdvocateAccessStatus({
+                      status: character.advocateAccessRequest.status,
+                    })}
+                  </span>
+                </p>
+                {character.advocateAccessRequest.requestComment ? (
+                  <p>
+                    Комментарий к заявке:{" "}
+                    <span className="font-medium text-[var(--foreground)]">
+                      {character.advocateAccessRequest.requestComment}
+                    </span>
+                  </p>
+                ) : null}
+                {character.advocateAccessRequest.reviewComment ? (
+                  <p>
+                    Комментарий администратора:{" "}
+                    <span className="font-medium text-[var(--foreground)]">
+                      {character.advocateAccessRequest.reviewComment}
+                    </span>
+                  </p>
+                ) : null}
+                <p>
                   Доп. профиль:{" "}
                   <span className="font-medium text-[var(--foreground)]">
                     {character.hasProfileData
@@ -208,6 +258,39 @@ function CharacterGroup(props: { group: AccountCharactersServerGroup }) {
                   </p>
                 ) : null}
               </div>
+
+              {character.advocateAccessRequest.canSubmit ? (
+                <form
+                  action={createCharacterAccessRequestAction}
+                  className="space-y-3 rounded-2xl border border-[var(--border)] bg-white/50 p-4"
+                >
+                  <input name="redirectTo" type="hidden" value={accountRedirectTo} />
+                  <input name="characterId" type="hidden" value={character.id} />
+                  <input name="requestType" type="hidden" value="advocate_access" />
+                  <div className="space-y-1">
+                    <h3 className="text-sm font-medium">Запросить адвокатский доступ</h3>
+                    <p className="text-sm leading-6 text-[var(--muted)]">
+                      Доступ выдаётся только после рассмотрения заявки администратором.
+                    </p>
+                  </div>
+                  <label className="flex flex-col gap-2 text-sm">
+                    <span className="font-medium text-[var(--foreground)]">
+                      Комментарий или основание
+                    </span>
+                    <textarea
+                      className="min-h-24 rounded-2xl border border-[var(--border)] bg-white px-4 py-3 outline-none transition focus:border-[var(--accent)]"
+                      name="requestComment"
+                      placeholder="Кратко опиши, зачем этому персонажу нужен адвокатский доступ."
+                    />
+                  </label>
+                  <button
+                    className="inline-flex items-center rounded-2xl bg-[var(--accent)] px-4 py-2.5 text-sm font-medium text-white"
+                    type="submit"
+                  >
+                    Отправить заявку
+                  </button>
+                </form>
+              ) : null}
 
               <details className="rounded-2xl border border-[var(--border)] bg-white/50 p-4">
                 <summary className="cursor-pointer text-sm font-medium">

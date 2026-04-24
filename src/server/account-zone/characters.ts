@@ -1,5 +1,6 @@
 import { getServers } from "@/db/repositories/server.repository";
 import { listCharactersForAccount } from "@/db/repositories/character.repository";
+import { listCharacterAccessRequestsForAccount } from "@/db/repositories/character-access-request.repository";
 import { getUserServerStates } from "@/db/repositories/user-server-state.repository";
 import { readCharacterProfileData } from "@/lib/ogp/generation-contract";
 import {
@@ -16,6 +17,14 @@ type AccountCharactersViewerSummary = {
 };
 
 export type AccountCharactersCharacterSummary = {
+  advocateAccessRequest: {
+    canSubmit: boolean;
+    requestType: "advocate_access";
+    status: "not_requested" | "pending" | "rejected" | "granted";
+    requestComment: string | null;
+    reviewComment: string | null;
+    createdAt: string | null;
+  };
   id: string;
   fullName: string;
   nickname: string;
@@ -64,6 +73,83 @@ export type AccountCharactersOverviewContext = {
   focusedServerCode: string | null;
   serverGroups: AccountCharactersServerGroup[];
 };
+
+function buildAdvocateAccessRequestSummary(input: {
+  character: {
+    id: string;
+    accessFlags: Array<{
+      flagKey: string;
+    }>;
+  };
+  requests: Array<{
+    characterId: string;
+    requestType: string;
+    status: string;
+    requestComment: string | null;
+    reviewComment: string | null;
+    createdAt: Date;
+  }>;
+}): AccountCharactersCharacterSummary["advocateAccessRequest"] {
+  if (input.character.accessFlags.some((flag) => flag.flagKey === "advocate")) {
+    return {
+      canSubmit: false,
+      requestType: "advocate_access",
+      status: "granted",
+      requestComment: null,
+      reviewComment: null,
+      createdAt: null,
+    };
+  }
+
+  const latestRequest =
+    input.requests.find(
+      (request) =>
+        request.characterId === input.character.id &&
+        request.requestType === "advocate_access",
+    ) ?? null;
+
+  if (!latestRequest) {
+    return {
+      canSubmit: true,
+      requestType: "advocate_access",
+      status: "not_requested",
+      requestComment: null,
+      reviewComment: null,
+      createdAt: null,
+    };
+  }
+
+  if (latestRequest.status === "pending") {
+    return {
+      canSubmit: false,
+      requestType: "advocate_access",
+      status: "pending",
+      requestComment: latestRequest.requestComment,
+      reviewComment: latestRequest.reviewComment,
+      createdAt: latestRequest.createdAt.toISOString(),
+    };
+  }
+
+  if (latestRequest.status === "rejected") {
+    return {
+      canSubmit: true,
+      requestType: "advocate_access",
+      status: "rejected",
+      requestComment: latestRequest.requestComment,
+      reviewComment: latestRequest.reviewComment,
+      createdAt: latestRequest.createdAt.toISOString(),
+    };
+  }
+
+  return {
+    canSubmit: true,
+    requestType: "advocate_access",
+    status: "not_requested",
+    requestComment: latestRequest.requestComment,
+    reviewComment: latestRequest.reviewComment,
+    createdAt: latestRequest.createdAt.toISOString(),
+  };
+}
 
 function countProfileDataFields(input: unknown): number {
   if (!input || typeof input !== "object" || Array.isArray(input)) {
@@ -169,9 +255,10 @@ export async function getAccountCharactersOverviewContext(input: {
   });
   const focusedServerCode = input.focusedServerCode?.trim().toLowerCase() || null;
 
-  const [servers, characters, userServerStates] = await Promise.all([
+  const [servers, characters, characterAccessRequests, userServerStates] = await Promise.all([
     getServers(),
     listCharactersForAccount(account.id),
+    listCharacterAccessRequestsForAccount(account.id),
     getUserServerStates(account.id),
   ]);
 
@@ -217,6 +304,10 @@ export async function getAccountCharactersOverviewContext(input: {
           fullName: character.fullName,
           nickname: character.nickname,
           passportNumber: character.passportNumber,
+          advocateAccessRequest: buildAdvocateAccessRequestSummary({
+            character,
+            requests: characterAccessRequests,
+          }),
           roleKeys: character.roles.map((role) => role.roleKey),
           accessFlagKeys: character.accessFlags.map((flag) => flag.flagKey),
           isProfileComplete: character.isProfileComplete,

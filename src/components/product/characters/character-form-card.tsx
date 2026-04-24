@@ -1,24 +1,8 @@
 import { createCharacterAction, updateCharacterAction } from "@/server/actions/characters";
-import {
-  characterAccessFlagKeys,
-  characterRoleKeys,
-} from "@/schemas/character";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-
-const roleLabels: Record<(typeof characterRoleKeys)[number], string> = {
-  citizen: "Гражданин",
-  lawyer: "Адвокат",
-};
-
-const accessFlagLabels: Record<(typeof characterAccessFlagKeys)[number], string> = {
-  advocate: "Адвокатский доступ",
-  server_editor: "Редактор сервера",
-  server_admin: "Администратор сервера",
-  tester: "Тестовый доступ",
-};
 
 type CharacterFormValues = {
   accessFlags?: string[];
@@ -58,15 +42,13 @@ export function CharacterFormCard({
   const title = mode === "create" ? "Новый персонаж" : "Редактирование персонажа";
   const appShellDescription =
     mode === "create"
-      ? "Заполните ФИО и паспорт. Роли и дополнительные доступы можно указать позже."
+      ? "Заполните ФИО и паспорт. Служебные роли и доступы назначаются отдельно через административный контур."
       : "Обновите данные персонажа для текущего сервера.";
   const accountZoneDescription =
     mode === "create"
       ? "Создайте карточку персонажа для выбранного сервера."
-      : "Изменения сохраняются только в этой карточке персонажа.";
+      : "Изменения сохраняются только в профильных полях этой карточки персонажа.";
   const description = surface === "account_zone" ? accountZoneDescription : appShellDescription;
-  const selectedRoleKeys = new Set(defaultValues?.roleKeys ?? []);
-  const selectedAccessFlags = new Set(defaultValues?.accessFlags ?? []);
 
   return (
     <Card className="space-y-5">
@@ -122,54 +104,6 @@ export function CharacterFormCard({
             />
           </div>
         ) : null}
-
-        <fieldset className="space-y-3">
-          <legend className="text-sm font-medium">Роли персонажа</legend>
-          <p className="text-xs leading-5 text-[var(--muted)]">
-            Это роли только текущего персонажа. Они не дают права администратора аккаунта.
-          </p>
-          <div className="grid gap-2 sm:grid-cols-2">
-            {characterRoleKeys.map((roleKey) => (
-              <label
-                key={roleKey}
-                className="flex items-center gap-3 rounded-2xl border border-[var(--border)] bg-white/60 px-4 py-3 text-sm"
-              >
-                <input
-                  defaultChecked={selectedRoleKeys.has(roleKey)}
-                  name="roleKeys"
-                  type="checkbox"
-                  value={roleKey}
-                />
-                <span>{roleLabels[roleKey]}</span>
-              </label>
-            ))}
-          </div>
-        </fieldset>
-
-        <fieldset className="space-y-3">
-          <legend className="text-sm font-medium">Доступы персонажа</legend>
-          <p className="text-xs leading-5 text-[var(--muted)]">
-            Эти доступы относятся только к выбранному персонажу.
-          </p>
-          <div className="grid gap-2 sm:grid-cols-2">
-            {characterAccessFlagKeys.map((flagKey) => (
-              <label
-                key={flagKey}
-                className="flex items-center gap-3 rounded-2xl border border-[var(--border)] bg-white/60 px-4 py-3 text-sm"
-              >
-                <input
-                  defaultChecked={selectedAccessFlags.has(flagKey)}
-                  name="accessFlags"
-                  type="checkbox"
-                  value={flagKey}
-                />
-                <span>
-                  {accessFlagLabels[flagKey]}
-                </span>
-              </label>
-            ))}
-          </div>
-        </fieldset>
 
         <fieldset className="space-y-3 rounded-2xl border border-[var(--border)] bg-white/40 p-4">
           <legend className="px-1 text-sm font-medium">Компактный профиль персонажа</legend>

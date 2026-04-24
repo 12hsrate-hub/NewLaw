@@ -7,10 +7,19 @@ export const characterAccessFlagKeys = [
   "server_admin",
   "tester",
 ] as const;
+export const characterAccessRequestTypeKeys = ["advocate_access"] as const;
+export const characterAccessRequestStatusKeys = [
+  "pending",
+  "approved",
+  "rejected",
+  "cancelled",
+] as const;
 
 export const characterIdSchema = z.string().min(1);
 export const characterRoleKeySchema = z.enum(characterRoleKeys);
 export const characterAccessFlagKeySchema = z.enum(characterAccessFlagKeys);
+export const characterAccessRequestTypeSchema = z.enum(characterAccessRequestTypeKeys);
+export const characterAccessRequestStatusSchema = z.enum(characterAccessRequestStatusKeys);
 export const characterRoleSelectionSchema = z.array(characterRoleKeySchema).default([]);
 export const characterAccessFlagSelectionSchema = z
   .array(characterAccessFlagKeySchema)
@@ -37,22 +46,35 @@ export const characterProfileFormSchema = z.object({
 
 export const characterProfileDataSchema = z.record(z.string(), z.string()).nullable().default(null);
 
-const characterDetailsSchema = characterFormSchema.extend({
-  roleKeys: characterRoleSelectionSchema,
-  accessFlags: characterAccessFlagSelectionSchema,
+const characterSelfServiceDetailsSchema = characterFormSchema.extend({
   isProfileComplete: z.boolean().default(false),
   profileDataJson: characterProfileDataSchema,
 });
 
-export const createCharacterInputSchema = characterDetailsSchema.extend({
+export const createCharacterInputSchema = characterSelfServiceDetailsSchema.extend({
   accountId: z.string().uuid(),
   serverId: z.string().min(1),
 });
 
-export const updateCharacterInputSchema = characterDetailsSchema.extend({
+export const updateCharacterInputSchema = characterSelfServiceDetailsSchema.extend({
   accountId: z.string().uuid(),
   serverId: z.string().min(1),
   characterId: characterIdSchema,
+});
+
+export const adminCharacterAssignmentInputSchema = z.object({
+  actorAccountId: z.string().uuid(),
+  characterId: characterIdSchema,
+  roleKeys: characterRoleSelectionSchema,
+  accessFlags: characterAccessFlagSelectionSchema,
+  comment: z.string().trim().max(500).default(""),
+});
+
+export const createCharacterAccessRequestInputSchema = z.object({
+  accountId: z.string().uuid(),
+  characterId: characterIdSchema,
+  requestType: characterAccessRequestTypeSchema,
+  requestComment: z.string().trim().max(500).default(""),
 });
 
 export const characterSelectionSchema = z.object({
@@ -62,7 +84,13 @@ export const characterSelectionSchema = z.object({
 
 export type CharacterRoleKey = z.infer<typeof characterRoleKeySchema>;
 export type CharacterAccessFlagKey = z.infer<typeof characterAccessFlagKeySchema>;
+export type CharacterAccessRequestType = z.infer<typeof characterAccessRequestTypeSchema>;
+export type CharacterAccessRequestStatus = z.infer<typeof characterAccessRequestStatusSchema>;
 export type CharacterSelectionBehavior = z.infer<typeof characterSelectionBehaviorSchema>;
 export type CreateCharacterInput = z.infer<typeof createCharacterInputSchema>;
 export type UpdateCharacterInput = z.infer<typeof updateCharacterInputSchema>;
+export type AdminCharacterAssignmentInput = z.infer<typeof adminCharacterAssignmentInputSchema>;
+export type CreateCharacterAccessRequestInput = z.infer<
+  typeof createCharacterAccessRequestInputSchema
+>;
 export type CharacterSelectionInput = z.infer<typeof characterSelectionSchema>;

@@ -9,8 +9,6 @@ import {
   normalizePassportNumber as normalizeOgpPassportNumber,
 } from "@/lib/ogp/generation-contract";
 import {
-  type CharacterAccessFlagKey,
-  type CharacterRoleKey,
   createCharacterInputSchema,
   type CreateCharacterInput,
   type UpdateCharacterInput,
@@ -56,6 +54,9 @@ export class CharacterNotFoundError extends Error {
   }
 }
 
+const SELF_SERVICE_DEFAULT_ROLE_KEYS = ["citizen"] as const;
+const SELF_SERVICE_DEFAULT_ACCESS_FLAGS: [] = [];
+
 function normalizeFullName(fullName: string) {
   return fullName
     .trim()
@@ -76,14 +77,6 @@ function normalizeNickname(input: {
 
 function normalizePassportNumber(passportNumber: string) {
   return normalizeOgpPassportNumber(passportNumber);
-}
-
-function uniqueRoleKeys(roleKeys: CharacterRoleKey[]) {
-  return [...new Set<CharacterRoleKey>(roleKeys)];
-}
-
-function uniqueAccessFlags(accessFlags: CharacterAccessFlagKey[]) {
-  return [...new Set<CharacterAccessFlagKey>(accessFlags)];
 }
 
 function normalizeProfileData(profileDataJson: Record<string, string> | null) {
@@ -177,8 +170,8 @@ export async function createCharacterManually(
     passportNumber,
     isProfileComplete: parsed.isProfileComplete,
     profileDataJson: normalizeProfileData(parsed.profileDataJson),
-    roleKeys: uniqueRoleKeys(parsed.roleKeys),
-    accessFlags: uniqueAccessFlags(parsed.accessFlags),
+    roleKeys: [...SELF_SERVICE_DEFAULT_ROLE_KEYS],
+    accessFlags: SELF_SERVICE_DEFAULT_ACCESS_FLAGS,
   });
 }
 
@@ -222,7 +215,5 @@ export async function updateCharacterManually(
     passportNumber,
     isProfileComplete: parsed.isProfileComplete,
     profileDataJson: normalizeProfileData(parsed.profileDataJson),
-    roleKeys: uniqueRoleKeys(parsed.roleKeys),
-    accessFlags: uniqueAccessFlags(parsed.accessFlags),
   });
 }

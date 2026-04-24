@@ -47,8 +47,21 @@ type CreateCharacterRecordInput = {
   accessFlags: CharacterAccessFlagKey[];
 };
 
-type UpdateCharacterRecordInput = CreateCharacterRecordInput & {
+type UpdateCharacterRecordInput = {
+  accountId: string;
+  serverId: string;
   characterId: string;
+  fullName: string;
+  nickname: string;
+  passportNumber: string;
+  isProfileComplete: boolean;
+  profileDataJson: Record<string, string> | null;
+};
+
+type ReplaceCharacterAssignmentsInput = {
+  characterId: string;
+  roleKeys: CharacterRoleKey[];
+  accessFlags: CharacterAccessFlagKey[];
 };
 
 export async function getCharactersByServer(
@@ -101,6 +114,23 @@ export async function getCharacterByIdForAccount(
     where: {
       id: characterIdSchema.parse(input.characterId),
       accountId: input.accountId,
+      deletedAt: null,
+    },
+    include: {
+      roles: true,
+      accessFlags: true,
+      activeSignature: true,
+    },
+  });
+}
+
+export async function getCharacterById(
+  characterId: string,
+  db: PrismaLike = prisma,
+): Promise<CharacterWithAssignments | null> {
+  return db.character.findFirst({
+    where: {
+      id: characterIdSchema.parse(characterId),
       deletedAt: null,
     },
     include: {
@@ -190,23 +220,62 @@ export async function updateCharacterRecord(
       passportNumber: input.passportNumber,
       isProfileComplete: input.isProfileComplete,
       profileDataJson: input.profileDataJson ?? Prisma.JsonNull,
-      roles: {
-        deleteMany: {},
-        createMany: {
-          data: input.roleKeys.map((roleKey) => ({ roleKey })),
-        },
-      },
-      accessFlags: {
-        deleteMany: {},
-        createMany: {
-          data: input.accessFlags.map((flagKey) => ({ flagKey })),
-        },
-      },
     },
     include: {
       roles: true,
       accessFlags: true,
       activeSignature: true,
     },
+  });
+}
+
+export async function replaceCharacterAssignments(
+  input: ReplaceCharacterAssignmentsInput,
+  db: PrismaLike = prisma,
+) {
+  const characterId = characterIdSchema.parse(input.characterId);
+  const roleKeys = [...new Set<CharacterRoleKey>(input.roleKeys)];
+  const accessFlags = [...new Set<CharacterAccessFlagKey>(input.accessFlags)];
+
+  return db.$transaction(async (tx) => {
+    await tx.characterRole.deleteMany({
+      where: {
+        characterId,
+      },
+    });
+    await tx.characterAccessFlag.deleteMany({
+      where: {
+        characterId,
+      },
+    });
+
+    if (roleKeys.length) {
+      await tx.characterRole.createMany({
+        data: roleKeys.map((roleKey) => ({
+          characterId,
+          roleKey,
+        })),
+      });
+    }
+
+    if (accessFlags.length) {
+      await tx.characterAccessFlag.createMany({
+        data: accessFlags.map((flagKey) => ({
+          characterId,
+          flagKey,
+        })),
+      });
+    }
+
+    return tx.character.findUniqueOrThrow({
+      where: {
+        id: characterId,
+      },
+      include: {
+        roles: true,
+        accessFlags: true,
+        activeSignature: true,
+      },
+    });
   });
 }
