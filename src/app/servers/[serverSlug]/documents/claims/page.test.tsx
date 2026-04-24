@@ -54,6 +54,7 @@ describe("/servers/[serverSlug]/documents/claims page", () => {
             fullName: "Игорь Юристов",
             passportNumber: "AA-001",
           },
+          dataHealth: "ok",
           workingNotesPreview: "Черновые заметки",
           generatedAt: null,
           publicationUrl: null,

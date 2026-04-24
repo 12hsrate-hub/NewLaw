@@ -3,6 +3,7 @@ import {
 } from "@/components/product/document-area/document-area-foundation";
 import {
   ClaimsPersistedEditor,
+  InvalidDocumentDataState,
   OwnedDocumentUnavailableState,
 } from "@/components/product/document-area/document-persistence";
 import { getClaimsEditorRouteContext } from "@/server/document-area/context";
@@ -46,6 +47,17 @@ export default async function ClaimsEditorFoundationPage({
         documentId={context.documentId}
         familyHref={`/servers/${context.server.code}/documents/claims`}
         familyLabel="persisted claims"
+        server={context.server}
+      />
+    );
+  }
+
+  if (context.status === "invalid_document_data") {
+    return (
+      <InvalidDocumentDataState
+        document={context.document}
+        familyHref={`/servers/${context.server.code}/documents/claims`}
+        familyLabel="документам раздела исков"
         server={context.server}
       />
     );

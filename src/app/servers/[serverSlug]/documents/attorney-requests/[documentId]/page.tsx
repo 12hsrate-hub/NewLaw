@@ -1,6 +1,7 @@
 import { DocumentServerNotFoundState } from "@/components/product/document-area/document-area-foundation";
 import {
   AttorneyRequestPersistedEditor,
+  InvalidDocumentDataState,
   OwnedDocumentUnavailableState,
 } from "@/components/product/document-area/document-persistence";
 import { getAttorneyRequestEditorRouteContext } from "@/server/document-area/context";
@@ -42,6 +43,17 @@ export default async function AttorneyRequestEditorPage({
     return (
       <OwnedDocumentUnavailableState
         documentId={context.documentId}
+        familyHref={`/servers/${context.server.code}/documents/attorney-requests`}
+        familyLabel="адвокатским запросам"
+        server={context.server}
+      />
+    );
+  }
+
+  if (context.status === "invalid_document_data") {
+    return (
+      <InvalidDocumentDataState
+        document={context.document}
         familyHref={`/servers/${context.server.code}/documents/attorney-requests`}
         familyLabel="адвокатским запросам"
         server={context.server}

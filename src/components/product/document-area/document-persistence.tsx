@@ -219,6 +219,9 @@ function PersistedDocumentList(props: {
                 <Badge>{formatDocumentType(document.documentType)}</Badge>
               )}
               <Badge>{formatDocumentStatus(document.status)}</Badge>
+              {document.dataHealth === "invalid_payload" ? (
+                <Badge className="bg-[#f6d6d0] text-[#8a2d1d]">Требует восстановления</Badge>
+              ) : null}
               {document.documentType === "ogp_complaint" && formatForumSyncState(document.forumSyncState) ? (
                 <Badge>Форум: {formatForumSyncState(document.forumSyncState)}</Badge>
               ) : null}
@@ -235,14 +238,21 @@ function PersistedDocumentList(props: {
               {document.authorSnapshot.passportNumber}. Данные сохранены:{" "}
               {new Date(document.snapshotCapturedAt).toLocaleString("ru-RU")}.
             </p>
+            {document.dataHealth === "invalid_payload" ? (
+              <p className="text-sm leading-6 text-[#8a2d1d]">
+                Документ требует восстановления данных. Карточка открыта в безопасном режиме, часть
+                полей скрыта до ручной проверки.
+              </p>
+            ) : null}
             {document.documentType === "ogp_complaint" &&
+            document.dataHealth === "ok" &&
             (document.appealNumber || document.objectOrganization || document.objectFullName) ? (
               <p className="text-sm leading-6 text-[var(--muted)]">
                 Номер обращения: {document.appealNumber || "не указан"}. Объект жалобы:{" "}
                 {document.objectOrganization || "—"} / {document.objectFullName || "—"}.
               </p>
             ) : null}
-            {document.documentType !== "ogp_complaint" ? (
+            {document.documentType !== "ogp_complaint" && document.dataHealth === "ok" ? (
               <p className="text-sm leading-6 text-[var(--muted)]">
                 {document.documentType === "attorney_request"
                   ? `Адвокатский запрос привязан к доверителю: ${document.trustorName ?? "не указан"}.`
@@ -251,12 +261,12 @@ function PersistedDocumentList(props: {
                     : "Этот документ относится к разделу исков. Его данные и результат подготовки хранятся отдельно от жалоб в ОГП."}
               </p>
             ) : null}
-            {document.documentType === "attorney_request" ? (
+            {document.documentType === "attorney_request" && document.dataHealth === "ok" ? (
               <p className="text-sm leading-6 text-[var(--muted)]">
                 Номер запроса: {document.requestNumber || "не указан"}.
               </p>
             ) : null}
-            {document.documentType === "legal_services_agreement" ? (
+            {document.documentType === "legal_services_agreement" && document.dataHealth === "ok" ? (
               <p className="text-sm leading-6 text-[var(--muted)]">
                 Номер договора: {document.agreementNumber || "не указан"}.
               </p>
@@ -840,6 +850,53 @@ export function OwnedDocumentUnavailableState(props: {
         <div className="flex flex-wrap gap-3">
           <DocumentLink href={familyHref}>
             Вернуться к {familyLabel}
+          </DocumentLink>
+          <DocumentLink href="/account/documents">Открыть общий обзор документов</DocumentLink>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+export function InvalidDocumentDataState(props: {
+  server: {
+    code: string;
+    name: string;
+  };
+  document: {
+    id: string;
+    title: string;
+    status: "draft" | "generated" | "published";
+    createdAt: string;
+    updatedAt: string;
+    snapshotCapturedAt: string;
+  };
+  familyHref: string;
+  familyLabel: string;
+}) {
+  return (
+    <div className="space-y-6">
+      <Card className="space-y-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">
+            Документ
+          </p>
+          <Badge className="bg-[#f6d6d0] text-[#8a2d1d]">Требует восстановления</Badge>
+        </div>
+        <h1 className="text-3xl font-semibold">{props.document.title}</h1>
+        <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
+          Данные документа `{props.document.id}` не удалось безопасно прочитать. Сам документ не
+          удалён, но его payload или snapshots повреждены либо устарели и требуют ручного
+          восстановления.
+        </p>
+        <div className="space-y-1 text-sm leading-6 text-[var(--muted)]">
+          <p>Статус: {formatDocumentStatus(props.document.status)}.</p>
+          <p>Сохранено: {new Date(props.document.snapshotCapturedAt).toLocaleString("ru-RU")}.</p>
+          <p>Последнее обновление: {new Date(props.document.updatedAt).toLocaleString("ru-RU")}.</p>
+        </div>
+        <div className="flex flex-wrap gap-3">
+          <DocumentLink href={props.familyHref}>
+            Вернуться к {props.familyLabel}
           </DocumentLink>
           <DocumentLink href="/account/documents">Открыть общий обзор документов</DocumentLink>
         </div>

@@ -1,5 +1,6 @@
 import { DocumentServerNotFoundState } from "@/components/product/document-area/document-area-foundation";
 import {
+  InvalidDocumentDataState,
   LegalServicesAgreementPersistedEditor,
   OwnedDocumentUnavailableState,
 } from "@/components/product/document-area/document-persistence";
@@ -42,6 +43,17 @@ export default async function LegalServicesAgreementEditorPage({
     return (
       <OwnedDocumentUnavailableState
         documentId={context.documentId}
+        familyHref={`/servers/${context.server.code}/documents/legal-services-agreements`}
+        familyLabel="договорам"
+        server={context.server}
+      />
+    );
+  }
+
+  if (context.status === "invalid_document_data") {
+    return (
+      <InvalidDocumentDataState
+        document={context.document}
         familyHref={`/servers/${context.server.code}/documents/legal-services-agreements`}
         familyLabel="договорам"
         server={context.server}

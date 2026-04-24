@@ -54,6 +54,7 @@ describe("/servers/[serverSlug]/documents/ogp-complaints page", () => {
             fullName: "Игорь Юристов",
             passportNumber: "AA-001",
           },
+          dataHealth: "ok",
           workingNotesPreview: "Черновая заметка",
           generatedAt: null,
           publicationUrl: null,

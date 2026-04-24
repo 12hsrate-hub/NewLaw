@@ -35,6 +35,16 @@ type DocumentWithServerAndCharacterBase = Prisma.DocumentGetPayload<{
     };
   };
 }>;
+type AttorneyRequestDocumentBacklinkBase = Prisma.DocumentGetPayload<{
+  select: {
+    id: true;
+    title: true;
+    status: true;
+    trustorId: true;
+    serverId: true;
+    updatedAt: true;
+  };
+}>;
 
 export type DocumentWithServer = Omit<DocumentWithServerBase, "signatureSnapshotJson"> & {
   signatureSnapshotJson?: DocumentWithServerBase["signatureSnapshotJson"];
@@ -54,6 +64,8 @@ export type DocumentWithServerAndCharacter = Omit<
     activeSignatureId?: DocumentWithServerAndCharacterBase["character"]["activeSignatureId"];
   };
 };
+
+export type AttorneyRequestDocumentBacklink = AttorneyRequestDocumentBacklinkBase;
 
 function toNullableJsonInput(value: Record<string, unknown> | Prisma.JsonValue | null | undefined) {
   if (value === undefined) {
@@ -169,6 +181,28 @@ export async function listDocumentsByAccountAndServerAndType(
       serverId: input.serverId,
       documentType: input.documentType,
       deletedAt: null,
+    },
+    orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }],
+  });
+}
+
+export async function listAttorneyRequestDocumentsByAccount(
+  accountId: string,
+  db: PrismaLike = prisma,
+): Promise<AttorneyRequestDocumentBacklink[]> {
+  return db.document.findMany({
+    where: {
+      accountId,
+      documentType: "attorney_request",
+      deletedAt: null,
+    },
+    select: {
+      id: true,
+      title: true,
+      status: true,
+      trustorId: true,
+      serverId: true,
+      updatedAt: true,
     },
     orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }],
   });
