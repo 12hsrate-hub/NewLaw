@@ -16,6 +16,7 @@ export const characterAccessRequestStatusKeys = [
 ] as const;
 
 export const characterIdSchema = z.string().min(1);
+export const characterAccessRequestIdSchema = z.string().min(1);
 export const characterRoleKeySchema = z.enum(characterRoleKeys);
 export const characterAccessFlagKeySchema = z.enum(characterAccessFlagKeys);
 export const characterAccessRequestTypeSchema = z.enum(characterAccessRequestTypeKeys);
@@ -77,6 +78,12 @@ export const createCharacterAccessRequestInputSchema = z.object({
   requestComment: z.string().trim().max(500).default(""),
 });
 
+export const reviewCharacterAccessRequestInputSchema = z.object({
+  actorAccountId: z.string().uuid(),
+  requestId: characterAccessRequestIdSchema,
+  reviewComment: z.string().trim().max(500).default(""),
+});
+
 export const characterSelectionSchema = z.object({
   serverId: z.string().min(1),
   characterId: characterIdSchema,
@@ -92,5 +99,8 @@ export type UpdateCharacterInput = z.infer<typeof updateCharacterInputSchema>;
 export type AdminCharacterAssignmentInput = z.infer<typeof adminCharacterAssignmentInputSchema>;
 export type CreateCharacterAccessRequestInput = z.infer<
   typeof createCharacterAccessRequestInputSchema
+>;
+export type ReviewCharacterAccessRequestInput = z.infer<
+  typeof reviewCharacterAccessRequestInputSchema
 >;
 export type CharacterSelectionInput = z.infer<typeof characterSelectionSchema>;

@@ -12,6 +12,7 @@ function createDependencies() {
     getCharacterByIdForAccount: vi.fn(),
     findPendingCharacterAccessRequest: vi.fn(),
     createCharacterAccessRequestRecord: vi.fn(),
+    createAuditLog: vi.fn().mockResolvedValue(undefined),
   };
 }
 
@@ -52,6 +53,20 @@ describe("createCharacterAccessRequest", () => {
       characterId: "character-1",
       requestType: "advocate_access",
       requestComment: "Нужен доступ адвоката",
+    });
+    expect(dependencies.createAuditLog).toHaveBeenCalledWith({
+      actionKey: "character_access_request_created",
+      status: "success",
+      actorAccountId: "11111111-1111-1111-1111-111111111111",
+      targetAccountId: "11111111-1111-1111-1111-111111111111",
+      comment: "Нужен доступ адвоката",
+      metadataJson: {
+        flow: "character_access_request",
+        requestId: "request-1",
+        characterId: "character-1",
+        serverId: "blackberry",
+        requestType: "advocate_access",
+      },
     });
     expect(result).toEqual({
       id: "request-1",

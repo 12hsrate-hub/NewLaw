@@ -23,6 +23,10 @@ const internalNavItems = [
     label: "Security",
   },
   {
+    href: "/internal/access-requests",
+    label: "Access Requests",
+  },
+  {
     href: "/internal/health",
     label: "Health",
   },

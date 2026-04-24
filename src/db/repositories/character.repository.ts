@@ -8,7 +8,7 @@ import {
 } from "@/schemas/character";
 import { getCharactersByServerSchema } from "@/schemas/server";
 
-type PrismaLike = PrismaClient;
+type PrismaLike = PrismaClient | Prisma.TransactionClient;
 type CharacterWithAssignmentsBase = Prisma.CharacterGetPayload<{
   include: {
     roles: true;
@@ -59,6 +59,12 @@ type UpdateCharacterRecordInput = {
 };
 
 type ReplaceCharacterAssignmentsInput = {
+  characterId: string;
+  roleKeys: CharacterRoleKey[];
+  accessFlags: CharacterAccessFlagKey[];
+};
+
+type GrantCharacterAssignmentsInput = {
   characterId: string;
   roleKeys: CharacterRoleKey[];
   accessFlags: CharacterAccessFlagKey[];
@@ -237,7 +243,7 @@ export async function replaceCharacterAssignments(
   const roleKeys = [...new Set<CharacterRoleKey>(input.roleKeys)];
   const accessFlags = [...new Set<CharacterAccessFlagKey>(input.accessFlags)];
 
-  return db.$transaction(async (tx) => {
+  const runWithDb = async (tx: PrismaLike) => {
     await tx.characterRole.deleteMany({
       where: {
         characterId,
@@ -277,5 +283,51 @@ export async function replaceCharacterAssignments(
         activeSignature: true,
       },
     });
+  };
+
+  if ("$transaction" in db) {
+    return db.$transaction(async (tx: Prisma.TransactionClient) => runWithDb(tx));
+  }
+
+  return runWithDb(db);
+}
+
+export async function grantCharacterAssignments(
+  input: GrantCharacterAssignmentsInput,
+  db: PrismaLike = prisma,
+) {
+  const characterId = characterIdSchema.parse(input.characterId);
+  const roleKeys = [...new Set<CharacterRoleKey>(input.roleKeys)];
+  const accessFlags = [...new Set<CharacterAccessFlagKey>(input.accessFlags)];
+
+  if (roleKeys.length) {
+    await db.characterRole.createMany({
+      data: roleKeys.map((roleKey) => ({
+        characterId,
+        roleKey,
+      })),
+      skipDuplicates: true,
+    });
+  }
+
+  if (accessFlags.length) {
+    await db.characterAccessFlag.createMany({
+      data: accessFlags.map((flagKey) => ({
+        characterId,
+        flagKey,
+      })),
+      skipDuplicates: true,
+    });
+  }
+
+  return db.character.findUniqueOrThrow({
+    where: {
+      id: characterId,
+    },
+    include: {
+      roles: true,
+      accessFlags: true,
+      activeSignature: true,
+    },
   });
 }

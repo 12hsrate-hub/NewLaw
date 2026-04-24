@@ -42,6 +42,11 @@ export default async function InternalLandingPage() {
           description="Target route для admin actions над чужими аккаунтами, отдельно от self-service /account/security."
         />
         <InternalOverviewCard
+          href="/internal/access-requests"
+          title="Access Requests"
+          description="Рассмотрение pending-заявок на адвокатский доступ и выдача `lawyer + advocate` только через super_admin contour."
+        />
+        <InternalOverviewCard
           href="/internal/health"
           title="Health"
           description="Target route для internal health summary по corpus, assistant status и runtime readiness."

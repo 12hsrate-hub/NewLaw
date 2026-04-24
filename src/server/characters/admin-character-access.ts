@@ -120,10 +120,18 @@ export async function assignCharacterRolesAndAccessFlagsAsAdmin(
       flow: "admin_character_assignment",
       characterId: targetCharacter.id,
       serverId: targetCharacter.serverId,
-      previousRoleKeys: targetCharacter.roles.map((role) => role.roleKey),
-      previousAccessFlags: targetCharacter.accessFlags.map((flag) => flag.flagKey),
-      nextRoleKeys: updatedCharacter.roles.map((role) => role.roleKey),
-      nextAccessFlags: updatedCharacter.accessFlags.map((flag) => flag.flagKey),
+      previousRoleKeys: targetCharacter.roles.map(
+        (role: (typeof targetCharacter.roles)[number]) => role.roleKey,
+      ),
+      previousAccessFlags: targetCharacter.accessFlags.map(
+        (flag: (typeof targetCharacter.accessFlags)[number]) => flag.flagKey,
+      ),
+      nextRoleKeys: updatedCharacter.roles.map(
+        (role: (typeof updatedCharacter.roles)[number]) => role.roleKey,
+      ),
+      nextAccessFlags: updatedCharacter.accessFlags.map(
+        (flag: (typeof updatedCharacter.accessFlags)[number]) => flag.flagKey,
+      ),
     },
   });
 

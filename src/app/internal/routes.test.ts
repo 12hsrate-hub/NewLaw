@@ -18,12 +18,18 @@ vi.mock("@/server/internal/health", () => ({
   getInternalHealthContext: vi.fn(),
 }));
 
+vi.mock("@/server/internal/access-requests", () => ({
+  getInternalAccessRequestsContext: vi.fn(),
+}));
+
+import InternalAccessRequestsPage from "@/app/internal/access-requests/page";
 import InternalHealthPage from "@/app/internal/health/page";
 import InternalLawsPage from "@/app/internal/laws/page";
 import InternalPrecedentsPage from "@/app/internal/precedents/page";
 import InternalSecurityPage from "@/app/internal/security/page";
 import { findAccountForAdminSearch } from "@/server/admin-security/account-search";
 import { getInternalAccessContext } from "@/server/internal/access";
+import { getInternalAccessRequestsContext } from "@/server/internal/access-requests";
 import {
   getInternalLawCorpusPageData,
   getInternalPrecedentCorpusPageData,
@@ -100,6 +106,31 @@ describe("internal target route skeletons", () => {
       ],
       warnings: [],
     });
+    vi.mocked(getInternalAccessRequestsContext).mockResolvedValue({
+      pendingRequests: [
+        {
+          id: "request-1",
+          account: {
+            id: "account-1",
+            email: "user@example.com",
+            login: "user",
+          },
+          server: {
+            id: "server-1",
+            code: "blackberry",
+            name: "Blackberry",
+          },
+          character: {
+            id: "character-1",
+            fullName: "Игорь Юристов",
+            passportNumber: "AA-001",
+          },
+          requestType: "advocate_access",
+          requestComment: "Нужен доступ",
+          createdAt: "2026-04-24T10:00:00.000Z",
+        },
+      ],
+    });
   });
 
   it("рендерит /internal/laws как target corpus section внутри /internal contour", async () => {
@@ -139,6 +170,21 @@ describe("internal target route skeletons", () => {
     expect(html).toContain("Admin Account Security");
     expect(html).toContain('action="/internal/security"');
     expect(html).toContain("Super Admin");
+  });
+
+  it("рендерит /internal/access-requests как target review section внутри /internal contour", async () => {
+    const html = renderToStaticMarkup(
+      await InternalAccessRequestsPage({
+        searchParams: Promise.resolve({
+          status: "character-access-request-approved",
+        }),
+      }),
+    );
+
+    expect(html).toContain("Character Access Requests");
+    expect(html).toContain("Заявка одобрена");
+    expect(html).toContain("Одобрить");
+    expect(html).toContain("Отклонить");
   });
 
   it("рендерит /internal/health как real internal section внутри /internal contour", async () => {

@@ -1,3 +1,6 @@
+import { AuditActionKey } from "@prisma/client";
+
+import { createAuditLog } from "@/db/repositories/audit-log.repository";
 import {
   createCharacterAccessRequestRecord,
   findPendingCharacterAccessRequest,
@@ -12,12 +15,14 @@ type CharacterAccessRequestDependencies = {
   getCharacterByIdForAccount: typeof getCharacterByIdForAccount;
   findPendingCharacterAccessRequest: typeof findPendingCharacterAccessRequest;
   createCharacterAccessRequestRecord: typeof createCharacterAccessRequestRecord;
+  createAuditLog: typeof createAuditLog;
 };
 
 const defaultDependencies: CharacterAccessRequestDependencies = {
   getCharacterByIdForAccount,
   findPendingCharacterAccessRequest,
   createCharacterAccessRequestRecord,
+  createAuditLog,
 };
 
 export class CharacterAccessRequestCharacterNotFoundError extends Error {
@@ -71,11 +76,28 @@ export async function createCharacterAccessRequest(
     throw new CharacterAccessRequestAlreadyExistsError();
   }
 
-  return dependencies.createCharacterAccessRequestRecord({
+  const createdRequest = await dependencies.createCharacterAccessRequestRecord({
     accountId: parsed.accountId,
     serverId: character.serverId,
     characterId: character.id,
     requestType: parsed.requestType,
     requestComment: parsed.requestComment.length ? parsed.requestComment : null,
   });
+
+  await dependencies.createAuditLog({
+    actionKey: AuditActionKey.character_access_request_created,
+    status: "success",
+    actorAccountId: parsed.accountId,
+    targetAccountId: parsed.accountId,
+    comment: parsed.requestComment.length ? parsed.requestComment : null,
+    metadataJson: {
+      flow: "character_access_request",
+      requestId: createdRequest.id,
+      characterId: character.id,
+      serverId: character.serverId,
+      requestType: parsed.requestType,
+    },
+  });
+
+  return createdRequest;
 }

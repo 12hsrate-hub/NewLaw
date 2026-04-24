@@ -29,6 +29,7 @@ describe("/internal page", () => {
     expect(html).toContain("Laws");
     expect(html).toContain("Precedents");
     expect(html).toContain("Security");
+    expect(html).toContain("Access Requests");
     expect(html).toContain("Health");
   });
 

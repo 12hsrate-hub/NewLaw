@@ -49,6 +49,9 @@ enum AuditActionKey {
   forum_connection_validated
   forum_connection_disabled
   character_role_assignment_changed_admin
+  character_access_request_created
+  character_access_request_approved
+  character_access_request_rejected
 }
 
 enum AuditLogStatus {

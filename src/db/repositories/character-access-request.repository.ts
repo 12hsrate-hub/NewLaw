@@ -6,7 +6,7 @@ import {
   type CharacterAccessRequestType,
 } from "@/schemas/character";
 
-type PrismaLike = PrismaClient;
+type PrismaLike = PrismaClient | Prisma.TransactionClient;
 
 export type CharacterAccessRequestRecord = Prisma.CharacterAccessRequestGetPayload<{
   include: {
@@ -28,6 +28,14 @@ export type CharacterAccessRequestListItem = Prisma.CharacterAccessRequestGetPay
     reviewedAt: true;
     createdAt: true;
     updatedAt: true;
+  };
+}>;
+
+export type InternalCharacterAccessRequestListItem = Prisma.CharacterAccessRequestGetPayload<{
+  include: {
+    account: true;
+    server: true;
+    character: true;
   };
 }>;
 
@@ -101,5 +109,65 @@ export async function listCharacterAccessRequestsForAccount(
       updatedAt: true,
     },
     orderBy: [{ createdAt: "desc" }],
+  });
+}
+
+export async function listPendingCharacterAccessRequestsForInternal(
+  db: PrismaLike = prisma,
+): Promise<InternalCharacterAccessRequestListItem[]> {
+  return db.characterAccessRequest.findMany({
+    where: {
+      status: "pending",
+    },
+    include: {
+      account: true,
+      server: true,
+      character: true,
+    },
+    orderBy: [{ createdAt: "asc" }],
+  });
+}
+
+export async function getCharacterAccessRequestById(
+  requestId: string,
+  db: PrismaLike = prisma,
+): Promise<InternalCharacterAccessRequestListItem | null> {
+  return db.characterAccessRequest.findUnique({
+    where: {
+      id: requestId,
+    },
+    include: {
+      account: true,
+      server: true,
+      character: true,
+    },
+  });
+}
+
+export async function reviewCharacterAccessRequestRecord(
+  input: {
+    requestId: string;
+    status: "approved" | "rejected";
+    reviewComment: string | null;
+    reviewedByAccountId: string;
+    reviewedAt: Date;
+  },
+  db: PrismaLike = prisma,
+) {
+  return db.characterAccessRequest.update({
+    where: {
+      id: input.requestId,
+    },
+    data: {
+      status: input.status,
+      reviewComment: input.reviewComment,
+      reviewedByAccountId: input.reviewedByAccountId,
+      reviewedAt: input.reviewedAt,
+    },
+    include: {
+      account: true,
+      server: true,
+      character: true,
+    },
   });
 }
