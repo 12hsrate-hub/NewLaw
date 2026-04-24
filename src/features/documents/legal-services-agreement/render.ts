@@ -32,7 +32,7 @@ const PAGE_BORDER_WIDTH = mm(194.8);
 const PAGE_BORDER_HEIGHT = mm(248.6);
 const QR_X = mm(10.8);
 const QR_Y = mm(251.2);
-const QR_SIZE = mm(10.6);
+const QR_SIZE = mm(11.8);
 const PAGE_TEXT_BOTTOM = QR_Y - mm(6.2);
 const assetCache = new Map<string, string>();
 
@@ -48,7 +48,7 @@ const FONTS_DIR = join(ASSETS_DIR, "fonts");
 const STATIC_DIR = join(ASSETS_DIR, "static");
 const LEGAL_SERVICES_AGREEMENT_SEAL_PATH = join(
   STATIC_DIR,
-  "seal-page1-crop-final.png",
+  "seal-page1-contract-clean.png",
 );
 
 function mm(value: number) {
@@ -66,16 +66,17 @@ const PAGE1_PRINT_TOKENS = {
   fontSerifRegular: SERIF_FONT_FAMILY,
   fontSerifBold: SERIF_FONT_FAMILY,
   fontSerifItalic: SERIF_FONT_FAMILY,
-  bodyFontSize: pt(11.25),
-  bodyLineHeight: pt(14.15),
-  introFontSize: pt(11),
-  introLineHeight: pt(13.85),
-  titleLine1Size: pt(12.8),
-  titleLine2Size: pt(11.5),
-  metaFontSize: pt(8.3),
-  sectionTitleSize: pt(12.2),
-  listIndent: mm(1.8),
-  hangingIndent: mm(5.9),
+  bodyFontSize: pt(10.25),
+  bodyLineHeight: pt(13.0),
+  introFontSize: pt(9.85),
+  introLineHeight: pt(12.35),
+  titleLine1Size: pt(12.2),
+  titleLine2Size: pt(11.0),
+  dateFontSize: pt(9.9),
+  metaFontSize: pt(8.6),
+  sectionTitleSize: pt(11.7),
+  listIndent: mm(4.1),
+  hangingIndent: mm(8.2),
 } as const;
 
 const signatureFontDataUrl = readLocalAssetDataUrl(
@@ -127,9 +128,8 @@ const CYRILLIC_TO_LATIN_MAP: Record<string, string> = {
   я: "ya",
 };
 
-const CONTENT_LEFT_X = mm(16.2);
-const CONTENT_RIGHT_X = mm(188.3);
-const CONTENT_WIDTH = CONTENT_RIGHT_X - CONTENT_LEFT_X;
+const PAGE_TEXT_FRAME_X = mm(14.8);
+const PAGE_TEXT_FRAME_WIDTH = mm(187.8);
 
 const PAGE_BASE_CONFIG = {
   border: {
@@ -146,6 +146,7 @@ const PAGE_BASE_CONFIG = {
 } as const;
 
 const PAGE_FRAME_CENTER_X = PAGE_BORDER_X + PAGE_BORDER_WIDTH / 2;
+const PAGE_HEADING_CENTER_OFFSET_X = -mm(33.8);
 
 const PAGE1_LAYOUT = {
   decorativeFrame: {
@@ -163,36 +164,37 @@ const PAGE1_LAYOUT = {
   titleStack: {
     x: PAGE_FRAME_CENTER_X - mm(90.4) / 2,
     width: mm(90.4),
-    titleY: mm(44.1),
-    subtitleY: mm(50.1),
-    centerOffsetX: -mm(8.4),
+    titleY: mm(46.3),
+    subtitleY: mm(52.4),
+    centerOffsetX: PAGE_HEADING_CENTER_OFFSET_X,
+    titleLineOffsetX: mm(3.2),
   },
   metaLeftDate: {
-    x: mm(16.2),
-    y: mm(54.2),
+    x: mm(14.4),
+    y: mm(56.1),
     width: mm(54),
   },
   metaRightRegister: {
-    x: mm(143.8),
-    y: mm(54.9),
-    width: mm(42.6),
-    titleGap: pt(7.9),
+    x: mm(123.8),
+    y: mm(56.1),
+    width: mm(45.2),
+    titleGap: pt(8.9),
   },
   introBlock: {
-    x: mm(14.8),
-    y: mm(68.1),
-    width: mm(187.8),
+    x: PAGE_TEXT_FRAME_X,
+    y: mm(70.4),
+    width: PAGE_TEXT_FRAME_WIDTH,
   },
   sectionTitle: {
     x: PAGE_BORDER_X,
-    y: mm(101.2),
+    y: mm(94.8),
     width: PAGE_BORDER_WIDTH,
-    centerOffsetX: -mm(7.2),
+    centerOffsetX: PAGE_HEADING_CENTER_OFFSET_X,
   },
   bodyTextFrame: {
-    x: mm(14.8),
-    y: mm(108.4),
-    width: mm(187.8),
+    x: PAGE_TEXT_FRAME_X,
+    y: mm(100.6),
+    width: PAGE_TEXT_FRAME_WIDTH,
     maxBottomY: PAGE_TEXT_BOTTOM - pt(2.8),
     paragraphGap: pt(2.3),
   },
@@ -204,80 +206,109 @@ const PAGE1_LAYOUT = {
 } as const;
 
 const PAGE2_LAYOUT = {
-  title: { y: 136, size: 20, lineHeight: 23 },
+  title: {
+    x: PAGE_BORDER_X,
+    width: PAGE_BORDER_WIDTH,
+    topGap: pt(8.2),
+    bottomGap: pt(12.4),
+    size: 18.5,
+    lineHeight: 21.5,
+  },
   section2: {
-    x: CONTENT_LEFT_X + 4,
-    y: 164,
-    width: CONTENT_WIDTH - 8,
-    size: 15,
-    lineHeight: 17.9,
-    paragraphGap: 7,
-    minFontSize: 13.4,
-    minLineHeight: 16.5,
+    x: PAGE_TEXT_FRAME_X,
+    width: PAGE_TEXT_FRAME_WIDTH,
+    size: PAGE1_PRINT_TOKENS.bodyFontSize,
+    lineHeight: PAGE1_PRINT_TOKENS.bodyLineHeight,
+    paragraphGap: pt(2.5),
+    minFontSize: pt(10.9),
+    minLineHeight: pt(13.6),
     maxBottomY: 726,
   },
   section3And4: {
-    x: CONTENT_LEFT_X + 4,
-    width: CONTENT_WIDTH - 8,
-    size: 15.2,
-    lineHeight: 18.8,
-    paragraphGap: 8,
-    minFontSize: 13.7,
-    minLineHeight: 17.1,
+    x: PAGE_TEXT_FRAME_X,
+    width: PAGE_TEXT_FRAME_WIDTH,
+    size: PAGE1_PRINT_TOKENS.bodyFontSize,
+    lineHeight: PAGE1_PRINT_TOKENS.bodyLineHeight,
+    paragraphGap: pt(2.5),
+    minFontSize: pt(10.9),
+    minLineHeight: pt(13.6),
     maxBottomY: PAGE_TEXT_BOTTOM,
-    topGap: 12,
+    topGap: pt(5.5),
+  },
+  sectionHeading: {
+    x: PAGE_BORDER_X,
+    width: PAGE_BORDER_WIDTH,
+    size: pt(11.7),
+    lineHeight: pt(15.5),
+    topGap: pt(0.2),
+    bottomGap: pt(18.2),
   },
 } as const;
 
 const PAGE3_LAYOUT = {
   top: {
-    x: CONTENT_LEFT_X + 4,
-    y: 160,
-    width: CONTENT_WIDTH - 8,
-    size: 15.1,
-    lineHeight: 18.8,
-    paragraphGap: 8,
-    minFontSize: 13.7,
-    minLineHeight: 17,
+    x: PAGE_TEXT_FRAME_X,
+    y: 144,
+    width: PAGE_TEXT_FRAME_WIDTH,
+    size: PAGE1_PRINT_TOKENS.bodyFontSize,
+    lineHeight: PAGE1_PRINT_TOKENS.bodyLineHeight,
+    paragraphGap: pt(2.5),
+    minFontSize: pt(10.9),
+    minLineHeight: pt(13.6),
     maxBottomY: 455,
   },
   section5: {
-    x: CONTENT_LEFT_X + 6,
-    width: CONTENT_WIDTH - 12,
-    size: 14.8,
-    lineHeight: 17.8,
-    paragraphGap: 7,
-    minFontSize: 13.2,
-    minLineHeight: 16.2,
+    x: PAGE_TEXT_FRAME_X,
+    width: PAGE_TEXT_FRAME_WIDTH,
+    size: PAGE1_PRINT_TOKENS.bodyFontSize,
+    lineHeight: PAGE1_PRINT_TOKENS.bodyLineHeight,
+    paragraphGap: pt(2.5),
+    minFontSize: pt(10.8),
+    minLineHeight: pt(13.4),
     maxBottomY: 805,
-    topGap: 8,
+    topGap: pt(5.2),
   },
   section6: {
-    x: CONTENT_LEFT_X + 4,
-    width: CONTENT_WIDTH - 8,
-    size: 14.8,
-    lineHeight: 18.3,
-    paragraphGap: 7,
-    minFontSize: 13,
-    minLineHeight: 16.5,
+    x: PAGE_TEXT_FRAME_X,
+    width: PAGE_TEXT_FRAME_WIDTH,
+    size: PAGE1_PRINT_TOKENS.bodyFontSize,
+    lineHeight: PAGE1_PRINT_TOKENS.bodyLineHeight,
+    paragraphGap: pt(2.5),
+    minFontSize: pt(10.8),
+    minLineHeight: pt(13.4),
     maxBottomY: PAGE_TEXT_BOTTOM,
-    topGap: 10,
+    topGap: pt(5.4),
+  },
+  sectionHeading: {
+    x: PAGE_BORDER_X,
+    width: PAGE_BORDER_WIDTH,
+    size: pt(11.7),
+    lineHeight: pt(15.5),
+    topGap: pt(0.2),
+    bottomGap: pt(18.2),
   },
 } as const;
 
 const PAGE4_LAYOUT = {
   top: {
-    x: CONTENT_LEFT_X + 4,
+    x: PAGE_TEXT_FRAME_X,
     y: 160,
-    width: CONTENT_WIDTH - 8,
-    size: 14.8,
-    lineHeight: 18.2,
-    paragraphGap: 7,
-    minFontSize: 13.3,
-    minLineHeight: 16.5,
+    width: PAGE_TEXT_FRAME_WIDTH,
+    size: PAGE1_PRINT_TOKENS.bodyFontSize,
+    lineHeight: PAGE1_PRINT_TOKENS.bodyLineHeight,
+    paragraphGap: pt(2.5),
+    minFontSize: pt(10.8),
+    minLineHeight: pt(13.4),
     maxBottomY: 300,
   },
-  sectionTitle: { y: 322, size: 20, lineHeight: 23 },
+  sectionTitle: {
+    x: PAGE_BORDER_X,
+    width: PAGE_BORDER_WIDTH,
+    topGap: pt(4.6),
+    bottomGap: pt(12.4),
+    size: 18.5,
+    lineHeight: 21.5,
+  },
   executorColumn: { x: 102, y: 356, width: 270 },
   trustorColumn: { x: 582, y: 356, width: 270 },
   signatureLines: {
@@ -292,8 +323,8 @@ const PAGE4_LAYOUT = {
     width: 264,
     leftX: 104,
     rightX: 586,
-    size: 14,
-    lineHeight: 16,
+    size: 13.2,
+    lineHeight: 15.2,
   },
   signatureGlyphs: {
     y: 649,
@@ -307,8 +338,8 @@ const PAGE4_LAYOUT = {
     width: 260,
     leftX: 102,
     rightX: 584,
-    size: 10.5,
-    lineHeight: 12,
+    size: 9.8,
+    lineHeight: 11.3,
   },
 } as const;
 
@@ -329,10 +360,13 @@ type TextBlockConfig = {
 type ParagraphBlockConfig = TextBlockConfig & {
   paragraphs: string[];
   paragraphGap?: number;
+  numberedIndent?: number;
+  numberedMarkerGap?: number;
+  numberedStyle?: "split" | "plain";
 };
 
 type BulletListBlockConfig = {
-  items: string[];
+  items: readonly string[];
   x: number;
   y: number;
   width: number;
@@ -350,6 +384,44 @@ type BulletListBlockConfig = {
 type BuiltBlock = {
   svg: string;
   bottomY: number;
+};
+
+type CenteredSectionHeadingConfig = {
+  text: string;
+  afterBottomY: number;
+  x: number;
+  width: number;
+  topGap: number;
+  bottomGap: number;
+  fontSize: number;
+  lineHeight: number;
+  fontFamily?: string;
+  fontWeight?: 400 | 700;
+};
+
+type BuiltCenteredSectionHeading = {
+  svg: string;
+  topY: number;
+  baselineY: number;
+  bottomY: number;
+  contentStartY: number;
+};
+
+type BulletSectionConfig = {
+  heading: string;
+  items: readonly string[];
+  x: number;
+  y: number;
+  width: number;
+  fontSize: number;
+  lineHeight: number;
+  fontFamily?: string;
+  paragraphGap?: number;
+  headingBottomGap?: number;
+  sectionGap?: number;
+  listIndent?: number;
+  hangingIndent?: number;
+  itemGap?: number;
 };
 
 export class LegalServicesAgreementGenerationBlockedError extends Error {
@@ -520,24 +592,42 @@ function buildTextBlock(input: TextBlockConfig) {
     .join("");
 }
 
+function parseNumberedParagraph(paragraph: string) {
+  const trimmedParagraph = paragraph.trim();
+  const match = trimmedParagraph.match(/^(\d+(?:\.\d+)*(?:\.)?)\s+(.+)$/);
+
+  if (!match) {
+    return null;
+  }
+
+  return {
+    marker: match[1],
+    body: match[2],
+  };
+}
+
 function buildParagraphBlock(input: ParagraphBlockConfig): BuiltBlock {
   const parts: string[] = [];
   let cursorY = input.y;
   const paragraphGap = input.paragraphGap ?? Math.round(input.lineHeight * 0.55);
+  const numberedIndent = input.numberedIndent ?? 0;
+  const numberedMarkerGap = input.numberedMarkerGap ?? pt(1.6);
+  const numberedStyle = input.numberedStyle ?? "split";
+  const paragraphs = input.paragraphs.filter((paragraph) => paragraph.trim().length > 0);
 
-  for (const paragraph of input.paragraphs) {
-    if (paragraph.trim().length === 0) {
-      cursorY += paragraphGap;
-      continue;
-    }
+  for (const [paragraphIndex, paragraph] of paragraphs.entries()) {
+    const trimmedParagraph = paragraph.trim();
 
-    const lines = wrapText(paragraph, input.width, input.fontSize);
+    const numbered = parseNumberedParagraph(trimmedParagraph);
+    const isNumberedParagraph = numbered !== null;
+    const paragraphIndent = isNumberedParagraph ? numberedIndent : 0;
+    const paragraphWidth = Math.max(20, input.width - paragraphIndent);
     const x =
       input.textAlign === "center"
-        ? input.x + input.width / 2
+        ? input.x + paragraphIndent + paragraphWidth / 2
         : input.textAlign === "right"
-          ? input.x + input.width
-          : input.x;
+          ? input.x + paragraphIndent + paragraphWidth
+          : input.x + paragraphIndent;
     const anchor =
       input.textAnchor ??
       (input.textAlign === "center"
@@ -545,6 +635,42 @@ function buildParagraphBlock(input: ParagraphBlockConfig): BuiltBlock {
         : input.textAlign === "right"
           ? "end"
           : "start");
+
+    if (
+      isNumberedParagraph &&
+      numberedStyle === "split" &&
+      input.textAlign !== "center" &&
+      input.textAlign !== "right"
+    ) {
+      const markerWidth =
+        estimateTextWidth(`${numbered.marker} `, input.fontSize) + numberedMarkerGap;
+      const contentX = input.x + paragraphIndent + markerWidth;
+      const contentWidth = Math.max(20, paragraphWidth - markerWidth);
+      const contentLines = wrapText(numbered.body, contentWidth, input.fontSize);
+
+      parts.push(
+        `<text x="${input.x + paragraphIndent}" y="${cursorY}" font-family="${input.fontFamily ?? SERIF_FONT_FAMILY}" font-size="${input.fontSize}"${input.fontWeight ? ` font-weight="${input.fontWeight}"` : ""}${input.fontStyle ? ` font-style="${input.fontStyle}"` : ""}>${escapeXml(
+          numbered.marker,
+        )}</text>`,
+      );
+
+      parts.push(
+        ...contentLines.map((line, index) => {
+          const y = cursorY + index * input.lineHeight;
+
+          return `<text x="${contentX}" y="${y}" font-family="${input.fontFamily ?? SERIF_FONT_FAMILY}" font-size="${input.fontSize}"${input.fontWeight ? ` font-weight="${input.fontWeight}"` : ""}${input.fontStyle ? ` font-style="${input.fontStyle}"` : ""}>${escapeXml(
+            line,
+          )}</text>`;
+        }),
+      );
+
+      cursorY +=
+        contentLines.length * input.lineHeight +
+        (paragraphIndex < paragraphs.length - 1 ? paragraphGap : 0);
+      continue;
+    }
+
+    const lines = wrapText(paragraph, paragraphWidth, input.fontSize);
 
     parts.push(
       ...lines.map((line, index) => {
@@ -556,12 +682,75 @@ function buildParagraphBlock(input: ParagraphBlockConfig): BuiltBlock {
       }),
     );
 
-    cursorY += lines.length * input.lineHeight + paragraphGap;
+    cursorY +=
+      lines.length * input.lineHeight +
+      (paragraphIndex < paragraphs.length - 1 ? paragraphGap : 0);
   }
 
   return {
     svg: parts.join(""),
     bottomY: cursorY,
+  };
+}
+
+function buildBulletSection(input: BulletSectionConfig): BuiltBlock {
+  const headingBlock = buildParagraphBlock({
+    paragraphs: [input.heading],
+    x: input.x,
+    y: input.y,
+    width: input.width,
+    fontSize: input.fontSize,
+    lineHeight: input.lineHeight,
+    fontFamily: input.fontFamily,
+    paragraphGap: input.paragraphGap ?? pt(0.8),
+    numberedStyle: "plain",
+    text: "",
+  });
+  const listBlock = buildBulletListBlock({
+    items: input.items,
+    x: input.x,
+    y: headingBlock.bottomY + (input.headingBottomGap ?? pt(1.8)),
+    width: input.width,
+    fontSize: input.fontSize,
+    lineHeight: input.lineHeight,
+    fontFamily: input.fontFamily,
+    itemGap: input.itemGap ?? pt(1.0),
+    listIndent: input.listIndent ?? PAGE1_PRINT_TOKENS.listIndent,
+    hangingIndent: input.hangingIndent ?? PAGE1_PRINT_TOKENS.hangingIndent,
+    marker: "•",
+  });
+
+  return {
+    svg: `${headingBlock.svg}${listBlock.svg}`,
+    bottomY: listBlock.bottomY + (input.sectionGap ?? pt(2.8)),
+  };
+}
+
+function buildCenteredSectionHeading(
+  input: CenteredSectionHeadingConfig,
+): BuiltCenteredSectionHeading {
+  const topY = input.afterBottomY + input.topGap;
+  const lines = wrapText(input.text, input.width, input.fontSize);
+  const textX = input.x + input.width / 2;
+  const firstBaselineY = topY + input.fontSize;
+  const lastBaselineY =
+    firstBaselineY + (Math.max(1, lines.length) - 1) * input.lineHeight;
+  const contentStartY = lastBaselineY + input.bottomGap;
+
+  return {
+    svg: lines
+      .map((line, index) => {
+        const y = firstBaselineY + index * input.lineHeight;
+
+        return `<text x="${textX}" y="${y}" font-family="${input.fontFamily ?? SERIF_FONT_FAMILY}" font-size="${input.fontSize}"${input.fontWeight ? ` font-weight="${input.fontWeight}"` : ""} text-anchor="middle">${escapeXml(
+          line,
+        )}</text>`;
+      })
+      .join(""),
+    topY,
+    baselineY: firstBaselineY,
+    bottomY: contentStartY,
+    contentStartY,
   };
 }
 
@@ -576,7 +765,7 @@ function buildBulletListBlock(input: BulletListBlockConfig): BuiltBlock {
   const textX = input.x + hangingIndent;
   const textWidth = Math.max(20, input.width - hangingIndent);
 
-  for (const item of input.items) {
+  for (const [itemIndex, item] of input.items.entries()) {
     const lines = wrapText(item, textWidth, input.fontSize);
 
     parts.push(
@@ -593,13 +782,19 @@ function buildBulletListBlock(input: BulletListBlockConfig): BuiltBlock {
       }),
     );
 
-    cursorY += lines.length * input.lineHeight + itemGap;
+    cursorY +=
+      lines.length * input.lineHeight +
+      (itemIndex < input.items.length - 1 ? itemGap : 0);
   }
 
   return {
     svg: parts.join(""),
     bottomY: cursorY,
   };
+}
+
+function countNonEmptyParagraphs(paragraphs: string[]) {
+  return paragraphs.filter((paragraph) => paragraph.trim().length > 0).length;
 }
 
 function buildFittedParagraphBlock(
@@ -628,6 +823,41 @@ function buildFittedParagraphBlock(
     fontSize = Math.max(minFontSize, fontSize - 0.5);
     lineHeight = Math.max(minLineHeight, lineHeight - 0.7);
   }
+}
+
+function buildAdaptiveParagraphBlock(
+  input: ParagraphBlockConfig & {
+    minFontSize?: number;
+    minLineHeight?: number;
+    maxBottomY: number;
+    targetBottomY?: number;
+    maxExtraParagraphGap?: number;
+  },
+): BuiltBlock {
+  const fitted = buildFittedParagraphBlock(input);
+  const targetBottomY = input.targetBottomY ?? input.maxBottomY;
+  const nonEmptyParagraphs = countNonEmptyParagraphs(input.paragraphs);
+
+  if (nonEmptyParagraphs < 2 || fitted.bottomY >= targetBottomY) {
+    return fitted;
+  }
+
+  const baseParagraphGap =
+    input.paragraphGap ?? Math.round(input.lineHeight * 0.55);
+  const maxExtraParagraphGap = input.maxExtraParagraphGap ?? pt(3.2);
+  const extraPerGap = Math.min(
+    maxExtraParagraphGap,
+    (targetBottomY - fitted.bottomY) / (nonEmptyParagraphs - 1),
+  );
+
+  if (extraPerGap <= 0.2) {
+    return fitted;
+  }
+
+  return buildFittedParagraphBlock({
+    ...input,
+    paragraphGap: baseParagraphGap + extraPerGap,
+  });
 }
 
 function buildFittedBulletListBlock(
@@ -861,25 +1091,41 @@ function buildPage1SectionContent(input: {
   };
 }
 
-function buildPage2Section2Paragraphs() {
+function buildPage2Section2Content() {
   return [
-    "2.1. Законный представитель обязуется:",
-    "Оказать услуги по настоящему Договору с надлежащим качеством и в соответствии с нормами действующего законодательства;",
-    "Оказать услуги в сроки, установленные настоящим Договором;",
-    "При исполнении настоящего Договора действовать в интересах Доверителя и от его имени;",
-    "Своевременно извещать Доверителя о необходимости участия последнего в переговорах, судебных заседаниях либо о необходимости присутствия Заказчика на иных мероприятиях.",
-    "Предоставлять Доверителю устные отчеты о ходе оказания услуг по настоящему Договору.",
-    "2.2. Законный представитель имеет право:",
-    "Требовать от Доверителя оплаты понесенных Законным представителем расходов в рамках исполнения предмета поручения Договора, таких как: оплата судебной пошлины; покупка и передача продуктов Доверителю в места лишения свободы; оплата проезда такси от места пребывания Законного представителя до места пребывания Доверителя.",
-    "2.3. Доверитель обязуется:",
-    "Предоставить Законному представителю документы, сведения, информацию, необходимые для надлежащего исполнения настоящего Договора.",
-    "Присутствовать на переговорах, судебных заседаниях, при проведении иных мероприятий, на необходимость посещения которых указал Законный представитель.",
-    "Оплатить услуги Законного представителя в размере, порядке и на условиях, которые установлены настоящим Договором.",
-    "2.4. Доверитель имеет право:",
-    "Осуществлять контроль за процессом оказания услуг Законным представителем, не вмешиваясь при этом в деятельность Законного представителя.",
-    "Требовать от Законного представителя представления устного отчета о ходе оказания услуг.",
-    "Присутствовать на всех судебных заседаниях, проводимых Законным представителем.",
-  ];
+    {
+      heading: "2.1. Законный представитель обязуется:",
+      items: [
+        "Оказать услуги по настоящему Договору с надлежащим качеством и в соответствии с нормами действующего законодательства;",
+        "Оказать услуги в сроки, установленные настоящим Договором;",
+        "При исполнении настоящего Договора действовать в интересах Доверителя и от его имени;",
+        "Своевременно извещать Доверителя о необходимости участия последнего в переговорах, судебных заседаниях либо о необходимости присутствия Заказчика на иных мероприятиях.",
+        "Предоставлять Доверителю устные отчеты о ходе оказания услуг по настоящему Договору.",
+      ],
+    },
+    {
+      heading: "2.2. Законный представитель имеет право:",
+      items: [
+        "Требовать от Доверителя оплаты понесенных Законным представителем расходов в рамках исполнения предмета поручения Договора, таких как: оплата судебной пошлины; покупка и передача продуктов Доверителю в места лишения свободы; оплата проезда такси от места пребывания Законного представителя до места пребывания Доверителя.",
+      ],
+    },
+    {
+      heading: "2.3. Доверитель обязуется:",
+      items: [
+        "Предоставить Законному представителю документы, сведения, информацию, необходимые для надлежащего исполнения настоящего Договора.",
+        "Присутствовать на переговорах, судебных заседаниях, при проведении иных мероприятий, на необходимость посещения которых указал Законный представитель.",
+        "Оплатить услуги Законного представителя в размере, порядке и на условиях, которые установлены настоящим Договором.",
+      ],
+    },
+    {
+      heading: "2.4. Доверитель имеет право:",
+      items: [
+        "Осуществлять контроль за процессом оказания услуг Законным представителем, не вмешиваясь при этом в деятельность Законного представителя.",
+        "Требовать от Законного представителя представления устного отчета о ходе оказания услуг.",
+        "Присутствовать на всех судебных заседаниях, проводимых Законным представителем.",
+      ],
+    },
+  ] as const;
 }
 
 function buildPage2Section3And4Paragraphs(input: {
@@ -907,18 +1153,22 @@ function buildPage2Section3And4Paragraphs(input: {
     payload: input.payload,
   });
 
-  return [
-    "3. Порядок внесения изменений в Договор и расторжения Договора",
-    "3.1. Доверитель и Законный представитель имеют право в любое время суток, по обоюдному согласию вносить изменения в пункты 1, 2 и 4 настоящего Договора, дополнять или отменять действия определенных ранее пунктов.",
-    "3.2. Для внесения изменений в настоящий Договор достаточным условием является устное согласие уведомляемой Стороны с изменениями в Договор.",
-    "3.3. Стороны вправе расторгнуть настоящий Договор досрочно при обоюдном согласии.",
-    "3.4. Законный представитель может расторгнуть настоящий Договор досрочно в случае если его услуги не будут оплачены в течении одного часа после подписания Договора.",
-    "4. Стоимость услуг и порядок расчетов",
-    `4.1. Стоимость услуг по данному Договору определяется в размере ${readNormalizedValue(
-      fields.priceAmount,
-    )}.`,
-    "4.2. Оплата услуг Законного представителя осуществляется Доверителем в виде передачи Доверителем Законному представителю наличной денежной суммы, которая указана в пункте 4.1. настоящего Договора, или путём совершения банковского перевода на сумму, которая указана в пункте 4.1. настоящего Договора, на банковский счёт Законного представителя.",
-  ];
+  return {
+    section3Heading: "3. Порядок внесения изменений в Договор и расторжения Договора",
+    section3Paragraphs: [
+      "3.1. Доверитель и Законный представитель имеют право в любое время суток, по обоюдному согласию вносить изменения в пункты 1, 2 и 4 настоящего Договора, дополнять или отменять действия определенных ранее пунктов.",
+      "3.2. Для внесения изменений в настоящий Договор достаточным условием является устное согласие уведомляемой Стороны с изменениями в Договор.",
+      "3.3. Стороны вправе расторгнуть настоящий Договор досрочно при обоюдном согласии.",
+      "3.4. Законный представитель может расторгнуть настоящий Договор досрочно в случае если его услуги не будут оплачены в течении одного часа после подписания Договора.",
+    ],
+    section4Heading: "4. Стоимость услуг и порядок расчетов",
+    section4Paragraphs: [
+      `4.1. Стоимость услуг по данному Договору определяется в размере ${readNormalizedValue(
+        fields.priceAmount,
+      )}.`,
+      "4.2. Оплата услуг Законного представителя осуществляется Доверителем в виде передачи Доверителем Законному представителю наличной денежной суммы, которая указана в пункте 4.1. настоящего Договора, или путём совершения банковского перевода на сумму, которая указана в пункте 4.1. настоящего Договора, на банковский счёт Законного представителя.",
+    ],
+  };
 }
 
 function buildPage3Paragraphs(input: { payload: LegalServicesAgreementDraftPayload }) {
@@ -949,18 +1199,21 @@ function buildPage3Paragraphs(input: { payload: LegalServicesAgreementDraftPaylo
       "4.3. Оплата услуг Законного представителя осуществляется Доверителем в течении одного часа после подписании Договора всеми Сторонами.",
       "4.4. Оплата услуги по освобождению под залог Доверителя из КПЗ региональных правоохранительных ведомств осуществляется отдельно согласно статье 14 Административного кодекса.",
       "4.5. Не подлежит возврату денежная сумма, которая была уплачена Доверителем Законному представителю в рамках оплаты стоимости услуг по настоящему Договору, в случае расторжения Договора по обоюдному согласию Сторон.",
-      "5. Ответственность сторон. Форс-Мажор",
     ],
+    section5Heading: "5. Ответственность сторон. Форс-Мажор",
     section5: [
       "5.1. За неисполнение или ненадлежащее исполнение обязательств по настоящему Договору Стороны несут гражданскую ответственность и имеют право требовать от другой Стороны компенсацию в денежном эквиваленте, сумма которой будет определена судом исходя из обстоятельств.",
       "5.2. Законный представитель не несет ответственности за последствия, связанные с предоставлением Заказчиком документов или сведений, не соответствующих действительности.",
       "5.3. Стороны освобождаются от ответственности за неисполнение или ненадлежащее исполнение обязательств по Договору, если надлежащее исполнение оказалось невозможным вследствие непреодолимой силы, то есть чрезвычайных и непредотвратимых при данных условиях обстоятельств, под которыми понимаются: противоправные действия властей, гражданские волнения, эпидемии, блокада, эмбарго, землетрясения, наводнения, пожары или другие стихийные бедствия и иные форс-мажорные обстоятельства.",
       "5.4. В случае наступления этих обстоятельств Сторона обязана в течение 24 часов уведомить об этом другую Сторону в письменном виде.",
     ],
+    section6Heading: "6. Порядок разрешения споров",
     section6: [
-      "6. Порядок разрешения споров",
       "6.1 Стороны договорились о применении обязательного претензионного порядка урегулирования споров в досудебном порядке. В случае возникновения споров стороны направляют друг другу претензии в письменном виде. При получении претензии сторона, получившая претензию, обязуется рассмотреть претензию в течение 14 (четырнадцати) календарных дней с момента ее получения с направлением другой стороне письменного ответа на претензию в указанный срок.",
       "6.2. Все не урегулированные путем переговоров споры, связанные с заключением, толкованием, исполнением, изменением и расторжением Договора, передаются в суд соответствующей юрисдикции.",
+    ],
+    section7Heading: "7. Заключительные положения",
+    section7: [
       "7.1. Настоящий Договор составлен в одном физическом экземпляре и хранится у Законного представителя или Доверителя, а также в одном электронном экземпляре (электронной копии) на сайте Департамента юстиции в разделе Договоры на оказание юридической помощи гражданам и организациям.",
       "7.2. Высшую и окончательную юридическую силу несет электронный экземпляр, который опубликован на сайте Департамента юстиции в разделе Договоры на оказание юридической помощи гражданам и организациям.",
       "7.3. Настоящий Договор публикуется Законным представителем на сайте Департамента юстиции в разделе Договоры на оказание юридической помощи гражданам и организациям в течении 6 часов с момента подписания Договора всеми сторонами Договора.",
@@ -977,15 +1230,35 @@ function buildPage1(input: {
   const fields = buildLegalServicesAgreementResolvedFields(input);
   const page1Content = buildPage1SectionContent(input);
   const intro = `${fields.trustorFullName} с номером паспорта ${fields.trustorPassportNumber}, именуемый в дальнейшем «Доверитель», «Заказчик», с одной стороны, ${fields.executorPosition} ${fields.executorFullName} с номером паспорта ${fields.executorPassportNumber} действующий на основании закона «Об адвокатуре и адвокатской деятельности в штате Сан-Андреас», именуемый в дальнейшем «Исполнитель», «Представитель», «Поверенный» с другой стороны, заключили настоящий договор о нижеследующем:`;
+  const introBlock = buildParagraphBlock({
+    paragraphs: [intro],
+    x: PAGE1_LAYOUT.introBlock.x,
+    y: PAGE1_LAYOUT.introBlock.y,
+    width: PAGE1_LAYOUT.introBlock.width,
+    fontSize: PAGE1_PRINT_TOKENS.introFontSize,
+    lineHeight: PAGE1_PRINT_TOKENS.introLineHeight,
+    fontFamily: PAGE1_PRINT_TOKENS.fontSerifRegular,
+    paragraphGap: 0,
+    text: "",
+  });
+  const sectionTitleTopGap = pt(0.8);
+  const sectionTitleBottomGap = pt(13.2);
+  const sectionTitleLineHeight = pt(15.5);
+  const sectionTitleTopY = introBlock.bottomY + sectionTitleTopGap;
+  const sectionTitleBaselineY =
+    sectionTitleTopY + PAGE1_PRINT_TOKENS.sectionTitleSize;
+  const bodyStartY = sectionTitleTopY + sectionTitleLineHeight + sectionTitleBottomGap;
   const section1Start = buildParagraphBlock({
     paragraphs: page1Content.beforeList,
     x: PAGE1_LAYOUT.bodyTextFrame.x,
-    y: PAGE1_LAYOUT.bodyTextFrame.y,
+    y: bodyStartY,
     width: PAGE1_LAYOUT.bodyTextFrame.width,
     fontFamily: PAGE1_PRINT_TOKENS.fontSerifRegular,
     fontSize: PAGE1_PRINT_TOKENS.bodyFontSize,
     lineHeight: PAGE1_PRINT_TOKENS.bodyLineHeight,
     paragraphGap: PAGE1_LAYOUT.bodyTextFrame.paragraphGap,
+    numberedIndent: mm(2.4),
+    numberedMarkerGap: pt(1.6),
     text: "",
   });
   const section1List = buildFittedBulletListBlock({
@@ -999,7 +1272,7 @@ function buildPage1(input: {
     itemGap: pt(1.2),
     listIndent: PAGE1_PRINT_TOKENS.listIndent,
     hangingIndent: PAGE1_PRINT_TOKENS.hangingIndent,
-    marker: "-",
+    marker: "•",
     minFontSize: pt(11.4),
     minLineHeight: pt(14.3),
     maxBottomY: PAGE1_LAYOUT.bodyTextFrame.maxBottomY - pt(7),
@@ -1013,6 +1286,8 @@ function buildPage1(input: {
     fontSize: PAGE1_PRINT_TOKENS.bodyFontSize,
     lineHeight: PAGE1_PRINT_TOKENS.bodyLineHeight,
     paragraphGap: PAGE1_LAYOUT.bodyTextFrame.paragraphGap,
+    numberedIndent: mm(2.4),
+    numberedMarkerGap: pt(1.6),
     minFontSize: pt(11.4),
     minLineHeight: pt(14.3),
     maxBottomY: PAGE1_LAYOUT.bodyTextFrame.maxBottomY,
@@ -1024,7 +1299,10 @@ function buildPage1(input: {
     overlays: [
       buildTextBlock({
         text: `Договор №${readNormalizedValue(fields.agreementNumber)}`,
-        x: PAGE1_LAYOUT.titleStack.x + PAGE1_LAYOUT.titleStack.centerOffsetX,
+        x:
+          PAGE1_LAYOUT.titleStack.x +
+          PAGE1_LAYOUT.titleStack.centerOffsetX +
+          PAGE1_LAYOUT.titleStack.titleLineOffsetX,
         y: PAGE1_LAYOUT.titleStack.titleY,
         width: PAGE1_LAYOUT.titleStack.width,
         fontSize: PAGE1_PRINT_TOKENS.titleLine1Size,
@@ -1049,8 +1327,8 @@ function buildPage1(input: {
         x: PAGE1_LAYOUT.metaLeftDate.x,
         y: PAGE1_LAYOUT.metaLeftDate.y,
         width: PAGE1_LAYOUT.metaLeftDate.width,
-        fontSize: PAGE1_PRINT_TOKENS.metaFontSize,
-        lineHeight: pt(13.2),
+        fontSize: PAGE1_PRINT_TOKENS.dateFontSize,
+        lineHeight: pt(14.6),
         fontFamily: PAGE1_PRINT_TOKENS.fontSerifItalic,
         fontStyle: "italic",
       }),
@@ -1076,25 +1354,17 @@ function buildPage1(input: {
         textAlign: "right",
       }),
       buildTextBlock({
-        text: intro,
-        x: PAGE1_LAYOUT.introBlock.x,
-        y: PAGE1_LAYOUT.introBlock.y,
-        width: PAGE1_LAYOUT.introBlock.width,
-        fontSize: PAGE1_PRINT_TOKENS.introFontSize,
-        lineHeight: PAGE1_PRINT_TOKENS.introLineHeight,
-        fontFamily: PAGE1_PRINT_TOKENS.fontSerifRegular,
-      }),
-      buildTextBlock({
         text: "1. Предмет договора (поручения)",
         x: PAGE1_LAYOUT.sectionTitle.x + PAGE1_LAYOUT.sectionTitle.centerOffsetX,
-        y: PAGE1_LAYOUT.sectionTitle.y,
+        y: sectionTitleBaselineY,
         width: PAGE1_LAYOUT.sectionTitle.width,
         fontSize: PAGE1_PRINT_TOKENS.sectionTitleSize,
-        lineHeight: pt(15.5),
+        lineHeight: sectionTitleLineHeight,
         fontFamily: PAGE1_PRINT_TOKENS.fontSerifBold,
         fontWeight: 700,
         textAlign: "center",
       }),
+      introBlock.svg,
       section1Start.svg,
       section1List.svg,
       section1End.svg,
@@ -1103,56 +1373,122 @@ function buildPage1(input: {
 }
 
 function buildPage2(input: { payload: LegalServicesAgreementDraftPayload }) {
-  const section2 = buildFittedParagraphBlock({
-    paragraphs: buildPage2Section2Paragraphs(),
-    x: PAGE2_LAYOUT.section2.x,
-    y: PAGE2_LAYOUT.section2.y,
-    width: PAGE2_LAYOUT.section2.width,
+  const section3And4 = buildPage2Section3And4Paragraphs(input);
+  const section2Blocks = buildPage2Section2Content();
+  const page2Title = buildCenteredSectionHeading({
+    text: "2. Права и обязанности сторон",
+    afterBottomY: PAGE_BORDER_Y,
+    x: PAGE2_LAYOUT.title.x,
+    width: PAGE2_LAYOUT.title.width,
+    topGap: PAGE2_LAYOUT.title.topGap,
+    bottomGap: PAGE2_LAYOUT.title.bottomGap,
+    fontSize: PAGE2_LAYOUT.title.size,
+    lineHeight: PAGE2_LAYOUT.title.lineHeight,
     fontFamily: SERIF_FONT_FAMILY,
-    fontSize: PAGE2_LAYOUT.section2.size,
-    lineHeight: PAGE2_LAYOUT.section2.lineHeight,
-    paragraphGap: PAGE2_LAYOUT.section2.paragraphGap,
-    minFontSize: PAGE2_LAYOUT.section2.minFontSize,
-    minLineHeight: PAGE2_LAYOUT.section2.minLineHeight,
-    maxBottomY: PAGE2_LAYOUT.section2.maxBottomY,
-    text: "",
+    fontWeight: 700,
   });
-  const section3and4 = buildFittedParagraphBlock({
-    paragraphs: buildPage2Section3And4Paragraphs(input),
+  let section2CursorY = page2Title.contentStartY;
+  const section2SvgParts: string[] = [];
+
+  for (const section of section2Blocks) {
+    const built = buildBulletSection({
+      heading: section.heading,
+      items: section.items,
+      x: PAGE2_LAYOUT.section2.x,
+      y: section2CursorY,
+      width: PAGE2_LAYOUT.section2.width,
+      fontFamily: SERIF_FONT_FAMILY,
+      fontSize: PAGE2_LAYOUT.section2.size,
+      lineHeight: PAGE2_LAYOUT.section2.lineHeight,
+      paragraphGap: pt(0.8),
+      headingBottomGap: pt(1.6),
+      sectionGap: pt(3.2),
+      listIndent: PAGE1_PRINT_TOKENS.listIndent,
+      hangingIndent: PAGE1_PRINT_TOKENS.hangingIndent,
+      itemGap: pt(0.9),
+    });
+    section2SvgParts.push(built.svg);
+    section2CursorY = built.bottomY;
+  }
+
+  const section2 = {
+    svg: section2SvgParts.join(""),
+    bottomY: section2CursorY,
+  };
+  const section3Heading = buildCenteredSectionHeading({
+    text: section3And4.section3Heading,
+    afterBottomY: section2.bottomY,
+    x: PAGE2_LAYOUT.sectionHeading.x,
+    width: PAGE2_LAYOUT.sectionHeading.width,
+    topGap: PAGE2_LAYOUT.sectionHeading.topGap,
+    bottomGap: PAGE2_LAYOUT.sectionHeading.bottomGap,
+    fontSize: PAGE2_LAYOUT.sectionHeading.size,
+    lineHeight: PAGE2_LAYOUT.sectionHeading.lineHeight,
+    fontFamily: SERIF_FONT_FAMILY,
+    fontWeight: 700,
+  });
+  const section3Paragraphs = buildAdaptiveParagraphBlock({
+    paragraphs: section3And4.section3Paragraphs,
     x: PAGE2_LAYOUT.section3And4.x,
-    y: section2.bottomY + PAGE2_LAYOUT.section3And4.topGap,
+    y: section3Heading.contentStartY,
     width: PAGE2_LAYOUT.section3And4.width,
     fontFamily: SERIF_FONT_FAMILY,
     fontSize: PAGE2_LAYOUT.section3And4.size,
     lineHeight: PAGE2_LAYOUT.section3And4.lineHeight,
     paragraphGap: PAGE2_LAYOUT.section3And4.paragraphGap,
+    numberedStyle: "plain",
     minFontSize: PAGE2_LAYOUT.section3And4.minFontSize,
     minLineHeight: PAGE2_LAYOUT.section3And4.minLineHeight,
     maxBottomY: PAGE2_LAYOUT.section3And4.maxBottomY,
+    targetBottomY: PAGE2_LAYOUT.section3And4.maxBottomY - pt(10),
+    maxExtraParagraphGap: pt(3.8),
+    text: "",
+  });
+  const section4Heading = buildCenteredSectionHeading({
+    text: section3And4.section4Heading,
+    afterBottomY: section3Paragraphs.bottomY,
+    x: PAGE2_LAYOUT.sectionHeading.x,
+    width: PAGE2_LAYOUT.sectionHeading.width,
+    topGap: PAGE2_LAYOUT.sectionHeading.topGap,
+    bottomGap: PAGE2_LAYOUT.sectionHeading.bottomGap,
+    fontSize: PAGE2_LAYOUT.sectionHeading.size,
+    lineHeight: PAGE2_LAYOUT.sectionHeading.lineHeight,
+    fontFamily: SERIF_FONT_FAMILY,
+    fontWeight: 700,
+  });
+  const section4Paragraphs = buildAdaptiveParagraphBlock({
+    paragraphs: section3And4.section4Paragraphs,
+    x: PAGE2_LAYOUT.section3And4.x,
+    y: section4Heading.contentStartY,
+    width: PAGE2_LAYOUT.section3And4.width,
+    fontFamily: SERIF_FONT_FAMILY,
+    fontSize: PAGE2_LAYOUT.section3And4.size,
+    lineHeight: PAGE2_LAYOUT.section3And4.lineHeight,
+    paragraphGap: PAGE2_LAYOUT.section3And4.paragraphGap,
+    numberedStyle: "plain",
+    minFontSize: PAGE2_LAYOUT.section3And4.minFontSize,
+    minLineHeight: PAGE2_LAYOUT.section3And4.minLineHeight,
+    maxBottomY: PAGE2_LAYOUT.section3And4.maxBottomY,
+    targetBottomY: PAGE2_LAYOUT.section3And4.maxBottomY - pt(10),
+    maxExtraParagraphGap: pt(3.8),
     text: "",
   });
 
   return buildPageBase({
     overlays: [
-      buildTextBlock({
-        text: "2. Права и обязанности сторон",
-        x: 0,
-        y: PAGE2_LAYOUT.title.y,
-        width: PAGE_WIDTH,
-        fontSize: PAGE2_LAYOUT.title.size,
-        lineHeight: PAGE2_LAYOUT.title.lineHeight,
-        fontWeight: 700,
-        textAlign: "center",
-      }),
+      page2Title.svg,
       section2.svg,
-      section3and4.svg,
+      section3Heading.svg,
+      section3Paragraphs.svg,
+      section4Heading.svg,
+      section4Paragraphs.svg,
     ],
   });
 }
 
 function buildPage3(input: { payload: LegalServicesAgreementDraftPayload }) {
   const page3 = buildPage3Paragraphs(input);
-  const top = buildFittedParagraphBlock({
+  const top = buildAdaptiveParagraphBlock({
     paragraphs: page3.top,
     x: PAGE3_LAYOUT.top.x,
     y: PAGE3_LAYOUT.top.y,
@@ -1161,42 +1497,112 @@ function buildPage3(input: { payload: LegalServicesAgreementDraftPayload }) {
     fontSize: PAGE3_LAYOUT.top.size,
     lineHeight: PAGE3_LAYOUT.top.lineHeight,
     paragraphGap: PAGE3_LAYOUT.top.paragraphGap,
+    numberedStyle: "plain",
     minFontSize: PAGE3_LAYOUT.top.minFontSize,
     minLineHeight: PAGE3_LAYOUT.top.minLineHeight,
     maxBottomY: PAGE3_LAYOUT.top.maxBottomY,
+    targetBottomY: PAGE3_LAYOUT.top.maxBottomY - pt(14),
+    maxExtraParagraphGap: pt(3.2),
     text: "",
   });
-  const section5 = buildFittedParagraphBlock({
+  const section5Heading = buildCenteredSectionHeading({
+    text: page3.section5Heading,
+    afterBottomY: top.bottomY,
+    x: PAGE3_LAYOUT.sectionHeading.x,
+    width: PAGE3_LAYOUT.sectionHeading.width,
+    topGap: PAGE3_LAYOUT.sectionHeading.topGap,
+    bottomGap: PAGE3_LAYOUT.sectionHeading.bottomGap,
+    fontSize: PAGE3_LAYOUT.sectionHeading.size,
+    lineHeight: PAGE3_LAYOUT.sectionHeading.lineHeight,
+    fontFamily: SERIF_FONT_FAMILY,
+    fontWeight: 700,
+  });
+  const section5 = buildAdaptiveParagraphBlock({
     paragraphs: page3.section5,
     x: PAGE3_LAYOUT.section5.x,
-    y: top.bottomY + PAGE3_LAYOUT.section5.topGap,
+    y: section5Heading.contentStartY,
     width: PAGE3_LAYOUT.section5.width,
     fontFamily: SERIF_FONT_FAMILY,
     fontSize: PAGE3_LAYOUT.section5.size,
     lineHeight: PAGE3_LAYOUT.section5.lineHeight,
     paragraphGap: PAGE3_LAYOUT.section5.paragraphGap,
+    numberedStyle: "plain",
     minFontSize: PAGE3_LAYOUT.section5.minFontSize,
     minLineHeight: PAGE3_LAYOUT.section5.minLineHeight,
     maxBottomY: PAGE3_LAYOUT.section5.maxBottomY,
+    targetBottomY: PAGE3_LAYOUT.section5.maxBottomY - pt(18),
+    maxExtraParagraphGap: pt(3.6),
     text: "",
   });
-  const section6 = buildFittedParagraphBlock({
+  const section6Heading = buildCenteredSectionHeading({
+    text: page3.section6Heading,
+    afterBottomY: section5.bottomY,
+    x: PAGE3_LAYOUT.sectionHeading.x,
+    width: PAGE3_LAYOUT.sectionHeading.width,
+    topGap: PAGE3_LAYOUT.sectionHeading.topGap,
+    bottomGap: PAGE3_LAYOUT.sectionHeading.bottomGap,
+    fontSize: PAGE3_LAYOUT.sectionHeading.size,
+    lineHeight: PAGE3_LAYOUT.sectionHeading.lineHeight,
+    fontFamily: SERIF_FONT_FAMILY,
+    fontWeight: 700,
+  });
+  const section6 = buildAdaptiveParagraphBlock({
     paragraphs: page3.section6,
     x: PAGE3_LAYOUT.section6.x,
-    y: section5.bottomY + PAGE3_LAYOUT.section6.topGap,
+    y: section6Heading.contentStartY,
     width: PAGE3_LAYOUT.section6.width,
     fontFamily: SERIF_FONT_FAMILY,
     fontSize: PAGE3_LAYOUT.section6.size,
     lineHeight: PAGE3_LAYOUT.section6.lineHeight,
     paragraphGap: PAGE3_LAYOUT.section6.paragraphGap,
+    numberedStyle: "plain",
     minFontSize: PAGE3_LAYOUT.section6.minFontSize,
     minLineHeight: PAGE3_LAYOUT.section6.minLineHeight,
     maxBottomY: PAGE3_LAYOUT.section6.maxBottomY,
+    targetBottomY: PAGE3_LAYOUT.section6.maxBottomY - pt(8),
+    maxExtraParagraphGap: pt(4),
+    text: "",
+  });
+  const section7Heading = buildCenteredSectionHeading({
+    text: page3.section7Heading,
+    afterBottomY: section6.bottomY,
+    x: PAGE3_LAYOUT.sectionHeading.x,
+    width: PAGE3_LAYOUT.sectionHeading.width,
+    topGap: PAGE3_LAYOUT.sectionHeading.topGap,
+    bottomGap: PAGE3_LAYOUT.sectionHeading.bottomGap,
+    fontSize: PAGE3_LAYOUT.sectionHeading.size,
+    lineHeight: PAGE3_LAYOUT.sectionHeading.lineHeight,
+    fontFamily: SERIF_FONT_FAMILY,
+    fontWeight: 700,
+  });
+  const section7 = buildAdaptiveParagraphBlock({
+    paragraphs: page3.section7,
+    x: PAGE3_LAYOUT.section6.x,
+    y: section7Heading.contentStartY,
+    width: PAGE3_LAYOUT.section6.width,
+    fontFamily: SERIF_FONT_FAMILY,
+    fontSize: PAGE3_LAYOUT.section6.size,
+    lineHeight: PAGE3_LAYOUT.section6.lineHeight,
+    paragraphGap: PAGE3_LAYOUT.section6.paragraphGap,
+    numberedStyle: "plain",
+    minFontSize: PAGE3_LAYOUT.section6.minFontSize,
+    minLineHeight: PAGE3_LAYOUT.section6.minLineHeight,
+    maxBottomY: PAGE3_LAYOUT.section6.maxBottomY,
+    targetBottomY: PAGE3_LAYOUT.section6.maxBottomY - pt(8),
+    maxExtraParagraphGap: pt(4),
     text: "",
   });
 
   return buildPageBase({
-    overlays: [top.svg, section5.svg, section6.svg],
+    overlays: [
+      top.svg,
+      section5Heading.svg,
+      section5.svg,
+      section6Heading.svg,
+      section6.svg,
+      section7Heading.svg,
+      section7.svg,
+    ],
   });
 }
 
@@ -1212,8 +1618,8 @@ function buildContactColumn(input: {
     x: input.x,
     y: input.y,
     width: input.width,
-    fontSize: 18,
-    lineHeight: 20,
+    fontSize: 16.8,
+    lineHeight: 18.8,
     fontWeight: 700,
     textAlign: "center",
   });
@@ -1222,11 +1628,11 @@ function buildContactColumn(input: {
     x: input.x,
     y: input.y + 44,
     width: input.width,
-    fontSize: 16,
-    lineHeight: 20,
+    fontSize: 14.8,
+    lineHeight: 18.6,
     fontWeight: 400,
     textAlign: "center",
-    paragraphGap: 6,
+    paragraphGap: 5,
     text: "",
   });
 
@@ -1241,7 +1647,7 @@ function buildPage4(input: {
   payload: LegalServicesAgreementDraftPayload;
 }) {
   const fields = buildLegalServicesAgreementResolvedFields(input);
-  const topBlock = buildFittedParagraphBlock({
+  const topBlock = buildAdaptiveParagraphBlock({
     paragraphs: [
       "7.5. По требованию Доверителя Законный представитель обязуется предоставить Доверителю электронную копию Договора немедленно по электронной почте.",
       "7.6. Доверитель по правовому статусу также приравнивается к подзащитному и/или клиенту адвоката",
@@ -1253,16 +1659,32 @@ function buildPage4(input: {
     fontSize: PAGE4_LAYOUT.top.size,
     lineHeight: PAGE4_LAYOUT.top.lineHeight,
     paragraphGap: PAGE4_LAYOUT.top.paragraphGap,
+    numberedIndent: mm(2.4),
+    numberedMarkerGap: pt(1.6),
     minFontSize: PAGE4_LAYOUT.top.minFontSize,
     minLineHeight: PAGE4_LAYOUT.top.minLineHeight,
     maxBottomY: PAGE4_LAYOUT.top.maxBottomY,
+    targetBottomY: PAGE4_LAYOUT.top.maxBottomY - pt(10),
+    maxExtraParagraphGap: pt(3.5),
     text: "",
+  });
+  const section8Heading = buildCenteredSectionHeading({
+    text: "8. Реквизиты и подписи сторон",
+    afterBottomY: topBlock.bottomY,
+    x: PAGE4_LAYOUT.sectionTitle.x,
+    width: PAGE4_LAYOUT.sectionTitle.width,
+    topGap: PAGE4_LAYOUT.sectionTitle.topGap,
+    bottomGap: PAGE4_LAYOUT.sectionTitle.bottomGap,
+    fontSize: PAGE4_LAYOUT.sectionTitle.size,
+    lineHeight: PAGE4_LAYOUT.sectionTitle.lineHeight,
+    fontFamily: SERIF_FONT_FAMILY,
+    fontWeight: 700,
   });
 
   const executorColumn = buildContactColumn({
     heading: "ИСПОЛНИТЕЛЬ",
     x: PAGE4_LAYOUT.executorColumn.x,
-    y: PAGE4_LAYOUT.executorColumn.y,
+    y: section8Heading.contentStartY + pt(3.4),
     width: PAGE4_LAYOUT.executorColumn.width,
     lines: [
       fields.executorPosition,
@@ -1276,7 +1698,7 @@ function buildPage4(input: {
   const trustorColumn = buildContactColumn({
     heading: "ЗАКАЗЧИК",
     x: PAGE4_LAYOUT.trustorColumn.x,
-    y: PAGE4_LAYOUT.trustorColumn.y,
+    y: section8Heading.contentStartY + pt(3.4),
     width: PAGE4_LAYOUT.trustorColumn.width,
     lines: [
       "Гражданин штата Сан-Андреас",
@@ -1291,16 +1713,7 @@ function buildPage4(input: {
   return buildPageBase({
     overlays: [
       topBlock.svg,
-      buildTextBlock({
-        text: "8. Реквизиты и подписи сторон",
-        x: 0,
-        y: PAGE4_LAYOUT.sectionTitle.y,
-        width: PAGE_WIDTH,
-        fontSize: PAGE4_LAYOUT.sectionTitle.size,
-        lineHeight: PAGE4_LAYOUT.sectionTitle.lineHeight,
-        fontWeight: 700,
-        textAlign: "center",
-      }),
+      section8Heading.svg,
       executorColumn.svg,
       trustorColumn.svg,
       `<line x1="${PAGE4_LAYOUT.signatureLines.leftX1}" y1="${PAGE4_LAYOUT.signatureLines.y}" x2="${PAGE4_LAYOUT.signatureLines.leftX2}" y2="${PAGE4_LAYOUT.signatureLines.y}" stroke="#7a7a7a" stroke-width="1" />`,
