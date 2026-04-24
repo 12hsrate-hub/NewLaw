@@ -2,16 +2,29 @@
 
 ## Статус блока
 
-Статус: `active / security correction`
+Статус: `implemented in repo / security correction`
 
 Это не post-MVP enhancement и не scope expansion.
-Это обязательное исправление неправильной access-control модели, потому что текущий repo-state позволяет пользователю самому назначать себе роли и access flags.
+Это обязательное исправление неправильной access-control модели.
+
+Текущий статус:
+
+- correction-линия уже реализована в repo
+- self-service назначение ролей и access flags закрыто
+- заявка на адвокатский доступ уже существует
+- internal approve/reject уже существует
+- nondestructive review-list текущих назначений уже существует
+
+Отдельно от product-scope:
+
+- production rollout может требовать повторного deploy, если внешний DB/pooler даёт временный runtime blocker
+- это не меняет fact-of-implementation на уровне repo-state
 
 ## Проблема
 
 Текущая self-service линия управления персонажами нарушает согласованную модель доступа.
 
-Подтверждённый repo-state:
+Исходный проблемный repo-state был таким:
 
 - `src/components/product/characters/character-form-card.tsx` реально рендерит чекбоксы `roleKeys` и `accessFlags`
 - `src/server/actions/characters.ts` реально читает `roleKeys/accessFlags` из `FormData`
@@ -66,6 +79,14 @@
 - обычный пользователь не может сам себе выдать `lawyer`, `advocate`, `server_admin`, `server_editor`, `tester`
 - это закрыто и через UI, и через подмену `FormData`
 
+Статус реализации:
+
+- выполнено в repo
+- self-service формы больше не рендерят role/access controls
+- self-service actions игнорируют любые вручную переданные `roleKeys/accessFlags`
+- self-service create создаёт только `citizen + []`
+- self-service update не меняет `CharacterRole/CharacterAccessFlag`
+
 ## Этап 13.2 — Разделение self-service и admin-only мутаций
 
 Цель: развести редактирование профиля и админское управление назначениями.
@@ -82,6 +103,12 @@
 
 - обычные character actions не содержат кода, который меняет роли/access flags
 - роли/access flags меняются только через admin-only сервис
+
+Статус реализации:
+
+- выполнено в repo
+- self-service schema отделена от admin assignment schema
+- admin-only mutation path и audit log уже существуют
 
 ## Этап 13.3 — Модель заявки на адвокатский доступ
 
@@ -128,6 +155,12 @@ Enums:
 - если у персонажа уже есть `advocate`, новая заявка не нужна
 - заявка сама по себе не выдаёт доступ
 
+Статус реализации:
+
+- выполнено в repo
+- `CharacterAccessRequest` и связанные enums уже добавлены
+- server-side guards для duplicate pending, foreign character, soft-deleted character и already-granted уже есть
+
 ## Этап 13.4 — Пользовательский UI заявки
 
 Цель: пользователь видит статус адвокатского доступа и может отправить заявку.
@@ -147,6 +180,12 @@ Enums:
 
 - не возвращать чекбоксы ролей пользователю
 - заявка не должна мгновенно выдавать доступ
+
+Статус реализации:
+
+- выполнено в repo
+- `/account/characters` показывает состояние доступа
+- там же доступна отправка заявки и виден feedback по статусу
 
 ## Этап 13.5 — Internal/admin UI для рассмотрения заявок
 
@@ -190,6 +229,12 @@ Reject:
 - роли/access flags не менять
 - записать audit log
 
+Статус реализации:
+
+- выполнено в repo
+- `/internal/access-requests` уже существует
+- pending review, approve/reject и server-side guard уже реализованы
+
 ## Этап 13.6 — Audit log и безопасность
 
 Зафиксировать audit actions:
@@ -205,6 +250,12 @@ Reject:
 - владелец персонажа не может сам одобрить свою заявку
 - admin actions должны использовать server-side guard
 - все ошибки должны быть безопасными и не раскрывать чужие данные
+
+Статус реализации:
+
+- выполнено в repo
+- audit actions `character_access_request_created`, `character_access_request_approved`, `character_access_request_rejected` уже используются
+- self-review и non-super-admin review уже блокируются server-side
 
 ## Этап 13.7 — Тесты
 
@@ -228,6 +279,11 @@ Access request:
 - approve/reject доступны только `super_admin`
 - audit log пишется
 
+Статус реализации:
+
+- выполнено в repo
+- self-service, request lifecycle и internal review tests уже добавлены и проходят локальные проверки
+
 ## Этап 13.8 — Миграция существующих данных
 
 Зафиксировать:
@@ -237,6 +293,12 @@ Access request:
 - destructive cleanup не делать в этой задаче
 - можно добавить internal список персонажей с текущими ролями/access flags для ручной проверки
 - новая логика должна предотвратить дальнейшее самоназначение
+
+Статус реализации:
+
+- выполнено в repo в nondestructive варианте
+- `/internal/access-requests` уже показывает manual review-list персонажей с небазовыми ролями и access flags
+- автоматического destructive cleanup нет
 
 ## Документация, которую нужно будет обновить при реализации
 
@@ -265,3 +327,8 @@ Access request:
 - reject не выдаёт доступ
 - всё покрыто тестами
 - документация синхронизирована
+
+Текущий repo-state:
+
+- criteria считаются закрытыми на уровне репозитория
+- отдельно может оставаться только operational rollout retry, если production deploy блокируется внешней доступностью БД или pooler

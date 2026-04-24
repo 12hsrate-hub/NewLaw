@@ -57,6 +57,10 @@
 - базовая иерархия: `Account -> Server -> Characters -> Documents`
 - trustors привязаны к `user + server`, а document flows остаются snapshot-based
 - `/account/trustors` — convenience layer, а не обязательная runtime dependency documents
+- self-service управление персонажем не должно менять `roleKeys` и `accessFlags`
+- новый персонаж создаётся как безопасный профиль с базовой ролью `citizen`
+- адвокатский доступ выдаётся только через `CharacterAccessRequest` и internal approve со стороны `super_admin`
+- представительские document flows доступны только персонажу с `accessFlag: advocate`
 - подпись для template/PDF/JPG documents хранится на уровне персонажа как отдельный asset и фиксируется в document snapshot
 - forum automation — optional / temporary capability, не required MVP success path
 - current AI scope уже не пустой:

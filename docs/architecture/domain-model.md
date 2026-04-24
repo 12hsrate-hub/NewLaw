@@ -49,6 +49,10 @@
 - паспорт уникален внутри `account + server`
 - роли и `access_flags` привязаны к `character_id`
 - `/account/characters` — profile-management зона, а не document hub
+- self-service create/update управляет только профильными полями
+- self-service character flows не должны менять `CharacterRole` и `CharacterAccessFlag`
+- базовая безопасная роль нового персонажа — `citizen`
+- служебные роли и access flags меняются только через admin/internal контур
 
 ### Trustor
 
@@ -76,6 +80,31 @@ Trustor — reusable сущность в контексте `user + server`.
 Канонический живой consumer этого правила:
 
 - `attorney_request`
+
+### CharacterAccessRequest
+
+`CharacterAccessRequest` — server-scoped заявка пользователя на выдачу адвокатского доступа своему персонажу.
+
+Зафиксировано:
+
+- заявка принадлежит `account`, `server`, `character`
+- текущий `requestType`:
+  - `advocate_access`
+- lifecycle status:
+  - `pending`
+  - `approved`
+  - `rejected`
+  - `cancelled`
+- заявка сама по себе не выдаёт доступ
+- approve/reject доступны только `super_admin`
+- approve добавляет персонажу `lawyer + advocate`
+- reject не меняет роли и access flags
+- владелец персонажа не может сам одобрить свою заявку
+
+Текущие живые consumer routes:
+
+- `/account/characters` — статус и подача заявки
+- `/internal/access-requests` — pending review и ручная ревизия уже выданных назначений
 
 ## Document
 

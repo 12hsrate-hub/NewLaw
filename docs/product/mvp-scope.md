@@ -44,7 +44,11 @@
 
 - это не новая продуктовая линия и не расширение scope
 - это обязательная security correction текущей access-model
-- текущий repo-state ещё должен быть приведён к этой модели отдельной active correction-задачей
+- текущий repo-state уже приведён к этой модели:
+  - self-service create/update не читает и не применяет `roleKeys/accessFlags`
+  - пользовательский UI больше не возвращает чекбоксы ролей и доступов
+  - `/account/characters` показывает статус адвокатского доступа и даёт отправить заявку
+  - `/internal/access-requests` даёт `super_admin` approve/reject и отдельный review-list уже выданных назначений
 - source-of-truth для correction-линии: [docs/plans/13-character-access-requests-and-role-approval.md](../plans/13-character-access-requests-and-role-approval.md)
 
 ### Документы внутри закрытого MVP
