@@ -22,14 +22,18 @@ import type { DocumentAuthorSnapshot } from "@/schemas/document";
 
 const PAGE_WIDTH = 953;
 const PAGE_HEIGHT = 1348;
-const PAGE_BORDER_X = 25;
-const PAGE_BORDER_Y = 82;
-const PAGE_BORDER_WIDTH = 884;
-const PAGE_BORDER_HEIGHT = 1128;
-const QR_X = 49;
-const QR_Y = 1127;
-const QR_SIZE = 54;
-const PAGE_TEXT_BOTTOM = QR_Y - 18;
+const A4_WIDTH_MM = 210;
+const A4_HEIGHT_MM = 297;
+const PX_PER_MM = PAGE_WIDTH / A4_WIDTH_MM;
+const PX_PER_PT = (PX_PER_MM * 25.4) / 72;
+const PAGE_BORDER_X = mm(8.6);
+const PAGE_BORDER_Y = mm(18.1);
+const PAGE_BORDER_WIDTH = mm(194.8);
+const PAGE_BORDER_HEIGHT = mm(248.6);
+const QR_X = mm(10.8);
+const QR_Y = mm(248.8);
+const QR_SIZE = mm(10.6);
+const PAGE_TEXT_BOTTOM = QR_Y - mm(4.2);
 const assetCache = new Map<string, string>();
 
 const ASSETS_DIR = join(
@@ -44,11 +48,35 @@ const FONTS_DIR = join(ASSETS_DIR, "fonts");
 const STATIC_DIR = join(ASSETS_DIR, "static");
 const LEGAL_SERVICES_AGREEMENT_SEAL_PATH = join(
   STATIC_DIR,
-  "seal-page1-crop-final-fixed.png",
+  "seal-page1-crop-final.png",
 );
 
-const SERIF_FONT_FAMILY = "Times New Roman, Liberation Serif, serif";
+function mm(value: number) {
+  return Number((value * PX_PER_MM).toFixed(2));
+}
+
+function pt(value: number) {
+  return Number((value * PX_PER_PT).toFixed(2));
+}
+
+const SERIF_FONT_FAMILY = "Times New Roman, Tinos, Nimbus Roman, Liberation Serif, serif";
 const SIGNATURE_FONT_FAMILY = "LegalServicesAgreementSignature";
+
+const PAGE1_PRINT_TOKENS = {
+  fontSerifRegular: SERIF_FONT_FAMILY,
+  fontSerifBold: SERIF_FONT_FAMILY,
+  fontSerifItalic: SERIF_FONT_FAMILY,
+  bodyFontSize: pt(11.7),
+  bodyLineHeight: pt(15.1),
+  introFontSize: pt(11.4),
+  introLineHeight: pt(14.8),
+  titleLine1Size: pt(12.8),
+  titleLine2Size: pt(11.5),
+  metaFontSize: pt(8.3),
+  sectionTitleSize: pt(12.2),
+  listIndent: mm(1.8),
+  hangingIndent: mm(5.9),
+} as const;
 
 const signatureFontDataUrl = readLocalAssetDataUrl(
   join(FONTS_DIR, "GreatVibes-Regular.ttf"),
@@ -99,8 +127,8 @@ const CYRILLIC_TO_LATIN_MAP: Record<string, string> = {
   я: "ya",
 };
 
-const CONTENT_LEFT_X = 62;
-const CONTENT_RIGHT_X = 850;
+const CONTENT_LEFT_X = mm(16.2);
+const CONTENT_RIGHT_X = mm(188.3);
 const CONTENT_WIDTH = CONTENT_RIGHT_X - CONTENT_LEFT_X;
 
 const PAGE_BASE_CONFIG = {
@@ -118,66 +146,56 @@ const PAGE_BASE_CONFIG = {
 } as const;
 
 const PAGE1_LAYOUT = {
-  header: {
-    seal: {
-      x: 438,
-      y: 98,
-      width: 64,
-      height: 56,
-    },
-    titleBlock: {
-      x: 300,
-      width: 300,
-    },
-    title: {
-      y: 179,
-      size: 19,
-      lineHeight: 22,
-    },
-    subtitle: {
-      y: 203,
-      size: 17,
-      lineHeight: 20,
-    },
-    connector: {
-      y: 225,
-      size: 16,
-      lineHeight: 19,
-    },
-    date: {
-      x: 42,
-      y: 231,
-      width: 190,
-      size: 18,
-      lineHeight: 20,
-    },
-    registerTitle: {
-      x: 734,
-      y: 228,
-      width: 114,
-      size: 12.4,
-      lineHeight: 16,
-    },
-    registerNumber: {
-      x: 734,
-      y: 250,
-      width: 114,
-      size: 12.4,
-      lineHeight: 16,
-    },
+  decorativeFrame: {
+    x: PAGE_BORDER_X,
+    y: PAGE_BORDER_Y,
+    width: PAGE_BORDER_WIDTH,
+    height: PAGE_BORDER_HEIGHT,
   },
-  intro: { x: CONTENT_LEFT_X, y: 312, width: CONTENT_WIDTH, size: 16.8, lineHeight: 22 },
-  sectionTitle: { x: PAGE_BORDER_X, y: 445, width: PAGE_BORDER_WIDTH, size: 21, lineHeight: 24 },
-  sectionBody: {
-    x: CONTENT_LEFT_X + 6,
-    y: 478,
-    width: CONTENT_WIDTH - 12,
-    size: 15,
-    lineHeight: 17.8,
-    paragraphGap: 7,
-    minFontSize: 13.4,
-    minLineHeight: 16.4,
+  crest: {
+    x: mm(94.4),
+    y: mm(21.4),
+    width: mm(23.8),
+    height: mm(18.9),
+  },
+  titleStack: {
+    x: mm(59.2),
+    width: mm(91.4),
+    titleY: mm(44.1),
+    subtitleY: mm(50.1),
+  },
+  metaLeftDate: {
+    x: mm(16.2),
+    y: mm(54.2),
+    width: mm(54),
+  },
+  metaRightRegister: {
+    x: mm(143.8),
+    y: mm(54.9),
+    width: mm(42.6),
+    titleGap: pt(7.9),
+  },
+  introBlock: {
+    x: mm(17.1),
+    y: mm(68.1),
+    width: mm(168.2),
+  },
+  sectionTitle: {
+    x: PAGE_BORDER_X,
+    y: mm(101.2),
+    width: PAGE_BORDER_WIDTH,
+  },
+  bodyTextFrame: {
+    x: mm(17.1),
+    y: mm(108.4),
+    width: mm(168.2),
     maxBottomY: PAGE_TEXT_BOTTOM,
+    paragraphGap: pt(3.2),
+  },
+  qrBlock: {
+    x: QR_X,
+    y: QR_Y,
+    size: QR_SIZE,
   },
 } as const;
 
@@ -320,7 +338,9 @@ type BulletListBlockConfig = {
   fontWeight?: 400 | 700;
   fontStyle?: "normal" | "italic";
   itemGap?: number;
-  bulletGap?: number;
+  listIndent?: number;
+  hangingIndent?: number;
+  marker?: string;
 };
 
 type BuiltBlock = {
@@ -545,15 +565,18 @@ function buildBulletListBlock(input: BulletListBlockConfig): BuiltBlock {
   const parts: string[] = [];
   let cursorY = input.y;
   const itemGap = input.itemGap ?? Math.round(input.lineHeight * 0.35);
-  const bulletGap = input.bulletGap ?? 14;
-  const textX = input.x + bulletGap;
-  const textWidth = Math.max(20, input.width - bulletGap);
+  const listIndent = input.listIndent ?? 0;
+  const hangingIndent = input.hangingIndent ?? Math.max(18, input.lineHeight * 0.9);
+  const marker = input.marker ?? "•";
+  const bulletX = input.x + listIndent;
+  const textX = input.x + hangingIndent;
+  const textWidth = Math.max(20, input.width - hangingIndent);
 
   for (const item of input.items) {
     const lines = wrapText(item, textWidth, input.fontSize);
 
     parts.push(
-      `<text x="${input.x}" y="${cursorY}" font-family="${input.fontFamily ?? SERIF_FONT_FAMILY}" font-size="${input.fontSize}"${input.fontWeight ? ` font-weight="${input.fontWeight}"` : ""}${input.fontStyle ? ` font-style="${input.fontStyle}"` : ""}>•</text>`,
+      `<text x="${bulletX}" y="${cursorY}" font-family="${input.fontFamily ?? SERIF_FONT_FAMILY}" font-size="${input.fontSize}"${input.fontWeight ? ` font-weight="${input.fontWeight}"` : ""}${input.fontStyle ? ` font-style="${input.fontStyle}"` : ""}>${escapeXml(marker)}</text>`,
     );
 
     parts.push(
@@ -712,10 +735,11 @@ function buildPreviewHtml(input: {
   <meta charset="utf-8" />
   <title>${escapeHtml(input.title)}</title>
   <style>
+    @page { size: ${A4_WIDTH_MM}mm ${A4_HEIGHT_MM}mm; margin: 0; }
     body { margin: 0; background: #f3f4f6; font-family: ${SERIF_FONT_FAMILY}; }
     .preview-shell { display: grid; gap: 24px; justify-content: center; padding: 24px; }
-    .page { width: min(100%, ${PAGE_WIDTH}px); background: #fff; box-shadow: 0 18px 50px rgba(15, 23, 42, 0.16); }
-    .page img { display: block; width: 100%; height: auto; }
+    .page { width: ${A4_WIDTH_MM}mm; min-height: ${A4_HEIGHT_MM}mm; background: #fff; box-shadow: 0 18px 50px rgba(15, 23, 42, 0.16); }
+    .page img { display: block; width: ${A4_WIDTH_MM}mm; height: ${A4_HEIGHT_MM}mm; }
     .page-meta { padding: 10px 14px; font-size: 12px; color: #6b7280; border-top: 1px solid #e5e7eb; }
   </style>
 </head>
@@ -951,120 +975,119 @@ function buildPage1(input: {
   const intro = `${fields.trustorFullName} с номером паспорта ${fields.trustorPassportNumber}, именуемый в дальнейшем «Доверитель», «Заказчик», с одной стороны, ${fields.executorPosition} ${fields.executorFullName} с номером паспорта ${fields.executorPassportNumber} действующий на основании закона «Об адвокатуре и адвокатской деятельности в штате Сан-Андреас», именуемый в дальнейшем «Исполнитель», «Представитель», «Поверенный» с другой стороны, заключили настоящий договор о нижеследующем:`;
   const section1Start = buildParagraphBlock({
     paragraphs: page1Content.beforeList,
-    x: PAGE1_LAYOUT.sectionBody.x,
-    y: PAGE1_LAYOUT.sectionBody.y,
-    width: PAGE1_LAYOUT.sectionBody.width,
-    fontFamily: SERIF_FONT_FAMILY,
-    fontSize: PAGE1_LAYOUT.sectionBody.size,
-    lineHeight: PAGE1_LAYOUT.sectionBody.lineHeight,
-    paragraphGap: PAGE1_LAYOUT.sectionBody.paragraphGap,
+    x: PAGE1_LAYOUT.bodyTextFrame.x,
+    y: PAGE1_LAYOUT.bodyTextFrame.y,
+    width: PAGE1_LAYOUT.bodyTextFrame.width,
+    fontFamily: PAGE1_PRINT_TOKENS.fontSerifRegular,
+    fontSize: PAGE1_PRINT_TOKENS.bodyFontSize,
+    lineHeight: PAGE1_PRINT_TOKENS.bodyLineHeight,
+    paragraphGap: PAGE1_LAYOUT.bodyTextFrame.paragraphGap,
     text: "",
   });
   const section1List = buildFittedBulletListBlock({
     items: page1Content.listItems,
-    x: PAGE1_LAYOUT.sectionBody.x + 6,
-    y: section1Start.bottomY - 4,
-    width: PAGE1_LAYOUT.sectionBody.width - 6,
-    fontFamily: SERIF_FONT_FAMILY,
-    fontSize: PAGE1_LAYOUT.sectionBody.size,
-    lineHeight: PAGE1_LAYOUT.sectionBody.lineHeight,
-    itemGap: 4,
-    bulletGap: 14,
-    minFontSize: PAGE1_LAYOUT.sectionBody.minFontSize,
-    minLineHeight: PAGE1_LAYOUT.sectionBody.minLineHeight,
-    maxBottomY: PAGE1_LAYOUT.sectionBody.maxBottomY - 26,
+    x: PAGE1_LAYOUT.bodyTextFrame.x,
+    y: section1Start.bottomY - pt(1.4),
+    width: PAGE1_LAYOUT.bodyTextFrame.width,
+    fontFamily: PAGE1_PRINT_TOKENS.fontSerifRegular,
+    fontSize: PAGE1_PRINT_TOKENS.bodyFontSize,
+    lineHeight: PAGE1_PRINT_TOKENS.bodyLineHeight,
+    itemGap: pt(1.8),
+    listIndent: PAGE1_PRINT_TOKENS.listIndent,
+    hangingIndent: PAGE1_PRINT_TOKENS.hangingIndent,
+    marker: "-",
+    minFontSize: pt(11.4),
+    minLineHeight: pt(14.3),
+    maxBottomY: PAGE1_LAYOUT.bodyTextFrame.maxBottomY - pt(10),
   });
   const section1End = buildFittedParagraphBlock({
     paragraphs: [page1Content.afterList],
-    x: PAGE1_LAYOUT.sectionBody.x,
-    y: section1List.bottomY + 2,
-    width: PAGE1_LAYOUT.sectionBody.width,
-    fontFamily: SERIF_FONT_FAMILY,
-    fontSize: PAGE1_LAYOUT.sectionBody.size,
-    lineHeight: PAGE1_LAYOUT.sectionBody.lineHeight,
-    paragraphGap: PAGE1_LAYOUT.sectionBody.paragraphGap,
-    minFontSize: PAGE1_LAYOUT.sectionBody.minFontSize,
-    minLineHeight: PAGE1_LAYOUT.sectionBody.minLineHeight,
-    maxBottomY: PAGE1_LAYOUT.sectionBody.maxBottomY,
+    x: PAGE1_LAYOUT.bodyTextFrame.x,
+    y: section1List.bottomY + pt(0.9),
+    width: PAGE1_LAYOUT.bodyTextFrame.width,
+    fontFamily: PAGE1_PRINT_TOKENS.fontSerifRegular,
+    fontSize: PAGE1_PRINT_TOKENS.bodyFontSize,
+    lineHeight: PAGE1_PRINT_TOKENS.bodyLineHeight,
+    paragraphGap: PAGE1_LAYOUT.bodyTextFrame.paragraphGap,
+    minFontSize: pt(11.4),
+    minLineHeight: pt(14.3),
+    maxBottomY: PAGE1_LAYOUT.bodyTextFrame.maxBottomY,
     text: "",
   });
 
   return buildPageBase({
-    seal: PAGE1_LAYOUT.header.seal,
+    seal: PAGE1_LAYOUT.crest,
     overlays: [
       buildTextBlock({
         text: `Договор №${readNormalizedValue(fields.agreementNumber)}`,
-        x: PAGE1_LAYOUT.header.titleBlock.x,
-        y: PAGE1_LAYOUT.header.title.y,
-        width: PAGE1_LAYOUT.header.titleBlock.width,
-        fontSize: PAGE1_LAYOUT.header.title.size,
-        lineHeight: PAGE1_LAYOUT.header.title.lineHeight,
+        x: PAGE1_LAYOUT.titleStack.x,
+        y: PAGE1_LAYOUT.titleStack.titleY,
+        width: PAGE1_LAYOUT.titleStack.width,
+        fontSize: PAGE1_PRINT_TOKENS.titleLine1Size,
+        lineHeight: pt(17.5),
+        fontFamily: PAGE1_PRINT_TOKENS.fontSerifBold,
         fontWeight: 700,
         textAlign: "center",
       }),
       buildTextBlock({
-        text: "На оказание юридических услуг",
-        x: PAGE1_LAYOUT.header.titleBlock.x,
-        y: PAGE1_LAYOUT.header.subtitle.y,
-        width: PAGE1_LAYOUT.header.titleBlock.width,
-        fontSize: PAGE1_LAYOUT.header.subtitle.size,
-        lineHeight: PAGE1_LAYOUT.header.subtitle.lineHeight,
-        fontWeight: 700,
-        textAlign: "center",
-      }),
-      buildTextBlock({
-        text: "от",
-        x: PAGE1_LAYOUT.header.titleBlock.x,
-        y: PAGE1_LAYOUT.header.connector.y,
-        width: PAGE1_LAYOUT.header.titleBlock.width,
-        fontSize: PAGE1_LAYOUT.header.connector.size,
-        lineHeight: PAGE1_LAYOUT.header.connector.lineHeight,
+        text: "На оказание юридических услуг от",
+        x: PAGE1_LAYOUT.titleStack.x,
+        y: PAGE1_LAYOUT.titleStack.subtitleY,
+        width: PAGE1_LAYOUT.titleStack.width,
+        fontSize: PAGE1_PRINT_TOKENS.titleLine2Size,
+        lineHeight: pt(13.6),
+        fontFamily: PAGE1_PRINT_TOKENS.fontSerifBold,
         fontWeight: 700,
         textAlign: "center",
       }),
       buildTextBlock({
         text: readNormalizedValue(fields.agreementDate),
-        x: PAGE1_LAYOUT.header.date.x,
-        y: PAGE1_LAYOUT.header.date.y,
-        width: PAGE1_LAYOUT.header.date.width,
-        fontSize: PAGE1_LAYOUT.header.date.size,
-        lineHeight: PAGE1_LAYOUT.header.date.lineHeight,
+        x: PAGE1_LAYOUT.metaLeftDate.x,
+        y: PAGE1_LAYOUT.metaLeftDate.y,
+        width: PAGE1_LAYOUT.metaLeftDate.width,
+        fontSize: PAGE1_PRINT_TOKENS.metaFontSize,
+        lineHeight: pt(13.2),
+        fontFamily: PAGE1_PRINT_TOKENS.fontSerifItalic,
         fontStyle: "italic",
       }),
       buildTextBlock({
         text: "San Andreas Register",
-        x: PAGE1_LAYOUT.header.registerTitle.x,
-        y: PAGE1_LAYOUT.header.registerTitle.y,
-        width: PAGE1_LAYOUT.header.registerTitle.width,
-        fontSize: PAGE1_LAYOUT.header.registerTitle.size,
-        lineHeight: PAGE1_LAYOUT.header.registerTitle.lineHeight,
+        x: PAGE1_LAYOUT.metaRightRegister.x,
+        y: PAGE1_LAYOUT.metaRightRegister.y,
+        width: PAGE1_LAYOUT.metaRightRegister.width,
+        fontSize: PAGE1_PRINT_TOKENS.metaFontSize,
+        lineHeight: pt(10.8),
+        fontFamily: PAGE1_PRINT_TOKENS.fontSerifBold,
         fontWeight: 700,
         textAlign: "right",
       }),
       buildTextBlock({
         text: `No. ${readNormalizedValue(fields.registerNumber)}`,
-        x: PAGE1_LAYOUT.header.registerNumber.x,
-        y: PAGE1_LAYOUT.header.registerNumber.y,
-        width: PAGE1_LAYOUT.header.registerNumber.width,
-        fontSize: PAGE1_LAYOUT.header.registerNumber.size,
-        lineHeight: PAGE1_LAYOUT.header.registerNumber.lineHeight,
+        x: PAGE1_LAYOUT.metaRightRegister.x,
+        y: PAGE1_LAYOUT.metaRightRegister.y + PAGE1_LAYOUT.metaRightRegister.titleGap,
+        width: PAGE1_LAYOUT.metaRightRegister.width,
+        fontSize: PAGE1_PRINT_TOKENS.metaFontSize,
+        lineHeight: pt(10.8),
+        fontFamily: PAGE1_PRINT_TOKENS.fontSerifRegular,
         textAlign: "right",
       }),
       buildTextBlock({
         text: intro,
-        x: PAGE1_LAYOUT.intro.x,
-        y: PAGE1_LAYOUT.intro.y,
-        width: PAGE1_LAYOUT.intro.width,
-        fontSize: PAGE1_LAYOUT.intro.size,
-        lineHeight: PAGE1_LAYOUT.intro.lineHeight,
+        x: PAGE1_LAYOUT.introBlock.x,
+        y: PAGE1_LAYOUT.introBlock.y,
+        width: PAGE1_LAYOUT.introBlock.width,
+        fontSize: PAGE1_PRINT_TOKENS.introFontSize,
+        lineHeight: PAGE1_PRINT_TOKENS.introLineHeight,
+        fontFamily: PAGE1_PRINT_TOKENS.fontSerifRegular,
       }),
       buildTextBlock({
         text: "1. Предмет договора (поручения)",
         x: PAGE1_LAYOUT.sectionTitle.x,
         y: PAGE1_LAYOUT.sectionTitle.y,
         width: PAGE1_LAYOUT.sectionTitle.width,
-        fontSize: PAGE1_LAYOUT.sectionTitle.size,
-        lineHeight: PAGE1_LAYOUT.sectionTitle.lineHeight,
+        fontSize: PAGE1_PRINT_TOKENS.sectionTitleSize,
+        lineHeight: pt(15.5),
+        fontFamily: PAGE1_PRINT_TOKENS.fontSerifBold,
         fontWeight: 700,
         textAlign: "center",
       }),

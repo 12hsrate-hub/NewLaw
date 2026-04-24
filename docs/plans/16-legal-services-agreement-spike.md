@@ -99,3 +99,43 @@ HTML preview остаётся вспомогательным developer/user prev
 - при необходимости будущий multi-format export поверх текущего postраничного PNG
 
 Нельзя разбрасывать business rules по `routes`, `context`, `UI` и `repository`.
+
+## Print-First Page 1
+
+Для 1-й страницы договора зафиксирован отдельный print-first подход.
+
+Цель:
+
+- уйти от responsive HTML-ощущения;
+- рендерить страницу как печатный бланк с фиксированными зонами;
+- держать одну управляемую текстовую колонку вместо случайного flow layout.
+
+Текущее направление для page 1:
+
+- page artboard мыслится как `A4 210mm x 297mm`;
+- layout задаётся через named zones:
+  - `decorativeFrame`
+  - `crest`
+  - `titleStack`
+  - `metaLeftDate`
+  - `metaRightRegister`
+  - `introBlock`
+  - `sectionTitle`
+  - `bodyTextFrame`
+  - `qrBlock`
+- кроме `bodyTextFrame`, зоны не должны участвовать в обычном flow;
+- body text должен использовать один явный serif font contract, а не generic browser serif;
+- `1.2` должен рендериться как контролируемый список с hanging indent, а не как браузерный `ul/li` без контроля.
+
+Для калибровки добавляется dev compare mode:
+
+- reference PNG первой страницы;
+- текущий рендер первой страницы;
+- overlay/opacity slider и difference mode;
+- подгонка делается через глобальные tokens, а не случайными локальными числами в каждом фрагменте.
+
+Остаётся открытым и не считается закрытым этим шагом:
+
+- полноценная true-text PDF генерация для всего договора;
+- перенос print-first contract на страницы 2–5;
+- окончательный production-grade export pipeline поверх текущего postраничного PNG.

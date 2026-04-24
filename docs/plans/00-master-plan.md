@@ -288,6 +288,7 @@ Post-MVP policy для этой линии:
   - export утверждён как page-by-page PNG
   - renderer переводится на page-by-page render с нуля по согласованному тексту страниц, без подрисовки поверх готовых raster reference pages
   - reference PDF остаётся source of truth для static text/layout
+  - для 1-й страницы вводится print-first page template с фиксированными зонами, typographic tokens и dev compare mode для калибровки
 
 ### Partial
 
