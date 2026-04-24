@@ -66,10 +66,10 @@ const PAGE1_PRINT_TOKENS = {
   fontSerifRegular: SERIF_FONT_FAMILY,
   fontSerifBold: SERIF_FONT_FAMILY,
   fontSerifItalic: SERIF_FONT_FAMILY,
-  bodyFontSize: pt(11.7),
-  bodyLineHeight: pt(15.1),
-  introFontSize: pt(11.4),
-  introLineHeight: pt(14.8),
+  bodyFontSize: pt(11.25),
+  bodyLineHeight: pt(14.15),
+  introFontSize: pt(11),
+  introLineHeight: pt(13.85),
   titleLine1Size: pt(12.8),
   titleLine2Size: pt(11.5),
   metaFontSize: pt(8.3),
@@ -145,6 +145,8 @@ const PAGE_BASE_CONFIG = {
   },
 } as const;
 
+const PAGE_FRAME_CENTER_X = PAGE_BORDER_X + PAGE_BORDER_WIDTH / 2;
+
 const PAGE1_LAYOUT = {
   decorativeFrame: {
     x: PAGE_BORDER_X,
@@ -159,8 +161,8 @@ const PAGE1_LAYOUT = {
     height: mm(18.9),
   },
   titleStack: {
-    x: mm(59.2),
-    width: mm(91.4),
+    x: PAGE_FRAME_CENTER_X - mm(90.4) / 2,
+    width: mm(90.4),
     titleY: mm(44.1),
     subtitleY: mm(50.1),
   },
@@ -176,9 +178,9 @@ const PAGE1_LAYOUT = {
     titleGap: pt(7.9),
   },
   introBlock: {
-    x: mm(17.1),
+    x: mm(15.2),
     y: mm(68.1),
-    width: mm(168.2),
+    width: mm(183),
   },
   sectionTitle: {
     x: PAGE_BORDER_X,
@@ -186,11 +188,11 @@ const PAGE1_LAYOUT = {
     width: PAGE_BORDER_WIDTH,
   },
   bodyTextFrame: {
-    x: mm(17.1),
+    x: mm(15.2),
     y: mm(108.4),
-    width: mm(168.2),
-    maxBottomY: PAGE_TEXT_BOTTOM,
-    paragraphGap: pt(3.2),
+    width: mm(183),
+    maxBottomY: PAGE_TEXT_BOTTOM - pt(4.5),
+    paragraphGap: pt(2.3),
   },
   qrBlock: {
     x: QR_X,
@@ -440,17 +442,17 @@ function estimateTextWidth(input: string, size: number) {
 
   for (const char of input) {
     if (char === " ") {
-      units += 0.34;
+      units += 0.31;
     } else if (/[0-9]/.test(char)) {
-      units += 0.52;
+      units += 0.5;
     } else if (/[A-Za-z]/.test(char)) {
-      units += 0.54;
+      units += 0.5;
     } else if (/[А-Яа-яЁё]/.test(char)) {
-      units += 0.61;
+      units += 0.57;
     } else if (/[.,:;!?()[\]"'/-]/.test(char)) {
-      units += 0.34;
+      units += 0.3;
     } else {
-      units += 0.58;
+      units += 0.54;
     }
   }
 
@@ -992,18 +994,18 @@ function buildPage1(input: {
     fontFamily: PAGE1_PRINT_TOKENS.fontSerifRegular,
     fontSize: PAGE1_PRINT_TOKENS.bodyFontSize,
     lineHeight: PAGE1_PRINT_TOKENS.bodyLineHeight,
-    itemGap: pt(1.8),
+    itemGap: pt(1.2),
     listIndent: PAGE1_PRINT_TOKENS.listIndent,
     hangingIndent: PAGE1_PRINT_TOKENS.hangingIndent,
     marker: "-",
     minFontSize: pt(11.4),
     minLineHeight: pt(14.3),
-    maxBottomY: PAGE1_LAYOUT.bodyTextFrame.maxBottomY - pt(10),
+    maxBottomY: PAGE1_LAYOUT.bodyTextFrame.maxBottomY - pt(7),
   });
   const section1End = buildFittedParagraphBlock({
     paragraphs: [page1Content.afterList],
     x: PAGE1_LAYOUT.bodyTextFrame.x,
-    y: section1List.bottomY + pt(0.9),
+    y: section1List.bottomY + pt(0.35),
     width: PAGE1_LAYOUT.bodyTextFrame.width,
     fontFamily: PAGE1_PRINT_TOKENS.fontSerifRegular,
     fontSize: PAGE1_PRINT_TOKENS.bodyFontSize,

@@ -169,7 +169,7 @@ describe("document.repository", () => {
           family: "legal_services_agreement",
           format: "legal_services_agreement_png_pages_v1",
           templateVersion: "legal_services_agreement_reference_pdf_v1",
-          rendererVersion: "legal_services_agreement_print_template_page1_v8",
+          rendererVersion: "legal_services_agreement_print_template_page1_v11",
           referenceState: "ready",
           previewHtml: "<main>preview</main>",
           previewText: "preview",
@@ -217,7 +217,7 @@ describe("document.repository", () => {
         generatedAt: new Date("2026-04-24T12:00:00.000Z"),
         generatedFormSchemaVersion: "legal_services_agreement_contract_v1",
         generatedOutputFormat: "legal_services_agreement_png_pages_v1",
-        generatedRendererVersion: "legal_services_agreement_print_template_page1_v8",
+        generatedRendererVersion: "legal_services_agreement_print_template_page1_v11",
       },
       db as never,
     );
