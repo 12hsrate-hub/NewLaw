@@ -11,7 +11,7 @@ import {
 import { LEGAL_SERVICES_AGREEMENT_RENDERER_VERSION } from "@/features/documents/legal-services-agreement/types";
 
 describe("legal services agreement", () => {
-  it("рендерит postраничный PNG-export поверх reference assets", async () => {
+  it("рендерит postраничный PNG-export page-by-page с нуля", async () => {
     const artifact = await renderLegalServicesAgreementArtifact({
       title: "Договор на оказание юридических услуг",
       authorSnapshot: legalServicesAgreementFixtureAuthorSnapshot,

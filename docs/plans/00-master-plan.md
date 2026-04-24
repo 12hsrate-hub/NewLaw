@@ -286,6 +286,7 @@ Post-MVP policy для этой линии:
   - replaceable fields для текущего reference template согласованы
   - подпись для этого документа утверждена как шрифтовая автогенерация из snapshots
   - export утверждён как page-by-page PNG
+  - renderer переводится на page-by-page render с нуля по согласованному тексту страниц, без подрисовки поверх готовых raster reference pages
   - reference PDF остаётся source of truth для static text/layout
 
 ### Partial

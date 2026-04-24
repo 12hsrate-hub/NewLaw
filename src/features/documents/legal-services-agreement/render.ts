@@ -15,21 +15,24 @@ import type {
 } from "@/features/documents/legal-services-agreement/schemas";
 import {
   LEGAL_SERVICES_AGREEMENT_REFERENCE_PAGE_COUNT,
-  buildLegalServicesAgreementIntroParagraph,
   buildLegalServicesAgreementPreviewText,
-  buildLegalServicesAgreementPricingParagraph,
-  buildLegalServicesAgreementPricingParagraphExtended,
   buildLegalServicesAgreementResolvedFields,
-  buildLegalServicesAgreementServicePeriodLine,
-  legalServicesAgreementReferenceAssets,
 } from "@/features/documents/legal-services-agreement/template-definition";
 import type { DocumentAuthorSnapshot } from "@/schemas/document";
 
 const PAGE_WIDTH = 953;
 const PAGE_HEIGHT = 1348;
-const RASTER_SCALE = 1;
+const PAGE_BORDER_X = 25;
+const PAGE_BORDER_Y = 82;
+const PAGE_BORDER_WIDTH = 884;
+const PAGE_BORDER_HEIGHT = 1128;
+const QR_X = 49;
+const QR_Y = 1127;
+const QR_SIZE = 54;
+const PAGE_TEXT_BOTTOM = QR_Y - 18;
 const assetCache = new Map<string, string>();
-const LEGAL_SERVICES_AGREEMENT_ASSETS_DIR = join(
+
+const ASSETS_DIR = join(
   process.cwd(),
   "src",
   "features",
@@ -37,19 +40,33 @@ const LEGAL_SERVICES_AGREEMENT_ASSETS_DIR = join(
   "legal-services-agreement",
   "assets",
 );
-const LEGAL_SERVICES_AGREEMENT_REFERENCE_DIR = join(
-  LEGAL_SERVICES_AGREEMENT_ASSETS_DIR,
-  "reference",
+const FONTS_DIR = join(ASSETS_DIR, "fonts");
+const STATIC_DIR = join(ASSETS_DIR, "static");
+const ATTORNEY_REQUEST_SEAL_PATH = join(
+  process.cwd(),
+  "src",
+  "features",
+  "documents",
+  "attorney-request",
+  "assets",
+  "department-of-justice-seal-reference.jpg",
 );
-const LEGAL_SERVICES_AGREEMENT_FONTS_DIR = join(
-  LEGAL_SERVICES_AGREEMENT_ASSETS_DIR,
-  "fonts",
-);
-const BODY_FONT_FAMILY = "Times New Roman, Liberation Serif, serif";
+
+const SERIF_FONT_FAMILY = "Times New Roman, Liberation Serif, serif";
+const SANS_FONT_FAMILY = "Arial, Helvetica, sans-serif";
 const SIGNATURE_FONT_FAMILY = "LegalServicesAgreementSignature";
+
 const signatureFontDataUrl = readLocalAssetDataUrl(
-  join(LEGAL_SERVICES_AGREEMENT_FONTS_DIR, "GreatVibes-Regular.ttf"),
+  join(FONTS_DIR, "GreatVibes-Regular.ttf"),
   "font/ttf",
+);
+const qrDataUrl = readLocalAssetDataUrl(
+  join(STATIC_DIR, "qr-static.png"),
+  "image/png",
+);
+const sealDataUrl = readLocalAssetDataUrl(
+  ATTORNEY_REQUEST_SEAL_PATH,
+  "image/jpeg",
 );
 
 const CYRILLIC_TO_LATIN_MAP: Record<string, string> = {
@@ -86,6 +103,34 @@ const CYRILLIC_TO_LATIN_MAP: Record<string, string> = {
   э: "e",
   ю: "yu",
   я: "ya",
+};
+
+const CONTENT_LEFT_X = 57;
+const CONTENT_RIGHT_X = 868;
+const CONTENT_WIDTH = CONTENT_RIGHT_X - CONTENT_LEFT_X;
+
+type TextBlockConfig = {
+  text: string;
+  x: number;
+  y: number;
+  width: number;
+  fontSize: number;
+  lineHeight: number;
+  fontFamily?: string;
+  fontWeight?: 400 | 700;
+  fontStyle?: "normal" | "italic";
+  textAlign?: "left" | "center" | "right";
+  textAnchor?: "start" | "middle" | "end";
+};
+
+type ParagraphBlockConfig = TextBlockConfig & {
+  paragraphs: string[];
+  paragraphGap?: number;
+};
+
+type BuiltBlock = {
+  svg: string;
+  bottomY: number;
 };
 
 export class LegalServicesAgreementGenerationBlockedError extends Error {
@@ -127,17 +172,6 @@ function readLocalAssetDataUrl(assetPath: string, mediaType: string) {
   assetCache.set(assetPath, dataUrl);
 
   return dataUrl;
-}
-
-function readReferencePageDataUrl(fileName: string) {
-  const extension = fileName.split(".").pop()?.toLowerCase() ?? "png";
-  const mediaType =
-    extension === "jpg" || extension === "jpeg" ? "image/jpeg" : "image/png";
-
-  return readLocalAssetDataUrl(
-    join(LEGAL_SERVICES_AGREEMENT_REFERENCE_DIR, fileName),
-    mediaType,
-  );
 }
 
 function readNormalizedValue(value: string | null | undefined, fallback = "—") {
@@ -195,13 +229,13 @@ function estimateTextWidth(input: string, size: number) {
     } else if (/[0-9]/.test(char)) {
       units += 0.52;
     } else if (/[A-Za-z]/.test(char)) {
-      units += 0.56;
+      units += 0.54;
     } else if (/[А-Яа-яЁё]/.test(char)) {
-      units += 0.615;
+      units += 0.61;
     } else if (/[.,:;!?()[\]"'/-]/.test(char)) {
       units += 0.34;
     } else {
-      units += 0.59;
+      units += 0.58;
     }
   }
 
@@ -246,19 +280,7 @@ function wrapText(input: string, width: number, size: number) {
   return result;
 }
 
-function buildTextBlock(input: {
-  text: string;
-  x: number;
-  y: number;
-  width: number;
-  fontSize: number;
-  lineHeight: number;
-  fontWeight?: 400 | 700;
-  fontStyle?: "normal" | "italic";
-  textAnchor?: "start" | "middle" | "end";
-  textAlign?: "left" | "center" | "right";
-  fontFamily?: string;
-}) {
+function buildTextBlock(input: TextBlockConfig) {
   const lines = wrapText(input.text, input.width, input.fontSize);
   const anchor = input.textAnchor ?? "start";
   const x =
@@ -272,11 +294,84 @@ function buildTextBlock(input: {
     .map((line, index) => {
       const y = input.y + index * input.lineHeight;
 
-      return `<text x="${x}" y="${y}" font-family="${input.fontFamily ?? BODY_FONT_FAMILY}" font-size="${input.fontSize}"${input.fontWeight ? ` font-weight="${input.fontWeight}"` : ""}${input.fontStyle ? ` font-style="${input.fontStyle}"` : ""}${anchor !== "start" ? ` text-anchor="${anchor}"` : ""}>${escapeXml(
+      return `<text x="${x}" y="${y}" font-family="${input.fontFamily ?? SERIF_FONT_FAMILY}" font-size="${input.fontSize}"${input.fontWeight ? ` font-weight="${input.fontWeight}"` : ""}${input.fontStyle ? ` font-style="${input.fontStyle}"` : ""}${anchor !== "start" ? ` text-anchor="${anchor}"` : ""}>${escapeXml(
         line,
       )}</text>`;
     })
     .join("");
+}
+
+function buildParagraphBlock(input: ParagraphBlockConfig): BuiltBlock {
+  const parts: string[] = [];
+  let cursorY = input.y;
+  const paragraphGap = input.paragraphGap ?? Math.round(input.lineHeight * 0.55);
+
+  for (const paragraph of input.paragraphs) {
+    if (paragraph.trim().length === 0) {
+      cursorY += paragraphGap;
+      continue;
+    }
+
+    const lines = wrapText(paragraph, input.width, input.fontSize);
+    const x =
+      input.textAlign === "center"
+        ? input.x + input.width / 2
+        : input.textAlign === "right"
+          ? input.x + input.width
+          : input.x;
+    const anchor =
+      input.textAnchor ??
+      (input.textAlign === "center"
+        ? "middle"
+        : input.textAlign === "right"
+          ? "end"
+          : "start");
+
+    parts.push(
+      ...lines.map((line, index) => {
+        const y = cursorY + index * input.lineHeight;
+
+        return `<text x="${x}" y="${y}" font-family="${input.fontFamily ?? SERIF_FONT_FAMILY}" font-size="${input.fontSize}"${input.fontWeight ? ` font-weight="${input.fontWeight}"` : ""}${input.fontStyle ? ` font-style="${input.fontStyle}"` : ""}${anchor !== "start" ? ` text-anchor="${anchor}"` : ""}>${escapeXml(
+          line,
+        )}</text>`;
+      }),
+    );
+
+    cursorY += lines.length * input.lineHeight + paragraphGap;
+  }
+
+  return {
+    svg: parts.join(""),
+    bottomY: cursorY,
+  };
+}
+
+function buildFittedParagraphBlock(
+  input: ParagraphBlockConfig & {
+    minFontSize?: number;
+    minLineHeight?: number;
+    maxBottomY: number;
+  },
+): BuiltBlock {
+  let fontSize = input.fontSize;
+  let lineHeight = input.lineHeight;
+  const minFontSize = input.minFontSize ?? Math.max(12, input.fontSize - 3);
+  const minLineHeight = input.minLineHeight ?? Math.max(15, input.lineHeight - 4);
+
+  while (true) {
+    const built = buildParagraphBlock({
+      ...input,
+      fontSize,
+      lineHeight,
+    });
+
+    if (built.bottomY <= input.maxBottomY || fontSize <= minFontSize) {
+      return built;
+    }
+
+    fontSize = Math.max(minFontSize, fontSize - 0.5);
+    lineHeight = Math.max(minLineHeight, lineHeight - 0.7);
+  }
 }
 
 function buildSignatureText(input: {
@@ -289,6 +384,83 @@ function buildSignatureText(input: {
   return `<text x="${input.x + input.width / 2}" y="${input.y}" font-family="${SIGNATURE_FONT_FAMILY}" font-size="${input.fontSize}" text-anchor="middle" fill="#111111">${escapeXml(
     input.fullName,
   )}</text>`;
+}
+
+function buildPageBase(input: { overlays: string[] }) {
+  const fontFace =
+    signatureFontDataUrl !== null
+      ? `<style>@font-face{font-family:'${SIGNATURE_FONT_FAMILY}';src:url('${signatureFontDataUrl}') format('truetype');font-weight:400;font-style:normal;}</style>`
+      : "";
+
+  const seal =
+    sealDataUrl !== null
+      ? `<image href="${sealDataUrl}" x="452" y="87" width="46" height="46" preserveAspectRatio="xMidYMid meet" />`
+      : "";
+  const qr =
+    qrDataUrl !== null
+      ? `<image href="${qrDataUrl}" x="${QR_X}" y="${QR_Y}" width="${QR_SIZE}" height="${QR_SIZE}" preserveAspectRatio="xMidYMid meet" />`
+      : "";
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${PAGE_WIDTH}" height="${PAGE_HEIGHT}" viewBox="0 0 ${PAGE_WIDTH} ${PAGE_HEIGHT}">
+    ${fontFace}
+    <rect width="${PAGE_WIDTH}" height="${PAGE_HEIGHT}" fill="#ffffff" />
+    <rect x="${PAGE_BORDER_X}" y="${PAGE_BORDER_Y}" width="${PAGE_BORDER_WIDTH}" height="${PAGE_BORDER_HEIGHT}" fill="none" stroke="#7a7a7a" stroke-width="1.2" />
+    ${seal}
+    ${qr}
+    ${input.overlays.join("\n")}
+  </svg>`;
+}
+
+async function rasterizePage(pageSvg: string) {
+  const pageBuffer = await sharp(Buffer.from(pageSvg))
+    .png({
+      compressionLevel: 9,
+      adaptiveFiltering: true,
+      palette: false,
+    })
+    .toBuffer();
+
+  return {
+    pngDataUrl: makeDataUrl("image/png", pageBuffer),
+    width: PAGE_WIDTH,
+    height: PAGE_HEIGHT,
+  };
+}
+
+function buildPreviewHtml(input: {
+  title: string;
+  pages: Array<{
+    pageNumber: number;
+    fileName: string;
+    pngDataUrl: string;
+  }>;
+}) {
+  return `<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <title>${escapeHtml(input.title)}</title>
+  <style>
+    body { margin: 0; background: #f3f4f6; font-family: ${SERIF_FONT_FAMILY}; }
+    .preview-shell { display: grid; gap: 24px; justify-content: center; padding: 24px; }
+    .page { width: min(100%, ${PAGE_WIDTH}px); background: #fff; box-shadow: 0 18px 50px rgba(15, 23, 42, 0.16); }
+    .page img { display: block; width: 100%; height: auto; }
+    .page-meta { padding: 10px 14px; font-size: 12px; color: #6b7280; border-top: 1px solid #e5e7eb; }
+  </style>
+</head>
+<body>
+  <main class="preview-shell">
+    ${input.pages
+      .map(
+        (page) => `<section class="page">
+          <img alt="Страница ${page.pageNumber}" src="${page.pngDataUrl}" />
+          <div class="page-meta">Страница ${page.pageNumber} · ${escapeHtml(page.fileName)}</div>
+        </section>`,
+      )
+      .join("")}
+  </main>
+</body>
+</html>`;
 }
 
 async function buildPlaceholderPageDataUrl() {
@@ -316,7 +488,7 @@ async function buildPlaceholderPageDataUrl() {
 }
 
 function buildReferenceMissingPreviewHtml(message: string) {
-  return `<main style="font-family:${BODY_FONT_FAMILY};max-width:960px;margin:0 auto;padding:24px;background:#ffffff;">
+  return `<main style="font-family:${SERIF_FONT_FAMILY};max-width:960px;margin:0 auto;padding:24px;background:#ffffff;">
     <h1 style="font-size:32px;margin:0 0 16px 0;">Договор на оказание юридических услуг</h1>
     <p style="font-size:18px;line-height:1.6;margin:0;">${escapeHtml(message)}</p>
   </main>`;
@@ -329,7 +501,7 @@ async function buildReferenceMissingArtifact(input: {
   blockingReasons: string[];
 }): Promise<LegalServicesAgreementRenderedArtifact> {
   const message =
-    "Reference asset package для договора на оказание юридических услуг недоступен.";
+    "Статические assets для рендера договора на оказание юридических услуг недоступны.";
   const pagePlaceholder = await buildPlaceholderPageDataUrl();
 
   return {
@@ -359,93 +531,502 @@ async function buildReferenceMissingArtifact(input: {
   };
 }
 
-function buildExecutorContactBlock(authorSnapshot: DocumentAuthorSnapshot) {
-  const position = readNormalizedValue(authorSnapshot.position, "Адвокат");
-
-  return `${position}
-${readNormalizedValue(authorSnapshot.fullName)}
-Номер паспорта:
-${readNormalizedValue(authorSnapshot.passportNumber)}
-Контактный телефон: ${readNormalizedValue(authorSnapshot.phone)}
-E-mail: ${readNormalizedValue(authorSnapshot.icEmail)}`;
-}
-
-function buildTrustorContactBlock(payload: LegalServicesAgreementDraftPayload) {
-  return `Гражданин штата Сан-Андреас
-${readNormalizedValue(payload.trustorSnapshot.fullName)}
-Номер паспорта:
-${readNormalizedValue(payload.trustorSnapshot.passportNumber)}
-Контактный телефон: ${readNormalizedValue(payload.trustorSnapshot.phone)}
-E-mail: ${readNormalizedValue(payload.trustorSnapshot.icEmail)}`;
-}
-
-function buildPageSvg(input: {
-  pageDataUrl: string;
-  overlays: string[];
+function buildPage1SectionParagraphs(input: {
+  authorSnapshot: DocumentAuthorSnapshot;
+  payload: LegalServicesAgreementDraftPayload;
 }) {
-  const fontFace =
-    signatureFontDataUrl !== null
-      ? `<style>@font-face{font-family:'${SIGNATURE_FONT_FAMILY}';src:url('${signatureFontDataUrl}') format('truetype');font-weight:400;font-style:normal;}</style>`
-      : "";
+  const fields = buildLegalServicesAgreementResolvedFields(input);
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${PAGE_WIDTH}" height="${PAGE_HEIGHT}" viewBox="0 0 ${PAGE_WIDTH} ${PAGE_HEIGHT}">
-    ${fontFace}
-    <image href="${input.pageDataUrl}" x="0" y="0" width="${PAGE_WIDTH}" height="${PAGE_HEIGHT}" />
-    ${input.overlays.join("\n")}
-  </svg>`;
+  return [
+    "1.1. По Договору Законный представитель обязуется оказывать юридическую помощь Доверителю, а Доверитель обязуется оплатить такую помощь.",
+    "1.2. В рамках Договора Законный представитель обязуется:",
+    "давать консультации и справки по правовым вопросам как в устной, так и в письменной форме;",
+    "представлять интересы доверителя в органах исполнительной власти, органах местного самоуправления, общественных объединениях и иных организациях;",
+    "подготавливать необходимые документы направлять их в Суд или органы государственной власти, в том числе Офис Генерального прокурора, в том числе от имени Доверителя и в его интересах;",
+    "требовать или запрашивать необходимые сведения от органов государственной власти, в том числе Офиса Генерального прокурора, которые касаются Доверителя, в том числе о проводящихся или проводившихся процессуальных действиях, расследованиях, проверок в сторону Доверителя;",
+    "составлять заявления, жалобы, ходатайства и другие документы правового характера в органы государственной власти, в том числе от имени Доверителя и в его интересах;",
+    "присутствовать при задержаниях Доверителя, допросе или при проведении других процессуальных действий в его сторону;",
+    "посещать Доверителя в местах лишения свободы в случае его ареста, в том числе Федеральной тюрьме и КПЗ региональных правоохранительных ведомств.",
+    "оформлять внесение залоговой суммы для оказания Доверителю услуги освобождения под залог из мест лишения свободы в рамках предусмотренных законодательством;",
+    "принимать все правовые методы для положительного для Доверителя решения Суда или органа государственной власти;",
+    "участвовать в качестве представителя доверителя в гражданском и административном судопроизводстве;",
+    "участвовать в качестве представителя или защитника доверителя в уголовном и административном судопроизводстве;",
+    "выступать в качестве представителя доверителя в налоговых правоотношениях;",
+    `1.3. Услуги по настоящему Договору подлежат оказанию Законным представителем с ${readNormalizedValue(
+      fields.servicePeriodStart,
+    )} по ${readNormalizedValue(fields.servicePeriodEnd)}.`,
+  ];
 }
 
-async function rasterizePage(pageSvg: string) {
-  const pageBuffer = await sharp(Buffer.from(pageSvg))
-    .resize(PAGE_WIDTH * RASTER_SCALE, PAGE_HEIGHT * RASTER_SCALE)
-    .png({
-      compressionLevel: 9,
-      adaptiveFiltering: true,
-      palette: false,
-    })
-    .toBuffer();
+function buildPage2Section2Paragraphs() {
+  return [
+    "2.1. Законный представитель обязуется:",
+    "Оказать услуги по настоящему Договору с надлежащим качеством и в соответствии с нормами действующего законодательства;",
+    "Оказать услуги в сроки, установленные настоящим Договором;",
+    "При исполнении настоящего Договора действовать в интересах Доверителя и от его имени;",
+    "Своевременно извещать Доверителя о необходимости участия последнего в переговорах, судебных заседаниях либо о необходимости присутствия Заказчика на иных мероприятиях.",
+    "Предоставлять Доверителю устные отчеты о ходе оказания услуг по настоящему Договору.",
+    "2.2. Законный представитель имеет право:",
+    "Требовать от Доверителя оплаты понесенных Законным представителем расходов в рамках исполнения предмета поручения Договора, таких как: оплата судебной пошлины; покупка и передача продуктов Доверителю в места лишения свободы; оплата проезда такси от места пребывания Законного представителя до места пребывания Доверителя.",
+    "2.3. Доверитель обязуется:",
+    "Предоставить Законному представителю документы, сведения, информацию, необходимые для надлежащего исполнения настоящего Договора.",
+    "Присутствовать на переговорах, судебных заседаниях, при проведении иных мероприятий, на необходимость посещения которых указал Законный представитель.",
+    "Оплатить услуги Законного представителя в размере, порядке и на условиях, которые установлены настоящим Договором.",
+    "2.4. Доверитель имеет право:",
+    "Осуществлять контроль за процессом оказания услуг Законным представителем, не вмешиваясь при этом в деятельность Законного представителя.",
+    "Требовать от Законного представителя представления устного отчета о ходе оказания услуг.",
+    "Присутствовать на всех судебных заседаниях, проводимых Законным представителем.",
+  ];
+}
+
+function buildPage2Section3And4Paragraphs(input: {
+  payload: LegalServicesAgreementDraftPayload;
+}) {
+  const fields = buildLegalServicesAgreementResolvedFields({
+    authorSnapshot: {
+      characterId: "",
+      serverId: "",
+      serverCode: "",
+      serverName: "",
+      fullName: "",
+      nickname: "",
+      passportNumber: "",
+      position: "",
+      address: "",
+      phone: "",
+      icEmail: "",
+      passportImageUrl: "",
+      isProfileComplete: false,
+      roleKeys: [],
+      accessFlags: [],
+      capturedAt: "",
+    },
+    payload: input.payload,
+  });
+
+  return [
+    "3. Порядок внесения изменений в Договор и расторжения Договора",
+    "3.1. Доверитель и Законный представитель имеют право в любое время суток, по обоюдному согласию вносить изменения в пункты 1, 2 и 4 настоящего Договора, дополнять или отменять действия определенных ранее пунктов.",
+    "3.2. Для внесения изменений в настоящий Договор достаточным условием является устное согласие уведомляемой Стороны с изменениями в Договор.",
+    "3.3. Стороны вправе расторгнуть настоящий Договор досрочно при обоюдном согласии.",
+    "3.4. Законный представитель может расторгнуть настоящий Договор досрочно в случае если его услуги не будут оплачены в течении одного часа после подписания Договора.",
+    "4. Стоимость услуг и порядок расчетов",
+    `4.1. Стоимость услуг по данному Договору определяется в размере ${readNormalizedValue(
+      fields.priceAmount,
+    )}.`,
+    "4.2. Оплата услуг Законного представителя осуществляется Доверителем в виде передачи Доверителем Законному представителю наличной денежной суммы, которая указана в пункте 4.1. настоящего Договора, или путём совершения банковского перевода на сумму, которая указана в пункте 4.1. настоящего Договора, на банковский счёт Законного представителя.",
+  ];
+}
+
+function buildPage3Paragraphs(input: { payload: LegalServicesAgreementDraftPayload }) {
+  const fields = buildLegalServicesAgreementResolvedFields({
+    authorSnapshot: {
+      characterId: "",
+      serverId: "",
+      serverCode: "",
+      serverName: "",
+      fullName: "",
+      nickname: "",
+      passportNumber: "",
+      position: "",
+      address: "",
+      phone: "",
+      icEmail: "",
+      passportImageUrl: "",
+      isProfileComplete: false,
+      roleKeys: [],
+      accessFlags: [],
+      capturedAt: "",
+    },
+    payload: input.payload,
+  });
 
   return {
-    pngDataUrl: makeDataUrl("image/png", pageBuffer),
-    width: PAGE_WIDTH * RASTER_SCALE,
-    height: PAGE_HEIGHT * RASTER_SCALE,
+    top: [
+      "4.3. Оплата услуг Законного представителя осуществляется Доверителем в течении одного часа после подписании Договора всеми Сторонами.",
+      "4.4. Оплата услуги по освобождению под залог Доверителя из КПЗ региональных правоохранительных ведомств осуществляется отдельно согласно статье 14 Административного кодекса.",
+      "4.5. Не подлежит возврату денежная сумма, которая была уплачена Доверителем Законному представителю в рамках оплаты стоимости услуг по настоящему Договору, в случае расторжения Договора по обоюдному согласию Сторон.",
+      "5. Ответственность сторон. Форс-Мажор",
+    ],
+    section5: [
+      "5.1. За неисполнение или ненадлежащее исполнение обязательств по настоящему Договору Стороны несут гражданскую ответственность и имеют право требовать от другой Стороны компенсацию в денежном эквиваленте, сумма которой будет определена судом исходя из обстоятельств.",
+      "5.2. Законный представитель не несет ответственности за последствия, связанные с предоставлением Заказчиком документов или сведений, не соответствующих действительности.",
+      "5.3. Стороны освобождаются от ответственности за неисполнение или ненадлежащее исполнение обязательств по Договору, если надлежащее исполнение оказалось невозможным вследствие непреодолимой силы, то есть чрезвычайных и непредотвратимых при данных условиях обстоятельств, под которыми понимаются: противоправные действия властей, гражданские волнения, эпидемии, блокада, эмбарго, землетрясения, наводнения, пожары или другие стихийные бедствия и иные форс-мажорные обстоятельства.",
+      "5.4. В случае наступления этих обстоятельств Сторона обязана в течение 24 часов уведомить об этом другую Сторону в письменном виде.",
+    ],
+    section6: [
+      "6. Порядок разрешения споров",
+      "6.1 Стороны договорились о применении обязательного претензионного порядка урегулирования споров в досудебном порядке. В случае возникновения споров стороны направляют друг другу претензии в письменном виде. При получении претензии сторона, получившая претензию, обязуется рассмотреть претензию в течение 14 (четырнадцати) календарных дней с момента ее получения с направлением другой стороне письменного ответа на претензию в указанный срок.",
+      "6.2. Все не урегулированные путем переговоров споры, связанные с заключением, толкованием, исполнением, изменением и расторжением Договора, передаются в суд соответствующей юрисдикции.",
+      "7.1. Настоящий Договор составлен в одном физическом экземпляре и хранится у Законного представителя или Доверителя, а также в одном электронном экземпляре (электронной копии) на сайте Департамента юстиции в разделе Договоры на оказание юридической помощи гражданам и организациям.",
+      "7.2. Высшую и окончательную юридическую силу несет электронный экземпляр, который опубликован на сайте Департамента юстиции в разделе Договоры на оказание юридической помощи гражданам и организациям.",
+      "7.3. Настоящий Договор публикуется Законным представителем на сайте Департамента юстиции в разделе Договоры на оказание юридической помощи гражданам и организациям в течении 6 часов с момента подписания Договора всеми сторонами Договора.",
+      "7.4. Подписывая настоящий Договор Доверитель считается уведомленным о том, что он может ознакомиться с настоящим Договором на сайте Департамента юстиции или непосредственно запросить электронную копию настоящего Договора у Законного представителя.",
+      `Сумма по договору: ${readNormalizedValue(fields.priceAmount)}.`,
+    ],
   };
 }
 
-function buildPreviewHtml(input: {
-  title: string;
-  pages: Array<{
-    pageNumber: number;
-    fileName: string;
-    pngDataUrl: string;
-  }>;
+function buildPage1(input: {
+  authorSnapshot: DocumentAuthorSnapshot;
+  payload: LegalServicesAgreementDraftPayload;
 }) {
-  return `<!doctype html>
-<html lang="ru">
-<head>
-  <meta charset="utf-8" />
-  <title>${escapeHtml(input.title)}</title>
-  <style>
-    body { margin: 0; background: #f3f4f6; font-family: ${BODY_FONT_FAMILY}; }
-    .preview-shell { display: grid; gap: 24px; justify-content: center; padding: 24px; }
-    .page { width: min(100%, ${PAGE_WIDTH}px); background: #fff; box-shadow: 0 18px 50px rgba(15, 23, 42, 0.16); }
-    .page img { display: block; width: 100%; height: auto; }
-    .page-meta { padding: 10px 14px; font-size: 12px; color: #6b7280; border-top: 1px solid #e5e7eb; }
-  </style>
-</head>
-<body>
-  <main class="preview-shell">
-    ${input.pages
-      .map(
-        (page) => `<section class="page">
-          <img alt="Страница ${page.pageNumber}" src="${page.pngDataUrl}" />
-          <div class="page-meta">Страница ${page.pageNumber} · ${escapeHtml(page.fileName)}</div>
-        </section>`,
-      )
-      .join("")}
-  </main>
-</body>
-</html>`;
+  const fields = buildLegalServicesAgreementResolvedFields(input);
+  const intro = `${fields.trustorFullName} с номером паспорта ${fields.trustorPassportNumber}, именуемый в дальнейшем «Доверитель», «Заказчик», с одной стороны, ${fields.executorPosition} ${fields.executorFullName} с номером паспорта ${fields.executorPassportNumber} действующий на основании закона «Об адвокатуре и адвокатской деятельности в штате Сан-Андреас», именуемый в дальнейшем «Исполнитель», «Представитель», «Поверенный» с другой стороны, заключили настоящий договор о нижеследующем:`;
+  const section1 = buildFittedParagraphBlock({
+    paragraphs: buildPage1SectionParagraphs(input),
+    x: CONTENT_LEFT_X + 12,
+    y: 438,
+    width: CONTENT_WIDTH - 34,
+    fontFamily: SANS_FONT_FAMILY,
+    fontSize: 15.5,
+    lineHeight: 19.5,
+    paragraphGap: 10,
+    minFontSize: 13.5,
+    minLineHeight: 17.2,
+    maxBottomY: PAGE_TEXT_BOTTOM,
+    text: "",
+  });
+
+  return buildPageBase({
+    overlays: [
+      buildTextBlock({
+        text: `Договор №${readNormalizedValue(fields.agreementNumber)}`,
+        x: 0,
+        y: 170,
+        width: PAGE_WIDTH,
+        fontSize: 19,
+        lineHeight: 22,
+        fontWeight: 700,
+        textAlign: "center",
+      }),
+      buildTextBlock({
+        text: "На оказание юридических услуг",
+        x: 0,
+        y: 194,
+        width: PAGE_WIDTH,
+        fontSize: 17,
+        lineHeight: 20,
+        fontWeight: 700,
+        textAlign: "center",
+      }),
+      buildTextBlock({
+        text: "от",
+        x: 0,
+        y: 217,
+        width: PAGE_WIDTH,
+        fontSize: 16,
+        lineHeight: 19,
+        fontWeight: 700,
+        textAlign: "center",
+      }),
+      buildTextBlock({
+        text: readNormalizedValue(fields.agreementDate),
+        x: 46,
+        y: 226,
+        width: 190,
+        fontSize: 18,
+        lineHeight: 20,
+        fontStyle: "italic",
+      }),
+      buildTextBlock({
+        text: `San Andreas Register\nNo. ${readNormalizedValue(fields.registerNumber)}`,
+        x: 745,
+        y: 228,
+        width: 122,
+        fontSize: 16,
+        lineHeight: 18,
+        fontWeight: 700,
+        textAlign: "right",
+      }),
+      buildTextBlock({
+        text: intro,
+        x: CONTENT_LEFT_X,
+        y: 292,
+        width: CONTENT_WIDTH,
+        fontSize: 18,
+        lineHeight: 25,
+      }),
+      buildTextBlock({
+        text: "1. Предмет договора (поручения)",
+        x: 0,
+        y: 408,
+        width: PAGE_WIDTH,
+        fontSize: 21,
+        lineHeight: 24,
+        fontWeight: 700,
+        textAlign: "center",
+      }),
+      section1.svg,
+    ],
+  });
+}
+
+function buildPage2(input: { payload: LegalServicesAgreementDraftPayload }) {
+  const section2 = buildFittedParagraphBlock({
+    paragraphs: buildPage2Section2Paragraphs(),
+    x: CONTENT_LEFT_X + 12,
+    y: 162,
+    width: CONTENT_WIDTH - 34,
+    fontFamily: SANS_FONT_FAMILY,
+    fontSize: 15.3,
+    lineHeight: 19.2,
+    paragraphGap: 9,
+    minFontSize: 13.4,
+    minLineHeight: 17,
+    maxBottomY: 715,
+    text: "",
+  });
+  const section3and4 = buildFittedParagraphBlock({
+    paragraphs: buildPage2Section3And4Paragraphs(input),
+    x: CONTENT_LEFT_X + 8,
+    y: section2.bottomY + 12,
+    width: CONTENT_WIDTH - 16,
+    fontFamily: SERIF_FONT_FAMILY,
+    fontSize: 16,
+    lineHeight: 22,
+    paragraphGap: 11,
+    minFontSize: 13.8,
+    minLineHeight: 18.5,
+    maxBottomY: PAGE_TEXT_BOTTOM,
+    text: "",
+  });
+
+  return buildPageBase({
+    overlays: [
+      buildTextBlock({
+        text: "2. Права и обязанности сторон",
+        x: 0,
+        y: 136,
+        width: PAGE_WIDTH,
+        fontSize: 20,
+        lineHeight: 23,
+        fontWeight: 700,
+        textAlign: "center",
+      }),
+      section2.svg,
+      section3and4.svg,
+    ],
+  });
+}
+
+function buildPage3(input: { payload: LegalServicesAgreementDraftPayload }) {
+  const page3 = buildPage3Paragraphs(input);
+  const top = buildFittedParagraphBlock({
+    paragraphs: page3.top,
+    x: CONTENT_LEFT_X + 4,
+    y: 160,
+    width: CONTENT_WIDTH - 8,
+    fontFamily: SERIF_FONT_FAMILY,
+    fontSize: 16,
+    lineHeight: 22,
+    paragraphGap: 11,
+    minFontSize: 14,
+    minLineHeight: 18.8,
+    maxBottomY: 455,
+    text: "",
+  });
+  const section5 = buildFittedParagraphBlock({
+    paragraphs: page3.section5,
+    x: CONTENT_LEFT_X + 8,
+    y: top.bottomY + 8,
+    width: CONTENT_WIDTH - 16,
+    fontFamily: SANS_FONT_FAMILY,
+    fontSize: 15.2,
+    lineHeight: 19.2,
+    paragraphGap: 10,
+    minFontSize: 13.2,
+    minLineHeight: 16.8,
+    maxBottomY: 805,
+    text: "",
+  });
+  const section6 = buildFittedParagraphBlock({
+    paragraphs: page3.section6,
+    x: CONTENT_LEFT_X + 6,
+    y: section5.bottomY + 10,
+    width: CONTENT_WIDTH - 12,
+    fontFamily: SERIF_FONT_FAMILY,
+    fontSize: 15.2,
+    lineHeight: 20.5,
+    paragraphGap: 10,
+    minFontSize: 12.8,
+    minLineHeight: 16.8,
+    maxBottomY: PAGE_TEXT_BOTTOM,
+    text: "",
+  });
+
+  return buildPageBase({
+    overlays: [top.svg, section5.svg, section6.svg],
+  });
+}
+
+function buildContactColumn(input: {
+  heading: string;
+  lines: string[];
+  x: number;
+  y: number;
+  width: number;
+}) {
+  const headingBlock = buildTextBlock({
+    text: input.heading,
+    x: input.x,
+    y: input.y,
+    width: input.width,
+    fontSize: 18,
+    lineHeight: 20,
+    fontWeight: 700,
+    textAlign: "center",
+  });
+  const bodyBlock = buildParagraphBlock({
+    paragraphs: input.lines,
+    x: input.x,
+    y: input.y + 44,
+    width: input.width,
+    fontSize: 16,
+    lineHeight: 20,
+    fontWeight: 700,
+    textAlign: "center",
+    paragraphGap: 6,
+    text: "",
+  });
+
+  return {
+    svg: `${headingBlock}${bodyBlock.svg}`,
+    bottomY: bodyBlock.bottomY,
+  };
+}
+
+function buildPage4(input: {
+  authorSnapshot: DocumentAuthorSnapshot;
+  payload: LegalServicesAgreementDraftPayload;
+}) {
+  const fields = buildLegalServicesAgreementResolvedFields(input);
+  const topBlock = buildFittedParagraphBlock({
+    paragraphs: [
+      "7.5. По требованию Доверителя Законный представитель обязуется предоставить Доверителю электронную копию Договора немедленно по электронной почте.",
+      "7.6. Доверитель по правовому статусу также приравнивается к подзащитному и/или клиенту адвоката",
+      "7.7. Законный представитель по правовому статусу приравнивается к Представителю доверителя, Адвокату и Защитнику доверителя.",
+    ],
+    x: CONTENT_LEFT_X + 4,
+    y: 160,
+    width: CONTENT_WIDTH - 8,
+    fontSize: 15.2,
+    lineHeight: 20,
+    paragraphGap: 9,
+    minFontSize: 13.5,
+    minLineHeight: 17.2,
+    maxBottomY: 300,
+    text: "",
+  });
+
+  const executorColumn = buildContactColumn({
+    heading: "ИСПОЛНИТЕЛЬ",
+    x: 102,
+    y: 356,
+    width: 270,
+    lines: [
+      fields.executorPosition,
+      fields.executorFullName,
+      "Номер паспорта:",
+      fields.executorPassportNumber,
+      `Контактный телефон: ${fields.executorPhone}`,
+      `E-mail: ${fields.executorIcEmail}`,
+    ],
+  });
+  const trustorColumn = buildContactColumn({
+    heading: "ЗАКАЗЧИК",
+    x: 582,
+    y: 356,
+    width: 270,
+    lines: [
+      "Гражданин штата Сан-Андреас",
+      fields.trustorFullName,
+      "Номер паспорта:",
+      fields.trustorPassportNumber,
+      `Контактный телефон: ${fields.trustorPhone}`,
+      `E-mail: ${fields.trustorIcEmail}`,
+    ],
+  });
+
+  return buildPageBase({
+    overlays: [
+      topBlock.svg,
+      buildTextBlock({
+        text: "8. Реквизиты и подписи сторон",
+        x: 0,
+        y: 322,
+        width: PAGE_WIDTH,
+        fontSize: 20,
+        lineHeight: 23,
+        fontWeight: 700,
+        textAlign: "center",
+      }),
+      executorColumn.svg,
+      trustorColumn.svg,
+      `<line x1="98" y1="655" x2="372" y2="655" stroke="#7a7a7a" stroke-width="1" />`,
+      `<line x1="580" y1="655" x2="854" y2="655" stroke="#7a7a7a" stroke-width="1" />`,
+      buildTextBlock({
+        text: fields.executorFullName,
+        x: 104,
+        y: 631,
+        width: 264,
+        fontSize: 14,
+        lineHeight: 16,
+        fontFamily: SANS_FONT_FAMILY,
+        fontWeight: 700,
+        textAlign: "left",
+      }),
+      buildTextBlock({
+        text: fields.trustorFullName,
+        x: 586,
+        y: 631,
+        width: 264,
+        fontSize: 14,
+        lineHeight: 16,
+        fontFamily: SANS_FONT_FAMILY,
+        fontWeight: 700,
+        textAlign: "left",
+      }),
+      buildSignatureText({
+        fullName: fields.executorFullName,
+        x: 112,
+        y: 649,
+        width: 246,
+        fontSize: 24,
+      }),
+      buildSignatureText({
+        fullName: fields.trustorFullName,
+        x: 594,
+        y: 649,
+        width: 246,
+        fontSize: 24,
+      }),
+      buildTextBlock({
+        text: "Name and signature",
+        x: 102,
+        y: 684,
+        width: 260,
+        fontSize: 10.5,
+        lineHeight: 12,
+        fontStyle: "italic",
+      }),
+      buildTextBlock({
+        text: "Name and signature",
+        x: 584,
+        y: 684,
+        width: 260,
+        fontSize: 10.5,
+        lineHeight: 12,
+        fontStyle: "italic",
+      }),
+    ],
+  });
+}
+
+function buildPage5() {
+  return buildPageBase({
+    overlays: [],
+  });
 }
 
 function validateLegalServicesAgreementForGeneration(input: {
@@ -507,124 +1088,11 @@ function validateLegalServicesAgreementForGeneration(input: {
     reasons.push("Заполните игровую почту доверителя.");
   }
 
+  if (qrDataUrl === null) {
+    reasons.push("Статический QR-asset договора недоступен.");
+  }
+
   return reasons;
-}
-
-function buildPage1Overlays(input: {
-  authorSnapshot: DocumentAuthorSnapshot;
-  payload: LegalServicesAgreementDraftPayload;
-}) {
-  const fields = buildLegalServicesAgreementResolvedFields(input);
-
-  return [
-    buildTextBlock({
-      text: `Договор №${readNormalizedValue(fields.agreementNumber)}\nНа оказание юридических услуг от`,
-      x: 298,
-      y: 187,
-      width: 360,
-      fontSize: 20,
-      lineHeight: 24,
-      fontWeight: 700,
-      textAlign: "center",
-      textAnchor: "middle",
-    }),
-    buildTextBlock({
-      text: readNormalizedValue(fields.agreementDate),
-      x: 63,
-      y: 260,
-      width: 180,
-      fontSize: 19,
-      lineHeight: 23,
-    }),
-    buildTextBlock({
-      text: `San Andreas Register\nNo. ${readNormalizedValue(fields.registerNumber)}`,
-      x: 765,
-      y: 250,
-      width: 120,
-      fontSize: 16,
-      lineHeight: 19,
-      fontWeight: 700,
-      textAlign: "right",
-      textAnchor: "end",
-    }),
-    buildTextBlock({
-      text: buildLegalServicesAgreementIntroParagraph(input),
-      x: 92,
-      y: 316,
-      width: 770,
-      fontSize: 20,
-      lineHeight: 30,
-    }),
-    buildTextBlock({
-      text: buildLegalServicesAgreementServicePeriodLine(input.payload),
-      x: 96,
-      y: 1098,
-      width: 746,
-      fontSize: 18,
-      lineHeight: 26,
-    }),
-  ];
-}
-
-function buildPage2Overlays(input: {
-  payload: LegalServicesAgreementDraftPayload;
-}) {
-  return [
-    buildTextBlock({
-      text: `4. Стоимость услуг и порядок расчётов\n\n${buildLegalServicesAgreementPricingParagraph(
-        input.payload,
-      )}\n\n${buildLegalServicesAgreementPricingParagraphExtended()}`,
-      x: 88,
-      y: 1082,
-      width: 780,
-      fontSize: 18,
-      lineHeight: 27,
-    }),
-  ];
-}
-
-function buildPage4Overlays(input: {
-  authorSnapshot: DocumentAuthorSnapshot;
-  payload: LegalServicesAgreementDraftPayload;
-}) {
-  return [
-    buildTextBlock({
-      text: buildExecutorContactBlock(input.authorSnapshot),
-      x: 118,
-      y: 317,
-      width: 274,
-      fontSize: 19,
-      lineHeight: 27,
-      fontWeight: 700,
-      textAlign: "center",
-      textAnchor: "middle",
-    }),
-    buildTextBlock({
-      text: buildTrustorContactBlock(input.payload),
-      x: 564,
-      y: 319,
-      width: 274,
-      fontSize: 19,
-      lineHeight: 27,
-      fontWeight: 700,
-      textAlign: "center",
-      textAnchor: "middle",
-    }),
-    buildSignatureText({
-      fullName: readNormalizedValue(input.authorSnapshot.fullName),
-      x: 82,
-      y: 622,
-      width: 302,
-      fontSize: 76,
-    }),
-    buildSignatureText({
-      fullName: readNormalizedValue(input.payload.trustorSnapshot.fullName),
-      x: 540,
-      y: 622,
-      width: 302,
-      fontSize: 76,
-    }),
-  ];
 }
 
 export async function renderLegalServicesAgreementArtifact(input: {
@@ -632,12 +1100,9 @@ export async function renderLegalServicesAgreementArtifact(input: {
   authorSnapshot: DocumentAuthorSnapshot;
   payload: LegalServicesAgreementDraftPayload;
 }): Promise<LegalServicesAgreementRenderedArtifact> {
-  const pageDataUrls = legalServicesAgreementReferenceAssets.pages.map((fileName) =>
-    readReferencePageDataUrl(fileName),
-  );
   const blockingReasons = validateLegalServicesAgreementForGeneration(input);
 
-  if (pageDataUrls.some((value) => value === null)) {
+  if (signatureFontDataUrl === null || qrDataUrl === null) {
     return buildReferenceMissingArtifact({
       title: input.title,
       authorSnapshot: input.authorSnapshot,
@@ -651,26 +1116,11 @@ export async function renderLegalServicesAgreementArtifact(input: {
   }
 
   const pageSvgs = [
-    buildPageSvg({
-      pageDataUrl: pageDataUrls[0]!,
-      overlays: buildPage1Overlays(input),
-    }),
-    buildPageSvg({
-      pageDataUrl: pageDataUrls[1]!,
-      overlays: buildPage2Overlays(input),
-    }),
-    buildPageSvg({
-      pageDataUrl: pageDataUrls[2]!,
-      overlays: [],
-    }),
-    buildPageSvg({
-      pageDataUrl: pageDataUrls[3]!,
-      overlays: buildPage4Overlays(input),
-    }),
-    buildPageSvg({
-      pageDataUrl: pageDataUrls[4]!,
-      overlays: [],
-    }),
+    buildPage1(input),
+    buildPage2({ payload: input.payload }),
+    buildPage3({ payload: input.payload }),
+    buildPage4(input),
+    buildPage5(),
   ];
   const pages = await Promise.all(
     pageSvgs.map(async (pageSvg, index) => {

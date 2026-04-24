@@ -8,10 +8,10 @@
 
 - отдельный `document_type`, не смешанный с `attorney_request`
 - server-scoped create/edit flow внутри `/servers/[serverSlug]/documents/...`
-- фиксированный template text из reference PDF без свободного редактора
+- фиксированный template text из согласованного эталона без свободного редактора
 - snapshot автора и доверителя при первом сохранении
 - page-by-page export в виде отдельных PNG-файлов
-- pixel-perfect renderer поверх reference asset package
+- renderer страницы с нуля, без full-page overlay поверх raster reference
 - финальная create/edit/generate validation без свободного редактора текста
 
 ## Source of truth
@@ -19,14 +19,14 @@
 Source of truth по static text/layout:
 
 - reference PDF `Dom Perignon_Nick Name.pdf`
-- derived reference pages package из этого PDF
+- согласованный текст страниц и визуальный эталон по PDF/сканам
 
 Правило:
 
-- static template text и QR не переписываются под код
-- renderer меняет только replaceable fields
-- QR остаётся статичным template element из reference package
-- если reference asset package недоступен, preview должен честно показать `reference_missing`, а не подменять договор выдуманным текстом
+- static template text не переписывается и не “улучшается” под код
+- страницы собираются с нуля как page renderer, а не через подрисовку поверх готового заполненного PNG
+- QR остаётся статичным template element, но как отдельный asset-слой, а не как full-page background
+- visual calibration допускается по reference PDF/сканам, но source of truth для текста — согласованный эталонный текст страниц
 
 ## Утверждённые replaceable fields
 
@@ -88,14 +88,14 @@ HTML preview остаётся вспомогательным developer/user prev
 Отдельно:
 
 - текст договора не редактируется свободно
-- reference text из PDF не переписывается под код
-- renderer подставляет только утверждённые replaceable fields
+- эталонный текст страниц не переписывается под код
+- renderer собирает страницу заново и подставляет только утверждённые replaceable fields
 
 ## Что должно остаться расширяемым
 
 - template definition и field map
-- renderer overlay positions
-- точный page overlay calibration
+- page layout config и style zones
+- точный page-by-page calibration по эталону
 - при необходимости будущий multi-format export поверх текущего postраничного PNG
 
 Нельзя разбрасывать business rules по `routes`, `context`, `UI` и `repository`.

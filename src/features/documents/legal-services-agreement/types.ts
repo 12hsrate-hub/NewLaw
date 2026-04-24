@@ -3,7 +3,7 @@ export const LEGAL_SERVICES_AGREEMENT_FORM_SCHEMA_VERSION =
 export const LEGAL_SERVICES_AGREEMENT_TEMPLATE_VERSION =
   "legal_services_agreement_reference_pdf_v1";
 export const LEGAL_SERVICES_AGREEMENT_RENDERER_VERSION =
-  "legal_services_agreement_reference_pages_v1";
+  "legal_services_agreement_fresh_page_renderer_v1";
 export const LEGAL_SERVICES_AGREEMENT_OUTPUT_FORMAT =
   "legal_services_agreement_png_pages_v1";
 
