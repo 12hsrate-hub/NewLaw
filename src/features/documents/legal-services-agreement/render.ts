@@ -9,6 +9,7 @@ import {
   LEGAL_SERVICES_AGREEMENT_RENDERER_VERSION,
   LEGAL_SERVICES_AGREEMENT_TEMPLATE_VERSION,
 } from "@/features/documents/legal-services-agreement/types";
+import { isLegalServicesAgreementNumberNormalized } from "@/features/documents/legal-services-agreement/formatting";
 import type {
   LegalServicesAgreementDraftPayload,
   LegalServicesAgreementRenderedArtifact,
@@ -156,44 +157,40 @@ const PAGE1_LAYOUT = {
     height: PAGE_BORDER_HEIGHT,
   },
   crest: {
-    x: mm(94.4),
-    y: mm(21.4),
-    width: mm(23.8),
-    height: mm(18.9),
+    x: mm(90.2),
+    y: mm(20.1),
+    width: mm(32.2),
+    height: mm(25.55),
   },
   titleStack: {
-    x: PAGE_FRAME_CENTER_X - mm(90.4) / 2,
-    width: mm(90.4),
-    titleY: mm(46.3),
-    subtitleY: mm(52.4),
-    centerOffsetX: PAGE_HEADING_CENTER_OFFSET_X,
-    titleLineOffsetX: mm(3.2),
+    centerX: PAGE_FRAME_CENTER_X,
+    crestToTitleGap: pt(7.8),
+    titleToSubtitleGap: pt(13.4),
+    subtitleToMetaGap: pt(17.8),
+    metaToIntroGap: pt(14.4),
   },
   metaLeftDate: {
     x: mm(14.4),
-    y: mm(56.1),
     width: mm(54),
   },
   metaRightRegister: {
-    x: mm(123.8),
-    y: mm(56.1),
-    width: mm(45.2),
-    titleGap: pt(8.9),
+    x: mm(111.6),
+    width: mm(58.6),
+    titleGap: pt(9.6),
   },
   introBlock: {
     x: PAGE_TEXT_FRAME_X,
-    y: mm(70.4),
     width: PAGE_TEXT_FRAME_WIDTH,
   },
   sectionTitle: {
     x: PAGE_BORDER_X,
-    y: mm(94.8),
+    y: mm(98.9),
     width: PAGE_BORDER_WIDTH,
     centerOffsetX: PAGE_HEADING_CENTER_OFFSET_X,
   },
   bodyTextFrame: {
     x: PAGE_TEXT_FRAME_X,
-    y: mm(100.6),
+    y: mm(104.7),
     width: PAGE_TEXT_FRAME_WIDTH,
     maxBottomY: PAGE_TEXT_BOTTOM - pt(2.8),
     paragraphGap: pt(2.3),
@@ -357,12 +354,24 @@ type TextBlockConfig = {
   textAnchor?: "start" | "middle" | "end";
 };
 
+type SingleLineTextConfig = {
+  text: string;
+  x: number;
+  y: number;
+  fontSize: number;
+  fontFamily?: string;
+  fontWeight?: 400 | 700;
+  fontStyle?: "normal" | "italic";
+  textAnchor?: "start" | "middle" | "end";
+};
+
 type ParagraphBlockConfig = TextBlockConfig & {
   paragraphs: string[];
   paragraphGap?: number;
   numberedIndent?: number;
   numberedMarkerGap?: number;
   numberedStyle?: "split" | "plain";
+  justify?: boolean;
 };
 
 type BulletListBlockConfig = {
@@ -379,6 +388,7 @@ type BulletListBlockConfig = {
   listIndent?: number;
   hangingIndent?: number;
   marker?: string;
+  justify?: boolean;
 };
 
 type BuiltBlock = {
@@ -422,6 +432,7 @@ type BulletSectionConfig = {
   listIndent?: number;
   hangingIndent?: number;
   itemGap?: number;
+  justify?: boolean;
 };
 
 export class LegalServicesAgreementGenerationBlockedError extends Error {
@@ -571,6 +582,16 @@ function wrapText(input: string, width: number, size: number) {
   return result;
 }
 
+function shouldJustifyLine(text: string, width: number, size: number) {
+  const normalized = text.trim();
+
+  if (normalized.length === 0 || !normalized.includes(" ")) {
+    return false;
+  }
+
+  return estimateTextWidth(normalized, size) >= width * 0.62;
+}
+
 function buildTextBlock(input: TextBlockConfig) {
   const lines = wrapText(input.text, input.width, input.fontSize);
   const anchor = input.textAnchor ?? "start";
@@ -590,6 +611,12 @@ function buildTextBlock(input: TextBlockConfig) {
       )}</text>`;
     })
     .join("");
+}
+
+function buildSingleLineText(input: SingleLineTextConfig) {
+  return `<text x="${input.x}" y="${input.y}" font-family="${input.fontFamily ?? SERIF_FONT_FAMILY}" font-size="${input.fontSize}"${input.fontWeight ? ` font-weight="${input.fontWeight}"` : ""}${input.fontStyle ? ` font-style="${input.fontStyle}"` : ""}${input.textAnchor ? ` text-anchor="${input.textAnchor}"` : ""}>${escapeXml(
+    input.text,
+  )}</text>`;
 }
 
 function parseNumberedParagraph(paragraph: string) {
@@ -664,6 +691,25 @@ function buildParagraphBlock(input: ParagraphBlockConfig): BuiltBlock {
         }),
       );
 
+      if (input.justify) {
+        parts.splice(
+          parts.length - contentLines.length,
+          contentLines.length,
+          ...contentLines.map((line, index) => {
+            const y = cursorY + index * input.lineHeight;
+            const justifyWidth =
+              index < contentLines.length - 1 &&
+              shouldJustifyLine(line, contentWidth, input.fontSize)
+                ? ` textLength="${contentWidth}" lengthAdjust="spacing"`
+                : "";
+
+            return `<text x="${contentX}" y="${y}" font-family="${input.fontFamily ?? SERIF_FONT_FAMILY}" font-size="${input.fontSize}"${input.fontWeight ? ` font-weight="${input.fontWeight}"` : ""}${input.fontStyle ? ` font-style="${input.fontStyle}"` : ""}${justifyWidth}>${escapeXml(
+              line,
+            )}</text>`;
+          }),
+        );
+      }
+
       cursorY +=
         contentLines.length * input.lineHeight +
         (paragraphIndex < paragraphs.length - 1 ? paragraphGap : 0);
@@ -675,8 +721,16 @@ function buildParagraphBlock(input: ParagraphBlockConfig): BuiltBlock {
     parts.push(
       ...lines.map((line, index) => {
         const y = cursorY + index * input.lineHeight;
+        const justifyWidth =
+          input.justify &&
+          input.textAlign !== "center" &&
+          input.textAlign !== "right" &&
+          index < lines.length - 1 &&
+          shouldJustifyLine(line, paragraphWidth, input.fontSize)
+            ? ` textLength="${paragraphWidth}" lengthAdjust="spacing"`
+            : "";
 
-        return `<text x="${x}" y="${y}" font-family="${input.fontFamily ?? SERIF_FONT_FAMILY}" font-size="${input.fontSize}"${input.fontWeight ? ` font-weight="${input.fontWeight}"` : ""}${input.fontStyle ? ` font-style="${input.fontStyle}"` : ""}${anchor !== "start" ? ` text-anchor="${anchor}"` : ""}>${escapeXml(
+        return `<text x="${x}" y="${y}" font-family="${input.fontFamily ?? SERIF_FONT_FAMILY}" font-size="${input.fontSize}"${input.fontWeight ? ` font-weight="${input.fontWeight}"` : ""}${input.fontStyle ? ` font-style="${input.fontStyle}"` : ""}${anchor !== "start" ? ` text-anchor="${anchor}"` : ""}${justifyWidth}>${escapeXml(
           line,
         )}</text>`;
       }),
@@ -718,6 +772,7 @@ function buildBulletSection(input: BulletSectionConfig): BuiltBlock {
     listIndent: input.listIndent ?? PAGE1_PRINT_TOKENS.listIndent,
     hangingIndent: input.hangingIndent ?? PAGE1_PRINT_TOKENS.hangingIndent,
     marker: "•",
+    justify: input.justify,
   });
 
   return {
@@ -775,8 +830,14 @@ function buildBulletListBlock(input: BulletListBlockConfig): BuiltBlock {
     parts.push(
       ...lines.map((line, index) => {
         const y = cursorY + index * input.lineHeight;
+        const justifyWidth =
+          input.justify &&
+          index < lines.length - 1 &&
+          shouldJustifyLine(line, textWidth, input.fontSize)
+            ? ` textLength="${textWidth}" lengthAdjust="spacing"`
+            : "";
 
-        return `<text x="${textX}" y="${y}" font-family="${input.fontFamily ?? SERIF_FONT_FAMILY}" font-size="${input.fontSize}"${input.fontWeight ? ` font-weight="${input.fontWeight}"` : ""}${input.fontStyle ? ` font-style="${input.fontStyle}"` : ""}>${escapeXml(
+        return `<text x="${textX}" y="${y}" font-family="${input.fontFamily ?? SERIF_FONT_FAMILY}" font-size="${input.fontSize}"${input.fontWeight ? ` font-weight="${input.fontWeight}"` : ""}${input.fontStyle ? ` font-style="${input.fontStyle}"` : ""}${justifyWidth}>${escapeXml(
           line,
         )}</text>`;
       }),
@@ -1230,10 +1291,20 @@ function buildPage1(input: {
   const fields = buildLegalServicesAgreementResolvedFields(input);
   const page1Content = buildPage1SectionContent(input);
   const intro = `${fields.trustorFullName} с номером паспорта ${fields.trustorPassportNumber}, именуемый в дальнейшем «Доверитель», «Заказчик», с одной стороны, ${fields.executorPosition} ${fields.executorFullName} с номером паспорта ${fields.executorPassportNumber} действующий на основании закона «Об адвокатуре и адвокатской деятельности в штате Сан-Андреас», именуемый в дальнейшем «Исполнитель», «Представитель», «Поверенный» с другой стороны, заключили настоящий договор о нижеследующем:`;
+  const titleBaselineY =
+    PAGE1_LAYOUT.crest.y +
+    PAGE1_LAYOUT.crest.height +
+    PAGE1_LAYOUT.titleStack.crestToTitleGap +
+    PAGE1_PRINT_TOKENS.titleLine1Size;
+  const subtitleBaselineY =
+    titleBaselineY + PAGE1_LAYOUT.titleStack.titleToSubtitleGap;
+  const metadataBaselineY =
+    subtitleBaselineY + PAGE1_LAYOUT.titleStack.subtitleToMetaGap;
+  const introStartY = metadataBaselineY + PAGE1_LAYOUT.titleStack.metaToIntroGap;
   const introBlock = buildParagraphBlock({
     paragraphs: [intro],
     x: PAGE1_LAYOUT.introBlock.x,
-    y: PAGE1_LAYOUT.introBlock.y,
+    y: introStartY,
     width: PAGE1_LAYOUT.introBlock.width,
     fontSize: PAGE1_PRINT_TOKENS.introFontSize,
     lineHeight: PAGE1_PRINT_TOKENS.introLineHeight,
@@ -1257,7 +1328,7 @@ function buildPage1(input: {
     fontSize: PAGE1_PRINT_TOKENS.bodyFontSize,
     lineHeight: PAGE1_PRINT_TOKENS.bodyLineHeight,
     paragraphGap: PAGE1_LAYOUT.bodyTextFrame.paragraphGap,
-    numberedIndent: mm(2.4),
+    numberedIndent: 0,
     numberedMarkerGap: pt(1.6),
     text: "",
   });
@@ -1286,7 +1357,7 @@ function buildPage1(input: {
     fontSize: PAGE1_PRINT_TOKENS.bodyFontSize,
     lineHeight: PAGE1_PRINT_TOKENS.bodyLineHeight,
     paragraphGap: PAGE1_LAYOUT.bodyTextFrame.paragraphGap,
-    numberedIndent: mm(2.4),
+    numberedIndent: 0,
     numberedMarkerGap: pt(1.6),
     minFontSize: pt(11.4),
     minLineHeight: pt(14.3),
@@ -1297,35 +1368,28 @@ function buildPage1(input: {
   return buildPageBase({
     seal: PAGE1_LAYOUT.crest,
     overlays: [
-      buildTextBlock({
+      buildSingleLineText({
         text: `Договор №${readNormalizedValue(fields.agreementNumber)}`,
-        x:
-          PAGE1_LAYOUT.titleStack.x +
-          PAGE1_LAYOUT.titleStack.centerOffsetX +
-          PAGE1_LAYOUT.titleStack.titleLineOffsetX,
-        y: PAGE1_LAYOUT.titleStack.titleY,
-        width: PAGE1_LAYOUT.titleStack.width,
+        x: PAGE1_LAYOUT.titleStack.centerX,
+        y: titleBaselineY,
         fontSize: PAGE1_PRINT_TOKENS.titleLine1Size,
-        lineHeight: pt(17.5),
         fontFamily: PAGE1_PRINT_TOKENS.fontSerifBold,
         fontWeight: 700,
-        textAlign: "center",
+        textAnchor: "middle",
       }),
-      buildTextBlock({
+      buildSingleLineText({
         text: "На оказание юридических услуг от",
-        x: PAGE1_LAYOUT.titleStack.x + PAGE1_LAYOUT.titleStack.centerOffsetX,
-        y: PAGE1_LAYOUT.titleStack.subtitleY,
-        width: PAGE1_LAYOUT.titleStack.width,
+        x: PAGE1_LAYOUT.titleStack.centerX,
+        y: subtitleBaselineY,
         fontSize: PAGE1_PRINT_TOKENS.titleLine2Size,
-        lineHeight: pt(13.6),
         fontFamily: PAGE1_PRINT_TOKENS.fontSerifBold,
         fontWeight: 700,
-        textAlign: "center",
+        textAnchor: "middle",
       }),
       buildTextBlock({
         text: readNormalizedValue(fields.agreementDate),
         x: PAGE1_LAYOUT.metaLeftDate.x,
-        y: PAGE1_LAYOUT.metaLeftDate.y,
+        y: metadataBaselineY,
         width: PAGE1_LAYOUT.metaLeftDate.width,
         fontSize: PAGE1_PRINT_TOKENS.dateFontSize,
         lineHeight: pt(14.6),
@@ -1335,10 +1399,10 @@ function buildPage1(input: {
       buildTextBlock({
         text: "San Andreas Register",
         x: PAGE1_LAYOUT.metaRightRegister.x,
-        y: PAGE1_LAYOUT.metaRightRegister.y,
+        y: metadataBaselineY,
         width: PAGE1_LAYOUT.metaRightRegister.width,
-        fontSize: PAGE1_PRINT_TOKENS.metaFontSize,
-        lineHeight: pt(10.8),
+        fontSize: pt(9.15),
+        lineHeight: pt(11.3),
         fontFamily: PAGE1_PRINT_TOKENS.fontSerifBold,
         fontWeight: 700,
         textAlign: "right",
@@ -1346,11 +1410,12 @@ function buildPage1(input: {
       buildTextBlock({
         text: `No. ${readNormalizedValue(fields.registerNumber)}`,
         x: PAGE1_LAYOUT.metaRightRegister.x,
-        y: PAGE1_LAYOUT.metaRightRegister.y + PAGE1_LAYOUT.metaRightRegister.titleGap,
+        y: metadataBaselineY + PAGE1_LAYOUT.metaRightRegister.titleGap,
         width: PAGE1_LAYOUT.metaRightRegister.width,
-        fontSize: PAGE1_PRINT_TOKENS.metaFontSize,
-        lineHeight: pt(10.8),
-        fontFamily: PAGE1_PRINT_TOKENS.fontSerifRegular,
+        fontSize: pt(9.0),
+        lineHeight: pt(11.2),
+        fontFamily: PAGE1_PRINT_TOKENS.fontSerifBold,
+        fontWeight: 700,
         textAlign: "right",
       }),
       buildTextBlock({
@@ -1406,6 +1471,7 @@ function buildPage2(input: { payload: LegalServicesAgreementDraftPayload }) {
       listIndent: PAGE1_PRINT_TOKENS.listIndent,
       hangingIndent: PAGE1_PRINT_TOKENS.hangingIndent,
       itemGap: pt(0.9),
+      justify: true,
     });
     section2SvgParts.push(built.svg);
     section2CursorY = built.bottomY;
@@ -1442,6 +1508,7 @@ function buildPage2(input: { payload: LegalServicesAgreementDraftPayload }) {
     maxBottomY: PAGE2_LAYOUT.section3And4.maxBottomY,
     targetBottomY: PAGE2_LAYOUT.section3And4.maxBottomY - pt(10),
     maxExtraParagraphGap: pt(3.8),
+    justify: true,
     text: "",
   });
   const section4Heading = buildCenteredSectionHeading({
@@ -1471,6 +1538,7 @@ function buildPage2(input: { payload: LegalServicesAgreementDraftPayload }) {
     maxBottomY: PAGE2_LAYOUT.section3And4.maxBottomY,
     targetBottomY: PAGE2_LAYOUT.section3And4.maxBottomY - pt(10),
     maxExtraParagraphGap: pt(3.8),
+    justify: true,
     text: "",
   });
 
@@ -1503,6 +1571,7 @@ function buildPage3(input: { payload: LegalServicesAgreementDraftPayload }) {
     maxBottomY: PAGE3_LAYOUT.top.maxBottomY,
     targetBottomY: PAGE3_LAYOUT.top.maxBottomY - pt(14),
     maxExtraParagraphGap: pt(3.2),
+    justify: true,
     text: "",
   });
   const section5Heading = buildCenteredSectionHeading({
@@ -1532,6 +1601,7 @@ function buildPage3(input: { payload: LegalServicesAgreementDraftPayload }) {
     maxBottomY: PAGE3_LAYOUT.section5.maxBottomY,
     targetBottomY: PAGE3_LAYOUT.section5.maxBottomY - pt(18),
     maxExtraParagraphGap: pt(3.6),
+    justify: true,
     text: "",
   });
   const section6Heading = buildCenteredSectionHeading({
@@ -1561,6 +1631,7 @@ function buildPage3(input: { payload: LegalServicesAgreementDraftPayload }) {
     maxBottomY: PAGE3_LAYOUT.section6.maxBottomY,
     targetBottomY: PAGE3_LAYOUT.section6.maxBottomY - pt(8),
     maxExtraParagraphGap: pt(4),
+    justify: true,
     text: "",
   });
   const section7Heading = buildCenteredSectionHeading({
@@ -1590,6 +1661,7 @@ function buildPage3(input: { payload: LegalServicesAgreementDraftPayload }) {
     maxBottomY: PAGE3_LAYOUT.section6.maxBottomY,
     targetBottomY: PAGE3_LAYOUT.section6.maxBottomY - pt(8),
     maxExtraParagraphGap: pt(4),
+    justify: true,
     text: "",
   });
 
@@ -1666,6 +1738,7 @@ function buildPage4(input: {
     maxBottomY: PAGE4_LAYOUT.top.maxBottomY,
     targetBottomY: PAGE4_LAYOUT.top.maxBottomY - pt(10),
     maxExtraParagraphGap: pt(3.5),
+    justify: true,
     text: "",
   });
   const section8Heading = buildCenteredSectionHeading({
@@ -1791,6 +1864,8 @@ function validateLegalServicesAgreementForGeneration(input: {
 
   if (!fields.agreementNumber.trim()) {
     reasons.push("Укажите номер договора.");
+  } else if (!isLegalServicesAgreementNumberNormalized(fields.agreementNumber)) {
+    reasons.push("Номер договора должен быть в формате LS-XXXX.");
   }
 
   if (!fields.registerNumber.trim()) {

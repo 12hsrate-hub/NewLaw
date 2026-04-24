@@ -13,6 +13,7 @@ import {
   saveDocumentDraftAction,
 } from "@/server/actions/documents";
 import type { DocumentTrustorRegistrySummary } from "@/server/document-area/context";
+import { normalizeLegalServicesAgreementNumber } from "@/features/documents/legal-services-agreement/formatting";
 import { legalServicesAgreementManualFieldSpecs } from "@/features/documents/legal-services-agreement/template-definition";
 import type {
   LegalServicesAgreementDraftPayload,
@@ -203,13 +204,16 @@ export function LegalServicesAgreementEditorClient(
     key: keyof LegalServicesAgreementDraftPayload["manualFields"],
     value: string,
   ) => {
+    const normalizedValue =
+      key === "agreementNumber" ? normalizeLegalServicesAgreementNumber(value) : value;
+
     setEditorState((current) => ({
       ...current,
       payload: {
         ...current.payload,
         manualFields: {
           ...current.payload.manualFields,
-          [key]: value,
+          [key]: normalizedValue,
         },
       },
     }));

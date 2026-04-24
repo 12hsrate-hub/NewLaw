@@ -2,416 +2,210 @@
 
 ## Назначение
 
-Этот файл больше не трактуется как старая линейная очередь крупных этапов.
-Теперь это актуальный master snapshot по состоянию репозитория:
+Этот файл — главный актуальный reconciliation snapshot по состоянию репозитория.
+Он не является старой линейной очередью этапов.
 
-- source of truth = текущий repo
-- source of truth = уже существующие `docs/plans/*`
-- source of truth = реально реализованные маршруты, модули, миграции и release-поток
+Source of truth:
 
-Если старые блоковые планы отстают по формулировкам или порядку этапов, этот документ фиксирует актуальную картину и не пытается подгонять репозиторий под устаревшую линейную схему.
+- текущий repo-state
+- актуальные docs в `docs/product`, `docs/architecture`, `docs/ops`
+- активные планы, которые реально остались future/post-MVP source of truth
+
+Исторические закрытые поэтапные планы вынесены в архив:
+
+- [../archive/2026-04/closed-plans/](../archive/2026-04/closed-plans/)
 
 ## Closure Snapshot
 
-По текущему согласованному scope этот MVP теперь можно считать формально закрытым.
+По current agreed scope MVP формально закрыт.
 
 Это означает:
 
-- обязательных `pending`-блоков для достижения current agreed MVP больше не осталось
-- remaining work больше не трактуется как “ещё нужно для достижения MVP”
+- обязательных `pending`-блоков “чтобы дойти до MVP” больше нет
+- текущие незакрытые линии не должны маскироваться под недоделанный MVP
 - дальнейшее развитие должно оформляться только как:
   - future expansion
   - optional capability
   - post-MVP line
   - operational maturity
 
-## Как читать статусы
+## Что уже закрыто по текущему repo-state
 
-- `done` — крупный блок реально реализован и может считаться закрытым на уровне текущего согласованного scope
-- `partial` — в репозитории уже есть заметная реализация, но блок как отдельная продуктовая единица ещё не закрыт
-- `pending` — блок остаётся плановым и не подтверждён как реализованный
-- `optional / temporary` — линия технически существует, но не является обязательной продуктовой capability
-- `post-MVP` — намеренно вынесено за рамки MVP
+### Core platform
 
-## Progress Snapshot
-
-### Done
-
-#### `01-bootstrap`
-
-Статус: `done`
-
-Репозиторий давно ушёл дальше bootstrap-стадии:
-
-- базовая структура проекта существует
-- `Next.js + TypeScript + App Router` уже используются как рабочая основа
-- dev/build/test pipeline реально используется в текущей разработке
-
-#### `02-database-and-auth`
-
-Статус: `done`
-
-Реально присутствуют:
-
-- `Prisma`
-- рабочая модель данных
+- `Next.js + TypeScript + App Router`
 - `Supabase Auth`
-- protected flows
-- account-level guards и security foundation
-
-#### `03-auth-shell-and-character-management` + `03-characters-and-roles`
-
-Статус: `done`
-
-Фактически реализованы:
-
-- transitional protected shell в `/app`
-- active server / active character
-- character create/edit flow
-- roles / `access_flags`
-- owner-only character management
+- `Prisma` + текущая прикладная data model
 - account/security foundation
+- character management
+- server context foundation
 
-Важно:
+### Product zones
 
-- `/app` остаётся transitional
-- это не меняет согласованную target route/module policy
+- `/account`
+- `/assistant`
+- `/servers`
+- `/servers/[serverSlug]`
+- `/servers/[serverSlug]/documents/...`
+- `/internal/...`
 
-#### `05-law-corpus-and-server-legal-assistant`
+### Document area
 
-Статус: `done`
+Закрыты как реальные рабочие линии:
 
-Фактически реализованы:
+- `ogp_complaint`
+- claims family:
+  - `rehabilitation`
+  - `lawsuit`
 
-- law corpus import/storage/current-version foundation
-- retrieval layer
-- server legal assistant
+Зафиксировано:
 
-#### `06-judicial-precedents-corpus`
-
-Статус: `done`
-
-Фактически реализованы:
-
-- precedents corpus
-- review/current selection
-- интеграция precedents в assistant-линию
-
-#### `07-document-area-and-ogp-complaint-mvp`
-
-Статус: `done`
-
-Фактически реализованы:
-
-- document area
-- `/account/documents` как агрегатор
-- server-scoped document routes
-- OGP complaint editor
-- persisted draft flow
-- snapshot foundation
-- `BBCode` generation
+- persisted drafts
+- first-save snapshot capture
 - generation metadata
-- optional manual publication metadata
+- account-level documents aggregator
+- server-scoped editor routes
 
-Важно:
+### AI
 
-- OGP complaint MVP считается полноценным и без live forum automation
-- user success state не зависит от факта реальной публикации на форуме
+Current MVP-level AI scope уже покрыт:
 
-#### `08-claims-document-family`
+- `server legal assistant`
+- document field rewrite v1
+- first grounded document AI v2 rollout
 
-Статус: `done`
+Это означает, что AI нельзя описывать как “ещё не начат”, но и нельзя притворяться, что весь future AI-suite уже закрыт.
 
-Фактически реализованы:
+### Internal/admin contour
 
-- claims family routes
-- persisted claims drafts
-- shared editor для `rehabilitation` и `lawsuit`
-- claims structured renderer
-- generated checkpoint
-- status integration inside document area
+Закрыт current agreed scope для:
 
-Важно:
-
-- claims не смешиваются с OGP `BBCode` / publication model
-- claims не используют forum/publication workflow как default capability
-
-#### `10-server-list-and-server-hub-foundation`
-
-Статус: `done`
-
-Фактически реализованы:
-
-- public `/servers`
-- auth-gated `/servers/[serverSlug]`
-- server directory summary layer
-- server hub
-- account zone completion around:
-  - `/account`
-  - `/account/security`
-  - `/account/documents`
-  - `/account/characters`
-- `/account/characters` overview
-- shared account subnav
-- account-scoped character editor completion inside existing account route
-
-Это означает, что account zone и server-scoped entry zone уже ушли значительно дальше старой крупноблочной схемы.
-
-#### `12-admin-panel-reconciliation-and-completion`
-
-Статус: `done`
-
-Фактически реализованы и уже сведены в единый internal contour:
-
-- `/internal`
 - `/internal/laws`
 - `/internal/precedents`
 - `/internal/security`
 - `/internal/health`
-- shared internal nav и общий `super_admin`-only guard
-- migration существующих corpus sections в `/internal/laws` и `/internal/precedents`
-- migration admin account-security flow в `/internal/security`
-- compact internal health summary в `/internal/health`
-- transitional cleanup для:
-  - `/app/admin-laws`
-  - `/app/admin-security`
 
-Важно:
+### Deploy / release
 
-- `/internal/...` теперь уже существует как единая internal zone
-- `/app/admin-laws` и `/app/admin-security` больше не считаются primary admin surface
-- они сохраняются только как transitional bridge routes к `/internal/*`
-- это закрывает текущий agreed admin-panel scope, но не означает global `/app` cleanup
+Закрыт current agreed production hardening enough-for-scope:
 
-#### `09-deploy-and-release`
+- `systemd`
+- immutable `release directories`
+- `current` symlink
+- shared env
+- canonical deploy script
+- preflight / smoke / rollback helpers
 
-Статус: `done`
+`Docker Compose` не является текущим blocker и остаётся future operational target.
 
-Фактически реализованы и уже доказаны на production:
+### `/app` policy
 
-- канонический MVP runtime model:
-  - `systemd`
-  - immutable `release directories`
-  - `current` symlink
-  - shared production env
-- deterministic release sequence через canonical deploy script
-- explicit env loading и explicit `PATH`
-- `prisma generate` / `migrate deploy` / `build` как фиксированная часть release flow
-- env preflight helper с required/optional classification
-- reusable mandatory smoke helper
-- rollback helper и рабочий rollback path
-- repeated production releases по этой схеме
+- `/app` больше не считается primary product zone
+- `/app` остаётся только compatibility surface
+- целевые зоны: `/account`, `/assistant`, `/servers`, `/internal`
 
-Важно:
-
-- это закрывает текущий agreed hardening scope enough-for-MVP
-- future operational maturity вроде release dashboard, full observability platform или Docker Compose migration не является blocker для formal done
-
-#### `/app` migration / cleanup
-
-Статус: `done`
-
-Зафиксировано:
-
-- `/app` больше не является primary workspace и остаётся только controlled compatibility surface
-- default self-service target = `/account`
-- canonical self-service security route = `/account/security`
-- canonical character-management route = `/account/characters`
-- canonical admin/internal contour = `/internal/*`
-- `/account`, `/servers` и `/internal` реально выступают target zones
-- `/app/security`, `/app/admin-laws` и `/app/admin-security` сохраняются как compatibility routes, а не как primary targets
-- global hard removal `/app` не требуется для закрытия текущего agreed cleanup scope
-
-### Optional / Temporary
-
-#### `09-ogp-forum-automation`
-
-Статус: `optional / temporary`
-
-Важно разделять технический и продуктовый статус:
-
-- линия `09.x` технически реализована
-- существуют account-scoped forum integration foundation, publish create и resync/update flow
-- но это больше не считается обязательной пользовательской частью MVP
-
-Зафиксировано:
-
-- forum automation не является обязательным user-facing OGP сценарием
-- cookies / forum session не считаются обязательным пользовательским вводом
-- live create/update against `forum.gta5rp.com` не является blocking acceptance для MVP
-- `manual publication_url` может оставаться только как optional metadata / fallback
-
-Post-MVP policy для этой линии:
-
-- она не должна развиваться дальше как core product capability
-- после MVP она подлежит удалению из продукта
-
-### Optional / Future
-
-#### `04-trustors`
-
-Статус: `optional / future`
-
-Честная картина по repo:
-
-- trustor snapshot уже используется внутри `OGP complaints` и claims representative flow
-- current representative flows не блокируются отсутствием standalone registry
-- document success state уже не зависит от отдельного trustors module
-- standalone route `/account/trustors` уже существует
-
-#### `post-MVP template documents and character signature assets`
-
-Статус: `optional / future`
-
-Зафиксировано:
-
-- первый живой template/PDF/JPG consumer уже существует как `attorney_request`
-- `legal_services_agreement` теперь допускается как отдельный rigid-template document внутри общего server-scoped documents area
-- для этой линии допустим отдельный character-scoped signature asset layer поверх `Supabase Storage`
-- подпись должна принадлежать конкретному персонажу, а не аккаунту
-- template documents должны хранить frozen `signatureSnapshot` внутри документа, а не читать live asset после первой фиксации
-- будущий договор на оказание юридических услуг и другие template documents должны reuse-ить тот же snapshot contract, а не изобретать отдельную модель подписи
-- registry foundation + grouped overview уже существуют
-- create / edit / soft delete внутри `/account/trustors` уже существуют
-- optional choose-from-registry prefill inside document flows уже существует
-
-Поэтому:
-
-- inline document trustor usage = уже есть и достаточно для MVP
-- standalone trustor registry = optional convenience line
-- OGP/claims documents по-прежнему остаются snapshot-based и не получают `trustorId` dependency; post-MVP `attorney_request` хранит `trustorId` как фиксированную привязку к выбранному доверителю, но генерация читает сохранённый snapshot документа
-- изменение или удаление registry entry не меняет уже созданные документы
-- future здесь означает только дальнейшее расширение trustors line beyond current CRUD + prefill scope, а не “registry ещё не появился”
-- `legal_services_agreement` больше не считается purely provisional spike:
-  - replaceable fields для текущего reference template согласованы
-  - подпись для этого документа утверждена как шрифтовая автогенерация из snapshots
-  - export утверждён как page-by-page PNG
-  - renderer переводится на page-by-page render с нуля по согласованному тексту страниц, без подрисовки поверх готовых raster reference pages
-  - reference PDF остаётся source of truth для static text/layout
-  - для 1-й страницы вводится print-first page template с фиксированными зонами, typographic tokens и dev compare mode для калибровки
-
-### Partial
-
-#### `08-ai-integration`
-
-Статус: `partial`
-
-Что уже есть по факту:
-
-- серверный AI-layer
-- assistant как отдельный модуль
-- logging foundation
-- document field rewrite v1 внутри existing OGP/claims editors
-- agreed v1 scope для field-level rewrite уже реально закрыт
-- grounded document AI v2 для первого supported legal rollout уже реально существует
-- текущий согласованный MVP AI scope больше не выглядит пустым или недоделанным
-
-Что не подтверждено как отдельный завершённый product block:
-
-- более широкий document-AI suite beyond field rewrite
-- grounded expansion beyond first supported legal sections
-- consistency-check и broad drafting workflows
-- отдельное решение о том, нужно ли расширять document AI beyond current helper-level inside editor
-
-Поэтому:
-
-- assistant и AI infrastructure сильно продвинуты
-- document field rewrite v1 и первый grounded v2 rollout уже реально реализованы
-- current MVP-level AI scope можно считать покрытым существующим assistant module + document field rewrite v1
-- `partial` здесь теперь означает только future expansion beyond current assistant + v1 + first grounded v2 scope
-- но весь AI block нельзя автоматически считать формально закрытым только из-за уже существующих assistant + rewrite + first grounded rollout
-
-### Post-MVP
-
-#### `12-post-mvp-template-documents`
-
-Статус: `post-MVP`
-
-Server-specific template documents остаются отдельной post-MVP линией и не смешиваются с текущим MVP.
-
-#### Post-MVP cleanup: forum automation removal
-
-Статус: `post-MVP`
-
-Так как `09.x` больше не считается обязательной продуктовой частью MVP, после MVP эта capability должна удаляться, а не продолжать расти как “раз уже реализовано, значит остаётся”.
-
-## Почему старая линейная схема больше не отражает repo
-
-Старая версия master plan отставала от фактической разработки по нескольким причинам:
-
-- assistant, document area и claims развивались отдельными шагами быстрее, чем это отражала старая крупноблочная цепочка
-- server directory и server hub появились как отдельная линия позже старого linear plan
-- account zone существенно изменилась после появления `/account/security`, `/account/documents` и `/account/characters`
-- OGP forum automation была технически реализована, но затем получила новый product status: optional / temporary instead of required MVP capability
-
-Поэтому актуальный master plan дальше должен читаться как reconciliation snapshot, а не как историческая линейка “слева направо”.
-
-## Актуальная route / module policy
-
-На текущий момент согласованная целевая карта маршрутов выглядит так:
-
-- `/account` — account zone
-- `/account/security` — account security / integrations
-- `/account/characters` — account-scoped character management
-- `/account/documents` — document aggregator
-- `/assistant` и `/assistant/[serverSlug]` — отдельный assistant module вне кабинета
-- `/servers` — public server directory
-- `/servers/[serverSlug]` — auth-gated server hub
-- `/servers/[serverSlug]/documents/...` — server-scoped document area
-- `/internal/...` — целевой internal / super-admin contour
-- `/app` — transitional shell, а не target-zone для новых крупных модулей
-
-## Что ещё остаётся до более формального MVP closure
-
-С учётом фактического repo обязательных блокеров для current agreed MVP больше не осталось.
-
-Дальше остаются только future expansion вопросы:
-
-1. Нужно ли расширять grounded document AI дальше уже реализованного first legal rollout, если текущий MVP AI scope уже покрыт assistant module + rewrite v1 + first grounded v2.
-
-## What Comes After MVP
-
-После formal MVP closure следующими кандидатами могут быть только отдельные future-линии, а не обязательные blocker-этапы:
-
-- deeper grounded document AI expansion beyond current supported sections
-- deeper standalone trustors registry expansion beyond current CRUD + optional prefill
-- post-MVP template documents
-- deeper operational/admin maturity beyond current proven release flow
-
-Важно:
-
-- эти линии не должны трактоваться как недоделанная часть уже закрытого MVP
-- forum automation не возвращается в required scope
-- `/app` не возвращается как primary product zone
-
-## Спорные места, которые не стоит маскировать
+## Что уже есть в repo, но не является MVP blocker
 
 ### Trustors
 
-Больше не считается открытым MVP-блокером:
+- `/account/trustors` уже существует
+- CRUD и optional prefill уже существуют
+- document flows при этом остаются snapshot-based
+- `trustorId` не должен становиться обязательной runtime dependency для OGP/claims
 
-- trustor snapshots уже признаны достаточными для MVP
-- standalone trustors registry больше не трактуется как обязательный блок MVP
-- optional convenience line уже ушла дальше foundation-only этапа:
-  - `/account/trustors`
-  - CRUD inside account zone
-  - optional choose-from-registry prefill
-- document model при этом остаётся snapshot-only
+### Forum automation
 
-### AI integration
+- линия технически реализована для `ogp_complaint`
+- product status этой линии = `optional / temporary`
+- она не является required user-facing MVP capability
+- post-MVP policy: удалить или не развивать как core product capability
 
-Спорное место:
+### Post-MVP template documents
 
-- assistant и AI infrastructure в repo уже сильно продвинуты
-- document field rewrite v1 уже реализован внутри document area
-- first grounded document AI v2 rollout для supported legal sections тоже уже реализован
-- текущий MVP AI scope больше не должен описываться как незакрытый blocker
-- но большой AI-suite по-прежнему не должен притворяться закрытым только потому, что уже есть assistant, rewrite v1 и first grounded rollout
+Линия уже вошла в repo как отдельное post-MVP expansion направление:
 
-### Deploy / release hardening
+- `attorney_request`
+- `legal_services_agreement`
 
-Больше не считается открытым продуктовым blocker:
+При этом:
 
-- operational release flow уже формализован и production-proven
-- helper layer для preflight / smoke / rollback уже существует
-- дальнейшая operational maturity возможна позже, но не нужна для текущего MVP closure
+- это не переоткрывает закрытый MVP
+- это не переводит template documents в required MVP scope
+- активный source-of-truth для этой линии — [12-post-mvp-template-documents.md](./12-post-mvp-template-documents.md)
+
+## Что остаётся активными future/post-MVP линиями
+
+### `08-ai-integration`
+
+Статус: `partial`
+
+Остаётся активной, потому что current helper-level AI уже существует, а дальнейшее расширение beyond current scope ещё не закрыто.
+
+### `12-post-mvp-template-documents`
+
+Статус: `post-MVP`
+
+Остаётся активной, потому что template documents уже реально вошли в repo как post-MVP expansion и нужен один актуальный документ с канонической policy этой линии.
+
+### Trustors expansion beyond current convenience layer
+
+Статус: `future`
+
+Зафиксировано:
+
+- текущий `/account/trustors` уже не foundation-only
+- deeper expansion beyond current CRUD + prefill не является blocker
+- отдельного активного плана для этого сейчас не требуется; хватает master snapshot + product docs
+
+### Operational maturity beyond current release flow
+
+Статус: `future`
+
+Сюда относятся:
+
+- `Docker Compose` migration
+- deeper observability
+- richer release tooling
+
+Это не blocker для current done state.
+
+## Что специально не должно выглядеть как active task
+
+Следующие линии больше не должны висеть как “следующие этапы”:
+
+- bootstrap
+- database/auth foundation
+- early `/app` shell phases
+- OGP complaint MVP rollout
+- claims family rollout
+- admin/internal reconciliation
+- server hub foundation
+- deploy/release foundation
+- attorney request implementation plan
+- legal services agreement spike plan
+
+Их история перенесена в архив.
+
+## Реальные незакрытые вопросы
+
+Незакрытыми остаются только future-level решения:
+
+1. Нужно ли расширять grounded document AI дальше уже реализованного first legal rollout.
+2. Какой объём template documents line нужен beyond уже реализованных `attorney_request` и `legal_services_agreement`.
+3. Нужна ли deeper trustors expansion beyond current `/account/trustors` convenience layer.
+4. Нужно ли после MVP физически удалять временную forum automation line или достаточно прекратить её развитие.
+
+## What Comes After MVP
+
+Следующие линии уже не “до MVP”, а именно после него:
+
+- deeper grounded document AI expansion
+- deeper trustors expansion
+- дальнейшее развитие template/PDF/JPG documents
+- deeper operational/admin maturity
+
+Важно:
+
+- forum automation не возвращается в required scope
+- trustors registry не возвращается в required scope
+- `/app` не возвращается как primary product zone

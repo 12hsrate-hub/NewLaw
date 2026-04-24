@@ -2,30 +2,14 @@
 
 ## Цель документа
 
-Зафиксировать целевую архитектуру размещения модулей на сайте так, чтобы:
+Зафиксировать актуальную route-policy проекта так, чтобы:
 
 - личный кабинет оставался отдельной account zone
 - server-scoped пользовательские модули жили отдельно от кабинета
 - internal `super_admin` и platform tools жили отдельно от пользовательской зоны
-- текущее transitional состояние на `/app` не воспринималось как долгосрочный default для всех новых блоков
+- `/app` не воспринимался как долгосрочный default для новых модулей
 
-Детальные frozen product decisions, которые опираются на эту route-policy, собраны отдельно в [frozen-product-decisions.md](./frozen-product-decisions.md).
-Этот документ фиксирует именно target route placement, а frozen decisions дополняют его правилами по assistant, corpus, document lifecycle, server health и future migration policy.
-
-## Почему `/app` не должен быть универсальным контейнером
-
-`/app` в текущем коде уже используется как transitional protected shell и внутренняя рабочая зона ранних блоков.
-
-Этого недостаточно как target-архитектуры для всего проекта, потому что:
-
-- личный кабинет и рабочие server-scoped модули имеют разную смысловую роль
-- assistant не зависит от active character и не должен жить внутри account zone
-- document modules работают в явном server context и не должны брать сервер из last-used shell state
-- internal corpus tools и другие platform-level инструменты не являются частью пользовательского кабинета
-
-Поэтому новые крупные модули не должны автоматически проектироваться внутрь `/app`.
-
-## Target route policy
+## Текущая целевая карта зон
 
 ### Account zone
 
@@ -33,13 +17,13 @@
 - `/account/security`
 - `/account/characters`
 - `/account/documents`
+- `/account/trustors`
 
 Смысл:
 
-- `/account` — это личный кабинет пользователя
-- `/account/security` — безопасность аккаунта
-- `/account/characters` — profile-management персонажей
-- `/account/documents` — личный обзор “мои документы”, а не основной рабочий маршрут document flow
+- это личный кабинет и account-scoped convenience layers
+- `/account/documents` — обзор “мои документы”, а не основной editor center
+- `/account/trustors` — reusable registry convenience layer, а не центр document flow
 
 ### Assistant
 
@@ -49,23 +33,24 @@
 Смысл:
 
 - assistant живёт отдельно от кабинета
-- `serverSlug` является source of truth для server context
-- assistant не зависит от `/app` shell, active character и account zone
+- server context для assistant берётся из URL
+- assistant не зависит от `/app`, active character и account zone
 
 ### Server-scoped user modules
 
+- `/servers`
 - `/servers/[serverSlug]`
 - `/servers/[serverSlug]/documents`
 - `/servers/[serverSlug]/documents/ogp-complaints`
 - `/servers/[serverSlug]/documents/claims`
-- `/servers/[serverSlug]/documents/templates`
-- `/servers/[serverSlug]/documents/templates/advocate-request`
+- `/servers/[serverSlug]/documents/attorney-requests`
+- `/servers/[serverSlug]/documents/legal-services-agreements`
 
 Смысл:
 
-- это server-scoped функциональные зоны
-- они не описываются как разделы личного кабинета
-- complaint flow, claims и post-MVP template documents — это отдельные document modules, а не подразделы account zone
+- это отдельные server-scoped functional modules
+- они не должны описываться как подразделы личного кабинета
+- новые document families должны получать явный family slug внутри `/servers/[serverSlug]/documents/...`, а не уходить в generic `/templates/...`
 
 ### Internal contour
 
@@ -75,86 +60,43 @@
 
 - law corpus
 - precedents corpus
-- import workflows
-- review/current workflows
-- другие platform-level internal инструменты
-
-Эти инструменты не должны описываться как часть пользовательского кабинета.
-`/admin/...` не считается target-default namespace для таких platform tools.
-
-## Что относится к личному кабинету
-
-К account zone относятся:
-
-- профиль аккаунта
-- безопасность
-- персонажи как profile-management сущность
-- персональные данные и настройки
-- личный обзор документов
-
-Кабинет не должен трактоваться как универсальный контейнер для всех рабочих пользовательских сценариев.
-
-## Что относится к отдельным server-scoped functional modules
-
-К отдельным server-scoped модулям относятся:
-
-- assistant
-- complaint flow
-- claims
-- server-specific template documents
-- другие future document modules, завязанные на конкретный сервер
-
-Для таких модулей сервер задаётся через URL, а не через last-used state.
-
-## Что относится к internal / super_admin contour
-
-К internal contour относятся:
-
-- law corpus
-- precedents corpus
-- import/review/current workflows
-- platform-level internal инструменты
-
-Это отдельный `super_admin` и platform слой, а не часть личного кабинета пользователя.
+- internal security
+- internal health
+- другие `super_admin`/platform tools
 
 ## Правило server context
 
-- source of truth по серверу для server-scoped модулей — URL
-- `serverSlug` должен быть стабильным machine key
-- display name сервера может меняться отдельно
-- `serverSlug` не должен рассматриваться как свободно редактируемое пользовательское имя
-- last-used state допустим только как UX-default, но не как реальный source of truth
+- source of truth для server-scoped модулей — URL
+- `serverSlug` не подменяется last-used shell state
+- last-used state допустим только как UX-default
 
 ## Правило character context
 
 - персонаж может подставляться как last-used UX-default для выбранного сервера
 - пользователь всегда должен явно видеть, какой сервер и какой персонаж выбраны
-- после старта документа персонаж фиксируется в snapshot документа
-- `/account/characters` описывается как profile-management зона, а не как рабочий центр document flow
+- после first save персонаж фиксируется в snapshot документа
+- `/account/characters` остаётся profile-management зоной
 
-## Переходное правило
+## Правило trustor context
 
-Проект ещё не считается полностью переехавшим с `/app` на новую структуру.
+- trustor inside document всегда живёт как snapshot
+- `/account/trustors` не становится обязательной runtime dependency document flows
+- choose-from-registry допустим только как convenience prefill
 
-На данный момент:
+## Переходное правило для `/app`
 
-- `/app` и связанные текущие маршруты — это текущее transitional состояние реализации
-- это не должно трактоваться как долгосрочный ориентир для всех новых крупных модулей
+Проект больше не должен проектировать новые крупные user-facing модули внутрь `/app`.
 
-Новые блоки и будущий рефактор должны ориентироваться на:
+На текущем этапе:
 
-- `/account`
-- `/assistant`
-- `/assistant/[serverSlug]`
-- `/servers/[serverSlug]`
-- `/servers/[serverSlug]/documents/...`
-- `/internal/...`
+- `/app` и legacy подмаршруты допустимы только как compatibility surface
+- canonical target zones: `/account`, `/assistant`, `/servers`, `/internal`
 
-## Что новые блоки должны делать
+## Что должны делать новые блоки
 
 Новые крупные блоки должны:
 
-- явно выбирать, являются ли они account zone, server-scoped module или internal tool
+- явно определять, являются ли они account zone, server-scoped module или internal tool
 - использовать route policy, соответствующую их смыслу
 - не проектироваться автоматически внутрь `/app`
-- не смешивать account zone, assistant, document modules и internal platform tools в один универсальный namespace
+- не смешивать account zone, assistant, document modules и internal/platform tools в один namespace

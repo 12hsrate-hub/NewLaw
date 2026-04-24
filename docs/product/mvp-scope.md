@@ -6,161 +6,135 @@
 
 Это означает:
 
-- обязательных продуктовых блокеров для достижения current agreed MVP больше не осталось
+- обязательных продуктовых блокеров для current agreed MVP больше нет
 - remaining work больше не должен описываться как “ещё нужно, чтобы дойти до MVP”
 - всё дальнейшее развитие должно оформляться как future expansion, optional capability, post-MVP line или operational maturity
 
-## Что входит в MVP
+## Что входит в current agreed MVP
 
 ### Общая рамка
 
 - единое приложение на `Next.js + TypeScript + App Router`
-- встроенная админка внутри того же приложения
-- аутентификация через `Supabase Auth`
-- хранение прикладных данных в `PostgreSQL` через `Supabase`
-- работа с БД и миграциями через `Prisma`
-- AI-вызовы только с сервера через `OpenAI API`
-- личный кабинет — это отдельная зона аккаунта, а не универсальный контейнер для всех рабочих модулей
-- server-scoped функциональные модули и internal platform tools не должны по умолчанию проектироваться как разделы кабинета
+- встроенная админка и internal-инструменты внутри того же приложения
+- `Supabase Auth` + `Prisma` + `PostgreSQL` через `Supabase`
+- `OpenAI API` только через server-side layer
+- account zone, server-scoped user modules и internal contour как отдельные зоны
+- `/app` только как transitional / compatibility surface
 
-### Персонажи
+### Account / server / character foundation
 
-- пользователь работает внутри заранее выбранного серверного контекста
-- на одном сервере максимум `3` персонажа на пользователя
-- в рамках одного аккаунта и одного сервера нельзя иметь двух персонажей с одинаковым паспортом
-- внутриигровой ник равен ФИО
-- роли и флаги доступа привязаны к `character_id`, а не к ФИО
-- у персонажа может быть несколько флагов доступа
+- server context выбирается явно и остаётся source of truth для server-scoped модулей
+- character management уже существует как account-scoped profile-management линия
+- роли и `access_flags` привязаны к `character_id`
 - `super_admin` — признак уровня аккаунта
-- если на сервере нет персонажей, показывается empty state с предложением создать персонажа
-- активного персонажа нельзя переключать в режиме редактирования документа
-- активного персонажа нельзя удалить, пока не выбран другой, кроме случая когда это последний персонаж на сервере
+- `Account -> Server -> Characters -> Documents` остаётся базовой иерархией проекта
 
-Отдельно после MVP:
+### Документы внутри закрытого MVP
 
-- profile-management зона персонажа может хранить image-подпись для template/PDF/JPG documents
-- такая подпись принадлежит конкретному персонажу и конкретному серверному контексту, а не всему аккаунту
+В current agreed MVP уже входят и считаются закрытыми:
 
-### Доверители
+- `ogp_complaint` как исходный главный сценарий
+- claims family:
+  - `rehabilitation`
+  - `lawsuit`
 
-- для MVP trustor живет внутри документа как snapshot
-- trustor snapshot привязан к конкретному документу и не зависит от live trustor entity
-- standalone trustors registry не является обязательной частью MVP
-- post-MVP reusable trustor registry уже может существовать только как convenience layer поверх уже работающего snapshot-подхода
-- даже при наличии `/account/trustors` document flows по-прежнему остаются snapshot-based и не получают `trustorId` dependency
+Для этих линий уже зафиксированы:
 
-### Документы
+- snapshot-based document lifecycle
+- first-save snapshot capture
+- persisted drafts
+- generation metadata
+- `/account/documents` как агрегатор, а не основной editor center
+- server-scoped document routes в `/servers/[serverSlug]/documents/...`
 
-- документ хранит слепок данных
-- слепок фиксируется при первом сохранении черновика
-- документ хранит `law_version`, `template_version`, `form_schema_version`
-- документ хранит отдельно `last_generated_bbcode`, `generated_at`, `generated_law_version`, `generated_template_version`, `generated_form_schema_version`
-- любая правка после генерации помечает документ как измененный после генерации
-- любая правка после генерации сбрасывает синхронизацию сайта и форума
-- кнопка `Пересобрать` всегда создает новый черновик-копию
-- автоподтягивание данных персонажа в документ работает только до первой генерации
-- автор в документе read-only от персонажа
-- доверитель внутри документа редактируемый как слепок
-- для post-MVP template documents подпись персонажа тоже фиксируется как отдельный snapshot asset
-- изменения доверителя в документе не обновляют карточку автоматически, но могут быть отдельно сохранены обратно в карточку доверителя
-- в документе допускается одна ссылка на публикацию
-- статус публикации: `Опубликован на форуме`
-- ссылка публикации должна быть только с домена `https://forum.gta5rp.com/`
-- для опубликованного документа есть ручная отметка синхронизации сайта и форума
-- итоговый BBCode в MVP доступен только для просмотра и копирования
-- номер обращения вводится вручную и не проверяется на уникальность даже мягко
-- для `characters`, `trustors` и `documents` используется soft delete
-- если профиль персонажа неполный, мастер допускает пользователя внутрь с предупреждением, но финальная генерация блокируется
-- `/account/documents` после появления account zone трактуется как личный обзор “мои документы”, а не как основной рабочий маршрут document flow
+### Trustors
 
-### Жалоба в ОГП
-
-- это главный документный сценарий MVP
-- сервер выбирается заранее
-- персонаж выбирается заранее
-- гражданский может подавать только от себя
-- адвокат может подавать от себя и в интересах другого
-- номер обращения вводится вручную
-- если подача от себя, блок доверителя отдельно не показывается, а данные берутся из персонажа
-- если подача как представитель, доверителя можно выбрать из списка или заполнить прямо внутри документа
-- manual inline trustor entry остаётся обязательным fallback и не зависит от отдельного registry module
-- обязательны: организация объекта заявления, ФИО объекта заявления, дата, время, описание ситуации, краткая суть нарушения и другие обязательные поля формы
-- результатом работы является форумный BBCode
-
-Отдельно зафиксировано:
-
-- пользовательский success state для жалобы в ОГП не зависит от реальной публикации на форуме
-- cookies / forum session не являются обязательным пользовательским вводом для MVP
-- live publish / update against `forum.gta5rp.com` не является blocking acceptance для MVP
-- manual `publication_url` может существовать только как optional metadata / fallback
-
-Отдельная route-policy note:
-
-- assistant не является частью кабинета
-- document modules не должны описываться как разделы личного кабинета
-- complaint flow MVP остаётся отдельным document module, а не частью account zone
-
-### Доказательства
-
-- существуют серверные типы доказательств
-- внутри одного типа может быть несколько строк
-- у каждой строки свой текст и своя ссылка
-- у типа доказательства может быть готовый текст по умолчанию
-- пользователь может редактировать текст строки
-- пользователь может удалить стандартную строку
-- пользователь может добавлять несколько строк внутри одного типа
+- document flows остаются snapshot-based
+- trustor snapshot внутри документа не зависит от последующих изменений registry entry
+- standalone trustors registry не является MVP blocker
+- существующий `/account/trustors` трактуется как convenience layer, а не как обязательная runtime dependency документов
+- изменение или удаление registry entry не меняет уже созданные документы
 
 ### AI
 
-- `OpenAI API` вызывается только с сервера
-- все AI-вызовы логируются в `ai_requests`
-- current MVP AI scope уже покрывается двумя линиями:
-  - `server legal assistant` как отдельный модуль
-  - `document field rewrite v1` как helper внутри existing editors
-- document AI в MVP не превращает editor в chat
-- document AI в MVP не делает silent overwrite или silent save
+Current MVP AI scope уже считается покрытым:
 
-Отдельно зафиксировано:
+- `server legal assistant` как отдельный модуль
+- document field rewrite v1
+- first grounded document AI v2 rollout для согласованных legal sections
 
-- current MVP AI scope уже считается достаточно покрытым
-- `AI partial` дальше означает только future expansion beyond current MVP AI scope
-- отсутствие большого document-AI suite не считается незакрытым MVP-блокером
+Это значит:
 
-## Что не входит в MVP
+- AI больше нельзя описывать как “ещё не начат”
+- отсутствие большого chat/drafting-suite не считается незакрытым MVP-блокером
 
-- monorepo
-- отдельный backend
-- Python backend
-- editable BBCode
-- create-from-template
-- публичный API
-- загрузка файлов в document flow
-- дополнительные документные сценарии сверх жалобы в ОГП как главного сценария MVP
-- отдельный модуль сервер-специфичных шаблонных документов после MVP
-- первый тип такого модуля после MVP: `Адвокатский запрос`
+### Route policy
+
+Целевые пользовательские зоны:
+
+- `/account`
+- `/assistant`
+- `/servers`
+- `/servers/[serverSlug]/documents/...`
+- `/internal`
+
+`/app` не считается primary product zone.
+
+## Что уже есть в repo, но не открывает MVP заново
+
+### Post-MVP template documents
+
+В репозитории уже есть первые post-MVP template document families:
+
+- `attorney_request`
+- `legal_services_agreement`
+
+Это не делает MVP “незакрытым обратно”.
+Эти модули надо трактовать как post-MVP expansion поверх уже закрытого MVP.
+
+Зафиксировано:
+
+- подпись персонажа хранится на уровне персонажа как изображение и фиксируется в `signatureSnapshot`
+- `attorney_request` использует именно активную подпись выбранного персонажа и freeze-ит её в документе
+- последующая замена подписи в профиле не меняет уже созданные документы
+- `legal_services_agreement` живёт в той же server-scoped documents architecture, но остаётся отдельной rigid-template line со своей renderer/asset спецификой
+
+### Forum automation
+
+- forum automation для `ogp_complaint` может существовать технически
+- она не считается required user-facing MVP capability
+- cookies / forum session не считаются обязательным пользовательским вводом
+- `manual publication_url` остаётся максимум optional metadata / fallback
+
+## Что не входит в current agreed MVP
+
+- новые document families beyond current repo-state
+- превращение `/app` обратно в primary user zone
+- reusable template/PDF/JPG documents как required часть MVP
+- forum automation как обязательный user success path
+- standalone trustors registry как обязательная runtime dependency documents
+- broad document-AI suite, chat UI, full-document rewrite и другой large AI surface beyond current helper scope
+- `Docker Compose` как обязательный current production runtime
 
 ## Зафиксированные продуктовые компромиссы
 
-- `Supabase Storage` сохраняется в архитектуре как часть платформы, но сценарий загрузки файлов не входит в текущий MVP
-- номер обращения остается пользовательским полем без проверки уникальности
-- документ не синхронизируется с форумом автоматически; в MVP есть только ручная отметка актуальности
-- forum automation для `ogp_complaint`, даже если технически реализована, не считается обязательной частью MVP и не является критерием пользовательской полноты сценария
-- после MVP forum automation должна быть удалена из продукта как временная capability, а не развиваться дальше как core user feature
-- standalone trustors registry не считается обязательным MVP-модулем; trustor snapshots уже достаточно покрывают текущие representative flows
-- `/app` не считается primary product zone и остаётся только compatibility surface
+- OGP success state не зависит от live forum publication
+- trustor registry не становится source of truth для уже созданного документа
+- template documents используют character-scoped signature assets и document snapshots, а не live profile after first save
+- `Supabase Storage` используется для character signature assets, но не превращается в общий upload-centric document flow для всего продукта
 
 ## What Comes After MVP
 
-Следующие кандидаты относятся уже не к закрытию текущего MVP, а к следующей фазе:
+Следующие линии уже относятся к future/post-MVP:
 
-- deeper grounded document AI expansion beyond current first grounded legal rollout
-- deeper standalone trustors registry expansion beyond current `/account/trustors` CRUD + optional prefill
-- post-MVP template documents
-- reusable character-signature asset layer для template/PDF/JPG documents с frozen signature snapshot внутри документа
+- deeper grounded document AI expansion
+- deeper trustors expansion beyond current `/account/trustors` CRUD + optional prefill
+- дальнейшее развитие template documents beyond current implemented families
 - deeper operational/admin maturity
 
 Важно:
 
-- это future options, а не недоделанные обязательные части текущего MVP
+- это future options, а не недоделанные обязательные части уже закрытого MVP
 - forum automation не возвращается в required scope
 - trustors registry не возвращается в required scope
+- `/app` не возвращается как primary product zone

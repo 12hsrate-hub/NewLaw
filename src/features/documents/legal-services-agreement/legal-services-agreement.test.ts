@@ -4,6 +4,7 @@ import {
   legalServicesAgreementFixtureAuthorSnapshot,
   legalServicesAgreementFixturePayload,
 } from "@/features/documents/legal-services-agreement/fixtures";
+import { legalServicesAgreementDraftPayloadSchema } from "@/features/documents/legal-services-agreement/schemas";
 import {
   LegalServicesAgreementGenerationBlockedError,
   renderLegalServicesAgreementArtifact,
@@ -48,5 +49,17 @@ describe("legal services agreement", () => {
         },
       }),
     ).rejects.toBeInstanceOf(LegalServicesAgreementGenerationBlockedError);
+  });
+
+  it("нормализует agreementNumber к формату LS-XXXX", () => {
+    const payload = legalServicesAgreementDraftPayloadSchema.parse({
+      ...legalServicesAgreementFixturePayload,
+      manualFields: {
+        ...legalServicesAgreementFixturePayload.manualFields,
+        agreementNumber: "11",
+      },
+    });
+
+    expect(payload.manualFields.agreementNumber).toBe("LS-0011");
   });
 });

@@ -1,6 +1,7 @@
 import type { DocumentAuthorSnapshot } from "@/schemas/document";
 import type { LegalServicesAgreementDraftPayload } from "@/features/documents/legal-services-agreement/schemas";
 import type { LegalServicesAgreementResolvedFields } from "@/features/documents/legal-services-agreement/types";
+import { normalizeLegalServicesAgreementNumber } from "@/features/documents/legal-services-agreement/formatting";
 
 export const legalServicesAgreementReferenceAssets = {
   pdfFileName: "Dom Perignon_Nick Name.pdf",
@@ -20,7 +21,7 @@ export const legalServicesAgreementManualFieldSpecs = [
   {
     key: "agreementNumber",
     label: "Номер договора",
-    hint: "Фиксированное заменяемое поле эталонного договора.",
+    hint: "Фиксированное заменяемое поле эталонного договора. Нормализуется к формату LS-XXXX.",
   },
   {
     key: "registerNumber",
@@ -69,7 +70,7 @@ export function buildLegalServicesAgreementResolvedFields(input: {
   const trustor = payload.trustorSnapshot;
 
   return {
-    agreementNumber: payload.manualFields.agreementNumber,
+    agreementNumber: normalizeLegalServicesAgreementNumber(payload.manualFields.agreementNumber),
     registerNumber: payload.manualFields.registerNumber,
     agreementDate: payload.manualFields.agreementDate,
     servicePeriodStart: payload.manualFields.servicePeriodStart,

@@ -1,573 +1,314 @@
 # База данных
 
-## Общий подход
+## Source of truth
 
-В MVP прикладные данные хранятся в `PostgreSQL` через `Supabase`.
-Основная схема и миграции ведутся через `Prisma`.
+Источником правды по текущей схеме БД является:
 
-Identity-источник:
+- [prisma/schema.prisma](../../prisma/schema.prisma)
 
-- аутентификация и первичный `user_id` приходят из `Supabase Auth`
+Этот документ не повторяет Prisma построчно, а фиксирует актуальную прикладную модель и ключевые правила.
 
-Прикладной слой:
+## Текущие enum-модели
 
-- собственные таблицы приложения хранятся в отдельной прикладной схеме
-- все ключевые связи опираются на `user_id`, `server_id`, `character_id`
+### Character
 
-## Базовые таблицы
+- `CharacterRoleKey`: `citizen`, `lawyer`
+- `CharacterAccessFlagKey`: `advocate`, `server_editor`, `server_admin`, `tester`
 
-### profiles
+### Documents
 
-Профиль аккаунта приложения.
+- `DocumentType`:
+  - `ogp_complaint`
+  - `rehabilitation`
+  - `lawsuit`
+  - `attorney_request`
+  - `legal_services_agreement`
+- `DocumentStatus`:
+  - `draft`
+  - `generated`
+  - `published`
+
+### OGP publication
+
+- `ForumConnectionState`
+- `OgpForumSyncState`
+- `OgpForumPublicationOperation`
+- `OgpForumPublicationAttemptStatus`
+
+### Corpus / AI
+
+- `LawKind`
+- `LawVersionStatus`
+- `PrecedentVersionStatus`
+- `PrecedentValidityStatus`
+- `AIRequestStatus`
+
+## Ключевые модели
+
+### Account
 
 Основные поля:
 
 - `id`
-- `user_id`
-- `display_name`
-- `is_super_admin`
-- `created_at`
-- `updated_at`
+- `email`
+- `login`
+- `pendingEmail`
+- `mustChangePassword`
+- `isSuperAdmin`
 
-### servers
+Связи:
 
-Справочник серверов.
+- `characters`
+- `documents`
+- `trustors`
+- `forumSessionConnections`
+- `aiRequests`
+
+### Server
 
 Основные поля:
 
 - `id`
 - `code`
 - `name`
-- `is_active`
-- `sort_order`
+- `isActive`
+- `sortOrder`
 
-### user_server_state
+Связи:
 
-Связка аккаунта и сервера.
+- `characters`
+- `documents`
+- `trustors`
+- `laws`
+- `precedents`
+- `assistantGuestSessions`
 
-Основные поля:
-
-- `id`
-- `user_id`
-- `server_id`
-- `active_character_id`
-- `created_at`
-- `updated_at`
+### UserServerState
 
 Назначение:
 
-- фиксировать выбранный серверный контекст пользователя
-- хранить активного персонажа внутри конкретного сервера
-
-### characters
-
-Основная карточка персонажа.
+- хранить active server / active character пользователя внутри конкретного сервера
 
 Основные поля:
 
-- `id`
-- `user_id`
-- `server_id`
-- `full_name`
-- `passport_number`
+- `accountId`
+- `serverId`
+- `activeCharacterId`
+- `lastSelectedAt`
+
+### Character
+
+Основные поля:
+
+- `accountId`
+- `serverId`
+- `fullName`
 - `nickname`
-- `profile_data_json`
-- `active_signature_id`
-- `is_profile_complete`
-- `deleted_at`
-- `created_at`
-- `updated_at`
+- `passportNumber`
+- `profileDataJson`
+- `isProfileComplete`
+- `activeSignatureId`
+- `deletedAt`
 
 Правила:
 
-- `nickname` должен совпадать с `full_name`
-- уникальность паспорта действует внутри связки `user_id + server_id` среди не удаленных записей
-- ограничение максимум `3` персонажа на `user + server` реализуется прикладной логикой
-- `active_signature_id` указывает на текущую активную подпись персонажа и может быть `NULL`
+- максимум `3` персонажа на `account + server` реализуется прикладной логикой
+- уникальность паспорта действует внутри `account + server`
+- `activeSignatureId` может быть `NULL`
 
-### character_signatures
-
-Исторические изображения подписи персонажа для template/PDF/JPG documents.
+### CharacterSignature
 
 Основные поля:
 
 - `id`
-- `character_id`
-- `storage_path`
-- `mime_type`
+- `characterId`
+- `storagePath`
+- `mimeType`
 - `width`
 - `height`
-- `file_size`
-- `is_active`
-- `created_at`
+- `fileSize`
+- `isActive`
+- `createdAt`
 
 Правила:
 
-- одна запись относится к одному конкретному upload asset
-- один персонаж может иметь несколько исторических записей
-- у персонажа активной считается только одна запись
-- storage path должен быть уникальным и versioned, без перезаписи файла одним и тем же именем
-- если подпись уже использовалась в документе, физическое удаление файла не должно ломать frozen snapshots
+- одна запись = один конкретный uploaded asset
+- storage path versioned и не должен перезаписывать старый asset тем же именем
+- исторические signature records не должны ломать frozen document snapshots
 
-### character_roles
-
-Роли персонажа.
+### Trustor
 
 Основные поля:
 
-- `id`
-- `character_id`
-- `role_key`
-- `created_at`
-
-Примечание:
-
-- минимально ожидаемые значения для MVP: `citizen`, `lawyer`
-- роли всегда привязываются к `character_id`
-
-### character_access_flags
-
-Флаги доступа персонажа.
-
-Основные поля:
-
-- `id`
-- `character_id`
-- `flag_key`
-- `created_at`
-
-Примечание:
-
-- один персонаж может иметь несколько флагов доступа
-- флаги не зависят от ФИО
-- зафиксированные значения для MVP: `advocate`, `server_editor`, `server_admin`, `tester`
-
-### trustors
-
-Карточки доверителей.
-
-Основные поля:
-
-- `id`
-- `user_id`
-- `server_id`
-- `full_name`
-- `passport_number`
+- `accountId`
+- `serverId`
+- `fullName`
+- `passportNumber`
 - `phone`
-- `notes`
-- `profile_data_json`
-- `deleted_at`
-- `created_at`
-- `updated_at`
+- `icEmail`
+- `passportImageUrl`
+- `note`
+- `deletedAt`
 
 Правила:
 
-- доверитель привязан к `user + server`
-- карточка может быть создана с минимальным набором полей
-- soft delete не влияет на исторические документы
+- trustor привязан к `user + server`
+- trustor registry не является обязательной runtime dependency documents
+- soft delete не меняет исторические документы
 
-### documents
-
-Основная таблица документов.
+### Document
 
 Основные поля:
 
-- `id`
-- `user_id`
-- `server_id`
-- `character_id`
-- `trustor_id`
-- `document_type`
-- `title`
+- `accountId`
+- `serverId`
+- `characterId`
+- `trustorId`
+- `documentType`
 - `status`
-- `publication_status`
-- `publication_url`
-- `is_site_forum_synced`
-- `forum_sync_state`
-- `forum_thread_id`
-- `forum_post_id`
-- `forum_published_bbcode_hash`
-- `forum_last_published_at`
-- `forum_last_sync_error`
-- `law_version`
-- `template_version`
-- `form_schema_version`
-- `snapshot_captured_at`
-- `author_snapshot_json`
-- `signature_snapshot_json`
-- `trustor_snapshot_json`
-- `form_payload_json`
-- `last_generated_bbcode`
-- `generated_at`
-- `generated_law_version`
-- `generated_template_version`
-- `generated_form_schema_version`
-- `is_modified_after_generation`
-- `deleted_at`
-- `created_at`
-- `updated_at`
+- `title`
+- `formSchemaVersion`
+- `snapshotCapturedAt`
+- `authorSnapshotJson`
+- `signatureSnapshotJson`
+- `formPayloadJson`
+- `generatedArtifactJson`
+- `generatedArtifactText`
+- `generatedOutputFormat`
+- `generatedRendererVersion`
+- `lastGeneratedBbcode`
+- `generatedAt`
+- `generatedLawVersion`
+- `generatedTemplateVersion`
+- `generatedFormSchemaVersion`
+- `publicationUrl`
+- `isSiteForumSynced`
+- `forumSyncState`
+- `forumThreadId`
+- `forumPostId`
+- `forumPublishedBbcodeHash`
+- `forumLastPublishedAt`
+- `forumLastSyncError`
+- `isModifiedAfterGeneration`
+- `deletedAt`
 
 Ключевые правила:
 
-- документ хранит слепок
-- слепок фиксируется при первом сохранении черновика
-- `author_snapshot_json` после фиксации не должен автоматически пересобираться из карточки персонажа
-- `signature_snapshot_json` после фиксации не должен автоматически пересобираться из активной подписи персонажа
-- `trustor_snapshot_json` внутри документа живет отдельно от карточки доверителя
-- `publication_url` допускается только одна
-- `publication_url` должен валидироваться по домену `forum.gta5rp.com`
-- OGP automation-owned publication identity хранится отдельно от manual `publication_url`
-- `appeal_number` в полезной нагрузке или отдельных полях не проверяется на уникальность
-- soft delete обязателен
+- first-save фиксирует snapshot документа
+- `authorSnapshotJson` не должен ретроактивно пересобираться из live character profile
+- `signatureSnapshotJson` не должен ретроактивно пересобираться из active character signature
+- `trustorId` может существовать как связь с registry entry, но source of truth для generation остаётся snapshot документа
+- `publicationUrl` и forum metadata нужны только тем document families, которым это действительно нужно
 
-Отдельная note по signature snapshot:
+### ForumSessionConnection
 
-- шаблонные документы могут хранить `signature_snapshot_json` с `signatureId`, `storagePath`, `mimeType`, `width`, `height`, `fileSize`
-- snapshot фиксирует именно тот asset, который использовался при первой фиксации/генерации документа
-- последующая замена активной подписи персонажа не должна менять уже созданный документ
-- `attorney_request` reuse-ит этот contract напрямую через image-signature персонажа
-- `legal_services_agreement` не использует image-signature как source of truth: для него подписи рендерятся шрифтом из frozen author/trustor snapshots
-
-### forum_session_connections
-
-Account-scoped foundation для будущей OGP forum automation.
+Account-scoped foundation для временной OGP forum automation.
 
 Основные поля:
 
-- `id`
-- `account_id`
-- `provider_key`
+- `accountId`
+- `providerKey`
 - `state`
-- `encrypted_session_payload`
-- `forum_user_id`
-- `forum_username`
-- `validated_at`
-- `last_validation_error`
-- `disabled_at`
-- `created_at`
-- `updated_at`
+- `encryptedSessionPayload`
+- `forumUserId`
+- `forumUsername`
+- `validatedAt`
+- `lastValidationError`
+- `disabledAt`
 
-Правила:
+Важно:
 
-- connection принадлежит аккаунту, а не документу и не персонажу
 - raw session/cookies хранятся только в зашифрованном виде
-- `provider_key` в текущем foundation фиксирован как `forum.gta5rp.com`
-- одна account-scoped connection на provider
-- claims и другие document families не получают доступ к этому publication capability автоматически
+- эта модель не является universal publication subsystem для всех документов
 
-### ogp_forum_publication_attempts
+### OgpForumPublicationAttempt
 
-OGP-specific attempt log для forum publish automation.
+OGP-specific attempt log.
 
 Основные поля:
 
-- `id`
-- `document_id`
-- `account_id`
+- `documentId`
+- `accountId`
 - `operation`
 - `status`
-- `forum_thread_id`
-- `forum_post_id`
-- `error_code`
-- `error_summary`
-- `created_at`
-- `updated_at`
+- `forumThreadId`
+- `forumPostId`
+- `errorCode`
+- `errorSummary`
 
-Правила:
+Правило:
 
 - attempt log относится только к `ogp_complaint`
-- raw cookies/session не логируются
-- failed attempt может существовать даже если external forum identity не была сохранена в документе
-- это не universal publication subsystem для всех document families
 
-Зафиксированные значения `document_type`:
-
-- `ogp_complaint`
-- `rehabilitation`
-- `lawsuit`
-
-### ai_requests
+### AIRequest
 
 Журнал AI-запросов.
 
 Основные поля:
 
-- `id`
-- `user_id`
-- `server_id`
-- `character_id`
-- `document_id`
-- `feature_key`
+- `accountId`
+- `serverId`
+- `guestSessionId`
+- `featureKey`
+- `providerKey`
+- `proxyKey`
 - `model`
-- `request_payload_json`
-- `response_payload_json`
+- `requestPayloadJson`
+- `responsePayloadJson`
 - `status`
-- `error_message`
-- `created_at`
-
-Назначение:
+- `errorMessage`
 
-- логирование всех AI-вызовов
-- трассировка единственного AI-сценария MVP
+## Snapshot policy
 
-### law_source_indexes
+Внутри документа как snapshot/json живут:
 
-Server-scoped index URL для discovery законодательных тем форума.
+- author data
+- trustor data
+- template/document payload
+- signature metadata, если документ использует подпись
 
-Основные поля:
+Правило:
 
-- `id`
-- `server_id`
-- `index_url`
-- `is_enabled`
-- `last_discovered_at`
-- `last_discovery_status`
-- `last_discovery_error`
-- `created_at`
-- `updated_at`
+- уже созданный документ не должен зависеть от live profile/trustor/signature state
 
-Правила:
+## Publication policy
 
-- для одного сервера можно хранить максимум `2` index URL
-- URL допускается только с домена `forum.gta5rp.com`
-- index URL используется только для discovery тем, не как источник готового текста закона
+Forum publication metadata относится только к тем document families, где она реально нужна.
 
-### laws
+На текущем repo-state:
 
-Трекер закона на уровне одной forum topic.
+- `ogp_complaint` использует publication model
+- claims и template documents не должны автоматически наследовать её
 
-Основные поля:
+## Template documents and signatures
 
-- `id`
-- `server_id`
-- `law_key`
-- `title`
-- `topic_url`
-- `topic_external_id`
-- `law_kind`
-- `related_primary_law_id`
-- `current_version_id`
-- `is_excluded`
-- `classification_override`
-- `internal_note`
-- `created_at`
-- `updated_at`
+Актуальная reusable policy:
 
-Правила:
+- character-scoped image signature хранится в `CharacterSignature`
+- frozen `signatureSnapshot` фиксируется внутри документа
+- `attorney_request` уже использует этот contract напрямую
 
-- один закон соответствует одной теме форума
-- dedupe идёт по `server_id + topic_external_id`
-- `law_key` уникален внутри сервера
-- supplements хранятся отдельным типом и не смешиваются автоматически с основным текстом закона
+Отдельная note:
 
-### law_versions
+- `legal_services_agreement` уже живёт в общей `Document`-модели без отдельной subtype-таблицы
+- текущие renderer-specific особенности этого документа не меняют общую data-model policy для template documents
 
-Immutable snapshot импортированной редакции закона.
+## Corpus models
 
-Основные поля:
+В текущей схеме уже существуют:
 
-- `id`
-- `law_id`
-- `status`
-- `normalized_full_text`
-- `source_snapshot_hash`
-- `normalized_text_hash`
-- `imported_at`
-- `confirmed_at`
-- `confirmed_by_account_id`
-- `created_at`
-- `updated_at`
-
-Правила:
-
-- новая найденная версия сначала сохраняется как `imported_draft`
-- только после ручного подтверждения версия становится `current`
-- unchanged import не должен плодить лишние версии
-- текст версии не редактируется вручную через внутренний UI
-
-### law_source_posts
+- `LawSourceIndex`
+- `Law`
+- `LawVersion`
+- `LawSourcePost`
+- `LawBlock`
+- `LawImportRun`
+- `PrecedentSourceTopic`
+- `Precedent`
+- `PrecedentVersion`
+- `PrecedentSourcePost`
+- `PrecedentBlock`
+- `PrecedentImportRun`
+- `AssistantGuestSession`
 
-Raw source layer для версии закона.
-
-Основные поля:
-
-- `id`
-- `law_version_id`
-- `post_external_id`
-- `post_url`
-- `post_order`
-- `author_name`
-- `posted_at`
-- `raw_html`
-- `raw_text`
-- `normalized_text_fragment`
-- `created_at`
-
-Назначение:
-
-- хранить, из каких именно forum posts собрана версия закона
-- обеспечивать трассируемость import snapshot
-
-### law_blocks
-
-Логические блоки внутри одной версии закона.
-
-Основные поля:
-
-- `id`
-- `law_version_id`
-- `block_type`
-- `block_order`
-- `block_title`
-- `block_text`
-- `parent_block_id`
-- `article_number_normalized`
-- `created_at`
-- `updated_at`
-
-Правила:
-
-- основной рабочий уровень блока — `article`
-- допускаются типы `section`, `chapter`, `article`, `appendix`, `unstructured`
-- `article_number_normalized` строковый и нужен для будущего retrieval
-
-### law_import_runs
-
-Служебный журнал discovery/import запусков.
-
-Основные поля:
-
-- `id`
-- `server_id`
-- `source_index_id`
-- `mode`
-- `status`
-- `lock_key`
-- `started_at`
-- `finished_at`
-- `summary`
-- `error`
-- `created_at`
-- `updated_at`
-
-Назначение:
-
-- foundation для import lock
-- foundation для идемпотентного discovery/import workflow
-- журнал технического результата запуска без полноценного review UI
-
-### precedent_source_topics
-
-Foundation-таблица отдельного corpus судебных прецедентов.
-
-Основные поля:
-
-- `id`
-- `server_id`
-- `source_index_id`
-- `topic_url`
-- `topic_external_id`
-- `title`
-- `is_excluded`
-- `classification_override`
-- `internal_note`
-- `last_discovered_at`
-- `last_discovery_status`
-- `last_discovery_error`
-- `created_at`
-- `updated_at`
-
-Правила:
-
-- precedents не смешиваются с `laws`
-- dedupe source topic идёт минимум по `server_id + topic_external_id`
-- source topic пока используется только как foundation для будущего precedent discovery/import
-
-### precedents и связанные snapshot-таблицы
-
-После `05.x` и в рамках отдельного следующего блока добавлен foundation для отдельного precedents corpus:
-
-- `precedents`
-- `precedent_versions`
-- `precedent_source_posts`
-- `precedent_blocks`
-
-Важно:
-
-- это отдельная доменная линия, а не расширение `law_kind`
-- `version status` и `validity_status` у precedents разделены
-- precedents пока не подмешиваются в retrieval уже работающего assistant
-
-## Предлагаемые ограничения и индексы
-
-### Уникальность персонажа по паспорту
-
-Нужен частичный уникальный индекс по:
-
-- `user_id`
-- `server_id`
-- `passport_number`
-
-С условием:
-
-- `deleted_at IS NULL`
-
-### Активный персонаж
-
-`user_server_state.active_character_id` должен ссылаться на не удаленного персонажа того же пользователя и того же сервера.
-Эта проверка в MVP может быть частично прикладной.
-
-### Флаг аккаунтного доступа
-
-Для аккаунтного уровня фиксируется отдельный `user_access_flag`:
-
-- `super_admin`
-
-### Ссылка на форум
-
-Для `documents.publication_url` требуется прикладная валидация:
-
-- домен строго `https://forum.gta5rp.com/`
-
-### Law corpus constraints
-
-Нужны прикладные и индексные ограничения:
-
-- `laws(server_id, topic_external_id)` — уникально
-- `laws(server_id, law_key)` — уникально
-- `law_versions(law_id, normalized_text_hash)` — уникально
-- `law_source_posts(law_version_id, post_external_id)` — уникально
-- `law_blocks(law_version_id, block_order)` — уникально
-- `law_import_runs.lock_key` — уникально для active run lock foundation
-
-## Что хранится как слепок
-
-Внутри документа в JSON-структурах должны жить:
-
-- данные автора на момент первого сохранения черновика
-- данные доверителя на момент фиксации слепка или ручного редактирования в документе
-- поля формы
-- данные по доказательствам и строкам ссылок
-
-## Что важно не переусложнить
-
-Для MVP не нужно заранее нормализовывать все поля документа в десятки связанных таблиц.
-Главное — зафиксировать надежный `documents`-слой со слепком, версиями и генерацией.
-
-Отдельные JSON-поля здесь оправданы, потому что:
-
-- основной сценарий пока один
-- схема формы versioned
-- доказательства имеют вложенную структуру
-- важнее сохранить целостность документа, чем рано дробить форму на множество таблиц
-
-## Отдельная пометка после MVP
-
-После MVP планируется отдельный модуль сервер-специфичных шаблонных документов.
-
-Важно:
-
-- этот модуль не должен смешиваться с текущими MVP-документами и потоком генерации `BBCode`
-- он будет использовать уже существующую модель документных слепков
-- `legal_services_agreement` уже использует текущую `documents`-модель без отдельной subtype-таблицы
-- page-by-page PNG export и rigid reference renderer не требуют отдельной таблицы на этом этапе
+Это означает, что law corpus, precedents corpus и assistant storage больше нельзя описывать как пустой foundation-only контур.

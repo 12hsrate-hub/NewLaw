@@ -2,123 +2,85 @@
 
 ## Назначение
 
-Этот репозиторий хранит стартовую документацию и инфраструктурную основу проекта `Lawyer5RP MVP`.
-До отдельного согласования нельзя добавлять прикладной код продукта, если задача сформулирована только как документирование, планирование или организация репозитория.
+Это активный репозиторий проекта `NewLaw / Lawyer5RP MVP`, а не только bootstrap-набор документации.
+Если задача ограничена документацией, планами, README, архивом или согласованием формулировок, код приложения менять не нужно.
 
 ## Языковая политика
 
-- Вся человекочитаемая документация, планы, описания изменений, отчеты и комментарии пишутся только на русском языке.
-- Все кодовые идентификаторы, названия файлов, таблиц, колонок, `env`-переменных, маршрутов, route groups и machine keys должны быть только на английском языке.
+- вся человекочитаемая документация, планы, changelog-описания и комментарии пишутся только на русском языке
+- machine keys, кодовые идентификаторы, маршруты, env-переменные, таблицы, колонки и имена файлов продукта — только на английском языке
 
-## Базовые ограничения проекта
+## Актуальный статус репозитория
 
-- Один full-stack проект на `Next.js + TypeScript + App Router`.
-- Без monorepo в MVP.
-- Без отдельного backend-сервиса в MVP.
-- Без Python backend.
-- Админка находится внутри того же приложения.
-- Пакетный менеджер проекта: `pnpm`.
-- База данных: `PostgreSQL` через `Supabase`.
-- Аутентификация: `Supabase Auth`.
-- Базовый UI-стек MVP: `Tailwind CSS` и `shadcn/ui`.
-- Для внутренних UI-действий используются `Server Actions`.
-- Для технических endpoint’ов используются `Route Handlers`.
-- Единый слой валидации: `Zod`.
-- `Supabase Storage` остается частью платформы, но в MVP не используется в document flow и не нужен на этапе bootstrap.
-- AI-слой использует `OpenAI API` только с сервера.
-- Шаблоны AI prompt’ов хранятся в коде и репозитории, а не в БД.
-- Публичный API в MVP не создается.
+- current agreed MVP формально закрыт
+- новые крупные изменения нельзя маскировать под “ещё нужно для MVP”
+- всё новое должно описываться как:
+  - future expansion
+  - optional capability
+  - post-MVP line
+  - operational maturity
 
-## Целевая модель данных
+В репозитории уже существуют:
 
-Основная иерархия проекта:
+- account zone: `/account/...`
+- assistant: `/assistant/...`
+- server hub и server-scoped documents: `/servers/...`
+- internal contour: `/internal/...`
+- document families:
+  - `ogp_complaint`
+  - `rehabilitation`
+  - `lawsuit`
+  - `attorney_request`
+  - `legal_services_agreement`
 
-`Account -> Server -> Characters -> Documents`
+`/app` больше не является основной product zone и должен трактоваться только как transitional / compatibility surface.
 
-Дополнительные правила:
+## Актуальная route policy
 
-- `trustors` привязаны к `user + server`, а не к `character`
-- роли и флаги доступа привязаны к `character_id`, а не к ФИО
-- `super_admin` — признак уровня аккаунта
-- серверное состояние пользователя хранится в `user_server_state` в БД
-- для `characters`, `trustors` и `documents` используется soft delete
-- документ хранит слепок данных и не зависит от последующих изменений исходных карточек
+Перед любыми продуктово-архитектурными решениями сверяться с:
 
-## Machine keys
+- [docs/product](./docs/product)
+- [docs/architecture](./docs/architecture)
+- [docs/plans](./docs/plans)
 
-Зафиксированные machine keys:
+Целевые зоны проекта:
 
-- `document_types`: `ogp_complaint`, `rehabilitation`, `lawsuit`
-- `access_flags`: `advocate`, `server_editor`, `server_admin`, `tester`
-- `user_access_flags`: `super_admin`
+- `/account` — account zone
+- `/assistant` — отдельный assistant module
+- `/servers` — public/server-scoped entry layer
+- `/servers/[serverSlug]/documents/...` — document area
+- `/internal` — internal/super-admin contour
+- `/app` — только compatibility layer
 
-## Границы MVP
+## Актуальные продуктовые правила
 
-В MVP допускаются только согласованные сценарии:
+- базовая иерархия: `Account -> Server -> Characters -> Documents`
+- trustors привязаны к `user + server`, а document flows остаются snapshot-based
+- `/account/trustors` — convenience layer, а не обязательная runtime dependency documents
+- подпись для template/PDF/JPG documents хранится на уровне персонажа как отдельный asset и фиксируется в document snapshot
+- forum automation — optional / temporary capability, не required MVP success path
+- current AI scope уже не пустой:
+  - `server legal assistant`
+  - document field rewrite v1
+  - first grounded legal rewrite v2 rollout
 
-- управление персонажами и доступами
-- управление доверителями
-- мастер жалобы в ОГП
-- генерация итогового BBCode только для просмотра и копирования
-- встроенная админка
-- один AI-сценарий: улучшение описания для адвоката
+## Deployment truth
 
-В MVP не допускается:
+Текущий production runtime:
 
-- editable BBCode
-- create-from-template
-- отдельный backend
-- отдельный публичный API
-- произвольное расширение продуктового scope сверх согласованных правил
+- `systemd`
+- immutable `release directories`
+- `current` symlink
+- shared env вне release-каталогов
 
-## Окружения и релизный поток
-
-- Окружения: `local`, `staging`, `production`
-- Поток: локальная проверка -> GitHub -> VPS production
-- Production-хостинг: `Ubuntu 24.04 LTS`
-- Deployment на VPS выполняется через `Docker Compose`
-- `staging` для MVP размещается на том же VPS, но как отдельный процесс или сервис приложения, с отдельным доменом или поддоменом, отдельными `env` и отдельным `Supabase` project либо отдельной staging БД
-
-## Git flow
-
-- Рабочие ветки: `feature/*`
-- Интеграционная ветка: `staging`
-- Production-ветка: `main`
-- Локальная разработка ведется в `feature/*`
-- Промежуточная проверка идет через merge в `staging`
-- Production-релиз идет через merge в `main`
-- `hotfix` используется только при необходимости с обязательным возвратом изменений в `staging`
-
-## Правила структуры кода
-
-- Не делать большие комбайны из UI, Prisma, OpenAI, бизнес-логики и валидации в одном месте.
-- Разделять `page/layout`, `components`, `server/actions`, `schemas`, `db/repositories`, `utils`.
-- Не использовать Prisma в UI-компонентах.
-- Не смешивать клиентскую и серверную логику без необходимости.
-- Мастер документа не должен быть одним большим файлом.
-- Каждый шаг мастера должен быть отдельным компонентом или модулем.
-- Не дублировать бизнес-правила и валидацию в нескольких местах.
-- Не делать лишние абстракции без реальной необходимости.
-- Перед реализацией сверяться с [docs/architecture/code-structure.md](./docs/architecture/code-structure.md).
-- Дополнительно сверяться с [docs/architecture/frontend.md](./docs/architecture/frontend.md).
-
-## Baseline проверок и дебага
-
-- `GitHub Actions`
-- `pnpm lint`
-- `pnpm typecheck`
-- `pnpm prisma validate`
-- `pnpm prisma generate`
-- smoke e2e через `Playwright`
-- `trace` и `HTML report`
-- `/api/health`
-- runtime logs
-- `audit_logs`
-- `ai_requests`
+`Docker Compose` сейчас не является каноническим runtime и не должен описываться как текущий blocker или обязательный deployment path.
+Это future operational target.
 
 ## Правила работы с документацией
 
-- Перед началом реализации нужно сверяться с файлами в `docs/product`, `docs/architecture` и `docs/plans`.
-- Если меняется продуктовая логика, сначала обновляются соответствующие документы, потом код.
-- Если решение спорное, оно должно быть явно отмечено в документе как спорное место, а не замаскировано под финальное правило.
-- Если задача ограничена документацией, прикладной код не добавляется.
+- перед изменениями сверяться с `docs/product`, `docs/architecture`, `docs/plans`
+- если меняется продуктовая логика или архитектурная policy, сначала обновляются документы, потом код
+- если задача docs-only, код приложения не меняется
+- завершённые планы не оставляются в `docs/plans` как активные задачи:
+  - полезную историю переносить в `docs/archive/...`
+  - активными оставлять только текущие source-of-truth и реально незакрытые future/post-MVP линии

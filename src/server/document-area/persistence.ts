@@ -23,6 +23,7 @@ import {
   legalServicesAgreementDraftPayloadSchema,
   type LegalServicesAgreementDraftPayload,
 } from "@/features/documents/legal-services-agreement/schemas";
+import { normalizeLegalServicesAgreementNumber } from "@/features/documents/legal-services-agreement/formatting";
 import {
   LEGAL_SERVICES_AGREEMENT_FORM_SCHEMA_VERSION,
 } from "@/features/documents/legal-services-agreement/types";
@@ -546,7 +547,9 @@ function normalizeLegalServicesAgreementDraftPayload(input: {
     formSchemaVersion: LEGAL_SERVICES_AGREEMENT_FORM_SCHEMA_VERSION,
     trustorSnapshot: input.trustorSnapshot,
     manualFields: {
-      agreementNumber: String(manualFields.agreementNumber ?? ""),
+      agreementNumber: normalizeLegalServicesAgreementNumber(
+        String(manualFields.agreementNumber ?? ""),
+      ),
       registerNumber: String(manualFields.registerNumber ?? ""),
       agreementDate:
         String(manualFields.agreementDate ?? manualFields.agreementDateLabel ?? "").trim() ||

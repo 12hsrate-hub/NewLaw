@@ -6,6 +6,7 @@ import {
   LEGAL_SERVICES_AGREEMENT_RENDERER_VERSION,
   LEGAL_SERVICES_AGREEMENT_TEMPLATE_VERSION,
 } from "@/features/documents/legal-services-agreement/types";
+import { normalizeLegalServicesAgreementNumber } from "@/features/documents/legal-services-agreement/formatting";
 
 export const legalServicesAgreementTrustorSnapshotSchema = z.object({
   trustorId: z.string().trim().min(1),
@@ -17,7 +18,12 @@ export const legalServicesAgreementTrustorSnapshotSchema = z.object({
 });
 
 export const legalServicesAgreementManualFieldsSchema = z.object({
-  agreementNumber: z.string().trim().max(80).default(""),
+  agreementNumber: z
+    .string()
+    .trim()
+    .max(80)
+    .default("")
+    .transform((value) => normalizeLegalServicesAgreementNumber(value)),
   registerNumber: z.string().trim().max(80).default(""),
   agreementDate: z.string().trim().max(80).default(""),
   servicePeriodStart: z.string().trim().max(64).default(""),

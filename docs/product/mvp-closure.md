@@ -4,69 +4,46 @@
 
 Текущий agreed MVP можно считать формально закрытым.
 
-Это решение опирается на фактическое состояние репозитория, production release flow и уже закрытые reconciliation-линии:
+Это решение опирается на фактическое состояние репозитория и production release flow:
 
-- deploy/release hardening закрыт enough-for-current-scope
-- `/app` cleanup закрыт enough-for-current-scope
-- admin/internal contour закрыт enough-for-current-scope
-- account zone, server hub, document area, claims family и internal contour уже существуют как реальные рабочие модули
+- account zone, server hub и internal contour уже существуют как реальные рабочие зоны
+- `server legal assistant` уже существует как отдельный модуль
+- OGP complaint flow уже существует как рабочий persisted document flow
+- claims family уже существует как отдельная user-facing document line
+- current production runtime и release runbook уже зафиксированы и реально используются
 
-## Что считается закрытым в рамках MVP
+## Что считается закрытым в рамках current agreed MVP
 
-- account zone:
-  - `/account`
-  - `/account/security`
-  - `/account/characters`
-  - `/account/documents`
-- public and server-scoped routes:
-  - `/assistant`
-  - `/assistant/[serverSlug]`
-  - `/servers`
-  - `/servers/[serverSlug]`
-  - `/servers/[serverSlug]/documents/...`
-- internal contour:
-  - `/internal`
-  - `/internal/laws`
-  - `/internal/precedents`
-  - `/internal/security`
-  - `/internal/health`
-- production release model:
-  - `systemd`
-  - immutable releases
-  - `current` symlink
-  - shared env
-  - preflight / smoke / rollback helpers
+- `/account`, `/account/security`, `/account/characters`, `/account/documents`
+- `/assistant`, `/assistant/[serverSlug]`
+- `/servers`, `/servers/[serverSlug]`, `/servers/[serverSlug]/documents/...`
+- `/internal`, `/internal/laws`, `/internal/precedents`, `/internal/security`, `/internal/health`
+- OGP complaint flow
+- claims family
+- current MVP AI scope
+- production release foundation через `systemd + release directories + current symlink`
 
 ## Что не считается незакрытым MVP-блокером
 
-- standalone trustors registry
+- `/account/trustors` как convenience layer
 - forum automation как обязательная пользовательская capability
-- deeper deploy tooling beyond already proven release flow
-- broad document-AI suite beyond current MVP AI scope
+- broader document-AI suite beyond current helper scope
+- template documents как отдельная post-MVP линия
+- `Docker Compose` migration
 
-## Как трактовать оставшиеся линии
+## Что уже есть в repo как post-MVP expansion
 
-### Future expansion
+Эти линии не переоткрывают MVP, а живут поверх него:
 
-- deeper grounded document AI expansion beyond current first grounded legal rollout
-- deeper trustors registry expansion beyond current `/account/trustors` CRUD + optional document prefill
-- deeper admin/internal maturity
+- `attorney_request`
+- `legal_services_agreement`
 
-### Optional / temporary
-
-- forum automation line
-
-### Post-MVP
-
-- template documents
-- removal of temporary forum automation capability
-
-## Freeze Policy
+## Freeze policy
 
 После этой точки:
 
 - новые обязательные MVP-блоки не добавляются задним числом
 - `trustors` не возвращаются в required MVP scope
 - forum automation не возвращается в required MVP scope
-- `AI partial` трактуется только как future expansion beyond current MVP AI scope
+- broad AI-suite не притворяется частью незакрытого MVP
 - `/app` остаётся compatibility surface, а не primary product zone
