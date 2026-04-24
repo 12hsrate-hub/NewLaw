@@ -138,6 +138,27 @@ Current MVP-level AI scope уже покрыт:
 
 ## Что остаётся активными линиями
 
+### `14-codebase-maintainability-db-stability-and-safe-refactor`
+
+Статус: `active / technical maintainability + DB stability follow-up`
+
+Это не MVP blocker и не product expansion.
+
+Это отдельная техническая линия после production DB stability hotfix, направленная на:
+
+- safe refactor
+- read-path resilience
+- DB stability follow-up
+- снижение риска дальнейших регрессий
+
+Отдельные правила этой линии:
+
+- security correction по character access остаётся в плане `13`
+- DB source of truth остаётся `docs/architecture/database.md` + `prisma/schema.prisma`
+- release source of truth остаётся `docs/ops/release-runbook.md`
+- план `14` не должен менять Prisma schema без отдельного DB-safe шага
+- план `14` не должен добавлять migrations в обычных refactor PR
+
 ### `13-character-access-requests-and-role-approval`
 
 Статус: `implemented in repo / security correction`

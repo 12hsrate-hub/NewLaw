@@ -271,6 +271,16 @@ OGP-specific attempt log.
 
 - уже созданный документ не должен зависеть от live profile/trustor/signature state
 
+## DB stability follow-up / read-path resilience
+
+- production hotfix уже выявил `P2024`, `P1001` и brittle read-path на document/trustor/account routes
+- document JSON snapshots/payloads должны читаться безопасно
+- broken document data должна вести к degraded/invalid state, а не к route crash
+- write-path validation остаётся strict
+- data repair не выполняется silently
+- `DIRECT_URL` и `DATABASE_URL` должны рассматриваться отдельно в staging/production
+- `DIRECT_URL = DATABASE_URL` не является целевой production схемой
+
 ## Publication policy
 
 Forum publication metadata относится только к тем document families, где она реально нужна.

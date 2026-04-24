@@ -11,9 +11,11 @@
 
 - correction-линия уже реализована в repo
 - self-service назначение ролей и access flags закрыто
+- self-service UI больше не рендерит role/access чекбоксы
 - заявка на адвокатский доступ уже существует
 - internal approve/reject уже существует
 - nondestructive review-list текущих назначений уже существует
+- линия остаётся source of truth для security correction и возможного future audit/hardening, но не должна искусственно переоткрываться как отсутствующий flow
 
 Отдельно от product-scope:
 
@@ -332,3 +334,8 @@ Access request:
 
 - criteria считаются закрытыми на уровне репозитория
 - отдельно может оставаться только operational rollout retry, если production deploy блокируется внешней доступностью БД или pooler
+
+Важно:
+
+- дальнейшие generic maintainability/refactor шаги не должны переопределять этот документ
+- если понадобится future review или hardening character access UI/model, это остаётся внутри линии `13`, а не переносится в plan `14`

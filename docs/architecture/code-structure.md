@@ -98,6 +98,17 @@
 - не выделять отдельные сервисные слои только ради архитектурной красоты
 - сначала нужен понятный, локально читаемый модуль; затем уже обобщение, если оно действительно повторяется
 
+## Safe refactor and read-path resilience policy
+
+- крупные файлы режутся только по ответственности, а не по случайному механическому split
+- compatibility barrel-export обязателен, если переносится публичный export
+- document family labels, route builders и related metadata должны постепенно уходить в registry-подход
+- client editors не должны одновременно содержать весь state, field rendering, evidence rendering, AI controls и generation/publication panels
+- document read-model должен быть устойчив к legacy/broken JSON
+- refactor PR не должен менять Prisma schema
+- refactor PR не должен добавлять migrations
+- refactor PR не должен менять пользовательское поведение
+
 ## Как этот документ связан с остальной архитектурой
 
 - продуктовые ограничения описаны в `docs/product`
