@@ -266,6 +266,7 @@ Post-MVP policy для этой линии:
 Зафиксировано:
 
 - первый живой template/PDF/JPG consumer уже существует как `attorney_request`
+- `legal_services_agreement` теперь допускается как отдельный rigid-template document внутри общего server-scoped documents area
 - для этой линии допустим отдельный character-scoped signature asset layer поверх `Supabase Storage`
 - подпись должна принадлежать конкретному персонажу, а не аккаунту
 - template documents должны хранить frozen `signatureSnapshot` внутри документа, а не читать live asset после первой фиксации
@@ -281,6 +282,11 @@ Post-MVP policy для этой линии:
 - OGP/claims documents по-прежнему остаются snapshot-based и не получают `trustorId` dependency; post-MVP `attorney_request` хранит `trustorId` как фиксированную привязку к выбранному доверителю, но генерация читает сохранённый snapshot документа
 - изменение или удаление registry entry не меняет уже созданные документы
 - future здесь означает только дальнейшее расширение trustors line beyond current CRUD + prefill scope, а не “registry ещё не появился”
+- `legal_services_agreement` больше не считается purely provisional spike:
+  - replaceable fields для текущего reference template согласованы
+  - подпись для этого документа утверждена как шрифтовая автогенерация из snapshots
+  - export утверждён как page-by-page PNG
+  - reference PDF остаётся source of truth для static text/layout
 
 ### Partial
 

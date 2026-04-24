@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   createInitialAttorneyRequestDraft,
   createInitialClaimDraft,
+  createInitialLegalServicesAgreementDraft,
   createInitialOgpComplaintDraft,
   DocumentAccessDeniedError,
   DocumentAttorneyRoleRequiredError,
@@ -11,6 +12,7 @@ import {
   refreshOwnedOgpComplaintAuthorSnapshot,
   readAttorneyRequestDraftPayload,
   readClaimsDraftPayload,
+  readLegalServicesAgreementDraftPayload,
   readOgpComplaintDraftPayload,
   saveOwnedDocumentDraft,
 } from "@/server/document-area/persistence";
@@ -1254,6 +1256,105 @@ describe("document persistence foundation", () => {
     ).rejects.toBeInstanceOf(DocumentAttorneyRoleRequiredError);
   });
 
+  it("first save для legal_services_agreement фиксирует author/trustor snapshot без image-signature snapshot", async () => {
+    const now = new Date("2026-04-24T09:00:00.000Z");
+    const createDocumentRecord = vi.fn().mockResolvedValue({
+      id: "agreement-1",
+      status: "draft",
+      updatedAt: now,
+      documentType: "legal_services_agreement",
+      server: {
+        id: "server-1",
+        code: "blackberry",
+        name: "Blackberry",
+      },
+    });
+
+    await createInitialLegalServicesAgreementDraft(
+      {
+        accountId: "00000000-0000-0000-0000-000000000001",
+        serverSlug: "blackberry",
+        characterId: "character-1",
+        trustorId: "trustor-1",
+        title: "Договор на оказание юридических услуг",
+        payload: {
+          manualFields: {
+            agreementNumber: "LS-0011",
+            registerNumber: "LS-0011",
+            servicePeriodStart: "23.04.2026",
+            servicePeriodEnd: "24.04.2026",
+            priceAmount: "100.000",
+          },
+        },
+      },
+      {
+        getServerByCode: vi.fn().mockResolvedValue({
+          id: "server-1",
+          code: "blackberry",
+          name: "Blackberry",
+        }),
+        getCharacterByIdForAccount: vi.fn().mockResolvedValue({
+          id: "character-1",
+          accountId: "00000000-0000-0000-0000-000000000001",
+          serverId: "server-1",
+          fullName: "Dom Perignon",
+          nickname: "Dom",
+          passportNumber: "240434",
+          isProfileComplete: true,
+          profileDataJson: {
+            position: "Заместитель Главы Коллегии Адвокатов",
+            address: "San Andreas",
+            phone: "605879",
+            icEmail: "12hsrate@sa.gov",
+            passportImageUrl: "",
+          },
+          roles: [{ roleKey: "lawyer" }],
+          accessFlags: [{ flagKey: "advocate" }],
+          activeSignature: null,
+        }),
+        getTrustorByIdForAccount: vi.fn().mockResolvedValue({
+          id: "trustor-1",
+          accountId: "00000000-0000-0000-0000-000000000001",
+          serverId: "server-1",
+          fullName: "Nick Name",
+          passportNumber: "00000",
+          phone: "1234567",
+          icEmail: "test@sa.gov",
+          passportImageUrl: null,
+          note: "Spike trustor",
+          deletedAt: null,
+          createdAt: now,
+          updatedAt: now,
+        }),
+        createDocumentRecord,
+        getDocumentByIdForAccount: vi.fn(),
+        updateDocumentDraftRecord: vi.fn(),
+        setActiveServerSelection: vi.fn().mockResolvedValue(undefined),
+        setActiveCharacterSelection: vi.fn().mockResolvedValue(undefined),
+        now: () => now,
+      },
+    );
+
+    expect(createDocumentRecord).toHaveBeenCalledWith(
+      expect.objectContaining({
+        trustorId: "trustor-1",
+        documentType: "legal_services_agreement",
+        formPayloadJson: expect.objectContaining({
+          trustorSnapshot: expect.objectContaining({
+            trustorId: "trustor-1",
+            fullName: "Nick Name",
+            passportNumber: "00000",
+          }),
+          manualFields: expect.objectContaining({
+            agreementNumber: "LS-0011",
+            registerNumber: "LS-0011",
+            agreementDate: expect.any(String),
+          }),
+        }),
+      }),
+    );
+  });
+
   it("manual save для attorney_request не перезаписывает frozen trustor/signature snapshot", async () => {
     const existingPayload = {
       requestNumberRawInput: "2112",
@@ -1415,6 +1516,142 @@ describe("document persistence foundation", () => {
     expect(savedPayload.section3Text).toContain("Директору FIB");
     expect(savedPayload.section3Text).toContain("Badge #99");
     expect(savedPayload.section1Items[0]?.text).toContain("DOG-200");
+  });
+
+  it("manual save для legal_services_agreement не перезаписывает frozen trustor snapshot", async () => {
+    const existingDocument = {
+      id: "agreement-1",
+      accountId: "00000000-0000-0000-0000-000000000001",
+      serverId: "server-1",
+      characterId: "character-1",
+      trustorId: "trustor-1",
+      documentType: "legal_services_agreement" as const,
+      title: "Договор",
+      status: "generated" as const,
+      formSchemaVersion: "legal_services_agreement_contract_v1",
+      snapshotCapturedAt: new Date("2026-04-24T09:00:00.000Z"),
+      authorSnapshotJson: {
+        characterId: "character-1",
+        serverId: "server-1",
+        serverCode: "blackberry",
+        serverName: "Blackberry",
+        fullName: "Dom Perignon",
+        nickname: "Dom",
+        passportNumber: "240434",
+        isProfileComplete: true,
+        roleKeys: ["lawyer"],
+        accessFlags: ["advocate"],
+        capturedAt: "2026-04-24T09:00:00.000Z",
+      },
+      formPayloadJson: {
+        formSchemaVersion: "legal_services_agreement_contract_v1",
+        trustorSnapshot: {
+          trustorId: "trustor-1",
+          fullName: "Nick Name",
+          passportNumber: "00000",
+          phone: "1234567",
+          icEmail: "test@sa.gov",
+          note: null,
+        },
+        manualFields: {
+          agreementNumber: "LS-0011",
+          registerNumber: "LS-0011",
+          agreementDate: "24 Апрель 2026",
+          servicePeriodStart: "23.04.2026",
+          servicePeriodEnd: "24.04.2026",
+          priceAmount: "100.000",
+        },
+        workingNotes: "",
+      },
+      lastGeneratedBbcode: null,
+      generatedAt: new Date("2026-04-24T09:30:00.000Z"),
+      generatedLawVersion: null,
+      generatedTemplateVersion: null,
+      generatedFormSchemaVersion: "legal_services_agreement_contract_v1",
+      publicationUrl: null,
+      isSiteForumSynced: false,
+      isModifiedAfterGeneration: false,
+      deletedAt: null,
+      createdAt: new Date("2026-04-24T09:00:00.000Z"),
+      updatedAt: new Date("2026-04-24T09:30:00.000Z"),
+      server: {
+        id: "server-1",
+        code: "blackberry",
+        name: "Blackberry",
+      },
+      character: {
+        id: "character-1",
+        accountId: "00000000-0000-0000-0000-000000000001",
+        serverId: "server-1",
+        fullName: "Dom Perignon",
+        nickname: "Dom",
+        passportNumber: "240434",
+        isProfileComplete: true,
+        profileDataJson: null,
+        deletedAt: null,
+        createdAt: new Date("2026-04-24T09:00:00.000Z"),
+        updatedAt: new Date("2026-04-24T09:00:00.000Z"),
+        roles: [{ roleKey: "lawyer" }],
+        accessFlags: [{ flagKey: "advocate" }],
+      },
+    };
+    const updateDocumentDraftRecord = vi.fn().mockImplementation(async (input) => ({
+      ...existingDocument,
+      title: input.title,
+      formPayloadJson: input.formPayloadJson,
+      isModifiedAfterGeneration: true,
+    }));
+
+    const savedDocument = await saveOwnedDocumentDraft(
+      {
+        accountId: "00000000-0000-0000-0000-000000000001",
+        documentId: "agreement-1",
+        title: "Договор / draft 2",
+        payload: {
+          trustorSnapshot: {
+            trustorId: "trustor-evil",
+            fullName: "Другой доверитель",
+            passportNumber: "99999",
+          },
+          manualFields: {
+            agreementNumber: "LS-0099",
+          },
+          workingNotes: "updated",
+        },
+      },
+      {
+        getServerByCode: vi.fn(),
+        getCharacterByIdForAccount: vi.fn(),
+        createDocumentRecord: vi.fn(),
+        getDocumentByIdForAccount: vi.fn().mockResolvedValue(existingDocument),
+        updateDocumentDraftRecord,
+        setActiveServerSelection: vi.fn(),
+        setActiveCharacterSelection: vi.fn(),
+        now: () => new Date("2026-04-24T10:00:00.000Z"),
+      },
+    );
+
+    expect(updateDocumentDraftRecord).toHaveBeenCalledWith({
+      documentId: "agreement-1",
+      title: "Договор / draft 2",
+      formPayloadJson: expect.objectContaining({
+        trustorSnapshot: existingDocument.formPayloadJson.trustorSnapshot,
+        manualFields: expect.objectContaining({
+          agreementNumber: "LS-0099",
+        }),
+      }),
+    });
+    expect(savedDocument.trustorId).toBe("trustor-1");
+    expect(readLegalServicesAgreementDraftPayload(savedDocument.formPayloadJson)).toEqual(
+      expect.objectContaining({
+        trustorSnapshot: existingDocument.formPayloadJson.trustorSnapshot,
+        manualFields: expect.objectContaining({
+          agreementNumber: "LS-0099",
+          registerNumber: "LS-0011",
+        }),
+        workingNotes: "updated",
+      }),
+    );
   });
 
   it("явно обновляет OGP author snapshot из текущего профиля персонажа", async () => {

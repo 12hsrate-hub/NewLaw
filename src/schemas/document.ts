@@ -1,6 +1,12 @@
 import { z } from "zod";
 
-export const documentTypes = ["ogp_complaint", "rehabilitation", "lawsuit", "attorney_request"] as const;
+export const documentTypes = [
+  "ogp_complaint",
+  "rehabilitation",
+  "lawsuit",
+  "attorney_request",
+  "legal_services_agreement",
+] as const;
 export const documentStatuses = ["draft", "generated", "published"] as const;
 export const ogpComplaintFilingModes = ["self", "representative"] as const;
 export const trustorSnapshotSourceTypes = ["inline_manual", "registry_prefill"] as const;
@@ -238,6 +244,14 @@ export const createClaimDraftActionInputSchema = z.object({
   payload: z.unknown(),
 });
 
+export const createLegalServicesAgreementDraftActionInputSchema = z.object({
+  serverSlug: z.string().trim().min(1),
+  characterId: z.string().trim().min(1),
+  trustorId: z.string().trim().min(1),
+  title: z.string().trim().max(160).default(""),
+  payload: z.unknown(),
+});
+
 export const saveDocumentDraftActionInputSchema = z.object({
   documentId: documentIdSchema,
   title: documentTitleSchema,
@@ -257,6 +271,10 @@ export const generateClaimsStructuredCheckpointActionInputSchema = z.object({
 });
 
 export const generateAttorneyRequestActionInputSchema = z.object({
+  documentId: documentIdSchema,
+});
+
+export const generateLegalServicesAgreementPreviewActionInputSchema = z.object({
   documentId: documentIdSchema,
 });
 

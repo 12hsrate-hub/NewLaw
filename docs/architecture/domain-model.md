@@ -88,7 +88,8 @@
 - после первого сохранения черновика изображение подписи фиксируется в snapshot документа
 - последующая замена или отвязка подписи в профиле персонажа не меняет уже созданные документы
 - первый живой consumer этого правила — `attorney_request`
-- будущие PDF/JPG template documents вроде договора на оказание юридических услуг должны reuse-ить тот же snapshot contract, а не читать live character asset во время повторной генерации
+- `legal_services_agreement` не использует image-signature персонажа как source of truth
+- для `legal_services_agreement` подписи персонажа и доверителя генерируются шрифтом из frozen snapshots документа
 
 ### Character roles и access flags
 
@@ -158,6 +159,10 @@
 - он не смешивается с жалобами в ОГП и исками
 - он логически относится к server-scoped document area, а не к account zone
 - его собственная подробная спецификация живет отдельно и не меняет текущий MVP-сценарий жалобы в ОГП
+- `legal_services_agreement` допустим как test/spike document family внутри этого направления
+- для текущей реализации он использует rigid reference asset package
+- текст reference template не редактируется и не переписывается
+- текущий replaceable contract фиксируется отдельно и подставляется поверх reference layout
 
 ## Слепки
 

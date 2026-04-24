@@ -495,6 +495,71 @@ export async function markAttorneyRequestGeneratedRecord(
   });
 }
 
+export async function markLegalServicesAgreementGeneratedRecord(
+  input: {
+    documentId: string;
+    generatedArtifactJson: Record<string, unknown>;
+    generatedArtifactText: string;
+    generatedAt: Date;
+    generatedFormSchemaVersion: string;
+    generatedOutputFormat: string;
+    generatedRendererVersion: string;
+    signatureSnapshotJson?: Record<string, unknown> | null;
+  },
+  db: PrismaLike = prisma,
+) {
+  const parsedDocumentId = documentIdSchema.parse(input.documentId);
+  const parsedGeneratedArtifactText = documentGeneratedArtifactTextSchema.parse(
+    input.generatedArtifactText,
+  );
+  const parsedGeneratedFormSchemaVersion = documentGeneratedMetadataVersionSchema.parse(
+    input.generatedFormSchemaVersion,
+  );
+  const parsedGeneratedOutputFormat = documentGeneratedOutputFormatSchema.parse(
+    input.generatedOutputFormat,
+  );
+  const parsedGeneratedRendererVersion = documentGeneratedRendererVersionSchema.parse(
+    input.generatedRendererVersion,
+  );
+
+  const existingDocument = await db.document.findUnique({
+    where: {
+      id: parsedDocumentId,
+    },
+  });
+
+  if (!existingDocument) {
+    return null;
+  }
+
+  return db.document.update({
+    where: {
+      id: parsedDocumentId,
+    },
+    data: {
+      status: "generated",
+      generatedArtifactJson: input.generatedArtifactJson as Prisma.InputJsonValue,
+      generatedArtifactText: parsedGeneratedArtifactText,
+      generatedOutputFormat: parsedGeneratedOutputFormat,
+      generatedRendererVersion: parsedGeneratedRendererVersion,
+      generatedAt: input.generatedAt,
+      generatedFormSchemaVersion: parsedGeneratedFormSchemaVersion,
+      signatureSnapshotJson:
+        input.signatureSnapshotJson === undefined
+          ? toNullableJsonInput(existingDocument.signatureSnapshotJson)
+          : toNullableJsonInput(input.signatureSnapshotJson),
+      isModifiedAfterGeneration: false,
+      publicationUrl: null,
+      isSiteForumSynced: false,
+      forumSyncState: "not_published",
+      forumLastSyncError: null,
+    },
+    include: {
+      server: true,
+    },
+  });
+}
+
 export async function updateDocumentPublicationMetadataRecord(
   input: {
     documentId: string;

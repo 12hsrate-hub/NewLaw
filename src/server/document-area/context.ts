@@ -18,6 +18,7 @@ import {
   readOgpComplaintDraftPayload,
   readAttorneyRequestDraftPayload,
   readDocumentSignatureSnapshot,
+  readLegalServicesAgreementDraftPayload,
 } from "@/server/document-area/persistence";
 import { readClaimsGeneratedArtifact } from "@/server/document-area/claims-rendering";
 import {
@@ -25,6 +26,11 @@ import {
   type AttorneyRequestDraftPayload,
   type AttorneyRequestRenderedArtifact,
 } from "@/features/documents/attorney-request/schemas";
+import {
+  legalServicesAgreementRenderedArtifactSchema,
+  type LegalServicesAgreementDraftPayload,
+  type LegalServicesAgreementRenderedArtifact,
+} from "@/features/documents/legal-services-agreement/schemas";
 import { isOgpTrustorRepresentativeReady } from "@/lib/ogp/generation-contract";
 import { buildAccountCharactersBridgeHref } from "@/lib/routes/account-characters";
 import type { TrustorRegistryPrefillOption } from "@/lib/trustors/registry-prefill";
@@ -52,12 +58,18 @@ export type DocumentAreaServerSummary = {
   ogpComplaintDocumentCount: number;
   claimsDocumentCount: number;
   attorneyRequestDocumentCount?: number;
+  legalServicesAgreementDocumentCount?: number;
 };
 
 export type DocumentAreaPersistedListItem = {
   id: string;
   title: string;
-  documentType: "ogp_complaint" | "rehabilitation" | "lawsuit" | "attorney_request";
+  documentType:
+    | "ogp_complaint"
+    | "rehabilitation"
+    | "lawsuit"
+    | "attorney_request"
+    | "legal_services_agreement";
   status: "draft" | "generated" | "published";
   filingMode: "self" | "representative" | null;
   subtype: ClaimDocumentType | null;
@@ -65,6 +77,7 @@ export type DocumentAreaPersistedListItem = {
   objectFullName: string | null;
   objectOrganization: string | null;
   requestNumber?: string | null;
+  agreementNumber?: string | null;
   trustorName?: string | null;
   server: {
     id: string;
@@ -153,6 +166,7 @@ type ReadyServerDocumentsRouteContext = {
   ogpComplaintDocumentCount: number;
   claimsDocumentCount: number;
   attorneyRequestDocumentCount?: number;
+  legalServicesAgreementDocumentCount?: number;
 };
 
 type NoCharactersServerDocumentsRouteContext = {
@@ -167,6 +181,7 @@ type NoCharactersServerDocumentsRouteContext = {
   ogpComplaintDocumentCount: number;
   claimsDocumentCount: number;
   attorneyRequestDocumentCount?: number;
+  legalServicesAgreementDocumentCount?: number;
 };
 
 type ServerNotFoundDocumentsRouteContext = {
@@ -224,6 +239,28 @@ type ClaimsFamilyRouteContext =
     };
 
 type AttorneyRequestFamilyRouteContext =
+  | {
+      status: "server_not_found";
+      account: AccountDocumentsOverviewContext["account"];
+      requestedServerSlug: string;
+      servers: DocumentAreaServerSummary[];
+    }
+  | {
+      status: "ready";
+      account: AccountDocumentsOverviewContext["account"];
+      server: {
+        id: string;
+        code: string;
+        name: string;
+      };
+      servers: DocumentAreaServerSummary[];
+      canCreateDocuments: boolean;
+      selectedCharacter: SelectedCharacterSummary | null;
+      trustorRegistry: DocumentTrustorRegistrySummary[];
+      documents: DocumentAreaPersistedListItem[];
+    };
+
+type LegalServicesAgreementFamilyRouteContext =
   | {
       status: "server_not_found";
       account: AccountDocumentsOverviewContext["account"];
@@ -306,6 +343,68 @@ type AttorneyRequestEditorRouteContext =
         signatureSnapshot: DocumentSignatureSnapshot | null;
         hasActiveCharacterSignature: boolean;
         payload: AttorneyRequestDraftPayload;
+      };
+    };
+
+type LegalServicesAgreementEditorRouteContext =
+  | {
+      status: "server_not_found";
+      account: AccountDocumentsOverviewContext["account"];
+      requestedServerSlug: string;
+      servers: DocumentAreaServerSummary[];
+    }
+  | {
+      status: "document_not_found";
+      account: AccountDocumentsOverviewContext["account"];
+      server: {
+        id: string;
+        code: string;
+        name: string;
+      };
+      servers: DocumentAreaServerSummary[];
+      documentId: string;
+    }
+  | {
+      status: "ready";
+      account: AccountDocumentsOverviewContext["account"];
+      server: {
+        id: string;
+        code: string;
+        name: string;
+      };
+      servers: DocumentAreaServerSummary[];
+      document: {
+        id: string;
+        title: string;
+        status: "draft" | "generated" | "published";
+        createdAt: string;
+        updatedAt: string;
+        snapshotCapturedAt: string;
+        formSchemaVersion: string;
+        generatedAt: string | null;
+        generatedFormSchemaVersion: string | null;
+        generatedOutputFormat: string | null;
+        generatedRendererVersion: string | null;
+        generatedArtifact: LegalServicesAgreementRenderedArtifact | null;
+        isModifiedAfterGeneration: boolean;
+        server: {
+          code: string;
+          name: string;
+        };
+        authorSnapshot: {
+          fullName: string;
+          passportNumber: string;
+          position?: string;
+          address?: string;
+          phone?: string;
+          icEmail?: string;
+          passportImageUrl?: string;
+          nickname: string;
+          roleKeys: string[];
+          accessFlags: string[];
+          isProfileComplete: boolean;
+        };
+        payload: LegalServicesAgreementDraftPayload;
       };
     };
 
@@ -579,6 +678,46 @@ function buildPersistedDocumentListItem(
     } satisfies DocumentAreaPersistedListItem;
   }
 
+  if (document.documentType === "legal_services_agreement") {
+    const payload = readLegalServicesAgreementDraftPayload(document.formPayloadJson);
+
+    return {
+      id: document.id,
+      title: document.title,
+      documentType: document.documentType,
+      status: document.status,
+      filingMode: null,
+      subtype,
+      appealNumber: null,
+      objectFullName: null,
+      objectOrganization: null,
+      agreementNumber: payload.manualFields.agreementNumber,
+      trustorName: payload.trustorSnapshot.fullName,
+      server: {
+        id: document.server.id,
+        code: document.server.code,
+        name: document.server.name,
+      },
+      authorSnapshot: {
+        fullName: authorSnapshot.fullName,
+        passportNumber: authorSnapshot.passportNumber,
+      },
+      workingNotesPreview: payload.workingNotes.slice(0, 240),
+      generatedAt: document.generatedAt?.toISOString() ?? null,
+      publicationUrl: document.publicationUrl,
+      isSiteForumSynced: document.isSiteForumSynced,
+      forumSyncState: null,
+      forumThreadId: null,
+      forumPostId: null,
+      forumLastPublishedAt: null,
+      forumLastSyncError: null,
+      isModifiedAfterGeneration: document.isModifiedAfterGeneration,
+      snapshotCapturedAt: document.snapshotCapturedAt.toISOString(),
+      updatedAt: document.updatedAt.toISOString(),
+      createdAt: document.createdAt.toISOString(),
+    } satisfies DocumentAreaPersistedListItem;
+  }
+
   if (document.documentType !== "ogp_complaint") {
     const payload = readClaimsDraftPayload(document.documentType, document.formPayloadJson);
 
@@ -672,6 +811,7 @@ async function buildDocumentAreaServerSummaries(accountId: string) {
         rehabilitationDocumentCount,
         lawsuitDocumentCount,
         attorneyRequestDocumentCount,
+        legalServicesAgreementDocumentCount,
       ] = await Promise.all([
         getCharactersByServer({
           accountId,
@@ -697,6 +837,11 @@ async function buildDocumentAreaServerSummaries(accountId: string) {
           serverId: server.id,
           documentType: "attorney_request",
         }),
+        countDocumentsByAccountAndServerAndType({
+          accountId,
+          serverId: server.id,
+          documentType: "legal_services_agreement",
+        }),
       ]);
       const selectedCharacter = buildSelectedCharacterSummary({
         serverId: server.id,
@@ -715,6 +860,7 @@ async function buildDocumentAreaServerSummaries(accountId: string) {
         ogpComplaintDocumentCount,
         claimsDocumentCount: rehabilitationDocumentCount + lawsuitDocumentCount,
         attorneyRequestDocumentCount,
+        legalServicesAgreementDocumentCount,
       } satisfies DocumentAreaServerSummary;
     }),
   );
@@ -769,6 +915,7 @@ export async function getServerDocumentsRouteContext(input: {
     rehabilitationDocumentCount,
     lawsuitDocumentCount,
     attorneyRequestDocumentCount,
+    legalServicesAgreementDocumentCount,
   ] = await Promise.all([
     getCharactersByServer({
       accountId: account.id,
@@ -798,6 +945,11 @@ export async function getServerDocumentsRouteContext(input: {
       serverId: server.id,
       documentType: "attorney_request",
     }),
+    countDocumentsByAccountAndServerAndType({
+      accountId: account.id,
+      serverId: server.id,
+      documentType: "legal_services_agreement",
+    }),
   ]);
   const selectedCharacter = buildSelectedCharacterSummary({
     serverId: server.id,
@@ -819,6 +971,7 @@ export async function getServerDocumentsRouteContext(input: {
       ogpComplaintDocumentCount,
       claimsDocumentCount: rehabilitationDocumentCount + lawsuitDocumentCount,
       attorneyRequestDocumentCount,
+      legalServicesAgreementDocumentCount,
     };
   }
 
@@ -837,6 +990,7 @@ export async function getServerDocumentsRouteContext(input: {
     ogpComplaintDocumentCount,
     claimsDocumentCount: rehabilitationDocumentCount + lawsuitDocumentCount,
     attorneyRequestDocumentCount,
+    legalServicesAgreementDocumentCount,
   };
 }
 
@@ -974,6 +1128,70 @@ export async function getClaimsFamilyRouteContext(input: {
   };
 }
 
+export async function getLegalServicesAgreementFamilyRouteContext(input: {
+  serverSlug: string;
+  nextPath: string;
+}): Promise<LegalServicesAgreementFamilyRouteContext> {
+  const { account } = await requireProtectedAccountContext(input.nextPath, undefined, {
+    allowMustChangePassword: true,
+  });
+  const [server, servers, serverStates] = await Promise.all([
+    getServerByCode(input.serverSlug),
+    buildDocumentAreaServerSummaries(account.id),
+    getUserServerStates(account.id),
+  ]);
+
+  if (!server) {
+    return {
+      status: "server_not_found",
+      account,
+      requestedServerSlug: input.serverSlug,
+      servers,
+    };
+  }
+
+  const [characters, documents, trustorRegistryRecords] = await Promise.all([
+    getCharactersByServer({
+      accountId: account.id,
+      serverId: server.id,
+    }),
+    listDocumentsByAccountAndServerAndType({
+      accountId: account.id,
+      serverId: server.id,
+      documentType: "legal_services_agreement",
+    }),
+    listTrustorsForAccountAndServer({
+      accountId: account.id,
+      serverId: server.id,
+    }),
+  ]);
+  const selectedCharacter = buildSelectedCharacterSummary({
+    serverId: server.id,
+    characters,
+    serverStates,
+  });
+
+  return {
+    status: "ready",
+    account,
+    server: {
+      id: server.id,
+      code: server.code,
+      name: server.name,
+    },
+    servers,
+    canCreateDocuments: selectedCharacter !== null && trustorRegistryRecords.length > 0,
+    selectedCharacter,
+    trustorRegistry: buildDocumentTrustorRegistrySummary(trustorRegistryRecords),
+    documents: documents.map((document) =>
+      buildPersistedDocumentListItem({
+        ...document,
+        server,
+      }),
+    ),
+  };
+}
+
 export async function getAttorneyRequestFamilyRouteContext(input: {
   serverSlug: string;
   nextPath: string;
@@ -1041,6 +1259,12 @@ export async function getAttorneyRequestFamilyRouteContext(input: {
 
 function readAttorneyRequestGeneratedArtifact(value: unknown) {
   const parsed = attorneyRequestRenderedArtifactSchema.safeParse(value);
+
+  return parsed.success ? parsed.data : null;
+}
+
+function readLegalServicesAgreementGeneratedArtifact(value: unknown) {
+  const parsed = legalServicesAgreementRenderedArtifactSchema.safeParse(value);
 
   return parsed.success ? parsed.data : null;
 }
@@ -1138,6 +1362,96 @@ export async function getClaimsEditorRouteContext(input: {
         isProfileComplete: authorSnapshot.isProfileComplete,
       },
       trustorRegistry,
+      payload,
+    },
+  };
+}
+
+export async function getLegalServicesAgreementEditorRouteContext(input: {
+  serverSlug: string;
+  documentId: string;
+  nextPath: string;
+}): Promise<LegalServicesAgreementEditorRouteContext> {
+  const { account } = await requireProtectedAccountContext(input.nextPath, undefined, {
+    allowMustChangePassword: true,
+  });
+  const [server, servers] = await Promise.all([
+    getServerByCode(input.serverSlug),
+    buildDocumentAreaServerSummaries(account.id),
+  ]);
+
+  if (!server) {
+    return {
+      status: "server_not_found",
+      account,
+      requestedServerSlug: input.serverSlug,
+      servers,
+    };
+  }
+
+  const document = await getDocumentByIdForAccount({
+    accountId: account.id,
+    documentId: input.documentId,
+  });
+
+  if (!document || document.serverId !== server.id || document.documentType !== "legal_services_agreement") {
+    return {
+      status: "document_not_found",
+      account,
+      server: {
+        id: server.id,
+        code: server.code,
+        name: server.name,
+      },
+      servers,
+      documentId: input.documentId,
+    };
+  }
+
+  const authorSnapshot = readDocumentAuthorSnapshot(document.authorSnapshotJson);
+  const payload = readLegalServicesAgreementDraftPayload(document.formPayloadJson);
+  const generatedArtifact = readLegalServicesAgreementGeneratedArtifact(document.generatedArtifactJson);
+
+  return {
+    status: "ready",
+    account,
+    server: {
+      id: server.id,
+      code: server.code,
+      name: server.name,
+    },
+    servers,
+    document: {
+      id: document.id,
+      title: document.title,
+      status: document.status,
+      createdAt: document.createdAt.toISOString(),
+      updatedAt: document.updatedAt.toISOString(),
+      snapshotCapturedAt: document.snapshotCapturedAt.toISOString(),
+      formSchemaVersion: document.formSchemaVersion,
+      generatedAt: document.generatedAt?.toISOString() ?? null,
+      generatedFormSchemaVersion: document.generatedFormSchemaVersion,
+      generatedOutputFormat: document.generatedOutputFormat,
+      generatedRendererVersion: document.generatedRendererVersion,
+      generatedArtifact,
+      isModifiedAfterGeneration: document.isModifiedAfterGeneration,
+      server: {
+        code: document.server.code,
+        name: document.server.name,
+      },
+      authorSnapshot: {
+        fullName: authorSnapshot.fullName,
+        passportNumber: authorSnapshot.passportNumber,
+        position: authorSnapshot.position,
+        address: authorSnapshot.address,
+        phone: authorSnapshot.phone,
+        icEmail: authorSnapshot.icEmail,
+        passportImageUrl: authorSnapshot.passportImageUrl,
+        nickname: authorSnapshot.nickname,
+        roleKeys: authorSnapshot.roleKeys,
+        accessFlags: authorSnapshot.accessFlags,
+        isProfileComplete: authorSnapshot.isProfileComplete,
+      },
       payload,
     },
   };

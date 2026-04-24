@@ -176,6 +176,7 @@ export function ServerDocumentsHub(props: {
   };
   ogpComplaintDocumentCount?: number;
   attorneyRequestDocumentCount?: number;
+  legalServicesAgreementDocumentCount?: number;
 }) {
   return (
     <div className="space-y-6">
@@ -199,6 +200,9 @@ export function ServerDocumentsHub(props: {
           {typeof props.attorneyRequestDocumentCount === "number" ? (
             <span>Адвокатских запросов: {props.attorneyRequestDocumentCount}</span>
           ) : null}
+          {typeof props.legalServicesAgreementDocumentCount === "number" ? (
+            <span>Договоров: {props.legalServicesAgreementDocumentCount}</span>
+          ) : null}
         </div>
       </Card>
 
@@ -217,6 +221,31 @@ export function ServerDocumentsHub(props: {
           <div className="flex flex-wrap gap-3">
             <FoundationLink href={`/servers/${props.server.code}/documents/ogp-complaints`}>
               Открыть жалобы в ОГП
+            </FoundationLink>
+          </div>
+        </Card>
+
+        <Card className="space-y-4">
+          <div className="space-y-2">
+            <p className="text-xs uppercase tracking-[0.22em] text-[var(--accent)]">
+              Раздел документов
+            </p>
+            <h2 className="text-2xl font-semibold">Договоры на оказание юридических услуг</h2>
+            <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
+              Тестовое rigid-template family для server-specific договоров. Static template
+              берётся из reference PDF, а спорные поля остаются provisional внутри spike.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <FoundationLink
+              href={`/servers/${props.server.code}/documents/legal-services-agreements`}
+            >
+              Открыть договоры
+            </FoundationLink>
+            <FoundationLink
+              href={`/servers/${props.server.code}/documents/legal-services-agreements/new`}
+            >
+              Создать договор
             </FoundationLink>
           </div>
         </Card>

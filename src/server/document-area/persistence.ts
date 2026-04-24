@@ -20,6 +20,13 @@ import {
 } from "@/features/documents/attorney-request/schemas";
 import { ATTORNEY_REQUEST_FORM_SCHEMA_VERSION } from "@/features/documents/attorney-request/types";
 import {
+  legalServicesAgreementDraftPayloadSchema,
+  type LegalServicesAgreementDraftPayload,
+} from "@/features/documents/legal-services-agreement/schemas";
+import {
+  LEGAL_SERVICES_AGREEMENT_FORM_SCHEMA_VERSION,
+} from "@/features/documents/legal-services-agreement/types";
+import {
   buildCharacterSignatureSnapshotFromActiveSignature,
 } from "@/server/character-signatures/service";
 import {
@@ -33,6 +40,7 @@ import { setActiveCharacterSelection, setActiveServerSelection } from "@/server/
 import {
   claimDocumentTypeSchema,
   createClaimDraftActionInputSchema,
+  createLegalServicesAgreementDraftActionInputSchema,
   createOgpComplaintDraftActionInputSchema,
   documentAuthorSnapshotSchema,
   documentSignatureSnapshotSchema,
@@ -290,6 +298,19 @@ function buildEmptyTrustorSnapshot() {
   };
 }
 
+function buildDocumentTrustorSnapshot(input: {
+  trustor: NonNullable<Awaited<ReturnType<typeof getTrustorByIdForAccount>>>;
+}) {
+  return {
+    trustorId: input.trustor.id,
+    fullName: input.trustor.fullName,
+    passportNumber: normalizePassportNumber(input.trustor.passportNumber),
+    phone: input.trustor.phone ? normalizePhone(input.trustor.phone) : null,
+    icEmail: input.trustor.icEmail ? normalizeIcEmail(input.trustor.icEmail) : null,
+    note: input.trustor.note,
+  };
+}
+
 function buildEmptyClaimsDraftPayload(documentType: ClaimDocumentType): ClaimsDraftPayload {
   const commonFields = {
     filingMode: "self" as const,
@@ -487,6 +508,61 @@ function normalizeAttorneyRequestDraftPayload(input: {
   });
 }
 
+function buildLegalServicesAgreementDateLabel(now: Date) {
+  const parts = new Intl.DateTimeFormat("ru-RU", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: "Europe/Moscow",
+  }).formatToParts(now);
+  const day = parts.find((part) => part.type === "day")?.value ?? "";
+  const month = parts.find((part) => part.type === "month")?.value ?? "";
+  const year = parts.find((part) => part.type === "year")?.value ?? "";
+
+  return [day, month.charAt(0).toUpperCase() + month.slice(1), year].filter(Boolean).join(" ");
+}
+
+function normalizeLegalServicesAgreementDraftPayload(input: {
+  rawPayload: unknown;
+  trustorSnapshot: LegalServicesAgreementDraftPayload["trustorSnapshot"];
+  capturedAt: Date;
+}) {
+  const raw =
+    typeof input.rawPayload === "object" && input.rawPayload !== null && !Array.isArray(input.rawPayload)
+      ? (input.rawPayload as Record<string, unknown>)
+      : {};
+  const manualFields =
+    typeof raw.manualFields === "object" &&
+    raw.manualFields !== null &&
+    !Array.isArray(raw.manualFields)
+      ? (raw.manualFields as Record<string, unknown>)
+      : typeof raw.provisionalFields === "object" &&
+          raw.provisionalFields !== null &&
+          !Array.isArray(raw.provisionalFields)
+        ? (raw.provisionalFields as Record<string, unknown>)
+        : {};
+
+  return legalServicesAgreementDraftPayloadSchema.parse({
+    formSchemaVersion: LEGAL_SERVICES_AGREEMENT_FORM_SCHEMA_VERSION,
+    trustorSnapshot: input.trustorSnapshot,
+    manualFields: {
+      agreementNumber: String(manualFields.agreementNumber ?? ""),
+      registerNumber: String(manualFields.registerNumber ?? ""),
+      agreementDate:
+        String(manualFields.agreementDate ?? manualFields.agreementDateLabel ?? "").trim() ||
+        buildLegalServicesAgreementDateLabel(input.capturedAt),
+      servicePeriodStart: String(
+        manualFields.servicePeriodStart ?? manualFields.servicePeriodStartDate ?? "",
+      ),
+      servicePeriodEnd: String(
+        manualFields.servicePeriodEnd ?? manualFields.servicePeriodEndDate ?? "",
+      ),
+      priceAmount: String(manualFields.priceAmount ?? manualFields.priceAmountDisplay ?? ""),
+    },
+    workingNotes: String(raw.workingNotes ?? ""),
+  });
+}
+
 function assertRepresentativeAccess(input: {
   authorSnapshot: Pick<DocumentAuthorSnapshot, "accessFlags">;
   payload: Pick<OgpComplaintDraftPayload, "filingMode"> | Pick<ClaimsDraftPayload, "filingMode">;
@@ -500,7 +576,14 @@ function assertRepresentativeAccess(input: {
   }
 }
 
-export function getDocumentTitleForType(documentType: "ogp_complaint" | "rehabilitation" | "lawsuit" | "attorney_request") {
+export function getDocumentTitleForType(
+  documentType:
+    | "ogp_complaint"
+    | "rehabilitation"
+    | "lawsuit"
+    | "attorney_request"
+    | "legal_services_agreement",
+) {
   if (documentType === "ogp_complaint") {
     return "Жалоба в ОГП";
   }
@@ -513,10 +596,21 @@ export function getDocumentTitleForType(documentType: "ogp_complaint" | "rehabil
     return "Адвокатский запрос";
   }
 
+  if (documentType === "legal_services_agreement") {
+    return "Договор на оказание юридических услуг";
+  }
+
   return "Исковое заявление";
 }
 
-function getDocumentFormSchemaVersion(documentType: "ogp_complaint" | "rehabilitation" | "lawsuit" | "attorney_request") {
+function getDocumentFormSchemaVersion(
+  documentType:
+    | "ogp_complaint"
+    | "rehabilitation"
+    | "lawsuit"
+    | "attorney_request"
+    | "legal_services_agreement",
+) {
   if (documentType === "ogp_complaint") {
     return OGP_COMPLAINT_FORM_SCHEMA_VERSION;
   }
@@ -529,12 +623,21 @@ function getDocumentFormSchemaVersion(documentType: "ogp_complaint" | "rehabilit
     return ATTORNEY_REQUEST_FORM_SCHEMA_VERSION;
   }
 
+  if (documentType === "legal_services_agreement") {
+    return LEGAL_SERVICES_AGREEMENT_FORM_SCHEMA_VERSION;
+  }
+
   return LAWSUIT_CLAIM_FORM_SCHEMA_VERSION;
 }
 
 function normalizeDocumentTitle(input: {
   title: string;
-  documentType: "ogp_complaint" | "rehabilitation" | "lawsuit" | "attorney_request";
+  documentType:
+    | "ogp_complaint"
+    | "rehabilitation"
+    | "lawsuit"
+    | "attorney_request"
+    | "legal_services_agreement";
 }) {
   if (input.title.length === 0) {
     return getDocumentTitleForType(input.documentType);
@@ -552,7 +655,12 @@ function normalizeDocumentTitle(input: {
 }
 
 export function isClaimsDocumentType(
-  documentType: "ogp_complaint" | "rehabilitation" | "lawsuit" | "attorney_request",
+  documentType:
+    | "ogp_complaint"
+    | "rehabilitation"
+    | "lawsuit"
+    | "attorney_request"
+    | "legal_services_agreement",
 ): documentType is ClaimDocumentType {
   return claimDocumentTypeSchema.safeParse(documentType).success;
 }
@@ -606,6 +714,10 @@ export function readClaimsDraftPayload(documentType: ClaimDocumentType, payload:
 
 export function readAttorneyRequestDraftPayload(payload: unknown) {
   return attorneyRequestDraftPayloadSchema.parse(payload);
+}
+
+export function readLegalServicesAgreementDraftPayload(payload: unknown) {
+  return legalServicesAgreementDraftPayloadSchema.parse(payload);
 }
 
 export async function createInitialOgpComplaintDraft(
@@ -831,6 +943,86 @@ export async function createInitialAttorneyRequestDraft(
   return createdDocument;
 }
 
+export async function createInitialLegalServicesAgreementDraft(
+  input: {
+    accountId: string;
+    serverSlug: string;
+    characterId: string;
+    trustorId: string;
+    title: string;
+    payload: unknown;
+  },
+  dependencies: DocumentPersistenceDependencies = defaultDependencies,
+) {
+  const parsed = createLegalServicesAgreementDraftActionInputSchema.parse(input);
+  const server = await dependencies.getServerByCode(parsed.serverSlug);
+
+  if (!server) {
+    throw new DocumentServerUnavailableError();
+  }
+
+  const readTrustorById = dependencies.getTrustorByIdForAccount ?? getTrustorByIdForAccount;
+  const [character, trustor] = await Promise.all([
+    dependencies.getCharacterByIdForAccount({
+      accountId: input.accountId,
+      characterId: parsed.characterId,
+    }),
+    readTrustorById({
+      accountId: input.accountId,
+      trustorId: parsed.trustorId,
+    }),
+  ]);
+
+  if (!character || character.serverId !== server.id) {
+    throw new DocumentCharacterUnavailableError();
+  }
+
+  if (!trustor || trustor.serverId !== server.id) {
+    throw new DocumentValidationError();
+  }
+
+  const capturedAt = dependencies.now();
+  const authorSnapshot = buildAuthorSnapshot({
+    character,
+    server,
+    capturedAt,
+  });
+  const trustorSnapshot = buildDocumentTrustorSnapshot({
+    trustor,
+  });
+  const payload = normalizeLegalServicesAgreementDraftPayload({
+    rawPayload: parsed.payload,
+    trustorSnapshot,
+    capturedAt,
+  });
+
+  const createdDocument = await dependencies.createDocumentRecord({
+    accountId: input.accountId,
+    serverId: server.id,
+    characterId: character.id,
+    trustorId: trustor.id,
+    documentType: "legal_services_agreement",
+    title: normalizeDocumentTitle({
+      title: parsed.title,
+      documentType: "legal_services_agreement",
+    }),
+    formSchemaVersion: LEGAL_SERVICES_AGREEMENT_FORM_SCHEMA_VERSION,
+    snapshotCapturedAt: capturedAt,
+    authorSnapshotJson: authorSnapshot,
+    formPayloadJson: payload,
+  });
+
+  await dependencies.setActiveServerSelection(input.accountId, {
+    serverId: server.id,
+  });
+  await dependencies.setActiveCharacterSelection(input.accountId, {
+    serverId: server.id,
+    characterId: character.id,
+  });
+
+  return createdDocument;
+}
+
 export async function saveOwnedDocumentDraft(
   input: {
     accountId: string;
@@ -894,6 +1086,50 @@ export async function saveOwnedDocumentDraft(
           documentDateMsk: currentPayload.documentDateMsk,
           responseDueAtMsk: currentPayload.responseDueAtMsk,
         },
+        capturedAt: existingDocument.snapshotCapturedAt,
+      });
+
+      const savedDocument = await dependencies.updateDocumentDraftRecord({
+        documentId: existingDocument.id,
+        title: parsed.title,
+        formPayloadJson: payload,
+      });
+
+      if (!savedDocument) {
+        throw new DocumentAccessDeniedError();
+      }
+
+      return savedDocument;
+    }
+
+    if (existingDocument.documentType === "legal_services_agreement") {
+      const currentPayload = readLegalServicesAgreementDraftPayload(existingDocument.formPayloadJson);
+      const payload = normalizeLegalServicesAgreementDraftPayload({
+        rawPayload: {
+          ...currentPayload,
+          ...(parsed.payload && typeof parsed.payload === "object" && !Array.isArray(parsed.payload)
+            ? parsed.payload
+            : {}),
+          trustorSnapshot: currentPayload.trustorSnapshot,
+          formSchemaVersion: currentPayload.formSchemaVersion,
+          manualFields: {
+            ...currentPayload.manualFields,
+            ...(
+              parsed.payload &&
+              typeof parsed.payload === "object" &&
+              !Array.isArray(parsed.payload) &&
+              typeof (parsed.payload as Record<string, unknown>).manualFields === "object" &&
+              (parsed.payload as Record<string, unknown>).manualFields !== null &&
+              !Array.isArray((parsed.payload as Record<string, unknown>).manualFields)
+                ? ((parsed.payload as Record<string, unknown>).manualFields as Record<
+                    string,
+                    unknown
+                  >)
+                : {}
+            ),
+          },
+        },
+        trustorSnapshot: currentPayload.trustorSnapshot,
         capturedAt: existingDocument.snapshotCapturedAt,
       });
 

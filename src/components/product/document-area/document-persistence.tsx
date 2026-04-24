@@ -11,6 +11,10 @@ import {
   ClaimsDraftEditorClient,
 } from "@/components/product/document-area/document-claims-editor-client";
 import {
+  LegalServicesAgreementDraftCreateClient,
+  LegalServicesAgreementEditorClient,
+} from "@/components/product/document-area/document-legal-services-agreement-editor-client";
+import {
   DocumentDraftEditorClient,
   OgpComplaintDraftCreateClient,
 } from "@/components/product/document-area/document-draft-editor-client";
@@ -20,6 +24,10 @@ import type {
   AttorneyRequestDraftPayload,
   AttorneyRequestRenderedArtifact,
 } from "@/features/documents/attorney-request/schemas";
+import type {
+  LegalServicesAgreementDraftPayload,
+  LegalServicesAgreementRenderedArtifact,
+} from "@/features/documents/legal-services-agreement/schemas";
 import type {
   DocumentAreaPersistedListItem,
   DocumentAreaServerSummary,
@@ -61,6 +69,10 @@ function formatDocumentType(documentType: DocumentAreaPersistedListItem["documen
     return "Адвокатский запрос";
   }
 
+  if (documentType === "legal_services_agreement") {
+    return "Договор на оказание юридических услуг";
+  }
+
   if (documentType === "rehabilitation") {
     return "Rehabilitation";
   }
@@ -75,6 +87,10 @@ function formatDocumentFamily(documentType: DocumentAreaPersistedListItem["docum
 
   if (documentType === "attorney_request") {
     return "Адвокатские запросы";
+  }
+
+  if (documentType === "legal_services_agreement") {
+    return "Договоры";
   }
 
   return "Иски";
@@ -169,6 +185,10 @@ function buildDocumentEditorHref(document: DocumentAreaPersistedListItem) {
     return `/servers/${document.server.code}/documents/attorney-requests/${document.id}`;
   }
 
+  if (document.documentType === "legal_services_agreement") {
+    return `/servers/${document.server.code}/documents/legal-services-agreements/${document.id}`;
+  }
+
   return `/servers/${document.server.code}/documents/claims/${document.id}`;
 }
 
@@ -226,12 +246,19 @@ function PersistedDocumentList(props: {
               <p className="text-sm leading-6 text-[var(--muted)]">
                 {document.documentType === "attorney_request"
                   ? `Адвокатский запрос привязан к доверителю: ${document.trustorName ?? "не указан"}.`
-                  : "Этот документ относится к разделу исков. Его данные и результат подготовки хранятся отдельно от жалоб в ОГП."}
+                  : document.documentType === "legal_services_agreement"
+                    ? `Договор привязан к доверителю: ${document.trustorName ?? "не указан"}. Текст берётся из reference template, а страницы выгружаются отдельно как PNG.`
+                    : "Этот документ относится к разделу исков. Его данные и результат подготовки хранятся отдельно от жалоб в ОГП."}
               </p>
             ) : null}
             {document.documentType === "attorney_request" ? (
               <p className="text-sm leading-6 text-[var(--muted)]">
                 Номер запроса: {document.requestNumber || "не указан"}.
+              </p>
+            ) : null}
+            {document.documentType === "legal_services_agreement" ? (
+              <p className="text-sm leading-6 text-[var(--muted)]">
+                Номер договора: {document.agreementNumber || "не указан"}.
               </p>
             ) : null}
             <p className="text-sm leading-6 text-[var(--muted)]">
@@ -266,7 +293,9 @@ function PersistedDocumentList(props: {
                 ? "Открыть жалобу в ОГП"
                 : document.documentType === "attorney_request"
                   ? "Открыть адвокатский запрос"
-                : "Открыть документ"}
+                  : document.documentType === "legal_services_agreement"
+                    ? "Открыть договор"
+                    : "Открыть документ"}
             </DocumentLink>
           </div>
         </Card>
@@ -309,8 +338,10 @@ export function AccountDocumentsPersistedOverview(props: {
                 <p className="text-sm leading-6 text-[var(--muted)]">
                   Персонажей на сервере: {server.characterCount}. Жалоб в ОГП:{" "}
                   {server.ogpComplaintDocumentCount}. Адвокатских запросов:{" "}
-                  {server.attorneyRequestDocumentCount}. Других документов: {server.claimsDocumentCount}.
-                  Откройте сервер, чтобы создать или отредактировать документы.
+                  {server.attorneyRequestDocumentCount}. Договоров:{" "}
+                  {server.legalServicesAgreementDocumentCount ?? 0}. Других документов:{" "}
+                  {server.claimsDocumentCount}. Откройте сервер, чтобы создать или отредактировать
+                  документы.
                 </p>
               </div>
               <div className="flex flex-wrap gap-3">
@@ -456,6 +487,73 @@ export function AttorneyRequestFamilyPersistedList(props: {
           <p className="text-sm leading-6 text-[var(--muted)]">
             Для создания нужен персонаж с ролью адвоката и хотя бы один доверитель на этом
             сервере. Сохранённые запросы при этом остаются доступны.
+          </p>
+        </Card>
+      ) : null}
+
+      <PersistedDocumentList documents={props.documents} />
+    </div>
+  );
+}
+
+export function LegalServicesAgreementFamilyPersistedList(props: {
+  server: {
+    code: string;
+    name: string;
+  };
+  documents: DocumentAreaPersistedListItem[];
+  canCreateDocuments: boolean;
+  selectedCharacter: {
+    fullName: string;
+    passportNumber: string;
+    source: "last_used" | "first_available";
+    isProfileComplete: boolean;
+    hasActiveSignature?: boolean;
+  } | null;
+  trustorRegistry: DocumentTrustorRegistrySummary[];
+}) {
+  return (
+    <div className="space-y-6">
+      <Card className="space-y-3">
+        <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">
+          Договоры на оказание юридических услуг
+        </p>
+        <h1 className="text-3xl font-semibold">Договоры на оказание юридических услуг</h1>
+        <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
+          Это rigid-template family внутри server documents hub. Static эталон берётся из
+          reference PDF, текст не редактируется свободно, а генерация собирает отдельные PNG по
+          страницам.
+        </p>
+        <div className="flex flex-wrap items-center gap-2 text-sm leading-6 text-[var(--muted)]">
+          <Badge>Код сервера: {props.server.code}</Badge>
+          <Badge>Сервер: {props.server.name}</Badge>
+          {props.selectedCharacter ? (
+            <>
+              <Badge>Персонаж: {props.selectedCharacter.fullName}</Badge>
+            </>
+          ) : (
+            <Badge>Создание недоступно: на сервере нет персонажей</Badge>
+          )}
+          <span>Доверителей на сервере: {props.trustorRegistry.length}</span>
+        </div>
+        <div className="flex flex-wrap gap-3">
+          {props.canCreateDocuments ? (
+            <DocumentLink href={`/servers/${props.server.code}/documents/legal-services-agreements/new`}>
+              Создать договор
+            </DocumentLink>
+          ) : null}
+          <DocumentLink href={`/servers/${props.server.code}/documents`}>
+            Вернуться к документам сервера
+          </DocumentLink>
+        </div>
+      </Card>
+
+      {!props.canCreateDocuments ? (
+        <Card className="space-y-3">
+        <h2 className="text-2xl font-semibold">Создание пока недоступно</h2>
+        <p className="text-sm leading-6 text-[var(--muted)]">
+            Для создания нужен хотя бы один персонаж и хотя бы один доверитель на этом сервере.
+            Уже сохранённые договоры остаются доступны.
           </p>
         </Card>
       ) : null}
@@ -638,6 +736,72 @@ export function AttorneyRequestDraftCreateEntry(props: {
           characters={props.characters}
           initialTitle="Адвокатский запрос"
           initialTrustorId={props.initialTrustorId}
+          selectedCharacter={props.selectedCharacter}
+          server={props.server}
+          trustorRegistry={props.trustorRegistry}
+        />
+      </Card>
+    </div>
+  );
+}
+
+export function LegalServicesAgreementDraftCreateEntry(props: {
+  server: {
+    code: string;
+    name: string;
+  };
+  characters: Array<{
+    id: string;
+    fullName: string;
+    passportNumber: string;
+    isProfileComplete: boolean;
+    hasActiveSignature?: boolean;
+  }>;
+  selectedCharacter: {
+    id: string;
+    fullName: string;
+    passportNumber: string;
+    source: "last_used" | "first_available";
+    isProfileComplete: boolean;
+    hasActiveSignature?: boolean;
+  };
+  trustorRegistry: DocumentTrustorRegistrySummary[];
+  status?: string;
+}) {
+  return (
+    <div className="space-y-6">
+      <Card className="space-y-3">
+        <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">
+          Новый договор
+        </p>
+        <h1 className="text-3xl font-semibold">Новый договор на оказание юридических услуг</h1>
+        <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
+          После первого сохранения сервер, персонаж и доверитель фиксируются, а дальше документ
+          редактируется только как owner-only rigid template.
+        </p>
+        <div className="flex flex-wrap items-center gap-2 text-sm leading-6 text-[var(--muted)]">
+          <Badge>Код сервера: {props.server.code}</Badge>
+          <Badge>Сервер: {props.server.name}</Badge>
+          <Badge>Персонаж: {props.selectedCharacter.fullName}</Badge>
+          <span>
+            Источник выбора:{" "}
+            {props.selectedCharacter.source === "last_used" ? "последний использованный" : "первый доступный"}.
+          </span>
+        </div>
+        {props.status ? (
+          <p className="text-sm leading-6 text-[var(--muted)]">Статус: {props.status}</p>
+        ) : null}
+      </Card>
+
+      <Card className="space-y-4">
+        <h2 className="text-2xl font-semibold">Черновик договора</h2>
+        <p className="text-sm leading-6 text-[var(--muted)]">
+          Здесь заполняются только утверждённые ручные поля договора. Остальные данные подставляются
+          из frozen snapshots персонажа и доверителя.
+        </p>
+        <LegalServicesAgreementDraftCreateClient
+          characters={props.characters}
+          initialTitle={getDocumentTitleForType("legal_services_agreement")}
           selectedCharacter={props.selectedCharacter}
           server={props.server}
           trustorRegistry={props.trustorRegistry}
@@ -1237,6 +1401,116 @@ export function AttorneyRequestPersistedEditor(props: {
           generatedRendererVersion={props.document.generatedRendererVersion}
           hasActiveCharacterSignature={props.document.hasActiveCharacterSignature}
           hasSignatureSnapshot={props.document.signatureSnapshot !== null}
+          initialPayload={props.document.payload}
+          initialTitle={props.document.title}
+          isModifiedAfterGeneration={props.document.isModifiedAfterGeneration}
+          server={props.document.server}
+          status={props.document.status}
+          updatedAt={props.document.updatedAt}
+        />
+      </Card>
+    </div>
+  );
+}
+
+export function LegalServicesAgreementPersistedEditor(props: {
+  document: {
+    id: string;
+    title: string;
+    status: "draft" | "generated" | "published";
+    createdAt: string;
+    updatedAt: string;
+    snapshotCapturedAt: string;
+    formSchemaVersion: string;
+    generatedAt: string | null;
+    generatedFormSchemaVersion: string | null;
+    generatedOutputFormat: string | null;
+    generatedRendererVersion: string | null;
+    generatedArtifact: LegalServicesAgreementRenderedArtifact | null;
+    isModifiedAfterGeneration: boolean;
+    server: {
+      code: string;
+      name: string;
+    };
+    authorSnapshot: {
+      fullName: string;
+      passportNumber: string;
+      position?: string;
+      address?: string;
+      phone?: string;
+      icEmail?: string;
+      passportImageUrl?: string;
+      nickname: string;
+      roleKeys: string[];
+      accessFlags: string[];
+      isProfileComplete: boolean;
+    };
+    payload: LegalServicesAgreementDraftPayload;
+  };
+  status?: string;
+}) {
+  return (
+    <div className="space-y-6">
+      <Card className="space-y-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">
+            Редактор договора
+          </p>
+          <Badge>{formatDocumentStatus(props.document.status)}</Badge>
+          <Badge>только для владельца</Badge>
+        </div>
+        <h1 className="text-3xl font-semibold">{props.document.title}</h1>
+        <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
+          Это rigid-template editor для reference PDF. Static текст договора не редактируется, а
+          генерация собирает postраничный PNG-export.
+        </p>
+        <div className="flex flex-wrap items-center gap-2 text-sm leading-6 text-[var(--muted)]">
+          <Badge>Код сервера: {props.document.server.code}</Badge>
+          <Badge>Сервер: {props.document.server.name}</Badge>
+          <Badge>Персонаж: {props.document.authorSnapshot.fullName}</Badge>
+          <Badge>Доверитель: {props.document.payload.trustorSnapshot.fullName}</Badge>
+          <span>
+            Номер договора: {props.document.payload.manualFields.agreementNumber || "не указан"}
+          </span>
+        </div>
+        {props.status ? (
+          <p className="text-sm leading-6 text-[var(--muted)]">Статус: {props.status}</p>
+        ) : null}
+      </Card>
+
+      <Card className="space-y-4">
+        <h2 className="text-2xl font-semibold">Служебные сведения</h2>
+        <ul className="space-y-2 text-sm leading-6 text-[var(--muted)]">
+          <li>ID документа: {props.document.id}</li>
+          <li>Создано: {new Date(props.document.createdAt).toLocaleString("ru-RU")}</li>
+          <li>Обновлено: {new Date(props.document.updatedAt).toLocaleString("ru-RU")}</li>
+          <li>
+            Снимок персонажа и доверителя сохранён:{" "}
+            {new Date(props.document.snapshotCapturedAt).toLocaleString("ru-RU")}
+          </li>
+          <li>Версия формы: {props.document.formSchemaVersion}</li>
+          <li>Ник персонажа: {props.document.authorSnapshot.nickname}</li>
+          <li>Роли: {props.document.authorSnapshot.roleKeys.join(", ") || "нет"}</li>
+          <li>
+            Подписи персонажа и доверителя генерируются шрифтом из frozen snapshots.
+          </li>
+          <li>
+            Генерация: {props.document.generatedAt ? "страницы уже собраны" : "ещё не выполнялась"}.
+          </li>
+          <li>
+            Изменено после генерации: {props.document.isModifiedAfterGeneration ? "да" : "нет"}.
+          </li>
+        </ul>
+      </Card>
+
+      <Card className="space-y-4">
+        <h2 className="text-2xl font-semibold">Редактор договора</h2>
+        <LegalServicesAgreementEditorClient
+          documentId={props.document.id}
+          generatedArtifact={props.document.generatedArtifact}
+          generatedAt={props.document.generatedAt}
+          generatedOutputFormat={props.document.generatedOutputFormat}
+          generatedRendererVersion={props.document.generatedRendererVersion}
           initialPayload={props.document.payload}
           initialTitle={props.document.title}
           isModifiedAfterGeneration={props.document.isModifiedAfterGeneration}

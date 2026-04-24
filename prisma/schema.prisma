@@ -122,6 +122,7 @@ enum DocumentType {
   rehabilitation
   lawsuit
   attorney_request
+  legal_services_agreement
 }
 
 enum DocumentStatus {

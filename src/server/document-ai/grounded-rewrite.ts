@@ -539,7 +539,10 @@ export async function rewriteOwnedGroundedDocumentField(
     throw new DocumentAccessDeniedError();
   }
 
-  if (document.documentType === "attorney_request") {
+  if (
+    document.documentType === "attorney_request" ||
+    document.documentType === "legal_services_agreement"
+  ) {
     throw new DocumentAccessDeniedError();
   }
 
