@@ -44,7 +44,7 @@ const FONTS_DIR = join(ASSETS_DIR, "fonts");
 const STATIC_DIR = join(ASSETS_DIR, "static");
 const LEGAL_SERVICES_AGREEMENT_SEAL_PATH = join(
   STATIC_DIR,
-  "seal-page1-crop-final.png",
+  "seal-page1-crop-final-fixed.png",
 );
 
 const SERIF_FONT_FAMILY = "Times New Roman, Liberation Serif, serif";
@@ -99,8 +99,8 @@ const CYRILLIC_TO_LATIN_MAP: Record<string, string> = {
   я: "ya",
 };
 
-const CONTENT_LEFT_X = 57;
-const CONTENT_RIGHT_X = 868;
+const CONTENT_LEFT_X = 62;
+const CONTENT_RIGHT_X = 850;
 const CONTENT_WIDTH = CONTENT_RIGHT_X - CONTENT_LEFT_X;
 
 const PAGE_BASE_CONFIG = {
@@ -110,12 +110,6 @@ const PAGE_BASE_CONFIG = {
     width: PAGE_BORDER_WIDTH,
     height: PAGE_BORDER_HEIGHT,
   },
-  seal: {
-    x: 445,
-    y: 91,
-    width: 56,
-    height: 56,
-  },
   qr: {
     x: QR_X,
     y: QR_Y,
@@ -124,32 +118,65 @@ const PAGE_BASE_CONFIG = {
 } as const;
 
 const PAGE1_LAYOUT = {
-  titleBlock: { x: 276, width: 410 },
-  title: { y: 176, size: 19, lineHeight: 22 },
-  subtitle: { y: 201, size: 17, lineHeight: 20 },
-  subtitleConnector: { y: 223, size: 16, lineHeight: 19 },
-  date: { x: 44, y: 228, width: 208, size: 18, lineHeight: 20 },
-  register: {
-    x: 762,
-    width: 112,
-    titleY: 226,
-    numberY: 247,
-    titleSize: 14.2,
-    bodySize: 14.2,
-    titleLineHeight: 18,
-    bodyLineHeight: 18,
+  header: {
+    seal: {
+      x: 438,
+      y: 98,
+      width: 64,
+      height: 56,
+    },
+    titleBlock: {
+      x: 300,
+      width: 300,
+    },
+    title: {
+      y: 179,
+      size: 19,
+      lineHeight: 22,
+    },
+    subtitle: {
+      y: 203,
+      size: 17,
+      lineHeight: 20,
+    },
+    connector: {
+      y: 225,
+      size: 16,
+      lineHeight: 19,
+    },
+    date: {
+      x: 42,
+      y: 231,
+      width: 190,
+      size: 18,
+      lineHeight: 20,
+    },
+    registerTitle: {
+      x: 734,
+      y: 228,
+      width: 114,
+      size: 12.4,
+      lineHeight: 16,
+    },
+    registerNumber: {
+      x: 734,
+      y: 250,
+      width: 114,
+      size: 12.4,
+      lineHeight: 16,
+    },
   },
-  intro: { x: CONTENT_LEFT_X, y: 312, width: CONTENT_WIDTH, size: 17, lineHeight: 24 },
-  sectionTitle: { y: 445, size: 21, lineHeight: 24 },
+  intro: { x: CONTENT_LEFT_X, y: 312, width: CONTENT_WIDTH, size: 16.8, lineHeight: 22 },
+  sectionTitle: { x: PAGE_BORDER_X, y: 445, width: PAGE_BORDER_WIDTH, size: 21, lineHeight: 24 },
   sectionBody: {
-    x: CONTENT_LEFT_X + 8,
+    x: CONTENT_LEFT_X + 6,
     y: 478,
-    width: CONTENT_WIDTH - 16,
-    size: 15.4,
-    lineHeight: 19.4,
-    paragraphGap: 10,
-    minFontSize: 13.6,
-    minLineHeight: 17.3,
+    width: CONTENT_WIDTH - 12,
+    size: 15,
+    lineHeight: 17.8,
+    paragraphGap: 7,
+    minFontSize: 13.4,
+    minLineHeight: 16.4,
     maxBottomY: PAGE_TEXT_BOTTOM,
   },
 } as const;
@@ -157,24 +184,24 @@ const PAGE1_LAYOUT = {
 const PAGE2_LAYOUT = {
   title: { y: 136, size: 20, lineHeight: 23 },
   section2: {
-    x: CONTENT_LEFT_X + 6,
+    x: CONTENT_LEFT_X + 4,
     y: 164,
-    width: CONTENT_WIDTH - 12,
-    size: 15.3,
-    lineHeight: 19.3,
-    paragraphGap: 9,
-    minFontSize: 13.6,
-    minLineHeight: 17.2,
+    width: CONTENT_WIDTH - 8,
+    size: 15,
+    lineHeight: 17.9,
+    paragraphGap: 7,
+    minFontSize: 13.4,
+    minLineHeight: 16.5,
     maxBottomY: 726,
   },
   section3And4: {
     x: CONTENT_LEFT_X + 4,
     width: CONTENT_WIDTH - 8,
-    size: 15.7,
-    lineHeight: 21.4,
-    paragraphGap: 11,
-    minFontSize: 13.9,
-    minLineHeight: 18.8,
+    size: 15.2,
+    lineHeight: 18.8,
+    paragraphGap: 8,
+    minFontSize: 13.7,
+    minLineHeight: 17.1,
     maxBottomY: PAGE_TEXT_BOTTOM,
     topGap: 12,
   },
@@ -185,32 +212,32 @@ const PAGE3_LAYOUT = {
     x: CONTENT_LEFT_X + 4,
     y: 160,
     width: CONTENT_WIDTH - 8,
-    size: 15.6,
-    lineHeight: 21.2,
-    paragraphGap: 11,
-    minFontSize: 14,
-    minLineHeight: 18.8,
+    size: 15.1,
+    lineHeight: 18.8,
+    paragraphGap: 8,
+    minFontSize: 13.7,
+    minLineHeight: 17,
     maxBottomY: 455,
   },
   section5: {
     x: CONTENT_LEFT_X + 6,
     width: CONTENT_WIDTH - 12,
-    size: 15.1,
-    lineHeight: 19.1,
-    paragraphGap: 10,
-    minFontSize: 13.4,
-    minLineHeight: 17,
+    size: 14.8,
+    lineHeight: 17.8,
+    paragraphGap: 7,
+    minFontSize: 13.2,
+    minLineHeight: 16.2,
     maxBottomY: 805,
     topGap: 8,
   },
   section6: {
     x: CONTENT_LEFT_X + 4,
     width: CONTENT_WIDTH - 8,
-    size: 15.1,
-    lineHeight: 20.1,
-    paragraphGap: 10,
-    minFontSize: 13.1,
-    minLineHeight: 17.2,
+    size: 14.8,
+    lineHeight: 18.3,
+    paragraphGap: 7,
+    minFontSize: 13,
+    minLineHeight: 16.5,
     maxBottomY: PAGE_TEXT_BOTTOM,
     topGap: 10,
   },
@@ -221,11 +248,11 @@ const PAGE4_LAYOUT = {
     x: CONTENT_LEFT_X + 4,
     y: 160,
     width: CONTENT_WIDTH - 8,
-    size: 15.1,
-    lineHeight: 20,
-    paragraphGap: 9,
-    minFontSize: 13.5,
-    minLineHeight: 17.3,
+    size: 14.8,
+    lineHeight: 18.2,
+    paragraphGap: 7,
+    minFontSize: 13.3,
+    minLineHeight: 16.5,
     maxBottomY: 300,
   },
   sectionTitle: { y: 322, size: 20, lineHeight: 23 },
@@ -616,50 +643,29 @@ function buildSignatureText(input: {
   )}</text>`;
 }
 
-function buildRegisterBlock(input: {
-  title: string;
-  numberLine: string;
-  x: number;
-  width: number;
-  titleY: number;
-  numberY: number;
-  titleSize: number;
-  bodySize: number;
-  titleLineHeight: number;
-  bodyLineHeight: number;
+function buildPageBase(input: {
+  overlays: string[];
+  seal?: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
 }) {
-  return [
-    buildTextBlock({
-      text: input.title,
-      x: input.x,
-      y: input.titleY,
-      width: input.width,
-      fontSize: input.titleSize,
-      lineHeight: input.titleLineHeight,
-      fontWeight: 700,
-      textAlign: "right",
-    }),
-    buildTextBlock({
-      text: input.numberLine,
-      x: input.x,
-      y: input.numberY,
-      width: input.width,
-      fontSize: input.bodySize,
-      lineHeight: input.bodyLineHeight,
-      textAlign: "right",
-    }),
-  ].join("");
-}
-
-function buildPageBase(input: { overlays: string[] }) {
   const fontFace =
     signatureFontDataUrl !== null
       ? `<style>@font-face{font-family:'${SIGNATURE_FONT_FAMILY}';src:url('${signatureFontDataUrl}') format('truetype');font-weight:400;font-style:normal;}</style>`
       : "";
+  const sealBox = input.seal ?? {
+    x: 0,
+    y: 0,
+    width: 0,
+    height: 0,
+  };
 
   const seal =
     sealDataUrl !== null
-      ? `<image href="${sealDataUrl}" x="${PAGE_BASE_CONFIG.seal.x}" y="${PAGE_BASE_CONFIG.seal.y}" width="${PAGE_BASE_CONFIG.seal.width}" height="${PAGE_BASE_CONFIG.seal.height}" preserveAspectRatio="xMidYMid meet" />`
+      ? `<image href="${sealDataUrl}" x="${sealBox.x}" y="${sealBox.y}" width="${sealBox.width}" height="${sealBox.height}" preserveAspectRatio="xMidYMid meet" />`
       : "";
   const qr =
     qrDataUrl !== null
@@ -984,57 +990,65 @@ function buildPage1(input: {
   });
 
   return buildPageBase({
+    seal: PAGE1_LAYOUT.header.seal,
     overlays: [
       buildTextBlock({
         text: `Договор №${readNormalizedValue(fields.agreementNumber)}`,
-        x: PAGE1_LAYOUT.titleBlock.x,
-        y: PAGE1_LAYOUT.title.y,
-        width: PAGE1_LAYOUT.titleBlock.width,
-        fontSize: PAGE1_LAYOUT.title.size,
-        lineHeight: PAGE1_LAYOUT.title.lineHeight,
+        x: PAGE1_LAYOUT.header.titleBlock.x,
+        y: PAGE1_LAYOUT.header.title.y,
+        width: PAGE1_LAYOUT.header.titleBlock.width,
+        fontSize: PAGE1_LAYOUT.header.title.size,
+        lineHeight: PAGE1_LAYOUT.header.title.lineHeight,
         fontWeight: 700,
         textAlign: "center",
       }),
       buildTextBlock({
         text: "На оказание юридических услуг",
-        x: PAGE1_LAYOUT.titleBlock.x,
-        y: PAGE1_LAYOUT.subtitle.y,
-        width: PAGE1_LAYOUT.titleBlock.width,
-        fontSize: PAGE1_LAYOUT.subtitle.size,
-        lineHeight: PAGE1_LAYOUT.subtitle.lineHeight,
+        x: PAGE1_LAYOUT.header.titleBlock.x,
+        y: PAGE1_LAYOUT.header.subtitle.y,
+        width: PAGE1_LAYOUT.header.titleBlock.width,
+        fontSize: PAGE1_LAYOUT.header.subtitle.size,
+        lineHeight: PAGE1_LAYOUT.header.subtitle.lineHeight,
         fontWeight: 700,
         textAlign: "center",
       }),
       buildTextBlock({
         text: "от",
-        x: PAGE1_LAYOUT.titleBlock.x,
-        y: PAGE1_LAYOUT.subtitleConnector.y,
-        width: PAGE1_LAYOUT.titleBlock.width,
-        fontSize: PAGE1_LAYOUT.subtitleConnector.size,
-        lineHeight: PAGE1_LAYOUT.subtitleConnector.lineHeight,
+        x: PAGE1_LAYOUT.header.titleBlock.x,
+        y: PAGE1_LAYOUT.header.connector.y,
+        width: PAGE1_LAYOUT.header.titleBlock.width,
+        fontSize: PAGE1_LAYOUT.header.connector.size,
+        lineHeight: PAGE1_LAYOUT.header.connector.lineHeight,
         fontWeight: 700,
         textAlign: "center",
       }),
       buildTextBlock({
         text: readNormalizedValue(fields.agreementDate),
-        x: PAGE1_LAYOUT.date.x,
-        y: PAGE1_LAYOUT.date.y,
-        width: PAGE1_LAYOUT.date.width,
-        fontSize: PAGE1_LAYOUT.date.size,
-        lineHeight: PAGE1_LAYOUT.date.lineHeight,
+        x: PAGE1_LAYOUT.header.date.x,
+        y: PAGE1_LAYOUT.header.date.y,
+        width: PAGE1_LAYOUT.header.date.width,
+        fontSize: PAGE1_LAYOUT.header.date.size,
+        lineHeight: PAGE1_LAYOUT.header.date.lineHeight,
         fontStyle: "italic",
       }),
-      buildRegisterBlock({
-        title: "San Andreas Register",
-        numberLine: `No. ${readNormalizedValue(fields.registerNumber)}`,
-        x: PAGE1_LAYOUT.register.x,
-        width: PAGE1_LAYOUT.register.width,
-        titleY: PAGE1_LAYOUT.register.titleY,
-        numberY: PAGE1_LAYOUT.register.numberY,
-        titleSize: PAGE1_LAYOUT.register.titleSize,
-        bodySize: PAGE1_LAYOUT.register.bodySize,
-        titleLineHeight: PAGE1_LAYOUT.register.titleLineHeight,
-        bodyLineHeight: PAGE1_LAYOUT.register.bodyLineHeight,
+      buildTextBlock({
+        text: "San Andreas Register",
+        x: PAGE1_LAYOUT.header.registerTitle.x,
+        y: PAGE1_LAYOUT.header.registerTitle.y,
+        width: PAGE1_LAYOUT.header.registerTitle.width,
+        fontSize: PAGE1_LAYOUT.header.registerTitle.size,
+        lineHeight: PAGE1_LAYOUT.header.registerTitle.lineHeight,
+        fontWeight: 700,
+        textAlign: "right",
+      }),
+      buildTextBlock({
+        text: `No. ${readNormalizedValue(fields.registerNumber)}`,
+        x: PAGE1_LAYOUT.header.registerNumber.x,
+        y: PAGE1_LAYOUT.header.registerNumber.y,
+        width: PAGE1_LAYOUT.header.registerNumber.width,
+        fontSize: PAGE1_LAYOUT.header.registerNumber.size,
+        lineHeight: PAGE1_LAYOUT.header.registerNumber.lineHeight,
+        textAlign: "right",
       }),
       buildTextBlock({
         text: intro,
@@ -1046,9 +1060,9 @@ function buildPage1(input: {
       }),
       buildTextBlock({
         text: "1. Предмет договора (поручения)",
-        x: 0,
+        x: PAGE1_LAYOUT.sectionTitle.x,
         y: PAGE1_LAYOUT.sectionTitle.y,
-        width: PAGE_WIDTH,
+        width: PAGE1_LAYOUT.sectionTitle.width,
         fontSize: PAGE1_LAYOUT.sectionTitle.size,
         lineHeight: PAGE1_LAYOUT.sectionTitle.lineHeight,
         fontWeight: 700,
