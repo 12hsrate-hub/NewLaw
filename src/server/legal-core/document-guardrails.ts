@@ -33,6 +33,19 @@ export type DocumentLawVersionContract = {
   is_current_snapshot_consistent: boolean;
 };
 
+export type DocumentSourceUsageStrategy =
+  | "boundary_context_default"
+  | "grounded_prompt_subset";
+
+export type DocumentSourceLedger = {
+  server_id: string;
+  law_version_ids: string[];
+  found_sources: DocumentGuardrailUsedSource[];
+  context_sources: DocumentGuardrailUsedSource[];
+  used_sources: DocumentGuardrailUsedSource[];
+  used_sources_strategy: DocumentSourceUsageStrategy;
+};
+
 function clampText(value: string, maxLength: number) {
   return value.trim().slice(0, maxLength);
 }
@@ -97,6 +110,29 @@ export function buildDocumentGuardrailUsedSources(
         }));
 
   return [...lawSources, ...precedentSources];
+}
+
+export function buildDocumentGuardrailFoundSources(retrieval: DocumentGuardrailRetrievalResult) {
+  return buildDocumentGuardrailUsedSources(retrieval, {
+    lawLimit: retrieval.lawRetrieval.results.length,
+    precedentLimit: retrieval.precedentRetrieval.results.length,
+  });
+}
+
+export function buildDocumentSourceLedger(input: {
+  retrieval: DocumentGuardrailRetrievalResult;
+  contextSources: DocumentGuardrailUsedSource[];
+  usedSources?: DocumentGuardrailUsedSource[];
+  usedSourcesStrategy: DocumentSourceUsageStrategy;
+}) {
+  return {
+    server_id: input.retrieval.serverId,
+    law_version_ids: input.retrieval.combinedRetrievalRevision.lawCurrentVersionIds,
+    found_sources: buildDocumentGuardrailFoundSources(input.retrieval),
+    context_sources: input.contextSources,
+    used_sources: input.usedSources ?? input.contextSources,
+    used_sources_strategy: input.usedSourcesStrategy,
+  } satisfies DocumentSourceLedger;
 }
 
 export function buildDocumentLawVersionContract(input: {

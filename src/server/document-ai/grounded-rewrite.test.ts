@@ -360,6 +360,26 @@ describe("grounded document field rewrite flow", () => {
             contract_mode: "current_snapshot_only",
             is_current_snapshot_consistent: true,
           }),
+          input_trace: expect.objectContaining({
+            input_kind: "grounded_document_section_rewrite",
+            grounding_mode: "law_grounded",
+            source_text_preview: "Сотрудник нарушил порядок рассмотрения жалобы.",
+          }),
+          source_ledger: expect.objectContaining({
+            used_sources_strategy: "grounded_prompt_subset",
+            found_sources: expect.arrayContaining([
+              expect.objectContaining({
+                source_kind: "law",
+                law_id: "law-1",
+              }),
+            ]),
+            used_sources: expect.arrayContaining([
+              expect.objectContaining({
+                source_kind: "law",
+                law_id: "law-1",
+              }),
+            ]),
+          }),
           used_sources: [
             {
               source_kind: "law",
@@ -380,6 +400,11 @@ describe("grounded document field rewrite flow", () => {
         responsePayloadJson: expect.objectContaining({
           statusBranch: "law_grounded",
           suggestionLength: "Нарушение сформулировано с опорой на нормы.".length,
+          output_trace: expect.objectContaining({
+            output_kind: "grounded_document_section_plain_text",
+            grounding_mode: "law_grounded",
+            output_preview: "Нарушение сформулировано с опорой на нормы.",
+          }),
           prompt_tokens: 410,
           completion_tokens: 160,
           total_tokens: 570,
@@ -473,6 +498,9 @@ describe("grounded document field rewrite flow", () => {
     expect(createAIRequest).toHaveBeenCalledWith(
       expect.objectContaining({
         responsePayloadJson: expect.objectContaining({
+          output_trace: expect.objectContaining({
+            grounding_mode: "precedent_grounded",
+          }),
           queue_for_future_ai_quality_review: true,
           future_review_priority: "medium",
           future_review_reason_codes: expect.arrayContaining(["precedent_only_grounding"]),
@@ -542,6 +570,7 @@ describe("grounded document field rewrite flow", () => {
     expect(createAIRequest).toHaveBeenCalledWith(
       expect.objectContaining({
         responsePayloadJson: expect.objectContaining({
+          output_trace: null,
           queue_for_future_ai_quality_review: true,
           future_review_priority: "high",
           future_review_reason_codes: expect.arrayContaining(["insufficient_grounding"]),
@@ -619,6 +648,7 @@ describe("grounded document field rewrite flow", () => {
     expect(createAIRequest).toHaveBeenCalledWith(
       expect.objectContaining({
         responsePayloadJson: expect.objectContaining({
+          output_trace: null,
           queue_for_future_ai_quality_review: true,
           future_review_priority: "high",
           future_review_reason_codes: expect.arrayContaining(["rewrite_proxy_unavailable"]),
@@ -678,8 +708,14 @@ describe("grounded document field rewrite flow", () => {
             context_norms_outside_current_snapshot: ["law-version-2"],
             used_norms_outside_current_snapshot: ["law-version-2"],
           }),
+          source_ledger: expect.objectContaining({
+            used_sources_strategy: "grounded_prompt_subset",
+          }),
         }),
         responsePayloadJson: expect.objectContaining({
+          output_trace: expect.objectContaining({
+            output_kind: "grounded_document_section_plain_text",
+          }),
           queue_for_future_ai_quality_review: true,
           future_review_priority: "high",
           future_review_reason_codes: expect.arrayContaining(["law_version_contract_violation"]),

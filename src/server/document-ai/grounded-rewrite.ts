@@ -21,6 +21,7 @@ import {
 } from "@/server/legal-core/document-rewrite";
 import {
   buildDocumentGuardrailContextText,
+  buildDocumentSourceLedger,
   buildDocumentLawVersionContract,
   buildDocumentGuardrailSearchQuery,
   buildDocumentGuardrailUsedSources,
@@ -51,6 +52,7 @@ const MAX_PROMPT_BLOCK_TEXT_LENGTH = 900;
 const MAX_SUGGESTION_PREVIEW_LENGTH = 160;
 const MAX_LAW_PROMPT_BLOCKS = 4;
 const MAX_PRECEDENT_PROMPT_BLOCKS = 3;
+const MAX_INPUT_PREVIEW_LENGTH = 220;
 
 type AssistantRetrievalResult = Awaited<ReturnType<typeof searchAssistantCorpus>>;
 
@@ -542,6 +544,37 @@ function buildInsufficientCorpusMessage(retrieval: AssistantRetrievalResult) {
   return "Для этой секции сейчас не нашлось достаточной grounded опоры в подтверждённом corpus. Попробуйте уточнить текст секции или обновить corpus сервера.";
 }
 
+function buildGroundedRewriteInputTrace(input: {
+  sourceText: string;
+  contextText: string;
+  contextFieldKeys: string[];
+  groundingMode: GroundedDocumentRewriteMode | null;
+}) {
+  return {
+    input_kind: "grounded_document_section_rewrite",
+    source_text_preview: clampText(input.sourceText, MAX_INPUT_PREVIEW_LENGTH),
+    source_text_length: input.sourceText.trim().length,
+    context_text_preview: clampText(input.contextText, MAX_INPUT_PREVIEW_LENGTH),
+    context_text_length: input.contextText.trim().length,
+    context_field_keys: input.contextFieldKeys,
+    grounding_mode: input.groundingMode ?? "insufficient_corpus",
+  };
+}
+
+function buildGroundedRewriteOutputTrace(input: {
+  suggestionText: string;
+  finishReason: string | null;
+  groundingMode: GroundedDocumentRewriteMode;
+}) {
+  return {
+    output_kind: "grounded_document_section_plain_text",
+    output_preview: input.suggestionText.slice(0, MAX_SUGGESTION_PREVIEW_LENGTH),
+    output_length: input.suggestionText.length,
+    finish_reason: input.finishReason,
+    grounding_mode: input.groundingMode,
+  };
+}
+
 export function mapGroundedDocumentFieldRewriteBlockingReasonsToMessages(
   reasons: GroundedDocumentFieldRewriteBlockedReason[],
 ) {
@@ -612,9 +645,21 @@ export async function rewriteOwnedGroundedDocumentField(
     sourceText: promptContext.sourceText,
   });
   const usedSources = buildGroundedUsedSources(retrieval, groundingMode);
-  const lawVersionContract = buildDocumentLawVersionContract({
+  const sourceLedger = buildDocumentSourceLedger({
     retrieval,
     contextSources: usedSources,
+    usedSourcesStrategy: "grounded_prompt_subset",
+  });
+  const lawVersionContract = buildDocumentLawVersionContract({
+    retrieval,
+    contextSources: sourceLedger.context_sources,
+    usedSources: sourceLedger.used_sources,
+  });
+  const inputTrace = buildGroundedRewriteInputTrace({
+    sourceText,
+    contextText: promptContext.contextText,
+    contextFieldKeys: promptContext.contextFieldKeys,
+    groundingMode,
   });
   const selfAssessment = buildGroundedDocumentRewriteSelfAssessment({
     missingDataCount: factLedger.missing_data.length,
@@ -663,12 +708,14 @@ export async function rewriteOwnedGroundedDocumentField(
     combinedRetrievalRevision: retrieval.combinedRetrievalRevision,
     law_version_ids: retrieval.combinedRetrievalRevision.lawCurrentVersionIds,
     law_version_contract: lawVersionContract,
+    source_ledger: sourceLedger,
     used_sources: usedSources,
     fact_ledger: factLedger,
     hasTrustor: promptContext.hasTrustor,
     contextFieldKeys: promptContext.contextFieldKeys,
     sourceLength: sourceText.length,
     retrievalPromptBlockCount: references.length,
+    input_trace: inputTrace,
   };
 
   if (!groundingMode || references.length === 0) {
@@ -689,6 +736,7 @@ export async function rewriteOwnedGroundedDocumentField(
         confidence: selfAssessment.answer_confidence,
         references,
         used_sources: usedSources,
+        output_trace: null,
         ...insufficientCorpusFutureReviewMarker,
         self_assessment: selfAssessment,
       },
@@ -753,6 +801,7 @@ export async function rewriteOwnedGroundedDocumentField(
         cost_usd: usageMetrics.cost_usd,
         confidence: selfAssessment.answer_confidence,
         used_sources: usedSources,
+        output_trace: null,
         ...unavailableFutureReviewMarker,
         self_assessment: selfAssessment,
       },
@@ -767,6 +816,11 @@ export async function rewriteOwnedGroundedDocumentField(
 
   const suggestionText = proxyResponse.content.trim();
   const finishReason = extractFinishReason(proxyResponse.responsePayloadJson ?? null);
+  const outputTrace = buildGroundedRewriteOutputTrace({
+    suggestionText,
+    finishReason,
+    groundingMode,
+  });
   const usageMeta = groundedDocumentFieldRewriteUsageMetaSchema.parse({
     featureKey: GROUNDED_DOCUMENT_FIELD_REWRITE_FEATURE_KEY,
     providerKey: proxyResponse.providerKey ?? null,
@@ -798,6 +852,7 @@ export async function rewriteOwnedGroundedDocumentField(
       references,
       attemptedProxyKeys: usageMeta.attemptedProxyKeys,
       suggestionPreview: suggestionText.slice(0, MAX_SUGGESTION_PREVIEW_LENGTH),
+      output_trace: outputTrace,
       prompt_tokens: usageMetrics.prompt_tokens,
       completion_tokens: usageMetrics.completion_tokens,
       total_tokens: usageMetrics.total_tokens,

@@ -124,8 +124,22 @@ describe("answer pipeline", () => {
         status: "success",
         requestPayloadJson: expect.objectContaining({
           branch: "no_norms",
+          input_trace: expect.objectContaining({
+            input_kind: "assistant_question",
+            question_preview: "Есть ли норма про неизвестный институт?",
+          }),
         }),
         responsePayloadJson: expect.objectContaining({
+          output_trace: expect.objectContaining({
+            output_kind: "assistant_markdown",
+            section_keys: expect.arrayContaining([
+              "summary",
+              "normativeAnalysis",
+              "precedentAnalysis",
+              "interpretation",
+              "sources",
+            ]),
+          }),
           answer_markdown_preview: expect.stringContaining("Краткий вывод"),
           answer_sections: expect.objectContaining({
             summary: expect.any(String),
@@ -312,6 +326,10 @@ describe("answer pipeline", () => {
           intent: "situation_analysis",
           actor_context: "self",
           response_mode: "normal",
+          input_trace: expect.objectContaining({
+            input_kind: "assistant_question",
+            question_preview: "Нужен ли письменный договор?",
+          }),
           law_version_contract: expect.objectContaining({
             contract_mode: "current_snapshot_only",
             is_current_snapshot_consistent: true,
@@ -336,6 +354,16 @@ describe("answer pipeline", () => {
           total_tokens: 500,
           cost_usd: 0.021,
           confidence: "high",
+          output_trace: expect.objectContaining({
+            output_kind: "assistant_markdown",
+            section_keys: expect.arrayContaining([
+              "summary",
+              "normativeAnalysis",
+              "precedentAnalysis",
+              "interpretation",
+              "sources",
+            ]),
+          }),
           answer_markdown_preview: expect.stringContaining("Краткий вывод"),
           answer_sections: expect.objectContaining({
             summary: expect.stringContaining("письменная форма"),
@@ -439,6 +467,9 @@ describe("answer pipeline", () => {
     expect(createAIRequest).toHaveBeenCalledWith(
       expect.objectContaining({
         responsePayloadJson: expect.objectContaining({
+          output_trace: expect.objectContaining({
+            output_kind: "assistant_markdown",
+          }),
           queue_for_future_ai_quality_review: true,
           future_review_priority: "medium",
           future_review_reason_codes: expect.arrayContaining(["precedent_only_grounding"]),
@@ -529,6 +560,9 @@ describe("answer pipeline", () => {
     expect(createAIRequest).toHaveBeenCalledWith(
       expect.objectContaining({
         responsePayloadJson: expect.objectContaining({
+          output_trace: expect.objectContaining({
+            output_kind: "assistant_markdown",
+          }),
           queue_for_future_ai_quality_review: true,
           future_review_priority: "high",
           future_review_reason_codes: expect.arrayContaining(["law_version_contract_violation"]),
@@ -598,6 +632,14 @@ describe("answer pipeline", () => {
     expect(createAIRequest).toHaveBeenCalledWith(
       expect.objectContaining({
         status: "unavailable",
+        requestPayloadJson: expect.objectContaining({
+          input_trace: expect.objectContaining({
+            input_kind: "assistant_question",
+          }),
+        }),
+        responsePayloadJson: expect.objectContaining({
+          output_trace: null,
+        }),
       }),
     );
   });
@@ -639,6 +681,7 @@ describe("answer pipeline", () => {
       expect.objectContaining({
         status: "unavailable",
         responsePayloadJson: expect.objectContaining({
+          output_trace: null,
           queue_for_future_ai_quality_review: true,
           future_review_priority: "high",
           future_review_reason_codes: expect.arrayContaining(["no_usable_corpus"]),
@@ -648,6 +691,9 @@ describe("answer pipeline", () => {
           intent: "situation_analysis",
           actor_context: "general_question",
           response_mode: "normal",
+          input_trace: expect.objectContaining({
+            input_kind: "assistant_question",
+          }),
         }),
       }),
     );

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildDocumentGuardrailContextText,
+  buildDocumentSourceLedger,
   buildDocumentLawVersionContract,
   buildDocumentGuardrailSearchQuery,
   buildDocumentGuardrailUsedSources,
@@ -220,6 +221,32 @@ describe("document guardrails helpers", () => {
     expect(contract.found_norms_outside_current_snapshot).toEqual(["law-version-2"]);
     expect(contract.context_norms_outside_current_snapshot).toEqual(["law-version-2"]);
     expect(contract.used_norms_outside_current_snapshot).toEqual(["law-version-2"]);
+  });
+
+  it("строит source ledger с found/context/used sources и честной стратегией", () => {
+    const retrieval = createRetrievalResult();
+    const contextSources = buildDocumentGuardrailUsedSources(retrieval, {
+      lawLimit: 1,
+      precedentLimit: 0,
+      mode: "law",
+    });
+    const ledger = buildDocumentSourceLedger({
+      retrieval,
+      contextSources,
+      usedSourcesStrategy: "boundary_context_default",
+    });
+
+    expect(ledger.server_id).toBe("server-1");
+    expect(ledger.law_version_ids).toEqual(["law-version-1"]);
+    expect(ledger.found_sources).toHaveLength(2);
+    expect(ledger.context_sources).toEqual([
+      expect.objectContaining({
+        source_kind: "law",
+        law_id: "law-1",
+      }),
+    ]);
+    expect(ledger.used_sources).toEqual(ledger.context_sources);
+    expect(ledger.used_sources_strategy).toBe("boundary_context_default");
   });
 
   it("строит policy lines для boundary и grounded режимов", () => {

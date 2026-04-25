@@ -35,6 +35,7 @@ import {
 } from "@/server/legal-core/document-rewrite";
 import {
   buildDocumentGuardrailContextText,
+  buildDocumentSourceLedger,
   buildDocumentLawVersionContract,
   buildDocumentGuardrailSearchQuery,
   buildDocumentGuardrailUsedSources,
@@ -54,6 +55,7 @@ const MAX_GUARDRAIL_LAW_BLOCKS = 3;
 const MAX_GUARDRAIL_PRECEDENT_BLOCKS = 2;
 const MAX_GUARDRAIL_BLOCK_TEXT_LENGTH = 700;
 const MAX_SUGGESTION_PREVIEW_LENGTH = 160;
+const MAX_INPUT_PREVIEW_LENGTH = 220;
 
 type DocumentFieldRewriteDependencies = {
   getDocumentByIdForAccount: typeof getDocumentByIdForAccount;
@@ -607,6 +609,33 @@ function extractFinishReason(payload: Record<string, unknown> | null | undefined
     : null;
 }
 
+function buildRewriteInputTrace(input: {
+  sourceText: string;
+  contextText: string;
+  contextFieldKeys: string[];
+}) {
+  return {
+    input_kind: "document_section_rewrite",
+    source_text_preview: clampText(input.sourceText, MAX_INPUT_PREVIEW_LENGTH),
+    source_text_length: input.sourceText.trim().length,
+    context_text_preview: clampText(input.contextText, MAX_INPUT_PREVIEW_LENGTH),
+    context_text_length: input.contextText.trim().length,
+    context_field_keys: input.contextFieldKeys,
+  };
+}
+
+function buildRewriteOutputTrace(input: {
+  suggestionText: string;
+  finishReason: string | null;
+}) {
+  return {
+    output_kind: "document_section_plain_text",
+    output_preview: input.suggestionText.slice(0, MAX_SUGGESTION_PREVIEW_LENGTH),
+    output_length: input.suggestionText.length,
+    finish_reason: input.finishReason,
+  };
+}
+
 export function mapDocumentFieldRewriteBlockingReasonsToMessages(
   reasons: DocumentFieldRewriteBlockedReason[],
 ) {
@@ -683,11 +712,22 @@ export async function rewriteOwnedDocumentField(
     precedentLimit: MAX_GUARDRAIL_PRECEDENT_BLOCKS,
   });
   const guardrailUsedSources = buildRewriteGuardrailUsedSources(guardrailRetrieval);
-  const lawVersionContract = buildDocumentLawVersionContract({
+  const sourceLedger = buildDocumentSourceLedger({
     retrieval: guardrailRetrieval,
     contextSources: guardrailUsedSources,
+    usedSourcesStrategy: "boundary_context_default",
+  });
+  const lawVersionContract = buildDocumentLawVersionContract({
+    retrieval: guardrailRetrieval,
+    contextSources: sourceLedger.context_sources,
+    usedSources: sourceLedger.used_sources,
   });
   const guardrailContext = buildRewriteGuardrailContext(guardrailRetrieval);
+  const inputTrace = buildRewriteInputTrace({
+    sourceText,
+    contextText: promptContext.contextText,
+    contextFieldKeys: promptContext.contextFieldKeys,
+  });
   const successFutureReviewMarker = buildDocumentRewriteFutureReviewMarker({
     selfAssessment,
     status: "success",
@@ -757,9 +797,11 @@ export async function rewriteOwnedDocumentField(
         sourceLength: sourceText.length,
         contextFieldKeys: promptContext.contextFieldKeys,
         contextLength: promptContext.contextText.length,
+        input_trace: inputTrace,
         combinedRetrievalRevision: guardrailRetrieval.combinedRetrievalRevision,
         law_version_ids: guardrailRetrieval.combinedRetrievalRevision.lawCurrentVersionIds,
         law_version_contract: lawVersionContract,
+        source_ledger: sourceLedger,
         used_sources: guardrailUsedSources,
         fact_ledger: factLedger,
       },
@@ -771,6 +813,7 @@ export async function rewriteOwnedDocumentField(
         total_tokens: usageMetrics.total_tokens,
         cost_usd: usageMetrics.cost_usd,
         confidence: selfAssessment.answer_confidence,
+        output_trace: null,
         ...unavailableFutureReviewMarker,
         self_assessment: selfAssessment,
       },
@@ -785,6 +828,10 @@ export async function rewriteOwnedDocumentField(
 
   const suggestionText = proxyResponse.content.trim();
   const finishReason = extractFinishReason(proxyResponse.responsePayloadJson ?? null);
+  const outputTrace = buildRewriteOutputTrace({
+    suggestionText,
+    finishReason,
+  });
   const usageMeta = documentFieldRewriteUsageMetaSchema.parse({
     featureKey: DOCUMENT_FIELD_REWRITE_FEATURE_KEY,
     providerKey: proxyResponse.providerKey ?? null,
@@ -818,9 +865,11 @@ export async function rewriteOwnedDocumentField(
       sourceLength: sourceText.length,
       contextFieldKeys: promptContext.contextFieldKeys,
       contextLength: promptContext.contextText.length,
+      input_trace: inputTrace,
       combinedRetrievalRevision: guardrailRetrieval.combinedRetrievalRevision,
       law_version_ids: guardrailRetrieval.combinedRetrievalRevision.lawCurrentVersionIds,
       law_version_contract: lawVersionContract,
+      source_ledger: sourceLedger,
       used_sources: guardrailUsedSources,
       fact_ledger: factLedger,
     },
@@ -830,6 +879,7 @@ export async function rewriteOwnedDocumentField(
       finishReason: usageMeta.finishReason,
       attemptedProxyKeys: usageMeta.attemptedProxyKeys,
       suggestionPreview: suggestionText.slice(0, MAX_SUGGESTION_PREVIEW_LENGTH),
+      output_trace: outputTrace,
       prompt_tokens: usageMetrics.prompt_tokens,
       completion_tokens: usageMetrics.completion_tokens,
       total_tokens: usageMetrics.total_tokens,

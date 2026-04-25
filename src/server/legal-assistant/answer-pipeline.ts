@@ -112,6 +112,7 @@ const MAX_PROMPT_PRECEDENT_BLOCKS = 3;
 const MAX_PROMPT_BLOCK_TEXT_LENGTH = 1200;
 const MAX_REFERENCE_SNIPPET_LENGTH = 280;
 const MAX_ANSWER_PREVIEW_LENGTH = 280;
+const MAX_QUESTION_PREVIEW_LENGTH = 220;
 
 type GroundedLawReference = {
   sourceKind: "law";
@@ -655,6 +656,30 @@ function buildAnswerPreview(value: string) {
   return normalizeSectionText(value).slice(0, MAX_ANSWER_PREVIEW_LENGTH);
 }
 
+function buildAssistantInputTrace(question: string) {
+  return {
+    input_kind: "assistant_question",
+    question_preview: normalizeSectionText(question).slice(0, MAX_QUESTION_PREVIEW_LENGTH),
+    question_length: question.trim().length,
+  };
+}
+
+function buildAssistantOutputTrace(input: {
+  answerMarkdown: string;
+  sections: AssistantAnswerSections;
+}) {
+  return {
+    output_kind: "assistant_markdown",
+    output_preview: buildAnswerPreview(input.answerMarkdown),
+    output_length: input.answerMarkdown.length,
+    section_keys: Object.keys(input.sections).filter((key) => {
+      const value = input.sections[key as keyof AssistantAnswerSections];
+
+      return typeof value === "string" && value.trim().length > 0;
+    }),
+  };
+}
+
 export async function generateServerLegalAssistantAnswer(
   input: {
     serverId: string;
@@ -683,6 +708,7 @@ export async function generateServerLegalAssistantAnswer(
     sourceLedger,
   });
   const usedSources = buildAssistantUsedSources(retrieval);
+  const inputTrace = buildAssistantInputTrace(input.question);
   const metadataBase = {
     serverId: input.serverId,
     serverCode: input.serverCode,
@@ -734,6 +760,7 @@ export async function generateServerLegalAssistantAnswer(
         prompt_version: LEGAL_ASSISTANT_PROMPT_VERSION,
         law_version_ids: retrieval.combinedRetrievalRevision.lawCurrentVersionIds,
         law_version_contract: lawVersionContract,
+        input_trace: inputTrace,
         used_sources: usedSources,
         source_ledger: sourceLedger,
       },
@@ -748,6 +775,7 @@ export async function generateServerLegalAssistantAnswer(
         total_tokens: null,
         cost_usd: null,
         confidence: selfAssessment.answer_confidence,
+        output_trace: null,
         used_sources: usedSources,
         ...futureReviewMarker,
         self_assessment: selfAssessment,
@@ -802,6 +830,7 @@ export async function generateServerLegalAssistantAnswer(
         prompt_version: LEGAL_ASSISTANT_PROMPT_VERSION,
         law_version_ids: retrieval.combinedRetrievalRevision.lawCurrentVersionIds,
         law_version_contract: lawVersionContract,
+        input_trace: inputTrace,
         used_sources: usedSources,
         source_ledger: sourceLedger,
       },
@@ -818,6 +847,10 @@ export async function generateServerLegalAssistantAnswer(
         cost_usd: null,
         confidence: selfAssessment.answer_confidence,
         used_sources: usedSources,
+        output_trace: buildAssistantOutputTrace({
+          answerMarkdown: fallbackAnswerMarkdown,
+          sections: fallbackSections,
+        }),
         answer_markdown_preview: buildAnswerPreview(fallbackAnswerMarkdown),
         answer_sections: fallbackSections,
         ...futureReviewMarker,
@@ -860,6 +893,7 @@ export async function generateServerLegalAssistantAnswer(
     prompt_version: LEGAL_ASSISTANT_PROMPT_VERSION,
     law_version_ids: retrieval.combinedRetrievalRevision.lawCurrentVersionIds,
     law_version_contract: lawVersionContract,
+    input_trace: inputTrace,
     used_sources: usedSources,
     lawCorpusSnapshot: retrieval.lawCorpusSnapshot,
     precedentCorpusSnapshot: retrieval.precedentCorpusSnapshot,
@@ -931,6 +965,7 @@ export async function generateServerLegalAssistantAnswer(
               total_tokens: usageMetrics.total_tokens,
               cost_usd: usageMetrics.cost_usd,
               confidence: answeredSelfAssessment.answer_confidence,
+              output_trace: null,
               used_sources: usedSources,
               ...answeredFutureReviewMarker,
               self_assessment: answeredSelfAssessment,
@@ -942,6 +977,7 @@ export async function generateServerLegalAssistantAnswer(
               total_tokens: usageMetrics.total_tokens,
               cost_usd: usageMetrics.cost_usd,
               confidence: answeredSelfAssessment.answer_confidence,
+              output_trace: null,
               used_sources: usedSources,
               ...answeredFutureReviewMarker,
               self_assessment: answeredSelfAssessment,
@@ -1004,6 +1040,10 @@ export async function generateServerLegalAssistantAnswer(
       cost_usd: usageMetrics.cost_usd,
       confidence: answeredSelfAssessment.answer_confidence,
       used_sources: usedSources,
+      output_trace: buildAssistantOutputTrace({
+        answerMarkdown,
+        sections,
+      }),
       answer_markdown_preview: buildAnswerPreview(answerMarkdown),
       answer_sections: sections,
       ...answeredFutureReviewMarker,

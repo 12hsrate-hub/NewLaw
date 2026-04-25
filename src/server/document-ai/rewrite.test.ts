@@ -272,6 +272,32 @@ describe("document field rewrite flow", () => {
             contract_mode: "current_snapshot_only",
             is_current_snapshot_consistent: true,
           }),
+          input_trace: expect.objectContaining({
+            input_kind: "document_section_rewrite",
+            source_text_preview: "Изначальное описание ситуации",
+            context_field_keys: [
+              "objectOrganization",
+              "objectFullName",
+              "incidentAt",
+              "appealNumber",
+              "violationSummary",
+            ],
+          }),
+          source_ledger: expect.objectContaining({
+            used_sources_strategy: "boundary_context_default",
+            found_sources: expect.arrayContaining([
+              expect.objectContaining({
+                source_kind: "law",
+                law_id: "law-1",
+              }),
+            ]),
+            context_sources: expect.arrayContaining([
+              expect.objectContaining({
+                source_kind: "law",
+                law_id: "law-1",
+              }),
+            ]),
+          }),
           used_sources: [
             {
               source_kind: "law",
@@ -299,6 +325,12 @@ describe("document field rewrite flow", () => {
           suggestionLength: "Улучшенный и структурированный текст секции.".length,
           latencyMs: 1250,
           finishReason: "stop",
+          output_trace: expect.objectContaining({
+            output_kind: "document_section_plain_text",
+            output_preview: "Улучшенный и структурированный текст секции.",
+            output_length: "Улучшенный и структурированный текст секции.".length,
+            finish_reason: "stop",
+          }),
           prompt_tokens: 240,
           completion_tokens: 120,
           total_tokens: 360,
@@ -399,8 +431,12 @@ describe("document field rewrite flow", () => {
           law_version_contract: expect.objectContaining({
             contract_mode: "current_snapshot_only",
           }),
+          source_ledger: expect.objectContaining({
+            used_sources_strategy: "boundary_context_default",
+          }),
         }),
         responsePayloadJson: expect.objectContaining({
+          output_trace: null,
           queue_for_future_ai_quality_review: true,
           future_review_priority: "high",
           future_review_reason_codes: expect.arrayContaining(["rewrite_proxy_unavailable"]),
@@ -490,8 +526,14 @@ describe("document field rewrite flow", () => {
             context_norms_outside_current_snapshot: ["law-version-2"],
             used_norms_outside_current_snapshot: ["law-version-2"],
           }),
+          source_ledger: expect.objectContaining({
+            used_sources_strategy: "boundary_context_default",
+          }),
         }),
         responsePayloadJson: expect.objectContaining({
+          output_trace: expect.objectContaining({
+            output_kind: "document_section_plain_text",
+          }),
           queue_for_future_ai_quality_review: true,
           future_review_priority: "high",
           future_review_reason_codes: expect.arrayContaining(["law_version_contract_violation"]),
