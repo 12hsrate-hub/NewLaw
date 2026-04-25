@@ -142,6 +142,16 @@ function makeCheck(
   return { key, scope, status, note };
 }
 
+function isNonLiveDatabaseUrl(value: string) {
+  return (
+    isPlaceholderRuntimeValue(value) &&
+    !(
+      (value.startsWith("postgresql://") || value.startsWith("postgres://")) &&
+      (value.includes("localhost") || value.includes("127.0.0.1"))
+    )
+  );
+}
+
 function classifyAppReleaseKey(env: EnvMap, key: EnvKey): EnvCheck {
   const value = normalizeEnvValue(env[key]);
 
@@ -184,7 +194,16 @@ function classifyAppReleaseKey(env: EnvMap, key: EnvKey): EnvCheck {
     return makeCheck(key, "required", "valid", "required env looks live");
   }
 
-  if (isPlaceholderRuntimeValue(value)) {
+  if ((key === "DATABASE_URL" || key === "DIRECT_URL") && isNonLiveDatabaseUrl(value)) {
+    return makeCheck(
+      key,
+      "required",
+      "placeholder_non_live",
+      "database connection string looks placeholder or non-live",
+    );
+  }
+
+  if (key !== "DATABASE_URL" && key !== "DIRECT_URL" && isPlaceholderRuntimeValue(value)) {
     return makeCheck(
       key,
       "required",

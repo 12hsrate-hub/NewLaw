@@ -78,6 +78,18 @@ describe("evaluateReleaseEnv", () => {
       "placeholder_non_live",
     );
   });
+
+  it("accepts local postgres runtime urls as valid after VPS cutover", () => {
+    const result = evaluateReleaseEnv({
+      ...validEnv,
+      DATABASE_URL: "postgresql://newlaw_app:secret@127.0.0.1:5433/newlaw_production",
+      DIRECT_URL: "postgresql://newlaw_admin:secret@127.0.0.1:5433/newlaw_production",
+    });
+
+    expect(result.blockingFailure).toBe(false);
+    expect(result.checks.find((check) => check.key === "DATABASE_URL")?.status).toBe("valid");
+    expect(result.checks.find((check) => check.key === "DIRECT_URL")?.status).toBe("valid");
+  });
 });
 
 describe("loadEnvFile", () => {
