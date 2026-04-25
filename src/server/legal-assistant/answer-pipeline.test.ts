@@ -370,7 +370,18 @@ describe("answer pipeline", () => {
         contract_mode: "current_snapshot_only",
         is_current_snapshot_consistent: true,
       });
-      expect(result.metadata.used_sources).toHaveLength(2);
+      expect(result.metadata.used_sources).toHaveLength(1);
+      expect(result.metadata.generation_source_budget).toBe(4);
+      expect(result.metadata.generation_sources_count).toBe(1);
+      expect(result.metadata.generation_excerpt_budget).toBe(650);
+      expect(result.metadata.generation_context_chars).toBeGreaterThan(0);
+      expect(result.metadata.generation_context_trimmed).toBe(false);
+      expect(result.metadata.answer_mode_effective_budget).toMatchObject({
+        response_mode: "normal",
+        max_total_sources: 4,
+        max_excerpt_chars_per_source: 650,
+        max_total_context_chars: 2400,
+      });
       expect(result.answerMarkdown).not.toContain("used_sources_json");
       expect(result.metadata.source_ledger).toMatchObject({
         server_id: "server-1",
@@ -403,97 +414,113 @@ describe("answer pipeline", () => {
         }),
       }),
     );
-    expect(createAIRequest).toHaveBeenCalledWith(
-      expect.objectContaining({
-        featureKey: "server_legal_assistant",
-        accountId: "account-1",
-        status: "success",
-        requestPayloadJson: expect.objectContaining({
-          intent: "situation_analysis",
-          actor_context: "self",
-          response_mode: "normal",
-          raw_input: "Нужен ли письменный договор?",
-          normalized_input: "Нужен ли письменный договор?",
-          normalization_model: "gpt-5.4-nano",
-          input_trace: expect.objectContaining({
-            input_kind: "assistant_question",
-            question_preview: "Нужен ли письменный договор?",
-          }),
-          law_version_contract: expect.objectContaining({
-            contract_mode: "current_snapshot_only",
-            is_current_snapshot_consistent: true,
-          }),
-          retrievalResults: expect.arrayContaining([
-            expect.objectContaining({ sourceKind: "law" }),
-            expect.objectContaining({ sourceKind: "precedent" }),
-          ]),
-          applicability_diagnostics: expect.arrayContaining([
-            expect.objectContaining({
-              primary_basis_eligibility: expect.any(String),
-            }),
-          ]),
-          source_ledger: expect.objectContaining({
-            law_version_ids: ["law-version-1"],
-            used_norms: [
-              expect.objectContaining({
-                law_id: "law-1",
-              }),
-            ],
-          }),
-          retrieval_query_base_terms: expect.any(Array),
-          retrieval_query_anchor_terms: expect.any(Array),
-          retrieval_query_family_terms: expect.any(Array),
-          retrieval_runtime_tags: expect.any(Array),
-          candidate_pool_before_filters: expect.any(Array),
-          candidate_pool_after_filters: expect.any(Array),
-          applied_biases: expect.any(Array),
-          filter_reasons: expect.any(Array),
-        }),
-        responsePayloadJson: expect.objectContaining({
-          latencyMs: 0,
-          prompt_tokens: 320,
-          completion_tokens: 180,
-          total_tokens: 500,
-          cost_usd: 0.021,
-          confidence: "high",
-          output_trace: expect.objectContaining({
-            output_kind: "assistant_markdown",
-            section_keys: expect.arrayContaining([
-              "summary",
-              "normativeAnalysis",
-              "precedentAnalysis",
-              "interpretation",
-              "sources",
-            ]),
-          }),
-          answer_markdown_preview: expect.stringContaining("Краткий вывод"),
-          answer_sections: expect.objectContaining({
-            summary: expect.stringContaining("письменная форма"),
-            normativeAnalysis: expect.stringContaining("Статья 1"),
-          }),
-          used_sources_manifest: expect.objectContaining({
-            laws: [
-              expect.objectContaining({
-                law_id: "law-1",
-              }),
-            ],
-            precedents: [
-              expect.objectContaining({
-                precedent_id: "precedent-1",
-              }),
-            ],
-          }),
-          queue_for_future_ai_quality_review: false,
-          future_review_priority: "low",
-          future_review_flags: [],
-          future_review_reason_codes: [],
-          used_sources: expect.arrayContaining([
-            expect.objectContaining({ source_kind: "law" }),
-            expect.objectContaining({ source_kind: "precedent" }),
-          ]),
-        }),
+    const promptInput = requestAssistantProxyCompletion.mock.calls[0]?.[0]?.userPrompt as string;
+    expect(promptInput).toContain("Law source 1");
+    expect(promptInput).not.toContain("law_id:");
+    expect(promptInput).not.toContain("law_key:");
+    expect(promptInput).not.toContain("version_id:");
+    expect(promptInput).not.toContain("block_id:");
+    expect(promptInput).not.toContain("block_type:");
+    expect(promptInput).not.toContain("applicability_score:");
+    expect(promptInput).not.toContain("source_topic_url:");
+    expect(promptInput).not.toContain("Grounding flags:");
+    expect(promptInput).not.toContain("Combined corpus snapshot hash:");
+    expect(promptInput).not.toContain("Law version contract:");
+    expect(promptInput).toContain("primary_basis_eligibility: eligible");
+    const aiRequestPayload = createAIRequest.mock.calls[0]?.[0];
+    expect(aiRequestPayload.featureKey).toBe("server_legal_assistant");
+    expect(aiRequestPayload.accountId).toBe("account-1");
+    expect(aiRequestPayload.status).toBe("success");
+    expect(aiRequestPayload.requestPayloadJson).toMatchObject({
+      intent: "situation_analysis",
+      actor_context: "self",
+      response_mode: "normal",
+      raw_input: "Нужен ли письменный договор?",
+      normalized_input: "Нужен ли письменный договор?",
+      normalization_model: "gpt-5.4-nano",
+      input_trace: expect.objectContaining({
+        input_kind: "assistant_question",
+        question_preview: "Нужен ли письменный договор?",
       }),
+      law_version_contract: expect.objectContaining({
+        contract_mode: "current_snapshot_only",
+        is_current_snapshot_consistent: true,
+      }),
+      source_ledger: expect.objectContaining({
+        law_version_ids: ["law-version-1"],
+        used_norms: [
+          expect.objectContaining({
+            law_id: "law-1",
+          }),
+        ],
+      }),
+      generation_source_budget: 4,
+      generation_sources_count: 1,
+      generation_excerpt_budget: 650,
+      generation_context_chars: expect.any(Number),
+      generation_context_trimmed: false,
+      answer_mode_effective_budget: expect.objectContaining({
+        response_mode: "normal",
+        max_total_sources: 4,
+      }),
+    });
+    expect(aiRequestPayload.requestPayloadJson.retrievalResults).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ sourceKind: "law" }),
+        expect.objectContaining({ sourceKind: "precedent" }),
+      ]),
     );
+    expect(aiRequestPayload.requestPayloadJson.applicability_diagnostics).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          primary_basis_eligibility: expect.any(String),
+        }),
+      ]),
+    );
+    expect(aiRequestPayload.requestPayloadJson.candidate_pool_before_filters).toEqual(expect.any(Array));
+    expect(aiRequestPayload.requestPayloadJson.candidate_pool_after_filters).toEqual(expect.any(Array));
+    expect(aiRequestPayload.requestPayloadJson.applied_biases).toEqual(expect.any(Array));
+    expect(aiRequestPayload.requestPayloadJson.filter_reasons).toEqual(expect.any(Array));
+    expect(aiRequestPayload.responsePayloadJson).toMatchObject({
+      latencyMs: 0,
+      prompt_tokens: 320,
+      completion_tokens: 180,
+      total_tokens: 500,
+      cost_usd: 0.021,
+      confidence: "high",
+      output_trace: expect.objectContaining({
+        output_kind: "assistant_markdown",
+        section_keys: expect.arrayContaining([
+          "summary",
+          "normativeAnalysis",
+          "precedentAnalysis",
+          "interpretation",
+          "sources",
+        ]),
+      }),
+      answer_markdown_preview: expect.stringContaining("Краткий вывод"),
+      answer_sections: expect.objectContaining({
+        summary: expect.stringContaining("письменная форма"),
+        normativeAnalysis: expect.stringContaining("Статья 1"),
+      }),
+      used_sources_manifest: expect.objectContaining({
+        laws: [
+          expect.objectContaining({
+            law_id: "law-1",
+          }),
+        ],
+        precedents: [
+          expect.objectContaining({
+            precedent_id: "precedent-1",
+          }),
+        ],
+      }),
+      queue_for_future_ai_quality_review: false,
+      future_review_priority: "low",
+      future_review_flags: [],
+      future_review_reason_codes: [],
+      used_sources: [expect.objectContaining({ source_kind: "law" })],
+    });
   });
 
   it("явно допускает precedent-only ответ, если laws нет, но есть подтверждённый precedent", async () => {
@@ -835,6 +862,230 @@ describe("answer pipeline", () => {
           input_trace: expect.objectContaining({
             input_kind: "assistant_question",
           }),
+        }),
+      }),
+    );
+  });
+
+  it("ограничивает число sources в generation prompt по response_mode", async () => {
+    const requestAssistantProxyCompletion = vi.fn().mockResolvedValue({
+      status: "success",
+      content: [
+        "## Краткий вывод",
+        "Краткий grounded ответ.",
+        "",
+        "## Что прямо следует из норм закона",
+        "Использована статья 1.",
+        "",
+        "## Что подтверждается судебными прецедентами",
+        "Подтверждённые прецеденты не использовались.",
+        "",
+        "## Вывод / интерпретация",
+        "Оценка зависит от обстоятельств.",
+        "",
+        "## Использованные нормы / источники",
+        "Кодекс, ст. 1.",
+      ].join("\n"),
+      proxyKey: "primary",
+      providerKey: "openai_compatible",
+      model: "gpt-5.4-mini",
+      responsePayloadJson: {
+        choices: [],
+      },
+    });
+
+    const longLawResults = Array.from({ length: 8 }, (_, index) => ({
+      serverId: "server-1",
+      lawId: `law-${index + 1}`,
+      lawKey: index === 0 ? "administrative_code" : `law_key_${index + 1}`,
+      lawTitle: index === 0 ? "Административный кодекс" : `Закон ${index + 1}`,
+      lawVersionId: "law-version-1",
+      lawVersionStatus: "current",
+      lawBlockId: `law-block-${index + 1}`,
+      blockType: "article",
+      blockOrder: index + 1,
+      articleNumberNormalized: String(index + 1),
+      snippet: `Статья ${index + 1}. Текст.`,
+      blockText: `Статья ${index + 1}. ${"Текст нормы ".repeat(30)}`.trim(),
+      sourceTopicUrl: `https://forum.gta5rp.com/threads/10000${index + 1}/`,
+      sourcePosts: [],
+      metadata: {
+        sourceSnapshotHash: "source-hash",
+        normalizedTextHash: "normalized-hash",
+        corpusSnapshotHash: "snapshot-hash",
+      },
+    }));
+
+    const precedentResults = Array.from({ length: 4 }, (_, index) => ({
+      serverId: "server-1",
+      precedentId: `precedent-${index + 1}`,
+      precedentKey: `precedent_key_${index + 1}`,
+      precedentTitle: `Прецедент ${index + 1}`,
+      precedentVersionId: "precedent-version-1",
+      precedentVersionStatus: "current",
+      precedentBlockId: `precedent-block-${index + 1}`,
+      blockType: "holding",
+      blockOrder: index + 1,
+      snippet: `Вывод ${index + 1}.`,
+      blockText: `Прецедент ${index + 1}. ${"Текст прецедента ".repeat(20)}`.trim(),
+      validityStatus: "applicable",
+      sourceTopicUrl: `https://forum.gta5rp.com/threads/20000${index + 1}/`,
+      sourceTopicTitle: "Судебные прецеденты Верховного суда",
+      sourcePosts: [],
+      metadata: {
+        sourceSnapshotHash: "precedent-source-hash",
+        normalizedTextHash: "precedent-normalized-hash",
+        corpusSnapshotHash: "precedent-snapshot-hash",
+      },
+    }));
+
+    const runScenario = async (responseMode: "short" | "normal" | "detailed" | "document_ready") => {
+      const localRequestAssistantProxyCompletion = vi.fn().mockImplementation(requestAssistantProxyCompletion);
+
+      await generateServerLegalAssistantAnswer(
+        {
+          serverId: "server-1",
+          serverCode: "blackberry",
+          serverName: "Blackberry",
+          question: "Нужен короткий grounded ответ?",
+          responseModeOverride: responseMode,
+        },
+        {
+          searchAssistantCorpus: vi.fn().mockResolvedValue(
+            createAssistantRetrieval({
+              lawResults: longLawResults,
+              precedentResults,
+            }),
+          ),
+          normalizeInputText: vi
+            .fn()
+            .mockResolvedValue(createNormalizationResult("Нужен короткий grounded ответ?")),
+          requestAssistantProxyCompletion: localRequestAssistantProxyCompletion,
+          createAIRequest: vi.fn(),
+          now: () => new Date("2026-04-21T08:00:00.000Z"),
+        },
+      );
+
+      return localRequestAssistantProxyCompletion.mock.calls[0]?.[0]?.userPrompt as string;
+    };
+
+    const shortPrompt = await runScenario("short");
+    const normalPrompt = await runScenario("normal");
+    const detailedPrompt = await runScenario("detailed");
+    const documentReadyPrompt = await runScenario("document_ready");
+
+    expect((shortPrompt.match(/Law source \d+/g) ?? []).length).toBeLessThanOrEqual(2);
+    expect((normalPrompt.match(/Law source \d+/g) ?? []).length).toBeLessThanOrEqual(4);
+    expect((detailedPrompt.match(/Law source \d+/g) ?? []).length).toBeLessThanOrEqual(6);
+    expect((documentReadyPrompt.match(/Law source \d+/g) ?? []).length).toBeLessThanOrEqual(4);
+
+    expect(shortPrompt).toContain("Режим ответа: short. Дай очень короткий ответ");
+    expect(normalPrompt).toContain("Режим ответа: normal. Дай обычный по глубине юридический ответ");
+    expect(detailedPrompt).toContain("Режим ответа: detailed. Дай более развёрнутый анализ");
+    expect(documentReadyPrompt).toContain("Режим ответа: document_ready. Делай акцент на формулировках");
+  });
+
+  it("режет длинные нормы по excerpt budget, но сохраняет primary basis и direct_basis_status", async () => {
+    const createAIRequest = vi.fn();
+    const requestAssistantProxyCompletion = vi.fn().mockResolvedValue({
+      status: "success",
+      content: [
+        "## Краткий вывод",
+        "Да, прямое правило есть.",
+        "",
+        "## Что прямо следует из норм закона",
+        "Административный кодекс, статья 18, прямо регулирует ситуацию.",
+        "",
+        "## Что подтверждается судебными прецедентами",
+        "Подтверждённые прецеденты не использовались.",
+        "",
+        "## Вывод / интерпретация",
+        "Допустимо при соблюдении порядка.",
+        "",
+        "## Использованные нормы / источники",
+        "Административный кодекс, ст. 18.",
+      ].join("\n"),
+      proxyKey: "primary",
+      providerKey: "openai_compatible",
+      model: "gpt-5.4-mini",
+      responsePayloadJson: {
+        choices: [],
+      },
+    });
+
+    const longBlockText = `Статья 18. ${"Использование маски и средств маскировки запрещено. ".repeat(80)}`.trim();
+
+    const result = await generateServerLegalAssistantAnswer(
+      {
+        serverId: "server-1",
+        serverCode: "blackberry",
+        serverName: "Blackberry",
+        question: "Можно ли задержать человека за маску?",
+        responseModeOverride: "short",
+      },
+      {
+        searchAssistantCorpus: vi.fn().mockResolvedValue(
+          createAssistantRetrieval({
+            lawResults: [
+              {
+                serverId: "server-1",
+                lawId: "law-1",
+                lawKey: "administrative_code",
+                lawTitle: "Административный кодекс",
+                lawVersionId: "law-version-1",
+                lawVersionStatus: "current",
+                lawBlockId: "law-block-1",
+                blockType: "article",
+                blockOrder: 1,
+                articleNumberNormalized: "18",
+                snippet: "Статья 18. Использование маски запрещено.",
+                blockText: longBlockText,
+                sourceTopicUrl: "https://forum.gta5rp.com/threads/100001/",
+                sourcePosts: [],
+                metadata: {
+                  sourceSnapshotHash: "source-hash",
+                  normalizedTextHash: "normalized-hash",
+                  corpusSnapshotHash: "snapshot-hash",
+                },
+              },
+            ],
+          }),
+        ),
+        normalizeInputText: vi
+          .fn()
+          .mockResolvedValue(createNormalizationResult("Можно ли задержать человека за маску?")),
+        requestAssistantProxyCompletion,
+        createAIRequest,
+        now: () => new Date("2026-04-21T08:00:00.000Z"),
+      },
+    );
+
+    expect(result.status).toBe("answered");
+    if (result.status === "answered") {
+      expect(result.metadata.direct_basis_status).toBe("direct_basis_present");
+      expect(result.metadata.selected_norm_roles).toEqual([
+        expect.objectContaining({
+          law_id: "law-1",
+          norm_role: "primary_basis",
+        }),
+      ]);
+      expect(result.metadata.generation_context_trimmed).toBe(true);
+      expect(result.metadata.generation_excerpt_budget).toBe(450);
+    }
+
+    const promptInput = requestAssistantProxyCompletion.mock.calls[0]?.[0]?.userPrompt as string;
+    expect(promptInput).toContain("primary_basis_eligibility: eligible");
+    expect(promptInput).toContain("article_number: 18");
+    expect(promptInput).not.toContain(longBlockText);
+    expect(promptInput).toContain("…");
+    expect(createAIRequest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        requestPayloadJson: expect.objectContaining({
+          applicability_diagnostics: expect.any(Array),
+          grounding_diagnostics: expect.any(Object),
+          source_ledger: expect.any(Object),
+          generation_context_trimmed: true,
+          generation_excerpt_budget: 450,
         }),
       }),
     );

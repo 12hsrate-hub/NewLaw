@@ -10,6 +10,7 @@ import { normalizeLegalInputText } from "@/server/legal-core/input-normalization
 import { buildLegalQueryPlan } from "@/server/legal-core/legal-query-plan";
 import {
   selectStructuredLegalContext,
+  type SelectedNormRole,
   type StructuredSelectionResult,
 } from "@/server/legal-core/legal-selection";
 import {
@@ -149,11 +150,41 @@ function stripAssistantUsedSourcesManifest(content: string) {
   return content.replace(USED_SOURCES_MANIFEST_PATTERN, "").trim();
 }
 
-const MAX_PROMPT_PRECEDENT_BLOCKS = 3;
-const MAX_PROMPT_BLOCK_TEXT_LENGTH = 1200;
 const MAX_REFERENCE_SNIPPET_LENGTH = 280;
 const MAX_ANSWER_PREVIEW_LENGTH = 280;
 const MAX_QUESTION_PREVIEW_LENGTH = 220;
+
+type AssistantGenerationBudget = {
+  max_total_sources: number;
+  max_excerpt_chars_per_source: number;
+  max_total_context_chars: number;
+};
+
+type AssistantGenerationBudgetTrace = AssistantGenerationBudget & {
+  response_mode: LegalCoreResponseMode;
+};
+
+type AssistantPromptLawContextEntry = RetrievalResult["lawRetrieval"]["results"][number] & {
+  selected_role: SelectedNormRole | null;
+  primary_basis_eligibility: string;
+  primary_basis_eligibility_reason: string | null;
+};
+
+type AssistantPromptPrecedentContextEntry =
+  RetrievalResult["precedentRetrieval"]["results"][number];
+
+type AssistantGenerationContext = {
+  law_sources: AssistantPromptLawContextEntry[];
+  precedent_sources: AssistantPromptPrecedentContextEntry[];
+  law_context_text: string;
+  precedent_context_text: string;
+  generation_source_budget: number;
+  generation_sources_count: number;
+  generation_excerpt_budget: number;
+  generation_context_chars: number;
+  generation_context_trimmed: boolean;
+  answer_mode_effective_budget: AssistantGenerationBudgetTrace;
+};
 
 type GroundedLawReference = {
   sourceKind: "law";
@@ -297,11 +328,11 @@ function buildSourceLedgerEntry(
   };
 }
 
-function buildAssistantContextUsedSources(
-  lawContext: RetrievalResult["lawRetrieval"]["results"],
-  retrieval: RetrievalResult,
-): AssistantUsedSource[] {
-  const lawSources = lawContext.map((result) => ({
+function buildAssistantContextUsedSources(input: {
+  lawContext: RetrievalResult["lawRetrieval"]["results"];
+  precedentContext: RetrievalResult["precedentRetrieval"]["results"];
+}): AssistantUsedSource[] {
+  const lawSources = input.lawContext.map((result) => ({
       source_kind: "law" as const,
       server_id: result.serverId,
       law_id: result.lawId,
@@ -310,21 +341,15 @@ function buildAssistantContextUsedSources(
       article_number: result.articleNumberNormalized ?? null,
       source_topic_url: result.sourceTopicUrl,
     }));
-  const precedentSources = selectPromptContextResults(retrieval.results, "precedent", MAX_PROMPT_PRECEDENT_BLOCKS)
-    .filter(
-      (result): result is Extract<AssistantTypedRetrievalReference, { sourceKind: "precedent" }> => {
-        return result.sourceKind === "precedent";
-      },
-    )
-    .map((result) => ({
-      source_kind: "precedent" as const,
-      server_id: result.serverId,
-      precedent_id: result.precedentId,
-      precedent_name: result.precedentTitle,
-      precedent_version: result.precedentVersionId,
-      validity_status: result.validityStatus,
-      source_topic_url: result.sourceTopicUrl,
-    }));
+  const precedentSources = input.precedentContext.map((result) => ({
+    source_kind: "precedent" as const,
+    server_id: result.serverId,
+    precedent_id: result.precedentId,
+    precedent_name: result.precedentTitle,
+    precedent_version: result.precedentVersionId,
+    validity_status: result.validityStatus,
+    source_topic_url: result.sourceTopicUrl,
+  }));
 
   return [...lawSources, ...precedentSources];
 }
@@ -466,6 +491,7 @@ function isAssistantPrecedentUsedInSections(
 function inferAssistantUsedSources(input: {
   retrieval: RetrievalResult;
   lawContext: RetrievalResult["lawRetrieval"]["results"];
+  precedentContext: RetrievalResult["precedentRetrieval"]["results"];
   sections: AssistantAnswerSections;
   manifest?: AssistantUsedSourceManifest | null;
 }) {
@@ -477,7 +503,10 @@ function inferAssistantUsedSources(input: {
       (entry) => `${entry.precedent_id}:${entry.precedent_version}`,
     ),
   );
-  const contextSources = buildAssistantContextUsedSources(input.lawContext, input.retrieval);
+  const contextSources = buildAssistantContextUsedSources({
+    lawContext: input.lawContext,
+    precedentContext: input.precedentContext,
+  });
 
   return contextSources.filter((source) => {
     if (source.source_kind === "law") {
@@ -679,6 +708,202 @@ function selectPromptContextResults(
     .slice(0, limit);
 }
 
+function getAssistantGenerationBudget(
+  responseMode: LegalCoreResponseMode,
+): AssistantGenerationBudgetTrace {
+  switch (responseMode) {
+    case "short":
+      return {
+        response_mode: responseMode,
+        max_total_sources: 2,
+        max_excerpt_chars_per_source: 450,
+        max_total_context_chars: 1200,
+      };
+    case "detailed":
+      return {
+        response_mode: responseMode,
+        max_total_sources: 6,
+        max_excerpt_chars_per_source: 900,
+        max_total_context_chars: 4200,
+      };
+    case "document_ready":
+      return {
+        response_mode: responseMode,
+        max_total_sources: 4,
+        max_excerpt_chars_per_source: 700,
+        max_total_context_chars: 2600,
+      };
+    default:
+      return {
+        response_mode: responseMode,
+        max_total_sources: 4,
+        max_excerpt_chars_per_source: 650,
+        max_total_context_chars: 2400,
+      };
+  }
+}
+
+function clampAssistantPromptExcerpt(value: string, limit: number) {
+  const normalized = normalizeSectionText(value);
+
+  if (normalized.length <= limit) {
+    return {
+      text: normalized,
+      trimmed: false,
+    };
+  }
+
+  const safeLimit = Math.max(1, limit - 1);
+
+  return {
+    text: `${normalized.slice(0, safeLimit).trimEnd()}…`,
+    trimmed: true,
+  };
+}
+
+function shouldIncludePrecedentsInGenerationContext(input: {
+  responseMode: LegalCoreResponseMode;
+  retrieval: RetrievalResult;
+  lawSelection: AssistantLawSelection;
+}) {
+  if (input.retrieval.precedentRetrieval.results.length === 0) {
+    return false;
+  }
+
+  if (input.lawSelection.selected_norms.length === 0) {
+    return true;
+  }
+
+  if (input.responseMode === "detailed") {
+    return true;
+  }
+
+  return input.lawSelection.direct_basis_status !== "direct_basis_present";
+}
+
+function buildAssistantGenerationContext(input: {
+  retrieval: RetrievalResult;
+  lawSelection: AssistantLawSelection;
+  responseMode: LegalCoreResponseMode;
+}) {
+  const budget = getAssistantGenerationBudget(input.responseMode);
+  const selectedRoleMap = new Map(
+    input.lawSelection.selected_norm_roles.map((entry) => [entry.law_block_id, entry]),
+  );
+  const scoredCandidateMap = new Map(
+    input.lawSelection.scored_candidates.map((entry) => [entry.candidate.lawBlockId, entry]),
+  );
+  const availableLawSources = input.lawSelection.selected_norms.map((candidate) => {
+    const selectedRole = selectedRoleMap.get(candidate.lawBlockId) ?? null;
+    const scoredCandidate = scoredCandidateMap.get(candidate.lawBlockId);
+
+    return {
+      ...candidate,
+      selected_role: selectedRole,
+      primary_basis_eligibility:
+        scoredCandidate?.primary_basis_eligibility ?? "ineligible",
+      primary_basis_eligibility_reason:
+        scoredCandidate?.primary_basis_eligibility_reason ?? null,
+    } satisfies AssistantPromptLawContextEntry;
+  });
+  const lawSources = availableLawSources.slice(0, budget.max_total_sources);
+  const remainingSourceBudget = Math.max(0, budget.max_total_sources - lawSources.length);
+  const availablePrecedentSources = shouldIncludePrecedentsInGenerationContext({
+    responseMode: input.responseMode,
+    retrieval: input.retrieval,
+    lawSelection: input.lawSelection,
+  })
+    ? selectPromptContextResults(
+        input.retrieval.results,
+        "precedent",
+        remainingSourceBudget,
+      ).filter(
+        (
+          result,
+        ): result is Extract<AssistantTypedRetrievalReference, { sourceKind: "precedent" }> =>
+          result.sourceKind === "precedent",
+      )
+    : [];
+  let remainingContextChars = budget.max_total_context_chars;
+  let generationContextChars = 0;
+  let generationContextTrimmed = availableLawSources.length > lawSources.length;
+  const lawContextParts: string[] = [];
+  const includedLawSources: AssistantPromptLawContextEntry[] = [];
+
+  for (const [index, result] of lawSources.entries()) {
+    if (remainingContextChars <= 0) {
+      generationContextTrimmed = true;
+      break;
+    }
+
+    const excerptBudget = Math.min(
+      budget.max_excerpt_chars_per_source,
+      remainingContextChars,
+    );
+    const excerpt = clampAssistantPromptExcerpt(result.blockText, excerptBudget);
+    remainingContextChars -= excerpt.text.length;
+    generationContextChars += excerpt.text.length;
+    generationContextTrimmed = generationContextTrimmed || excerpt.trimmed;
+    includedLawSources.push(result);
+    lawContextParts.push(
+      [
+        `Law source ${index + 1}`,
+        `- title: ${result.lawTitle}`,
+        `- article_number: ${result.articleNumberNormalized ?? "n/a"}`,
+        `- part_number: n/a`,
+        `- law_family: ${result.selected_role?.law_family ?? "other"}`,
+        `- norm_role: ${result.selected_role?.norm_role ?? "background_only"}`,
+        `- primary_basis_eligibility: ${result.primary_basis_eligibility}`,
+        `- text: ${excerpt.text}`,
+      ].join("\n"),
+    );
+  }
+
+  const precedentContextParts: string[] = [];
+  const includedPrecedentSources: AssistantPromptPrecedentContextEntry[] = [];
+
+  for (const [index, result] of availablePrecedentSources.entries()) {
+    if (remainingContextChars <= 0) {
+      generationContextTrimmed = true;
+      break;
+    }
+
+    const excerptBudget = Math.min(
+      budget.max_excerpt_chars_per_source,
+      remainingContextChars,
+    );
+    const excerpt = clampAssistantPromptExcerpt(result.blockText, excerptBudget);
+    remainingContextChars -= excerpt.text.length;
+    generationContextChars += excerpt.text.length;
+    generationContextTrimmed = generationContextTrimmed || excerpt.trimmed;
+    includedPrecedentSources.push(result);
+    precedentContextParts.push(
+      [
+        `Precedent source ${index + 1}`,
+        `- title: ${result.precedentTitle}`,
+        `- validity_status: ${result.validityStatus}`,
+        `- text: ${excerpt.text}`,
+      ].join("\n"),
+    );
+  }
+
+  return {
+    law_sources: includedLawSources,
+    precedent_sources: includedPrecedentSources,
+    law_context_text: lawContextParts.join("\n\n"),
+    precedent_context_text: precedentContextParts.join("\n\n"),
+    generation_source_budget: budget.max_total_sources,
+    generation_sources_count:
+      includedLawSources.length + includedPrecedentSources.length,
+    generation_excerpt_budget: budget.max_excerpt_chars_per_source,
+    generation_context_chars: generationContextChars,
+    generation_context_trimmed:
+      generationContextTrimmed ||
+      availablePrecedentSources.length > includedPrecedentSources.length,
+    answer_mode_effective_budget: budget,
+  } satisfies AssistantGenerationContext;
+}
+
 function buildSourcesSectionText(retrieval: RetrievalResult) {
   const lawsUsed = buildLawsUsed(retrieval);
   const precedentsUsed = buildPrecedentsUsed(retrieval);
@@ -733,11 +958,8 @@ function buildAssistantSystemPrompt() {
     "Не используй для пользователя формулировки: 'недостаточно данных', 'невозможно определить', 'я не нашёл норму', 'нельзя сделать вывод'.",
     "Если опоры недостаточно, используй аккуратные условные формулировки: 'оценка зависит от...', 'при наличии оснований...', 'при соблюдении порядка...', 'может свидетельствовать...', 'допустимо при условии...'.",
     "В секции 'Использованные нормы / источники' перечисли только те нормы и прецеденты, на которые ты реально опирался в ответе.",
-    "После всех markdown-секций добавь одну HTML-комментарий-строку формата <!-- used_sources_json: {\"laws\":[...],\"precedents\":[...]} -->.",
-    "В этом JSON перечисли только реально использованные источники.",
-    "Для laws используй объекты вида {\"law_id\":\"...\",\"law_version\":\"...\",\"law_block_id\":\"...\"}.",
-    "Для precedents используй объекты вида {\"precedent_id\":\"...\",\"precedent_version\":\"...\",\"precedent_block_id\":\"...\"}.",
-    "HTML-комментарий не должен содержать ничего, кроме JSON по этому формату.",
+    "Перечисляй источники компактно: название закона или прецедента и статью либо статус, без ссылок, без служебных ID и без длинных пояснений.",
+    "Не цитируй длинные фрагменты нормы и не повторяй один и тот же источник в нескольких секциях без необходимости.",
     "Верни ответ строго на русском языке и строго с markdown-секциями второго уровня:",
     "## Краткий вывод",
     "## Что прямо следует из норм закона",
@@ -752,78 +974,22 @@ function buildAssistantUserPrompt(input: {
   question: string;
   actorContext: LegalCoreActorContext;
   responseMode: LegalCoreResponseMode;
-  retrieval: RetrievalResult;
-  legalQueryPlan: ReturnType<typeof buildLegalQueryPlan>;
+  generationContext: AssistantGenerationContext;
   lawSelection: AssistantLawSelection;
-  groundingDiagnostics: ReturnType<typeof buildLegalGroundingDiagnostics>;
 }) {
-  const selectedRoleMap = new Map(
-    input.lawSelection.selected_norm_roles.map((entry) => [entry.law_block_id, entry]),
-  );
-  const lawContext = input.lawSelection.selected_norms
-    .map((result, index) => {
-      const selectedRole = selectedRoleMap.get(result.lawBlockId);
-      return [
-        `Law source ${index + 1}`,
-        `- law_id: ${result.lawId}`,
-        `- law_key: ${result.lawKey}`,
-        `- title: ${result.lawTitle}`,
-        `- version_id: ${result.lawVersionId}`,
-        `- block_id: ${result.lawBlockId}`,
-        `- block_type: ${result.blockType}`,
-        `- article_number_normalized: ${result.articleNumberNormalized ?? "n/a"}`,
-        `- law_family: ${selectedRole?.law_family ?? "other"}`,
-        `- norm_role: ${selectedRole?.norm_role ?? "background_only"}`,
-        `- applicability_score: ${selectedRole?.applicability_score ?? 0}`,
-        `- source_topic_url: ${result.sourceTopicUrl}`,
-        `- text: ${normalizeSectionText(result.blockText).slice(0, MAX_PROMPT_BLOCK_TEXT_LENGTH)}`,
-      ].join("\n");
-    })
-    .join("\n\n");
-
-  const precedentContext = selectPromptContextResults(
-    input.retrieval.results,
-    "precedent",
-    MAX_PROMPT_PRECEDENT_BLOCKS,
-  )
-    .map((result, index) => {
-      if (result.sourceKind !== "precedent") {
-        return null;
-      }
-
-      return [
-        `Precedent source ${index + 1}`,
-        `- precedent_id: ${result.precedentId}`,
-        `- precedent_key: ${result.precedentKey}`,
-        `- title: ${result.precedentTitle}`,
-        `- version_id: ${result.precedentVersionId}`,
-        `- block_id: ${result.precedentBlockId}`,
-        `- block_type: ${result.blockType}`,
-        `- validity_status: ${result.validityStatus}`,
-        `- source_topic_url: ${result.sourceTopicUrl}`,
-        `- text: ${normalizeSectionText(result.blockText).slice(0, MAX_PROMPT_BLOCK_TEXT_LENGTH)}`,
-      ].join("\n");
-    })
-    .filter((value): value is string => Boolean(value))
-    .join("\n\n");
-
   return [
     `Сервер: ${input.serverName}`,
     `Вопрос пользователя: ${input.question}`,
     `Actor context: ${input.actorContext}`,
     `Response mode: ${input.responseMode}`,
     `Direct basis status: ${input.lawSelection.direct_basis_status}`,
-    `Required law families: ${input.legalQueryPlan.required_law_families.join(", ") || "none"}`,
-    `Preferred norm roles: ${input.legalQueryPlan.preferred_norm_roles.join(", ") || "none"}`,
-    `Grounding flags: ${input.groundingDiagnostics.grounding_diagnostics.flags.join(", ") || "none"}`,
-    `Combined corpus snapshot hash: ${input.retrieval.combinedRetrievalRevision.combinedCorpusSnapshotHash}`,
-    `Law version contract: current_snapshot_only (${input.retrieval.combinedRetrievalRevision.lawCurrentVersionIds.join(", ") || "none"})`,
     buildAssistantResponseModeInstruction(input.responseMode),
     buildDirectBasisInstruction(input.lawSelection.direct_basis_status),
     "Законы (используй только этот grounded layer, если он есть):",
-    lawContext || "Подходящие current primary laws по запросу не найдены.",
+    input.generationContext.law_context_text || "Подходящие current primary laws по запросу не найдены.",
     "Судебные прецеденты (используй только этот grounded layer, если он есть):",
-    precedentContext || "Подходящие confirmed precedents по запросу не найдены.",
+    input.generationContext.precedent_context_text ||
+      "Подходящие confirmed precedents по запросу не найдены.",
     "Если law layer пустой, но precedent layer есть, прямо обозначь это в выводе.",
     "Если ни один layer не даёт надёжной опоры, признай ограничение и не выдумывай ответ.",
   ].join("\n\n");
@@ -843,13 +1009,13 @@ function buildDirectBasisInstruction(directBasisStatus: AssistantLawSelection["d
 function buildAssistantResponseModeInstruction(responseMode: LegalCoreResponseMode) {
   switch (responseMode) {
     case "short":
-      return "Режим ответа: short. Дай сжатый ответ без лишних подробностей, сохраняя все обязательные секции.";
+      return "Режим ответа: short. Дай очень короткий ответ: максимум 2–3 коротких пункта по сути, без длинного разбора и без повторов, сохраняя все обязательные секции.";
     case "detailed":
-      return "Режим ответа: detailed. Дай более развёрнутый анализ по нормам, прецедентам и практическому выводу, сохраняя все обязательные секции.";
+      return "Режим ответа: detailed. Дай более развёрнутый анализ по нормам, прецедентам и практическому выводу, но без избыточного цитирования и без повторения одних и тех же тезисов в разных секциях.";
     case "document_ready":
-      return "Режим ответа: document_ready. Делай акцент на готовых формулировках и прикладной пригодности текста, но не добавляй новые факты и не выходи за пределы grounded sources.";
+      return "Режим ответа: document_ready. Делай акцент на формулировках, пригодных для документа, но не делай ответ длиннее обычного normal-режима, не добавляй новые факты и не выходи за пределы grounded sources.";
     default:
-      return "Режим ответа: normal. Дай обычный по глубине юридический ответ без искусственного сокращения и без избыточного расширения.";
+      return "Режим ответа: normal. Дай обычный по глубине юридический ответ: 1 короткий абзац в кратком выводе, 2–4 компактных grounded points по нормам, короткую интерпретацию, без повторов и без превращения ответа в длинное заключение.";
   }
 }
 
@@ -992,7 +1158,15 @@ export async function generateServerLegalAssistantAnswer(
     retrieval,
     sourceLedger,
   });
-  const usedSources = buildAssistantContextUsedSources(lawSelection.selected_norms, retrieval);
+  const generationContext = buildAssistantGenerationContext({
+    retrieval,
+    lawSelection,
+    responseMode,
+  });
+  const usedSources = buildAssistantContextUsedSources({
+    lawContext: generationContext.law_sources,
+    precedentContext: generationContext.precedent_sources,
+  });
   const inputTrace = buildAssistantInputTrace(normalizedInput.normalized_input);
   const retrievalDebugPayload = {
     retrieval_query_base_terms:
@@ -1038,6 +1212,12 @@ export async function generateServerLegalAssistantAnswer(
     retrieval_query: retrievalQuery,
     used_sources: usedSources,
     source_ledger: sourceLedger,
+    generation_source_budget: generationContext.generation_source_budget,
+    generation_sources_count: generationContext.generation_sources_count,
+    generation_excerpt_budget: generationContext.generation_excerpt_budget,
+    generation_context_chars: generationContext.generation_context_chars,
+    generation_context_trimmed: generationContext.generation_context_trimmed,
+    answer_mode_effective_budget: generationContext.answer_mode_effective_budget,
     test_run_context: input.testRunContext ?? null,
   };
 
@@ -1081,6 +1261,12 @@ export async function generateServerLegalAssistantAnswer(
       input_trace: inputTrace,
       used_sources: usedSources,
       source_ledger: sourceLedger,
+      generation_source_budget: generationContext.generation_source_budget,
+      generation_sources_count: generationContext.generation_sources_count,
+      generation_excerpt_budget: generationContext.generation_excerpt_budget,
+      generation_context_chars: generationContext.generation_context_chars,
+      generation_context_trimmed: generationContext.generation_context_trimmed,
+      answer_mode_effective_budget: generationContext.answer_mode_effective_budget,
       test_run_context: input.testRunContext ?? null,
     };
     const noCorpusResponsePayload = {
@@ -1180,6 +1366,12 @@ export async function generateServerLegalAssistantAnswer(
       input_trace: inputTrace,
       used_sources: usedSources,
       source_ledger: sourceLedger,
+      generation_source_budget: generationContext.generation_source_budget,
+      generation_sources_count: generationContext.generation_sources_count,
+      generation_excerpt_budget: generationContext.generation_excerpt_budget,
+      generation_context_chars: generationContext.generation_context_chars,
+      generation_context_trimmed: generationContext.generation_context_trimmed,
+      answer_mode_effective_budget: generationContext.answer_mode_effective_budget,
       test_run_context: input.testRunContext ?? null,
     };
     const noNormsResponsePayload = {
@@ -1283,6 +1475,12 @@ export async function generateServerLegalAssistantAnswer(
     precedentCorpusSnapshot: retrieval.precedentCorpusSnapshot,
     combinedRetrievalRevision: retrieval.combinedRetrievalRevision,
     source_ledger: sourceLedger,
+    generation_source_budget: generationContext.generation_source_budget,
+    generation_sources_count: generationContext.generation_sources_count,
+    generation_excerpt_budget: generationContext.generation_excerpt_budget,
+    generation_context_chars: generationContext.generation_context_chars,
+    generation_context_trimmed: generationContext.generation_context_trimmed,
+    answer_mode_effective_budget: generationContext.answer_mode_effective_budget,
     test_run_context: input.testRunContext ?? null,
     retrievalResults: retrieval.results.map((result) => {
       if (result.sourceKind === "law") {
@@ -1316,10 +1514,8 @@ export async function generateServerLegalAssistantAnswer(
       question: normalizedInput.normalized_input,
       actorContext,
       responseMode,
-      retrieval,
-      legalQueryPlan,
+      generationContext,
       lawSelection,
-      groundingDiagnostics,
     }),
     requestMetadata: {
       ...proxyRequestPayload,
@@ -1411,7 +1607,8 @@ export async function generateServerLegalAssistantAnswer(
   const answerMarkdown = composeAssistantAnswerMarkdown(sections);
   const answeredUsedSources = inferAssistantUsedSources({
     retrieval,
-    lawContext: lawSelection.selected_norms,
+    lawContext: generationContext.law_sources,
+    precedentContext: generationContext.precedent_sources,
     sections,
     manifest: usedSourcesManifest,
   });
