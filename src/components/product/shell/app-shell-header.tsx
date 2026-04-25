@@ -54,7 +54,9 @@ export function AppShellHeader({
     <Card className="space-y-4">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="space-y-2">
-          <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">Внутренний контур</p>
+          <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">
+            Защищённая зона
+          </p>
           <h1 className="text-3xl font-semibold">Lawyer5RP MVP</h1>
           <p className="text-sm leading-6 text-[var(--muted)]">
             Аккаунт: <span className="font-medium text-[var(--foreground)]">{accountEmail}</span>
@@ -93,15 +95,15 @@ export function AppShellHeader({
             <>
               <Link
                 className="inline-flex items-center justify-center rounded-2xl border border-[var(--border)] bg-white/70 px-4 py-2.5 text-sm font-medium text-[var(--foreground)] transition hover:bg-white"
-                href="/app/admin-laws"
+                href="/internal"
               >
-                Admin Laws
+                Internal
               </Link>
               <Link
                 className="inline-flex items-center justify-center rounded-2xl border border-[var(--border)] bg-white/70 px-4 py-2.5 text-sm font-medium text-[var(--foreground)] transition hover:bg-white"
-                href="/app/admin-security"
+                href="/internal/access-requests"
               >
-                Admin Security
+                Access Requests
               </Link>
             </>
           ) : null}

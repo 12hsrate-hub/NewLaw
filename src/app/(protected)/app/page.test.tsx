@@ -52,6 +52,9 @@ describe("/app protected shell page", () => {
     expect(html).toContain("Downtown");
     expect(html).toContain('href="/account"');
     expect(html).toContain('href="/account/characters"');
+    expect(html).toContain('href="/account/documents"');
+    expect(html).toContain('href="/account/trustors"');
+    expect(html).toContain('href="/assistant"');
     expect(html).toContain('href="/servers"');
     expect(html).not.toContain('href="/internal"');
     expect(html).not.toContain("Управление персонажами");

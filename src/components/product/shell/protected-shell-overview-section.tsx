@@ -92,6 +92,33 @@ export function ProtectedShellOverviewSection({
           </Link>
           <Link
             className="rounded-2xl border border-[var(--border)] bg-white/70 px-4 py-3 transition hover:bg-white"
+            href="/account/documents"
+          >
+            <p className="text-sm font-medium text-[var(--foreground)]">/account/documents</p>
+            <p className="mt-1 text-sm leading-6 text-[var(--muted)]">
+              Общий обзор сохранённых документов, degraded записей и переходов в editor routes.
+            </p>
+          </Link>
+          <Link
+            className="rounded-2xl border border-[var(--border)] bg-white/70 px-4 py-3 transition hover:bg-white"
+            href="/account/trustors"
+          >
+            <p className="text-sm font-medium text-[var(--foreground)]">/account/trustors</p>
+            <p className="mt-1 text-sm leading-6 text-[var(--muted)]">
+              Реестр доверителей и связанные attorney request сценарии внутри account zone.
+            </p>
+          </Link>
+          <Link
+            className="rounded-2xl border border-[var(--border)] bg-white/70 px-4 py-3 transition hover:bg-white"
+            href="/assistant"
+          >
+            <p className="text-sm font-medium text-[var(--foreground)]">/assistant</p>
+            <p className="mt-1 text-sm leading-6 text-[var(--muted)]">
+              Вход в server legal assistant и server-scoped AI workflows вне transitional `/app`.
+            </p>
+          </Link>
+          <Link
+            className="rounded-2xl border border-[var(--border)] bg-white/70 px-4 py-3 transition hover:bg-white"
             href="/servers"
           >
             <p className="text-sm font-medium text-[var(--foreground)]">/servers</p>

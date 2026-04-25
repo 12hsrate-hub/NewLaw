@@ -16,6 +16,9 @@ describe("protected shell overview section", () => {
     );
 
     expect(html).toContain("Доступных серверов пока нет");
+    expect(html).toContain('href="/account/documents"');
+    expect(html).toContain('href="/account/trustors"');
+    expect(html).toContain('href="/assistant"');
   });
 
   it("показывает empty state для сервера без персонажей", () => {
@@ -30,7 +33,21 @@ describe("protected shell overview section", () => {
     );
 
     expect(html).toContain("Персонажей на сервере пока нет");
-    expect(html).toContain("форма создания доступна ниже");
-    expect(html).toContain("Следующий шаг после этого блока: роли и access flags");
+    expect(html).toContain("focused character management");
+  });
+
+  it("показывает ссылку на internal только для super_admin", () => {
+    const html = renderToStaticMarkup(
+      <ProtectedShellOverviewSection
+        activeCharacterId={null}
+        activeCharacterName={null}
+        activeServerName="Downtown"
+        characters={[]}
+        isSuperAdmin
+        servers={[{ id: "server-1", name: "Downtown" }]}
+      />,
+    );
+
+    expect(html).toContain('href="/internal"');
   });
 });
