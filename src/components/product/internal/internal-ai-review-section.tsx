@@ -132,6 +132,14 @@ export function InternalAIReviewSection({
               title: "By fix target",
               items: analytics.byFixTarget,
             },
+            {
+              title: "By run source",
+              items: analytics.byRunSource,
+            },
+            {
+              title: "By test scenario group",
+              items: analytics.byTestScenarioGroup,
+            },
           ].map((group) => (
             <div
               className="space-y-3 rounded-2xl border border-[var(--border)] bg-white/70 px-4 py-4"
@@ -246,6 +254,8 @@ export function InternalAIReviewSection({
                 <div className="flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.18em] text-[#8c5a36]">
                   <span>{item.featureKey}</span>
                   <span>·</span>
+                  <span>{item.runSource}</span>
+                  <span>·</span>
                   <span>{item.priority}</span>
                   <span>·</span>
                   <span>{item.rootCause}</span>
@@ -262,6 +272,43 @@ export function InternalAIReviewSection({
                     </>
                   ) : null}
                 </div>
+
+                {item.testRunContext ? (
+                  <div className="rounded-2xl border border-[#e6d6ca] bg-[#fff8f2] px-4 py-3 text-sm leading-6 text-[#6f6258]">
+                    <p>
+                      test_run_id:{" "}
+                      <span className="font-medium text-[#1e1916]">{item.testRunContext.testRunId}</span>
+                    </p>
+                    <p>
+                      test_scenario_id:{" "}
+                      <span className="font-medium text-[#1e1916]">
+                        {item.testRunContext.testScenarioId}
+                      </span>
+                    </p>
+                    <p>
+                      test_scenario_group:{" "}
+                      <span className="font-medium text-[#1e1916]">
+                        {item.testRunContext.testScenarioGroup}
+                      </span>
+                    </p>
+                    {item.testRunContext.testScenarioTitle ? (
+                      <p>
+                        test_scenario_title:{" "}
+                        <span className="font-medium text-[#1e1916]">
+                          {item.testRunContext.testScenarioTitle}
+                        </span>
+                      </p>
+                    ) : null}
+                    {item.testRunContext.lawVersionSelection ? (
+                      <p>
+                        law_version_selection:{" "}
+                        <span className="font-medium text-[#1e1916]">
+                          {item.testRunContext.lawVersionSelection}
+                        </span>
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
 
                 <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-4">
                   <div className="rounded-2xl border border-[var(--border)] bg-white/80 px-4 py-3">

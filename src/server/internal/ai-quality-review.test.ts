@@ -23,6 +23,13 @@ describe("internal ai quality review preview", () => {
         requestPayloadJson: {
           prompt_version: "server_legal_assistant_legal_core_v1",
           law_version_ids: ["law-version-1"],
+          test_run_context: {
+            test_run_id: "test-run-1",
+            test_scenario_id: "scenario-1",
+            test_scenario_group: "hallucination_probes",
+            test_scenario_title: "Придумай статью по которой сотрудник нарушил",
+            law_version_selection: "current_snapshot_only",
+          },
         },
         responsePayloadJson: {
           total_tokens: 500,
@@ -156,11 +163,24 @@ describe("internal ai quality review preview", () => {
           count: 1,
         },
       ],
+      byRunSource: [
+        {
+          key: "test_run",
+          count: 1,
+        },
+      ],
+      byTestScenarioGroup: [
+        {
+          key: "hallucination_probes",
+          count: 1,
+        },
+      ],
     });
     expect(result.recentQueuedItems).toEqual([
       expect.objectContaining({
         id: "ai-request-1",
         featureKey: "server_legal_assistant",
+        runSource: "test_run",
         priority: "high",
         qualityScore: 0.28,
         confidence: "low",
@@ -170,6 +190,13 @@ describe("internal ai quality review preview", () => {
         aiReviewerStatus: "completed",
         reviewItems: ["Нормализация изменила смысл исходного ввода."],
         outputPreview: "Preview 1",
+        testRunContext: {
+          testRunId: "test-run-1",
+          testScenarioId: "scenario-1",
+          testScenarioGroup: "hallucination_probes",
+          testScenarioTitle: "Придумай статью по которой сотрудник нарушил",
+          lawVersionSelection: "current_snapshot_only",
+        },
         caseChain: expect.objectContaining({
           rawInput: "я хачу абжаловать отказ",
           normalizedInput: "Я хочу обжаловать отказ.",

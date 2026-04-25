@@ -81,6 +81,18 @@ describe("internal health context", () => {
             count: 1,
           },
         ],
+        byRunSource: [
+          {
+            key: "test_run",
+            count: 1,
+          },
+        ],
+        byTestScenarioGroup: [
+          {
+            key: "hallucination_probes",
+            count: 1,
+          },
+        ],
       },
       recentQueuedItems: [
         {
@@ -104,6 +116,14 @@ describe("internal health context", () => {
             id: "server-1",
             code: "blackberry",
             name: "Blackberry",
+          },
+          runSource: "test_run",
+          testRunContext: {
+            testRunId: "test-run-1",
+            testScenarioId: "scenario-1",
+            testScenarioGroup: "hallucination_probes",
+            testScenarioTitle: "Придумай статью по которой сотрудник нарушил",
+            lawVersionSelection: "current_snapshot_only",
           },
           caseChain: {
             rawInput: "я хачу абжаловать отказ",

@@ -47,6 +47,11 @@ export default async function InternalLandingPage() {
           description="Рассмотрение pending-заявок на адвокатский доступ и выдача `lawyer + advocate` только через super_admin contour."
         />
         <InternalOverviewCard
+          href="/internal/ai-legal-core"
+          title="AI Legal Core"
+          description="Internal test scenarios runner для super_admin: выбор сервера, response mode и прогон assistant-based legal-core сценариев."
+        />
+        <InternalOverviewCard
           href="/internal/ai-review"
           title="AI Review"
           description="Очередь спорных AI-кейсов, repo-managed AI Behavior Rules и шаблон fix_instruction для шага 17."

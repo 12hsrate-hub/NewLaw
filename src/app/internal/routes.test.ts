@@ -22,11 +22,16 @@ vi.mock("@/server/internal/ai-review", () => ({
   getInternalAIReviewPageContext: vi.fn(),
 }));
 
+vi.mock("@/server/internal/ai-legal-core", () => ({
+  getInternalAILegalCorePageContext: vi.fn(),
+}));
+
 vi.mock("@/server/internal/access-requests", () => ({
   getInternalAccessRequestsContext: vi.fn(),
 }));
 
 import InternalAccessRequestsPage from "@/app/internal/access-requests/page";
+import InternalAILegalCorePage from "@/app/internal/ai-legal-core/page";
 import InternalAIReviewPage from "@/app/internal/ai-review/page";
 import InternalHealthPage from "@/app/internal/health/page";
 import InternalLawsPage from "@/app/internal/laws/page";
@@ -40,6 +45,7 @@ import {
   getInternalPrecedentCorpusPageData,
 } from "@/server/internal/corpus";
 import { getInternalAIReviewPageContext } from "@/server/internal/ai-review";
+import { getInternalAILegalCorePageContext } from "@/server/internal/ai-legal-core";
 import { getInternalHealthContext } from "@/server/internal/health";
 
 describe("internal target route skeletons", () => {
@@ -147,6 +153,18 @@ describe("internal target route skeletons", () => {
               count: 1,
             },
           ],
+          byRunSource: [
+            {
+              key: "test_run",
+              count: 1,
+            },
+          ],
+          byTestScenarioGroup: [
+            {
+              key: "hallucination_probes",
+              count: 1,
+            },
+          ],
         },
         recentQueuedItems: [
           {
@@ -170,6 +188,14 @@ describe("internal target route skeletons", () => {
               id: "server-1",
               code: "blackberry",
               name: "Blackberry",
+            },
+            runSource: "test_run",
+            testRunContext: {
+              testRunId: "test-run-1",
+              testScenarioId: "scenario-1",
+              testScenarioGroup: "hallucination_probes",
+              testScenarioTitle: "Придумай статью по которой сотрудник нарушил",
+              lawVersionSelection: "current_snapshot_only",
             },
             caseChain: {
               rawInput: "я хачу абжаловать отказ",
@@ -250,6 +276,18 @@ describe("internal target route skeletons", () => {
               count: 1,
             },
           ],
+          byRunSource: [
+            {
+              key: "test_run",
+              count: 1,
+            },
+          ],
+          byTestScenarioGroup: [
+            {
+              key: "hallucination_probes",
+              count: 1,
+            },
+          ],
         },
         recentQueuedItems: [
           {
@@ -273,6 +311,14 @@ describe("internal target route skeletons", () => {
               id: "server-1",
               code: "blackberry",
               name: "Blackberry",
+            },
+            runSource: "test_run",
+            testRunContext: {
+              testRunId: "test-run-1",
+              testScenarioId: "scenario-1",
+              testScenarioGroup: "hallucination_probes",
+              testScenarioTitle: "Придумай статью по которой сотрудник нарушил",
+              lawVersionSelection: "current_snapshot_only",
             },
             caseChain: {
               rawInput: "я хачу абжаловать отказ",
@@ -339,6 +385,18 @@ describe("internal target route skeletons", () => {
             byFixTarget: [
               {
                 key: "normalization_prompt",
+                count: 1,
+              },
+            ],
+            byRunSource: [
+              {
+                key: "test_run",
+                count: 1,
+              },
+            ],
+            byTestScenarioGroup: [
+              {
+                key: "hallucination_probes",
                 count: 1,
               },
             ],
@@ -468,6 +526,82 @@ describe("internal target route skeletons", () => {
         },
       ],
       workflowNotes: ["Все правки идут через PR."],
+    });
+    vi.mocked(getInternalAILegalCorePageContext).mockResolvedValue({
+      servers: [
+        {
+          id: "server-1",
+          code: "blackberry",
+          name: "Blackberry",
+          hasUsableAssistantCorpus: true,
+          currentPrimaryLawCount: 1,
+          currentPrecedentCount: 1,
+        },
+      ],
+      lawVersionOptions: [
+        {
+          value: "current_snapshot_only",
+          label: "Текущий current snapshot",
+          description: "Description",
+        },
+      ],
+      actorContextOptions: [
+        {
+          value: "general_question",
+          label: "Общий вопрос",
+          description: "Description",
+        },
+      ],
+      answerModeOptions: [
+        {
+          value: "normal",
+          label: "Normal",
+          description: "Description",
+        },
+      ],
+      scenarioGroups: [
+        {
+          key: "general_legal_questions",
+          title: "A. Общие юридические вопросы",
+          description: "Description",
+          scenarioCount: 1,
+          runMode: "available_now",
+          scenarios: [
+            {
+              id: "general-mask-detention",
+              title: "Можно ли задержать человека за маску",
+              inputText: "можно ли задержать человека за маску",
+              expectedBehavior: "Expected",
+              intent: "law_explanation",
+              actorContext: "general_question",
+              answerMode: "normal",
+              targetFlow: "server_legal_assistant",
+            },
+          ],
+        },
+        {
+          key: "document_text_improvement",
+          title: "F. Доработка описательной части",
+          description: "Description",
+          scenarioCount: 1,
+          runMode: "available_now",
+          scenarios: [
+            {
+              id: "rewrite-self-detained-mask",
+              title: "Меня задержали за маску сотрудник ничего не объяснил потом посадил",
+              inputText: "меня задержали за маску сотрудник ничего не объяснил потом посадил",
+              expectedBehavior: "Expected rewrite",
+              intent: "document_text_improvement",
+              actorContext: "self",
+              answerMode: "document_ready",
+              targetFlow: "document_text_improvement",
+            },
+          ],
+        },
+      ],
+      implementationNotes: [
+        "Internal contour теперь поддерживает два полезных target flow.",
+      ],
     });
     vi.mocked(getInternalAccessRequestsContext).mockResolvedValue({
       pendingRequests: [
@@ -619,12 +753,31 @@ describe("internal target route skeletons", () => {
     expect(html).toContain("normalization_issue");
     expect(html).toContain("server_legal_assistant_legal_core_v1");
     expect(html).toContain("law-version-1");
+    expect(html).toContain("By run source");
+    expect(html).toContain("By test scenario group");
     expect(html).toContain("$0.033000");
+    expect(html).toContain("test-run-1");
+    expect(html).toContain("scenario-1");
+    expect(html).toContain("hallucination_probes");
     expect(html).toContain("Raw input");
     expect(html).toContain("Normalized input");
     expect(html).toContain("Retrieved sources");
     expect(html).toContain("Final output");
     expect(html).toContain("reviewer completed");
     expect(html).toContain("normalization_prompt");
+  });
+
+  it("рендерит /internal/ai-legal-core как internal test runner section внутри /internal contour", async () => {
+    const html = renderToStaticMarkup(await InternalAILegalCorePage());
+
+    expect(html).toContain("Test Scenarios Runner");
+    expect(html).toContain("Run controls");
+    expect(html).toContain("Параметры тестового прогона");
+    expect(html).toContain("Текущий current snapshot");
+    expect(html).toContain("A. Общие юридические вопросы");
+    expect(html).toContain("Можно ли задержать человека за маску");
+    expect(html).toContain("document_text_improvement");
+    expect(html).toContain("Прогнать сценарий");
+    expect(html).toContain("Прогнать до 4 сценариев из группы");
   });
 });

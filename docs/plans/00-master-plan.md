@@ -203,7 +203,7 @@
 
 ### `16-ai-legal-core`
 
-Статус: `post-MVP / функционально закрыт`
+Статус: `post-MVP / active / partial`
 
 Это следующий именованный шаг после `15`, но по product-смыслу он конкретизирует AI-направление именно после `08`.
 
@@ -231,17 +231,17 @@
 - `input_trace` / `output_trace` для основных AI-flow
 - скрытые future-review markers как мост к шагу `17`, но без включения самого review-слоя
 - усиленная атрибуция источников в assistant, которая уже достаточно отделяет найденные, переданные и реально использованные источники для прикладных нужд legal core
+- internal `super_admin` route для assistant-based test scenarios поверх того же legal-core pipeline
+- internal `super_admin` route для assistant- и rewrite-based test scenarios поверх того же legal-core pipeline
+- выбор `server`, `law_version = current_snapshot_only`, `actor_context`, `answer_mode` и одного сценария или группы сценариев
+- показ итоговой AI-выдачи, `used_sources`, `confidence`, `insufficient_data`, `tokens`, `cost`, `latency`
+- test-run metadata, которая уже протягивается в assistant pipeline и позволяет risky test-run кейсам попадать в шаг `17` тем же review bridge
+- compact internal runner для `document_text_improvement`, который не требует реального document draft, но использует те же legal-core guardrails, `self-assessment` и hidden review routing
+- comparison `до/после` для повторного запуска того же test scenario на базе уже сохранённых `AIRequest`
 
-Что было последним хвостом:
+Что ещё остаётся как прямой scope:
 
-- короткий этап стабилизации без открытия новых AI-подпроектов внутри `16`
-- финальная проверка assistant / rewrite / grounded rewrite после следующей фиксации этого слоя
-
-Этот хвост закрыт:
-
-- assistant source attribution зафиксирован как текущий baseline
-- релизная проверка assistant / rewrite / grounded rewrite пройдена
-- шаг `16` больше не требует отдельной внутренней добивки без появления нового риска или отдельного нового scope
+- новых обязательных расширений для шага `16` больше не требуется; дальнейшее развитие должно уходить только в шаг `17` или в отдельную operational maturity line
 
 Что специально не нужно превращать в шаг `16`:
 
@@ -255,7 +255,7 @@
 
 ### `17-ai-quality-review`
 
-Статус: `post-MVP / функционально закрыт`
+Статус: `post-MVP / active / partial`
 
 Это следующий именованный шаг после `16`, и он явно зависит от уже стабилизированного legal core из шага `16`.
 
@@ -292,6 +292,13 @@
 - daily usage visibility этих limits в `/internal/health`
 - сохранение normalization review chain и case chain `raw_input -> normalized_input -> retrieved sources -> final output`
 - сохранение `risk_level`, `confidence`, `flags`, `root_cause`, `input_quality`, `issue_fingerprint`, `issue_cluster_key`
+- различение `test_run` и обычного user flow в internal review preview с показом `test_run_id`, `test_scenario_id`, `test_scenario_group`
+- базовая аналитика по test scenario groups внутри review preview
+
+Что ещё остаётся как прямой scope:
+
+- сущности `ai_test_scenarios`, `ai_test_runs`, `ai_test_run_results`
+- повторный запуск test scenario и сравнение результата до/после
 
 Что ещё может оставаться только как optional maturity, а не как обязательный хвост:
 

@@ -7,6 +7,7 @@ import { requestAssistantProxyCompletion } from "@/server/legal-assistant/ai-pro
 import { normalizeLegalInputText } from "@/server/legal-core/input-normalization";
 import {
   type LegalCoreActorContext,
+  type LegalCoreResponseMode,
   buildAssistantSelfAssessment,
   classifyAssistantIntent,
   detectQuestionResponseMode,
@@ -54,6 +55,15 @@ type AssistantUsedSourceManifest = {
     precedent_version: string;
     precedent_block_id?: string;
   }>;
+};
+
+type AssistantTestRunContext = {
+  run_kind: "internal_ai_legal_core_test";
+  test_run_id: string;
+  test_scenario_id: string;
+  test_scenario_group: string;
+  test_scenario_title: string;
+  law_version_selection: "current_snapshot_only";
 };
 
 const USED_SOURCES_MANIFEST_PATTERN = /<!--\s*used_sources_json:\s*([\s\S]*?)\s*-->/i;
@@ -227,6 +237,21 @@ type AssistantUsedSource =
       validity_status: string;
       source_topic_url: string;
     };
+
+type AssistantRunObservability = {
+  latency_ms: number;
+  prompt_tokens: number | null;
+  completion_tokens: number | null;
+  total_tokens: number | null;
+  cost_usd: number | null;
+};
+
+type AssistantReviewStatus = {
+  queue_for_future_ai_quality_review: boolean;
+  future_review_priority: "low" | "medium" | "high";
+  future_review_flags: string[];
+  future_review_reason_codes: string[];
+};
 
 function parseAssistantUsedSourcesManifest(content: string): AssistantUsedSourceManifest | null {
   const match = content.match(USED_SOURCES_MANIFEST_PATTERN);
@@ -719,6 +744,7 @@ function buildAssistantUserPrompt(input: {
   serverName: string;
   question: string;
   actorContext: LegalCoreActorContext;
+  responseMode: LegalCoreResponseMode;
   retrieval: RetrievalResult;
 }) {
   const lawContext = selectPromptContextResults(input.retrieval.results, "law", MAX_PROMPT_LAW_BLOCKS)
@@ -773,8 +799,10 @@ function buildAssistantUserPrompt(input: {
     `Сервер: ${input.serverName}`,
     `Вопрос пользователя: ${input.question}`,
     `Actor context: ${input.actorContext}`,
+    `Response mode: ${input.responseMode}`,
     `Combined corpus snapshot hash: ${input.retrieval.combinedRetrievalRevision.combinedCorpusSnapshotHash}`,
     `Law version contract: current_snapshot_only (${input.retrieval.combinedRetrievalRevision.lawCurrentVersionIds.join(", ") || "none"})`,
+    buildAssistantResponseModeInstruction(input.responseMode),
     "Законы (используй только этот grounded layer, если он есть):",
     lawContext || "Подходящие current primary laws по запросу не найдены.",
     "Судебные прецеденты (используй только этот grounded layer, если он есть):",
@@ -782,6 +810,19 @@ function buildAssistantUserPrompt(input: {
     "Если law layer пустой, но precedent layer есть, прямо обозначь это в выводе.",
     "Если ни один layer не даёт надёжной опоры, признай ограничение и не выдумывай ответ.",
   ].join("\n\n");
+}
+
+function buildAssistantResponseModeInstruction(responseMode: LegalCoreResponseMode) {
+  switch (responseMode) {
+    case "short":
+      return "Режим ответа: short. Дай сжатый ответ без лишних подробностей, сохраняя все обязательные секции.";
+    case "detailed":
+      return "Режим ответа: detailed. Дай более развёрнутый анализ по нормам, прецедентам и практическому выводу, сохраняя все обязательные секции.";
+    case "document_ready":
+      return "Режим ответа: document_ready. Делай акцент на готовых формулировках и прикладной пригодности текста, но не добавляй новые факты и не выходи за пределы grounded sources.";
+    default:
+      return "Режим ответа: normal. Дай обычный по глубине юридический ответ без искусственного сокращения и без избыточного расширения.";
+  }
 }
 
 function buildNoNormsAnswer(retrieval: RetrievalResult) {
@@ -812,6 +853,30 @@ function buildUnavailableMessage() {
 
 function buildAnswerPreview(value: string) {
   return normalizeSectionText(value).slice(0, MAX_ANSWER_PREVIEW_LENGTH);
+}
+
+function buildAssistantRunObservability(input: {
+  latencyMs: number;
+  usageMetrics: ReturnType<typeof extractProxyUsageMetrics>;
+}): AssistantRunObservability {
+  return {
+    latency_ms: input.latencyMs,
+    prompt_tokens: input.usageMetrics.prompt_tokens,
+    completion_tokens: input.usageMetrics.completion_tokens,
+    total_tokens: input.usageMetrics.total_tokens,
+    cost_usd: input.usageMetrics.cost_usd,
+  };
+}
+
+function buildAssistantReviewStatus(
+  futureReviewMarker: ReturnType<typeof buildAssistantFutureReviewMarker>,
+): AssistantReviewStatus {
+  return {
+    queue_for_future_ai_quality_review: futureReviewMarker.queue_for_future_ai_quality_review,
+    future_review_priority: futureReviewMarker.future_review_priority,
+    future_review_flags: futureReviewMarker.future_review_flags,
+    future_review_reason_codes: futureReviewMarker.future_review_reason_codes,
+  };
 }
 
 function buildAssistantInputTrace(question: string) {
@@ -845,8 +910,10 @@ export async function generateServerLegalAssistantAnswer(
     serverName: string;
     question: string;
     actorContext?: LegalCoreActorContext;
+    responseModeOverride?: LegalCoreResponseMode;
     accountId?: string | null;
     guestSessionId?: string | null;
+    testRunContext?: AssistantTestRunContext;
   },
   dependencies: AnswerPipelineDependencies = defaultDependencies,
 ) {
@@ -862,7 +929,8 @@ export async function generateServerLegalAssistantAnswer(
     precedentLimit: 4,
   });
   const intent = classifyAssistantIntent(normalizedInput.normalized_input);
-  const responseMode = detectQuestionResponseMode(normalizedInput.normalized_input);
+  const responseMode =
+    input.responseModeOverride ?? detectQuestionResponseMode(normalizedInput.normalized_input);
   const actorContext = input.actorContext ?? "general_question";
   const sourceLedgerBase = buildAssistantSourceLedger(retrieval);
   const sourceLedger = buildAssistantSourceLedgerWithUsedNorms(sourceLedgerBase, []);
@@ -896,6 +964,7 @@ export async function generateServerLegalAssistantAnswer(
     normalization_changed: normalizedInput.normalization_changed,
     used_sources: usedSources,
     source_ledger: sourceLedger,
+    test_run_context: input.testRunContext ?? null,
   };
 
   if (!retrieval.hasAnyUsableCorpus) {
@@ -930,6 +999,7 @@ export async function generateServerLegalAssistantAnswer(
       input_trace: inputTrace,
       used_sources: usedSources,
       source_ledger: sourceLedger,
+      test_run_context: input.testRunContext ?? null,
     };
     const noCorpusResponsePayload = {
       branch: "no_corpus",
@@ -967,6 +1037,16 @@ export async function generateServerLegalAssistantAnswer(
       message: "Для выбранного сервера пока нет подтверждённого usable corpus для юридического помощника.",
       metadata: {
         ...metadataBase,
+        ...buildAssistantRunObservability({
+          latencyMs: 0,
+          usageMetrics: {
+            prompt_tokens: null,
+            completion_tokens: null,
+            total_tokens: null,
+            cost_usd: null,
+          },
+        }),
+        review_status: buildAssistantReviewStatus(futureReviewMarker),
         self_assessment: selfAssessment,
       },
     };
@@ -1010,6 +1090,7 @@ export async function generateServerLegalAssistantAnswer(
       input_trace: inputTrace,
       used_sources: usedSources,
       source_ledger: sourceLedger,
+      test_run_context: input.testRunContext ?? null,
     };
     const noNormsResponsePayload = {
       branch: "no_norms",
@@ -1055,6 +1136,16 @@ export async function generateServerLegalAssistantAnswer(
       sections: fallbackSections,
       metadata: {
         ...metadataBase,
+        ...buildAssistantRunObservability({
+          latencyMs: 0,
+          usageMetrics: {
+            prompt_tokens: null,
+            completion_tokens: null,
+            total_tokens: null,
+            cost_usd: null,
+          },
+        }),
+        review_status: buildAssistantReviewStatus(futureReviewMarker),
         self_assessment: selfAssessment,
       },
     };
@@ -1094,6 +1185,7 @@ export async function generateServerLegalAssistantAnswer(
     precedentCorpusSnapshot: retrieval.precedentCorpusSnapshot,
     combinedRetrievalRevision: retrieval.combinedRetrievalRevision,
     source_ledger: sourceLedger,
+    test_run_context: input.testRunContext ?? null,
     retrievalResults: retrieval.results.map((result) => {
       if (result.sourceKind === "law") {
         return {
@@ -1125,6 +1217,7 @@ export async function generateServerLegalAssistantAnswer(
       serverName: input.serverName,
       question: normalizedInput.normalized_input,
       actorContext,
+      responseMode,
       retrieval,
     }),
     requestMetadata: {
@@ -1191,6 +1284,11 @@ export async function generateServerLegalAssistantAnswer(
       message: buildUnavailableMessage(),
       metadata: {
         ...metadataBase,
+        ...buildAssistantRunObservability({
+          latencyMs,
+          usageMetrics,
+        }),
+        review_status: buildAssistantReviewStatus(answeredFutureReviewMarker),
         self_assessment: buildAssistantSelfAssessment({
           status: "unavailable",
           lawResultCount: retrieval.lawRetrieval.resultCount,
@@ -1277,6 +1375,11 @@ export async function generateServerLegalAssistantAnswer(
       law_version_contract: answeredLawVersionContract,
       used_sources: answeredUsedSources,
       source_ledger: answeredSourceLedger,
+      ...buildAssistantRunObservability({
+        latencyMs,
+        usageMetrics,
+      }),
+      review_status: buildAssistantReviewStatus(answeredFutureReviewMarker),
       self_assessment: answeredSelfAssessment,
     },
   };

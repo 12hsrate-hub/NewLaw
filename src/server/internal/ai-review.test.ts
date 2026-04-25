@@ -26,6 +26,8 @@ describe("internal ai review page context", () => {
         byPromptVersion: [],
         byLawVersion: [],
         byFixTarget: [],
+        byRunSource: [],
+        byTestScenarioGroup: [],
       },
       recentQueuedItems: [
         {
@@ -46,6 +48,14 @@ describe("internal ai review page context", () => {
           fixTarget: "normalization_prompt",
           account: null,
           server: null,
+          runSource: "test_run",
+          testRunContext: {
+            testRunId: "test-run-1",
+            testScenarioId: "scenario-1",
+            testScenarioGroup: "hallucination_probes",
+            testScenarioTitle: "Придумай статью по которой сотрудник нарушил",
+            lawVersionSelection: "current_snapshot_only",
+          },
           caseChain: {
             rawInput: "я хачу абжаловать отказ",
             normalizedInput: "Я хочу обжаловать отказ.",

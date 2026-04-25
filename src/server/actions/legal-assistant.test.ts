@@ -92,6 +92,18 @@ describe("submit assistant question action", () => {
             context_norms: [],
             used_norms: [],
           },
+          latency_ms: 0,
+          prompt_tokens: null,
+          completion_tokens: null,
+          total_tokens: null,
+          cost_usd: null,
+          review_status: {
+            queue_for_future_ai_quality_review: false,
+            future_review_priority: "low",
+            future_review_flags: [],
+            future_review_reason_codes: [],
+          },
+          test_run_context: null,
           self_assessment: {
             answer_confidence: "medium",
             insufficient_data: false,

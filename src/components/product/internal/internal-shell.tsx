@@ -27,6 +27,10 @@ const internalNavItems = [
     label: "Access Requests",
   },
   {
+    href: "/internal/ai-legal-core",
+    label: "AI Legal Core",
+  },
+  {
     href: "/internal/ai-review",
     label: "AI Review",
   },

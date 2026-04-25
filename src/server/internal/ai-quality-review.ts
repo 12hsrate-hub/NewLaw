@@ -9,6 +9,16 @@ type ReviewRootCause =
   | "generation_issue"
   | "unknown";
 
+type ReviewRunSource = "user_flow" | "test_run";
+
+type ReviewTestRunContext = {
+  testRunId: string;
+  testScenarioId: string;
+  testScenarioGroup: string;
+  testScenarioTitle: string | null;
+  lawVersionSelection: string | null;
+};
+
 export type InternalAIQualityReviewQueueItem = {
   id: string;
   createdAt: string;
@@ -35,6 +45,8 @@ export type InternalAIQualityReviewQueueItem = {
     code: string;
     name: string;
   } | null;
+  runSource: ReviewRunSource;
+  testRunContext: ReviewTestRunContext | null;
   caseChain: {
     rawInput: string | null;
     normalizedInput: string | null;
@@ -64,6 +76,8 @@ export type InternalAIQualityReviewAnalytics = {
   byPromptVersion: InternalAIQualityReviewCounterItem[];
   byLawVersion: InternalAIQualityReviewCounterItem[];
   byFixTarget: InternalAIQualityReviewCounterItem[];
+  byRunSource: InternalAIQualityReviewCounterItem[];
+  byTestScenarioGroup: InternalAIQualityReviewCounterItem[];
 };
 
 export type InternalAIQualityReviewPreview = {
@@ -103,6 +117,34 @@ function readUnknownArray(value: unknown) {
   return Array.isArray(value) ? value : [];
 }
 
+function readTestRunContext(
+  requestPayloadJson: Record<string, unknown> | null,
+): ReviewTestRunContext | null {
+  const raw = requestPayloadJson && isRecord(requestPayloadJson.test_run_context)
+    ? requestPayloadJson.test_run_context
+    : null;
+
+  if (!raw) {
+    return null;
+  }
+
+  const testRunId = readString(raw.test_run_id);
+  const testScenarioId = readString(raw.test_scenario_id);
+  const testScenarioGroup = readString(raw.test_scenario_group);
+
+  if (!testRunId || !testScenarioId || !testScenarioGroup) {
+    return null;
+  }
+
+  return {
+    testRunId,
+    testScenarioId,
+    testScenarioGroup,
+    testScenarioTitle: readString(raw.test_scenario_title),
+    lawVersionSelection: readString(raw.law_version_selection),
+  };
+}
+
 function readAIReviewerStatus(
   value: unknown,
 ): InternalAIQualityReviewQueueItem["aiReviewerStatus"] {
@@ -137,6 +179,7 @@ function mapToSortedCounters(map: Map<string, number>): InternalAIQualityReviewC
 function toQueueItem(
   entry: Awaited<ReturnType<typeof listRecentAIRequests>>[number],
 ): InternalAIQualityReviewQueueItem | null {
+  const requestPayloadJson = isRecord(entry.requestPayloadJson) ? entry.requestPayloadJson : null;
   const responsePayloadJson = isRecord(entry.responsePayloadJson) ? entry.responsePayloadJson : null;
   const aiQualityReview = responsePayloadJson && isRecord(responsePayloadJson.ai_quality_review)
     ? responsePayloadJson.ai_quality_review
@@ -163,6 +206,7 @@ function toQueueItem(
   const aiReviewer = layers && isRecord(layers.ai_reviewer) ? layers.ai_reviewer : null;
   const confidenceValue = readString(aiQualityReview.confidence);
   const inputQualityValue = readString(aiQualityReview.input_quality);
+  const testRunContext = readTestRunContext(requestPayloadJson);
 
   return {
     id: entry.id,
@@ -202,6 +246,8 @@ function toQueueItem(
           name: entry.server.name,
         }
       : null,
+    runSource: testRunContext ? "test_run" : "user_flow",
+    testRunContext,
     caseChain: {
       rawInput: caseChain ? readString(caseChain.raw_input) : null,
       normalizedInput: caseChain ? readString(caseChain.normalized_input) : null,
@@ -230,6 +276,8 @@ export async function getInternalAIQualityReviewPreview(): Promise<InternalAIQua
   const byPromptVersion = new Map<string, number>();
   const byLawVersion = new Map<string, number>();
   const byFixTarget = new Map<string, number>();
+  const byRunSource = new Map<string, number>();
+  const byTestScenarioGroup = new Map<string, number>();
   let totalTokens = 0;
   let totalCostUsd = 0;
 
@@ -247,6 +295,14 @@ export async function getInternalAIQualityReviewPreview(): Promise<InternalAIQua
 
     incrementCounter(byRootCause, readString(aiQualityReview.root_cause));
     incrementCounter(byFixTarget, readString(aiQualityReview.fix_target));
+    incrementCounter(
+      byRunSource,
+      readTestRunContext(requestPayloadJson) ? "test_run" : "user_flow",
+    );
+    incrementCounter(
+      byTestScenarioGroup,
+      readTestRunContext(requestPayloadJson)?.testScenarioGroup ?? null,
+    );
 
     for (const flag of readStringArray(aiQualityReview.flags)) {
       incrementCounter(byFlag, flag);
@@ -281,6 +337,8 @@ export async function getInternalAIQualityReviewPreview(): Promise<InternalAIQua
       byPromptVersion: mapToSortedCounters(byPromptVersion),
       byLawVersion: mapToSortedCounters(byLawVersion),
       byFixTarget: mapToSortedCounters(byFixTarget),
+      byRunSource: mapToSortedCounters(byRunSource),
+      byTestScenarioGroup: mapToSortedCounters(byTestScenarioGroup),
     },
     recentQueuedItems: queuedItems.slice(0, 5),
   };

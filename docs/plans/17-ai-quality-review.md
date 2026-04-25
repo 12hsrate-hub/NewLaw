@@ -10,8 +10,10 @@ Post-MVP. Не входит в MVP.
 - спорные AI-кейсы уже могут сохраняться в `AIRequest` с внутренним quality-review snapshot
 - kill switch и review modes `off / log_only / full` уже частично реализованы для bootstrap-слоя
 - отдельный `AI reviewer` model layer уже запущен в базовом виде для `full` режима
-- отдельный UI и human fix workflow пока ещё не реализованы
-- базовый internal human workflow уже есть, но ещё не доведён до full operational maturity
+- risky результаты из internal test scenarios шага `16` уже попадают в тот же review bridge через `AIRequest` и `test_run_context`
+- internal review preview уже различает `test_run` и обычный user flow, показывает `test_run_id`, `test_scenario_id`, `test_scenario_group` и умеет считать базовую аналитику по test scenario groups
+- повторный запуск test scenario уже можно сравнивать в `до/после`-режиме по сохранённым `AIRequest`, без отдельного временного storage слоя
+- базовый internal UI и human fix workflow уже реализованы, но ещё не доведены до full operational maturity
 - минимально полезный workflow closure теперь уже собран: lifecycle, closure decision и reopen policy зафиксированы
 
 ## Зависимость от шага 16
@@ -160,6 +162,79 @@ AI Quality Review работает как скрытый внутренний с
 - в retrieval
 - в генерации
 - в правовой базе
+
+## Связь с тестовыми сценариями из AI Legal Core
+
+`AI Quality Review` должен принимать не только реальные пользовательские AI-выдачи, но и результаты тестовых прогонов из UI `super_admin` из шага [16-ai-legal-core.md](./16-ai-legal-core.md).
+
+Для таких случаев нужно сохранять:
+
+- `test_scenario_id`
+- `test_run_id`
+- `server_id`
+- `law_version`
+- `actor_context`
+- `answer_mode`
+- `raw_input`
+- `normalized_input`
+- `retrieved_sources`
+- `final_output`
+- `self_assessment`
+- `review_status`
+
+Плохая или спорная выдача из тестового прогона должна попадать в очередь `super_admin` так же, как и проблемная реальная выдача.
+
+После доработки логики `super_admin` должен иметь возможность повторно запустить тот же тестовый сценарий и сравнить результат:
+
+- до изменений
+- после изменений
+
+Ключевой принцип:
+
+- тестовые вопросы — это не просто примеры
+- это механизм ручной проверки `AI Legal Core` через UI
+- это источник задач для `AI Quality Review`
+
+## Плановые сущности
+
+Для этой линии нужно предусмотреть такие сущности:
+
+- `ai_test_scenarios`
+- `ai_test_runs`
+- `ai_test_run_results`
+
+Минимальный состав `ai_test_scenarios`:
+
+- `id`
+- `title`
+- `input_text`
+- `expected_behavior`
+- `scenario_group`
+- `intent`
+- `actor_context`
+- `answer_mode`
+- `is_active`
+
+Минимальный состав `ai_test_runs`:
+
+- `id`
+- `started_by`
+- `server_id`
+- `law_version`
+- `started_at`
+- `completed_at`
+- `status`
+
+Минимальный состав `ai_test_run_results`:
+
+- `id`
+- `test_run_id`
+- `test_scenario_id`
+- `ai_generation_id`
+- `status`
+- `risk_level`
+- `passed_basic_checks`
+- `sent_to_review`
 
 ## Fix Instruction
 
@@ -329,6 +404,10 @@ UI для `super_admin` должен быть отдельной будущей 
   - `closed`
 - явные allowed transitions и closure guards для confirmed issues
 - `closure decision` и `reopen policy` для confirmed issues
+- planned ingestion test-run результатов из UI `super_admin` из шага `16`
+- baseline compare-loop для test scenarios:
+  - повторный запуск того же сценария
+  - comparison `до/после` по последним сохранённым `AIRequest`
 - показ в review-карточке дополнительных полей:
   - `quality_score`
   - `confidence`
@@ -357,11 +436,16 @@ UI для `super_admin` должен быть отдельной будущей 
 - deterministic обработка normalization-related проблем с `root_cause = normalization_issue`
 - deterministic bridge между future-review markers из шага `16` и скрытым review snapshot шага `17`
 
-Это означает, что шаг `17` уже начат как внутренний review bootstrap, даже если его основной scope ещё не закрыт.
+Это означает, что шаг `17` уже начат как внутренний review bootstrap, а его связь с test-run contour из шага `16` уже существует в первом practical виде.
 
 ## Что ещё остаётся до полезного закрытия шага
 
-После текущего среза обязательный полезный baseline шага `17` можно считать функционально закрытым.
+После текущего среза основной review baseline уже собран, но полезный незакрытый хвост ещё остаётся.
+
+Что ещё остаётся как прямой scope этой линии:
+
+- сущности `ai_test_scenarios`, `ai_test_runs`, `ai_test_run_results`
+- более формализованная persistence-модель для test-run contour, если current `AIRequest + test_run_context` bridge перестанет хватать operationally
 
 Что может оставаться только как optional operational maturity, а не как обязательный следующий scope:
 
@@ -394,6 +478,9 @@ UI для `super_admin` должен быть отдельной будущей 
 - подтверждённая проблема требует `fix_instruction`
 - есть единый реестр `AI Behavior Rules`
 - проблема не считается исправленной без `regression gate`
+- результаты test-run из шага `16` тоже могут попадать в review queue
+- для test-run результатов предусмотрены поля `test_scenario_id`, `test_run_id`, `server_id`, `law_version`, `actor_context`, `answer_mode`, `raw_input`, `normalized_input`, `retrieved_sources`, `final_output`, `self_assessment`, `review_status`
+- в плане явно предусмотрены `ai_test_scenarios`, `ai_test_runs`, `ai_test_run_results`
 - будущий внутренний UI описан отдельно от текущего пользовательского продукта
 - доступ разделён между `super_admin`, админом сервера, `tester` и обычным пользователем
 - предусмотрены kill switch, режимы работы и дневные лимиты
