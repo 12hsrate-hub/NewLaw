@@ -4,157 +4,87 @@
 
 `partial`
 
-- публичный `server legal assistant` уже реализован как отдельный модуль
-- `11.3` добавляет первый document-AI блок внутри существующей зоны документов
-- согласованный `v1` scope для `document field rewrite` уже реализован
-- первый grounded `v2` rollout для поддержанных юридических секций уже реализован
-- текущий MVP AI scope уже не считается пустым или блокирующе незавершённым
-- chat UI и широкий drafting suite в этом плане не активируются
+## Роль шага
 
-Важно:
+Шаг `08` остаётся зонтичной AI-линией.
 
-- `partial` здесь больше не означает “AI ещё не начат”
-- `partial` здесь означает только future expansion beyond current `assistant + document field rewrite v1 + first grounded v2 rollout`
-- шаг `08` остаётся широкой зонтичной линией по AI-интеграции, а не детальным планом одного конкретного AI-подсценария
-- конкретная доработка ядра юридической AI-выдачи должна быть вынесена в будущий шаг `16 — AI Legal Core`
-- контроль качества AI-выдачи должен быть вынесен в будущий шаг `17 — AI Quality Review`
-- шаги `16` и `17` должны уточнять эту линию, а не дублировать уже описанный шаг `08`
+Это общая зонтичная линия по AI-направлению проекта, а не детальный план одного конкретного AI-подсценария.
 
-## Текущий реализованный контур
+Шаг `08` фиксирует:
 
-### 1. Server legal assistant
+- что AI в проекте уже реально существует
+- какие AI-контуры уже присутствуют в repo
+- какие более узкие post-MVP шаги продолжают эту линию
 
-- отдельный модуль `/assistant` и `/assistant/[serverSlug]`
-- proxy-only AI foundation
-- `ai_requests` logging
-- laws-first grounded answer policy
+Шаг `08` не должен подменяться шагами `16` и `17`, но и не должен повторять их внутреннюю механику.
 
-### 2. Document field rewrite v1
+## Что уже входит в AI-контур проекта
 
-Реализован только как helper внутри существующих OGP/claims-редакторов:
+Текущий реализованный AI-контур включает:
 
-- owner-only server action `rewriteDocumentFieldAction({ documentId, sectionKey })`
-- только field-level rewrite
-- только persisted document payload + persisted snapshots
-- no grounding in v1
-- no silent overwrite
-- no silent save
-- suggestion отдельно от final field
-- `Apply` меняет только local editor state
-- persistence идёт только через существующий save/autosave flow
+- `server legal assistant`
+- `document field rewrite v1`
+- first grounded document AI v2 rollout
 
-### 3. Grounded document AI v2
+Это означает:
 
-Реализован как отдельный editor-centric helper поверх существующей retrieval-основы:
+- AI в проекте уже не считается пустым или не начатым
+- `partial` означает только будущее расширение за пределами текущего scope
 
-- owner-only server action `rewriteGroundedDocumentFieldAction({ documentId, sectionKey })`
-- reuse existing `searchAssistantCorpus(...)` как lower retrieval layer
-- laws-first policy сохраняется
-- grounded outcome ветки:
-  - `law_grounded`
-  - `precedent_grounded`
-  - `insufficient_corpus`
-- отдельный UI action `Улучшить с опорой на нормы`
-- suggestion по-прежнему остаётся suggestion
-- `Apply` по-прежнему меняет только local editor state
-- no silent overwrite
-- no silent save
-- no embedded chat UI
+## Границы шага 08
 
-Поддержанные секции первого grounded rollout:
+Шаг `08` описывает только общую AI-линию.
 
-- OGP:
-  - `violation_summary`
-- Claims:
-  - `legal_basis_summary`
-  - `requested_relief`
+В него не нужно переносить подробности:
 
-Поддержанные секции v1:
+- `AI Legal Core`
+- `AI Quality Review`
+- внутренний review workflow
+- внутренняя retrieval-механика
+- `LegalQueryPlan`
+- `LawFamily`
+- `NormRole`
+- `applicability scoring`
+- `structured selection`
+- `direct_basis_status`
 
-- OGP:
-  - `situation_description`
-  - `violation_summary`
-- Claims:
-  - `factual_background`
-  - `legal_basis_summary`
-  - `requested_relief`
-  - `rehabilitation_basis`
-  - `harm_summary`
-  - `pretrial_summary`
+Эти детали должны жить только в более узких шагах, если они становятся отдельным источником правды.
 
-## Что не входит
+## Связь с дальнейшими шагами
 
-- client-side direct AI calls
-- chat UI inside document editor
-- full-document rewrite
-- hidden auto-generation
-- hidden auto-apply или auto-save
-- grounded legal reasoning inside document AI v1
-- forum automation
-- template documents
-- route migration
+Шаг `08` продолжается через более узкие post-MVP линии:
 
-## Продуктовые правила
+- [16-ai-legal-core.md](./16-ai-legal-core.md) — только `AI Legal Core`
+- [17-ai-quality-review.md](./17-ai-quality-review.md) — только `AI Quality Review`
 
-- AI helper не становится source of truth final document
-- если editor dirty, AI action блокируется сообщением `сначала сохраните черновик`
-- unsupported fields не получают AI affordance
-- trustor identity fields, evidence rows, titles, publication metadata и working notes не участвуют в AI rewrite
-- assistant и document AI остаются разными модулями
-- grounded document AI не превращает editor в embedded legal Q&A
-- precedent никогда не подаётся как норма закона
-- если retrieval support незащитим, grounded flow честно возвращает `insufficient_corpus`
+Правило границ:
 
-## Логирование и безопасность
+- шаг `08` — зонтичная AI-линия
+- шаг `16` — только `AI Legal Core`
+- шаг `17` — только `AI Quality Review`
 
-- используется existing proxy-only AI foundation
-- используется existing `ai_requests`
-- `featureKey = document_field_rewrite`
-- `featureKey = document_field_rewrite_grounded`
-- в request metadata логируются только safe поля:
-  - `documentId`
-  - `documentType`
-  - `sectionKey`
-  - `updatedAt`
-  - `filingMode`
-  - `hasTrustor`
-  - `evidenceGroupCount`
-  - `sourceLength`
-  - `contextFieldKeys`
-  - `contextLength`
-- в grounded flow дополнительно логируются только safe retrieval поля:
-  - `serverId`
-  - `groundingMode`
-  - `lawResultCount`
-  - `precedentResultCount`
-  - `hasCurrentLawCorpus`
-  - `hasUsablePrecedentCorpus`
-  - `combinedRetrievalRevision`
-  - `retrievalPromptBlockCount`
-- full raw document payload в логи не уходит
-- full retrieved block texts и full prompt в логи тоже не уходят
+Шаг `16` не должен переписывать весь шаг `08`.
+Шаг `17` не должен дублировать шаг `16`.
 
-## Follow-up после текущего шага
+## Что не входит в шаг 08
 
-Отдельными будущими решениями остаются:
+Не входит:
 
-- document consistency check
-- базовое ядро юридической AI-выдачи как отдельный шаг `16 — AI Legal Core`
-- отдельный слой контроля качества AI-выдачи как шаг `17 — AI Quality Review`
-- broader drafting assist beyond field-level rewrite
-- grounded expansion beyond first supported legal sections
-- deeper document-AI UX поверх existing grounded rewrite foundation
-- richer retrieval transparency / references UX, если это понадобится отдельно
+- client-side direct AI calls как обязательная цель
+- embedded chat UI как обязательная цель
+- full-document rewrite как обязательная цель
+- автоматический review-контур
+- автоматическое изменение production-логики
+- детальная legal-core логика
+- детальный quality-review workflow
 
-Но это уже не часть текущего agreed scope после `v1 + first grounded legal rollout`.
+## Follow-up после шага 08
 
-Отдельно зафиксировано:
+После шага `08` отдельными специализированными линиями идут:
 
-- assistant и document AI остаются разными product lines
-- шаг `08` остаётся общей AI-линией и не должен подменяться будущими шагами `16` и `17`
-- шаг `16` должен конкретизировать legal core для юридического помощника и связанных legal-answer flows
-- шаг `17` должен описывать слой AI Quality Review поверх уже выделенного legal core
-- шаг `16` не должен переписывать весь шаг `08`, а шаг `17` не должен дублировать шаг `16`
-- current MVP AI scope покрывается существующим assistant module + document field rewrite v1
-- grounded document AI v2 уже существует как первое post-MVP расширение внутри существующих редакторов
-- поэтому `partial` здесь означает не “AI для MVP ещё не существует”, а только то, что future expansion beyond current scope ещё не закрыта
+- `AI Legal Core`
+- `AI Quality Review`
+- дальнейшее расширение document AI за пределами текущего grounded rollout
+- дальнейшая операционная зрелость AI-контура как отдельная линия будущего развития
+
+Но всё это уже не должно смешиваться с зонтичной ролью шага `08`.

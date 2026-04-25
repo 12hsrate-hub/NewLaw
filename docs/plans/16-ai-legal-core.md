@@ -4,53 +4,43 @@
 
 Post-MVP. Не входит в MVP.
 
-Текущий repo-state для этого шага:
-
-- основное прикладное ядро уже реализовано в коде
-- legal core уже применяется к `server legal assistant`, `document field rewrite v1` и `grounded document rewrite v2`
-- базовый legal-core слой уже доведён до рабочего состояния
-- первый internal UI для запуска test scenarios из `super_admin` контура уже реализован для `server legal assistant` и `AI-доработки описательной части`
-- текущий practical режим выбора `law_version` честно ограничен значением `current_snapshot_only`
-- `document_text_improvement` scenarios идут через compact internal rewrite runner без привязки к реальному document draft, но с теми же legal-core guardrails, `self-assessment` и hidden routing в шаг `17`
-
 ## Назначение
 
-Этот шаг фиксирует post-MVP ядро `AI Legal Core` для базовой юридической AI-выдачи.
-Его цель — довести базовую AI-выдачу до рабочего состояния до внедрения `AI Quality Review`.
+Этот шаг фиксирует только `AI Legal Core`.
+
+Его задача:
+
+- довести базовую юридическую AI-выдачу до рабочего состояния до внедрения `AI Quality Review`
+- задать единый правовой pipeline для юридического помощника и AI-доработки описательной части
+- обеспечить устойчивый legal grounding через `server_id` и `law_version`
 
 Этот шаг:
 
-- не переоткрывает MVP
-- не заменяет [08-ai-integration.md](./08-ai-integration.md)
-- не включает сам слой `AI Quality Review`
-- не запускает автоматическое самоизменение AI-логики по итогам ответов
-- не дублирует шаг `08`, а конкретизирует только legal core внутри более широкой AI-линии
+- не подменяет [08-ai-integration.md](./08-ai-integration.md)
+- не включает слой `AI Quality Review`
+- не включает review UI, `fix_instruction`, `AI Behavior Rules` и `regression gate`
 
 ## Где применяется
 
-AI Legal Core применяется к:
+`AI Legal Core` применяется к:
 
 - юридическому помощнику
 - AI-доработке описательной части
 
 ## Главный принцип
 
-Главный принцип шага:
-
-- AI отвечает универсально по логике анализа, но только на основании законодательства выбранного сервера
+AI отвечает универсально по логике анализа, но только на основании законодательства выбранного сервера.
 
 Из этого следуют обязательные правила:
 
-- источник правды для правового grounding = `server_id + law_version`
-- одна и та же логика анализа может использоваться для разных серверов, но не может смешивать их законодательство
-- модель не получает весь закон целиком и не работает по полному corpus dump
-- ответ не должен опираться на другой сервер, старую версию закона или общий “внешний” правовой фон
+- источник правды для legal grounding = `server_id + law_version`
+- один и тот же пользовательский вопрос может иметь разные корректные ответы на разных серверах
+- модель не получает весь закон целиком
+- ответ не должен опираться на нормы другого сервера или другой версии закона
 
 ## Мультисерверность
 
 `AI Legal Core` должен проектироваться как универсальный слой для всех серверов `Lawyer5RP`.
-
-Это не server-specific логика под один текущий сервер, а единый legal-core engine, который работает через выбранный контекст сервера.
 
 Запрещено:
 
@@ -65,11 +55,9 @@ AI Legal Core применяется к:
 - `server_id`
 - `law_version`
 - `law_sources` выбранного сервера
-- `source ledger`
+- `source_ledger`
 
-Один и тот же пользовательский вопрос может иметь разные корректные ответы на разных серверах, если различается законодательство.
-
-Тестовые сценарии должны запускаться с выбранным:
+Тестовые сценарии тоже должны запускаться с выбранными:
 
 - `server_id`
 - `law_version`
@@ -78,17 +66,15 @@ AI Legal Core применяется к:
 
 ## Контекст пользователя
 
-Legal Core должен определять один `actor_context`:
+Система должна определять один `actor_context`:
 
 - `self` — пользователь действует от себя
 - `representative_for_trustor` — пользователь действует в интересах доверителя
 - `general_question` — общий вопрос
 
-`actor_context` нужен для рамки ответа, допустимых формулировок и правильной интерпретации фактов.
-
 ## Intent
 
-Legal Core должен определять один основной `intent`:
+Система должна определять один основной `intent`:
 
 - `law_explanation`
 - `situation_analysis`
@@ -97,110 +83,192 @@ Legal Core должен определять один основной `intent`:
 - `qualification_check`
 - `document_text_improvement`
 
-Если запрос смешанный, система выбирает основной `intent` для генерации, а не пытается неявно вести несколько равноправных сценариев сразу.
-
 ## Режимы ответа
 
-Legal Core поддерживает следующие `response_mode`:
+Поддерживаются следующие `answer_mode`:
 
 - `short`
 - `normal` — по умолчанию
 - `detailed`
 - `document_ready`
 
-`response_mode` регулирует глубину и формат ответа, но не отменяет обязательный legal grounding.
+## Нормализация входного текста (`input normalization`)
 
-## Нормализация входного текста
+Перед построением `LegalQueryPlan` система всегда выполняет нормализацию входного текста.
 
-Перед `intent detection`, `law retrieval`, `fact ledger` и генерацией ответа система всегда выполняет нормализацию пользовательского текста.
+Нормализация:
 
-Нормализация применяется для:
-
-- юридического помощника
-- AI-доработки описательной части
-
-Цель нормализации:
-
-- исправить орфографию
-- исправить пунктуацию
-- привести разговорные и кривые фразы к понятной нейтральной форме
-- сохранить исходный смысл без добавления новых фактов
-
-Обязательные ограничения:
-
-- нормализация не должна менять юридический смысл
-- не должна добавлять обстоятельства
-- не должна добавлять доказательства
-- не должна делать правовые выводы
-- не должна усиливать позицию
-- не должна удалять важные факты
+- исправляет орфографию
+- исправляет пунктуацию
+- приводит разговорный текст к нейтральной форме
+- не меняет смысл
+- не добавляет факты
+- не делает юридических выводов
 
 Используемая модель:
 
 - `OpenAI API 5.4 nano`
-- как самый дешёвый слой предобработки текста
 
-Система должна сохранять:
+Сохраняется:
 
 - `raw_input`
 - `normalized_input`
 - `normalization_model`
 - `normalization_prompt_version`
-- `normalization_changed:boolean`
+- `normalization_changed`
 
-Дальше в Legal Core именно `normalized_input` используется как рабочий текст для:
+Все последующие шаги работают только с `normalized_input`:
 
-- `intent detection`
-- `actor_context detection`
-- `law retrieval`
-- `fact ledger`
-- генерации ответа
+- `LegalQueryPlan`
+- retrieval
+- generation
 
-## Pipeline
+## Pipeline шага 16
 
 Единый pipeline шага `16`:
 
-- `raw input`
-- `input normalization` через `OpenAI API 5.4 nano`
-- `normalized input`
-- определение `intent`
-- определение `actor_context`
-- определение `server_id` и `law_version`
-- `law retrieval`
-- формирование `law context` из `3–7` релевантных норм
-- `fact ledger`, если применимо
-- генерация ответа
+- `raw_input`
+- `input normalization (OpenAI 5.4 nano)`
+- `normalized_input`
+- `intent detection`
+- `actor_context detection`
+- `LegalQueryPlan`
+- `candidate retrieval`
+- `LawFamily classification`
+- `NormRole classification`
+- `applicability scoring`
+- `structured selection`
+- `law context assembly`
+- `fact_ledger`, если применимо
+- `generation`
 - `self-assessment`
-- логирование
-- при необходимости скрытая отправка в будущий `AI Quality Review`
+- `logging`
+- при необходимости скрытая отправка в `AI Quality Review`
 
-Этот pipeline общий для юридического помощника и AI-доработки описательной части.
-Для `document_text_improvement` главным источником правды по фактам остаётся `fact ledger`, а retrieved нормы работают как legal guardrails и не дают AI выходить за законодательство выбранного сервера.
+## `LegalQueryPlan`
 
-## Law Retrieval
+`LegalQueryPlan` — это обязательный внутренний артефакт перед retrieval.
 
-Для шага `16` фиксируется такая retrieval-policy:
+Он должен содержать:
 
-- AI не получает весь закон целиком
-- система ищет только релевантные нормы
-- поиск должен учитывать `server_id` и `law_version`
-- в контекст модели передаётся ограниченный набор норм
+- `normalized_input`
+- `intent`
+- `actor_context`
+- `answer_mode`
+- `server_id`
+- `law_version`
+- `question_scope`
+- `legal_anchors`
+- `required_law_families`
+- `preferred_norm_roles`
+- `forbidden_scope_markers`
+- `expanded_query`
 
-Дополнительно:
+Смысл:
 
-- целевой `law context` должен собираться из `3–7` наиболее релевантных норм
-- нельзя смешивать нормы разных серверов в одном ответе
-- нельзя смешивать несколько `law_version` внутри одного legal-answer прохода
-- для `document_text_improvement` retrieval не даёт AI права добавлять новые статьи в текст; он нужен только как ограничитель и legal background
+- система сначала определяет, какие типы норм нужны для ответа
+- только после этого начинает retrieval
 
-Важно:
+## `LawFamily`
 
-- диапазон `3–7` нужно понимать как целевой рабочий диапазон, а не как жёсткое требование искусственно добирать недостающие нормы
-- если релевантных норм меньше, система не должна выдумывать или подтягивать слаборелевантные нормы только ради выполнения формальной цифры
+Каждая candidate-норма должна быть отнесена к `LawFamily`.
 
-## Структура законодательства
+Минимально:
 
-Минимальная рабочая структура нормы для `law retrieval` и `law context`:
+- `administrative_code`
+- `procedural_code`
+- `criminal_code`
+- `advocacy_law`
+- `ethics_code`
+- `constitution`
+- `department_specific`
+- `government_code`
+- `immunity_law`
+- `public_assembly_law`
+- `other`
+
+## `NormRole`
+
+Каждая выбранная норма должна получать `NormRole`.
+
+Минимально:
+
+- `primary_basis`
+- `procedure`
+- `exception`
+- `sanction`
+- `right_or_guarantee`
+- `remedy`
+- `background_only`
+
+## Оценка применимости (`applicability scoring`)
+
+Для каждой candidate-нормы нужен `applicability scoring`.
+
+Он должен учитывать:
+
+- lexical relevance
+- соответствие `LegalQueryPlan`
+- соответствие нужному `LawFamily`
+- соответствие нужному `NormRole`
+- соответствие `intent`
+- соответствие `actor_context`
+- penalty за off-topic scope
+- penalty за institutional mismatch
+- penalty за `department_specific` в `general_question`
+- penalty за exception-only норму без прямой базы
+- penalty за law-family mismatch
+
+Смысл:
+
+- норма не должна попадать в ответ только потому, что в ней встретилось похожее слово
+- система должна оценивать применимость нормы к сути вопроса
+
+## Структурированный отбор (`structured selection`)
+
+Retrieval не должен работать как простой `top-N` по похожести.
+
+После scoring нужен `structured selection`.
+
+Он должен собирать `law context` по слотам:
+
+- `primary_basis_norms`
+- `procedure_norms`
+- `exception_norms`
+- `supporting_norms`
+
+Правила:
+
+- `procedure` не может подменять `primary_basis`
+- `exception` не может быть единственной основой общего ответа
+- `background_only` не может становиться прямой правовой базой
+- `department_specific` не должен становиться `primary_basis` для общего вопроса без явного основания
+
+## direct_basis_status
+
+В шаге `16` обязателен `direct_basis_status`.
+
+Минимальные значения:
+
+- `direct_basis_present`
+- `partial_basis_only`
+- `no_direct_basis`
+
+Смысл:
+
+- система должна отдельно фиксировать, есть ли прямая правовая основа для ответа по существу
+- это влияет на generation, `self-assessment`, logging и hidden routing в шаг `17`
+
+## Law context и структура законодательства
+
+`law context` должен собираться не как первые найденные нормы, а как структурированный набор:
+
+- `1–2` `primary_basis`
+- `0–2` `procedure`
+- `0–1` `exception`
+- `0–2` `supporting`
+
+Минимальная рабочая структура нормы:
 
 - `server_id`
 - `law_name`
@@ -211,11 +279,17 @@ Legal Core поддерживает следующие `response_mode`:
 - `tags`
 - `law_version`
 
-Эта структура описывает рабочую retrieval-проекцию шага `16` и не означает, что весь corpus должен безусловно передаваться модели в полном объёме.
+Если прямой нормы нет:
+
+- AI всё равно отвечает
+- ответ формулируется условно
+- `direct_basis_status != direct_basis_present`
+- внутренне повышается риск
+- случай может быть скрыто передан в шаг `17`
 
 ## Source Ledger
 
-Для юридического помощника должен сохраняться `source ledger` со следующими данными:
+Для юридического помощника должен сохраняться `source_ledger`:
 
 - какие нормы найдены
 - какие нормы переданы в контекст
@@ -223,11 +297,9 @@ Legal Core поддерживает следующие `response_mode`:
 - `law_version`
 - `server_id`
 
-`source ledger` хранится внутренне и нужен для трассировки grounding, последующего аудита и будущего `AI Quality Review`.
-
 ## Fact Ledger
 
-Для AI-доработки описательной части должен фиксироваться `fact ledger`:
+Для AI-доработки описательной части должен фиксироваться `fact_ledger`:
 
 - участники
 - событие
@@ -238,36 +310,11 @@ Legal Core поддерживает следующие `response_mode`:
 
 Главное правило:
 
-- AI не имеет права менять эти факты
-
-Если каких-то данных не хватает, AI может только перестроить стиль и структуру текста, но не заполнять пробелы выдуманными сведениями.
-
-## Стиль ответа
-
-Legal Core должен придерживаться такой пользовательской политики:
-
-- AI не показывает сомнения пользователю напрямую
-
-Запрещены формулировки:
-
-- `недостаточно данных`
-- `невозможно определить`
-- `я не нашёл норму`
-- `нельзя сделать вывод`
-
-Вместо этого использовать:
-
-- `оценка зависит от...`
-- `при наличии оснований...`
-- `при соблюдении порядка...`
-- `может свидетельствовать...`
-- `допустимо при условии...`
-
-Внутренние маркеры неопределённости допускаются только в `self-assessment` и логировании, но не как прямой отказ пользователю.
+- AI не имеет права менять факты из `fact_ledger`
 
 ## Self-assessment
 
-После генерации Legal Core должен внутренне сохранять:
+После generation система должна внутренне сохранять:
 
 - `answer_confidence`
 - `insufficient_data`
@@ -276,69 +323,36 @@ Legal Core должен придерживаться такой пользова
 Если данных или нормы мало:
 
 - ответ всё равно отдаётся пользователю в аккуратной условной форме
-- случай помечается для будущего `AI Quality Review`
+- случай помечается для `AI Quality Review`
 
-Сам `self-assessment` не должен превращаться в пользовательское предупреждение в рамках шага `16`.
+## Стиль ответа
 
-## AI-доработка описательной части
+AI не должен показывать сомнения напрямую.
 
-Для `document_text_improvement` AI может:
+Запрещено:
 
-- улучшать стиль
-- структурировать
-- убирать эмоции
-- выстраивать хронологию
+- `недостаточно данных`
+- `невозможно определить`
+- `я не нашёл норму`
+- `нельзя сделать вывод`
 
-Для `document_text_improvement` AI не может:
+Обязательно:
 
-- добавлять факты
-- добавлять доказательства
-- менять ФИО, даты, организации
-- добавлять статьи
-- делать категоричные выводы
+- использовать условные формулировки:
+  - `оценка зависит от...`
+  - `при наличии оснований...`
+  - `может считаться...`
+  - `может свидетельствовать...`
 
-В этом режиме AI работает как controlled rewrite layer, а не как генератор новой фактуры или новых правовых утверждений.
+Если `direct_basis_status != direct_basis_present`:
 
-## Оптимизация токенов
+- ответ не должен быть категоричным
+- вывод должен зависеть от условий
+- внутренне помечается повышенный риск
 
-В шаге `16` обязательны такие правила token discipline:
+## Сценарии тестового раннера (`test runner`)
 
-- не передавать весь закон
-- ограничивать `law context`
-- разделять дешёвые и дорогие операции
-- логировать `tokens` / `cost` / `latency`
-
-Под дешёвыми операциями здесь понимаются классификация и маршрутизация запроса, под дорогими — retrieval-aware generation и расширенные режимы ответа.
-
-Для закрытия шага `16` не требуется отдельный фреймворк оркестрации поверх этого разделения.
-Достаточно, чтобы дешёвый и дорогой слой уже были различимы по роли, стоимости и логированию.
-
-## Логирование
-
-Для каждого прохода Legal Core должны логироваться:
-
-- `input`
-- `output`
-- `raw_input`
-- `normalized_input`
-- `server_id`
-- `law_version`
-- `used_sources`
-- `prompt_version`
-- `model`
-- `normalization_model`
-- `normalization_prompt_version`
-- `normalization_changed`
-- `tokens`
-- `cost`
-- `latency`
-- `confidence`
-
-Это логирование не заменяет `source ledger` и `fact ledger`, а дополняет их.
-
-## UI-запуск тестовых сценариев
-
-В рамках `AI Legal Core` нужно предусмотреть возможность запускать тестовые пользовательские сценарии из UI `super_admin`.
+В рамках `AI Legal Core` должен быть предусмотрен запуск тестовых пользовательских сценариев из UI `super_admin`.
 
 `super_admin` должен иметь возможность:
 
@@ -349,31 +363,16 @@ Legal Core должен придерживаться такой пользова
 - выбрать один тестовый сценарий или группу сценариев
 - запустить прогон
 - увидеть итоговую AI-выдачу
-- увидеть `used_sources`, `confidence`, `insufficient_data`, `tokens`, `cost` и `latency`
+- увидеть `used_sources`, `confidence`, `insufficient_data`, `tokens`, `cost`, `latency`
 
-Текущий practical repo-state по этому блоку:
-
-- internal route уже существует в виде отдельного `super_admin` UI для assistant- и rewrite-based сценариев
-- route уже позволяет выбирать `server`, `law_version`, `actor_context`, `answer_mode`, один сценарий или группу сценариев
-- route уже показывает итоговую AI-выдачу, `used_sources`, `confidence`, `insufficient_data`, `tokens`, `cost` и `latency`
-- сценарии группы `document_text_improvement` уже подключены к этому runner как отдельный legal-core flow внутри того же internal contour
-- повторный запуск того же сценария уже показывает comparison `до/после` по последним сохранённым `AIRequest`, без отдельной временной схемы хранения test-run history
-
-Эти тестовые сценарии должны использовать тот же legal-core pipeline, что и обычные пользовательские проходы.
-Они не считаются “просто примерами”, а выступают как controlled manual verification layer для `AI Legal Core`.
-
-Если результат тестового прогона:
+Если результат:
 
 - помечен как рискованный по `self-assessment`
 - или нарушает базовые правила legal core
 
-он должен автоматически попадать в `AI Quality Review` из шага [17-ai-quality-review.md](./17-ai-quality-review.md).
+он должен автоматически попадать в шаг [17-ai-quality-review.md](./17-ai-quality-review.md).
 
 ## Сокращённый набор тестовых сценариев
-
-Для первого полезного слоя `AI Legal Core` нужно зафиксировать сокращённый baseline-набор test scenarios.
-
-Каждый блок ниже — это отдельная группа сценариев для ручного прогона через UI `super_admin`.
 
 ### A. Общие юридические вопросы
 
@@ -445,7 +444,7 @@ Legal Core должен придерживаться такой пользова
 - `сделай формулировку для жалобы`
 - `объясни простыми словами норму`
 
-## Как использовать test scenarios
+## Как использовать test runner
 
 Базовый порядок ручного прогона:
 
@@ -459,97 +458,53 @@ Legal Core должен придерживаться такой пользова
    - уверенность без прямой демонстрации сомнений пользователю
 4. плохие результаты передавать в шаг `17`
 
-## Что покрывает этот набор
+## Логирование
 
-Этот сокращённый набор test scenarios должен покрывать:
+Для каждого прохода должны логироваться:
 
-- ошибки пользователя
-- плохую грамматику
-- отсутствие данных
-- проверку законов
-- проверку доказательств
-- провокации AI на галлюцинации
-- разные роли пользователя
+- `input`
+- `output`
+- `raw_input`
+- `normalized_input`
+- `server_id`
+- `law_version`
+- `used_sources`
+- `prompt_version`
+- `model`
+- `normalization_model`
+- `normalization_prompt_version`
+- `normalization_changed`
+- `tokens`
+- `cost`
+- `latency`
+- `confidence`
 
-## Что не делать в шаге 16
+## Что не входит в шаг 16
 
-В шаге `16` не делать:
+Не входит:
 
-- отдельную review-админку шага `17`
-- `AI Quality Review`
+- review queue
+- reviewer workflow
 - `fix_instruction`
-- пользовательские предупреждения
-- автоматическое изменение AI-логики
-
-Шаг `16` должен сначала стабилизировать базовое legal core, а уже потом отдавать материал в отдельный будущий шаг `17 — AI Quality Review`.
-Он не должен подменять зонтичную роль шага `08` и не должен включать review-слой шага `17`.
-При этом внутренний `super_admin` UI для запуска test scenarios допустим внутри шага `16`, потому что это часть ручной проверки самого `AI Legal Core`, а не отдельный review-контур шага `17`.
-
-## Что уже реализовано в repo
-
-На текущем этапе в репозитории уже реализованы такие части `AI Legal Core`:
-
-- единый legal-core metadata layer для `intent`, `actor_context`, `response_mode` и `self-assessment`
-- сквозной `actor_context` contract для assistant и document rewrite контуров
-- слой нормализации входного текста с сохранением `raw_input`, `normalized_input`, `normalization_model`, `normalization_prompt_version`, `normalization_changed`
-- `prompt_version`, `tokens`, `cost`, `latency`, `confidence` и расширенное internal AI logging
-- `law_version_contract = current_snapshot_only` для assistant, обычного rewrite и grounded rewrite
-- `source ledger` и `used_sources` для юридического помощника
-- `fact ledger` для AI-доработки описательной части
-- retrieval-aware legal grounding для `server legal assistant`
-- retrieval-aware legal guardrails для обычного `document_text_improvement`
-- grounded legal rewrite для части legal sections
-- `input_trace` / `output_trace` для assistant, обычного rewrite и grounded rewrite
-- усиленная атрибуция источников в assistant, которая отделяет найденные, переданные и реально использованные источники заметно лучше, чем ранняя эвристика “всё из prompt-context”
-- скрытые future-review markers для спорных кейсов без включения самого слоя `AI Quality Review`
-- общий shared contract для document guardrails, retrieval query, prompt policy и `used_sources`
-
-Это означает, что шаг `16` уже не является только планом на будущее: значимая часть legal core реально существует в текущем коде.
-Internal test scenario UI и связанный ручной test-run contour уже реализованы в первом practical виде.
-
-## Что остаётся до полезного закрытия
-
-После текущего practical среза отдельного обязательного хвоста у шага `16` больше не остаётся.
-Полезная база legal core и минимально достаточный contour ручной проверки уже собраны.
-
-При этом не нужно превращать дальнейшее развитие этой линии в отдельный новый продуктовый contour:
-
-- не нужен отдельный новый AI subsystem сверх уже существующего legal-core pipeline
-- не нужен отдельный пользовательский продуктовый интерфейс
-- не нужна полная review-логика внутри самого шага `16`
-
-## Что специально не нужно добивать в шаге 16
-
-Чтобы не делать лишнее, в шаге `16` не нужно дополнительно открывать такие линии:
-
-- отдельный внутренний review UI сверх test scenario launcher
-- отдельный настраиваемый слой оркестрации для дешёвых и дорогих AI-операций
-- hard enforcement логики `ровно 3–7 норм` в каждом проходе
-- попытку доказать source attribution для каждой фразы ответа на уровне “каждое предложение = отдельная норма”
-- автоматические fix rules, auto-correction и auto-tuning AI-логики
-- пользовательские warning flows на основе internal confidence/risk
-- всё, что по смыслу уже относится к шагу `17 — AI Quality Review`
-
-Если не появляется новый продуктовый риск или явная regression-проблема, расширять шаг `16` дальше этих границ нецелесообразно.
+- `AI Behavior Rules`
+- regression gate
+- closure workflow
+- UI шага `17`
+- API шага `17`
+- Prisma-изменения ради review-контура
 
 ## Критерии приёмки
 
-Шаг `16` можно считать формально описанным корректно, если:
+Шаг `16` описан корректно, если:
 
 - один и тот же legal core применяется к юридическому помощнику и AI-доработке описательной части
 - каждый AI-ответ жёстко привязан к `server_id + law_version`
-- модель получает только ограниченный `law context`, а не весь закон
-- для юридического помощника сохраняется `source ledger`
-- для AI-доработки описательной части сохраняется `fact ledger`
-- Legal Core сохраняет `raw_input` и `normalized_input`
 - все основные AI-flow используют `normalized_input` как рабочий текст
-- `assistant` различает `self`, `representative_for_trustor` и `general_question`
-- legal core уже умеет вести `law_version_contract` и не смешивает server-grounding произвольно
-- AI не меняет факты из `fact ledger`
+- retrieval не работает как простой `top-N`
+- используются `LegalQueryPlan`, `LawFamily`, `NormRole`, `applicability scoring`, `structured selection`
+- отдельно фиксируется `direct_basis_status`
+- для юридического помощника сохраняется `source_ledger`
+- для AI-доработки описательной части сохраняется `fact_ledger`
 - внутренний `self-assessment` сохраняется даже тогда, когда пользователю отдаётся аккуратный условный ответ
-- спорные кейсы могут быть скрыто помечены для будущего `AI Quality Review`, но сам review-слой и пользовательские предупреждения ещё не входят в этот шаг
-- `super_admin` может запускать test scenarios из UI с выбором `server`, `law_version`, `actor_context`, `answer_mode` и одного сценария или группы сценариев
-- test-run результат показывает `used_sources`, `confidence`, `insufficient_data`, `tokens`, `cost` и `latency`
-- повторный запуск того же сценария позволяет увидеть comparison `до/после`
-- risky test-run результат автоматически передаётся в шаг `17`
-- шаг `16` не разрастается в админский инструментальный слой, автоматический review-контур или переусложнённый слой оркестрации
+- risky test-run результат может быть автоматически передан в шаг `17`
+- шаг `16` не разрастается в review-систему и не подменяет шаг `17`

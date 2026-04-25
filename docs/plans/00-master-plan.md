@@ -192,138 +192,80 @@
 
 Статус: `partial`
 
-Остаётся активной, потому что текущий helper-уровень AI уже существует, а дальнейшее расширение beyond current scope ещё не закрыто.
+Это зонтичная AI-линия.
 
-Уточнение по роли этой линии:
+Роль этой линии:
 
-- `08` остаётся общей зонтичной линией по AI-интеграции
-- будущий `16` должен конкретизировать базовое legal core для юридической AI-выдачи
-- будущий `17` должен описывать слой AI Quality Review уже после legal core
-- `16` и `17` не должны дублировать или подменять `08`, а должны выступать как его более узкие post-MVP шаги-продолжения
+- зафиксировать, что AI-направление в проекте уже существует
+- зафиксировать текущий общий AI-контур
+- быть точкой входа в более узкие post-MVP шаги
+
+Границы:
+
+- `08` не описывает детальную legal-core механику
+- `08` не описывает детальный quality-review workflow
+- `08` не подменяется шагами `16` и `17`
+
+Источник правды:
+
+- [08-ai-integration.md](./08-ai-integration.md)
 
 ### `16-ai-legal-core`
 
 Статус: `post-MVP / active / partial`
 
-Это следующий именованный шаг после `15`, но по product-смыслу он конкретизирует AI-направление именно после `08`.
+Это отдельный post-MVP шаг после `08`, но только для `AI Legal Core`.
 
-Источник правды для этой линии:
+Роль этой линии:
+
+- зафиксировать `input normalization`
+- зафиксировать единый legal pipeline
+- зафиксировать `LegalQueryPlan`
+- зафиксировать `LawFamily`
+- зафиксировать `NormRole`
+- зафиксировать `applicability scoring`
+- зафиксировать `structured selection`
+- зафиксировать `direct_basis_status`
+- зафиксировать `source_ledger`, `fact_ledger` и `self-assessment`
+- зафиксировать multi-server grounding через `server_id + law_version`
+- зафиксировать сценарии тестового раннера как контур ручной проверки legal core
+
+Границы:
+
+- `16` не подменяет шаг `08`
+- `16` не включает `AI Quality Review`
+- `16` не включает review workflow, `fix_instruction`, `AI Behavior Rules` и `regression gate`
+
+Источник правды:
 
 - [16-ai-legal-core.md](./16-ai-legal-core.md)
-
-Фокус шага:
-
-- довести базовую юридическую AI-выдачу до рабочего состояния до внедрения отдельного слоя `AI Quality Review`
-- распространить единый legal core на `server legal assistant` и AI-доработку описательной части
-- закрепить обязательный grounding по `server_id + law_version`
-- ввести `intent`, `actor_context`, `response_mode`, `source ledger`, `fact ledger` и `self-assessment` как базовые элементы post-MVP контура юридической AI-выдачи, не подменяя общую AI-линию шага `08`
-
-Что уже реализовано в repo:
-
-- legal-core metadata и internal logging для assistant и document rewrite flows
-- слой нормализации входного текста с `raw_input` / `normalized_input`
-- полноценный `actor_context` contract для assistant и rewrite flows
-- `law_version_contract` для assistant, обычного rewrite и grounded rewrite
-- `source ledger` / `used_sources` для assistant
-- `fact ledger` для AI-доработки описательной части
-- retrieval-aware legal guardrails для обычного rewrite
-- grounded rewrite с теми же legal-core принципами
-- `input_trace` / `output_trace` для основных AI-flow
-- скрытые future-review markers как мост к шагу `17`, но без включения самого review-слоя
-- усиленная атрибуция источников в assistant, которая уже достаточно отделяет найденные, переданные и реально использованные источники для прикладных нужд legal core
-- internal `super_admin` route для assistant-based test scenarios поверх того же legal-core pipeline
-- internal `super_admin` route для assistant- и rewrite-based test scenarios поверх того же legal-core pipeline
-- выбор `server`, `law_version = current_snapshot_only`, `actor_context`, `answer_mode` и одного сценария или группы сценариев
-- показ итоговой AI-выдачи, `used_sources`, `confidence`, `insufficient_data`, `tokens`, `cost`, `latency`
-- test-run metadata, которая уже протягивается в assistant pipeline и позволяет risky test-run кейсам попадать в шаг `17` тем же review bridge
-- compact internal runner для `document_text_improvement`, который не требует реального document draft, но использует те же legal-core guardrails, `self-assessment` и hidden review routing
-- comparison `до/после` для повторного запуска того же test scenario на базе уже сохранённых `AIRequest`
-- минимальный storage-layer `ai_test_scenarios / ai_test_runs / ai_test_run_results`
-
-Что ещё остаётся как прямой scope:
-
-- новых обязательных расширений для шага `16` больше не требуется; дальнейшее развитие должно уходить только в шаг `17` или в отдельную operational maturity line
-
-Что специально не нужно превращать в шаг `16`:
-
-- внутренний review UI
-- полное семантическое доказательство для каждой фразы ответа
-- hard enforcement `ровно 3–7 норм`
-- отдельный фреймворк оркестрации для дешёвых и дорогих операций
-- всё, что по смыслу уже относится к `17-ai-quality-review`
-
-После этого шага следующей отдельной follow-up линией должен идти `17-ai-quality-review`, который не входит в сам шаг `16`.
 
 ### `17-ai-quality-review`
 
 Статус: `post-MVP / active / partial`
 
-Это следующий именованный шаг после `16`, и он явно зависит от уже стабилизированного legal core из шага `16`.
+Это отдельный post-MVP шаг после `16`, и он зависит от уже определённого `AI Legal Core`.
 
-Что уже реализовано в repo:
+Роль этой линии:
 
-- hidden review snapshot в `AIRequest`
-- internal route `/internal/ai-review`
-- bootstrap `AI reviewer`
-- review analytics и lifecycle
-- bridge для risky test-run результатов из шага `16`
-- comparison `до/после` для test scenarios
-- минимальный storage-layer `ai_test_scenarios / ai_test_runs / ai_test_run_results`
+- проверять цепочку `raw_input -> normalized_input -> selected norms -> final output`
+- выделять `law_basis_issue`
+- фиксировать review flags и normalization flags
+- задавать `fix_instruction`
+- задавать `AI Behavior Rules`
+- задавать `regression gate`
+- принимать в review queue и реальные кейсы, и результаты test runner из шага `16`
+- учитывать `server_id + law_version` как обязательный review-контекст
 
-Источник правды для этой линии:
+Границы:
+
+- `17` не подменяет шаг `08`
+- `17` не проектирует legal core заново
+- `17` не определяет retrieval-механику вместо шага `16`
+
+Источник правды:
 
 - [17-ai-quality-review.md](./17-ai-quality-review.md)
-
-Фокус шага:
-
-- построить внутренний слой контроля качества AI-выдачи после `16`
-- проверять и `server legal assistant`, и AI-доработку описательной части
-- собирать спорные кейсы, flags, сигналы риска, fix instructions и ожидания для regression в управляемый внутренний контур проверки
-- не выпускать автоматические изменения в production-логику без человека, `PR` / `commit` и проверки
-
-Что уже реализовано в repo:
-
-- deterministic quality-review snapshot внутри `AIRequest`
-- bridge между future-review markers шага `16` и review snapshot шага `17`
-- bootstrap controls для `AI_REVIEW_ENABLED` и `AI_REVIEW_MODE`
-- visibility этих bootstrap controls в release/preflight checks
-- internal runtime visibility этих controls в `/internal/health`
-- compact preview очереди спорных кейсов в `/internal/health`
-- базовый `AI reviewer` second pass в `full` режиме через AI proxy
-- отдельный compact route `/internal/ai-review` для human review workflow
-- richer case card в `/internal/ai-review` с цепочкой `raw_input -> normalized_input -> retrieved sources -> final output`
-- aggregate analytics в `/internal/ai-review` по `root_cause`, `flags`, `prompt_version`, `law_version`, `tokens` и `cost`
-- access-scoped review views для `super_admin`, `server_admin` и `tester`
-- repo-managed `Confirmed Issue Registry` как baseline persisted annotation layer
-- lifecycle confirmed issues с status transitions и closure guards
-- closure decisions и reopen policy для confirmed issues
-- repo-managed bootstrap реестра `AI Behavior Rules` и шаблона `fix_instruction`
-- repo-managed bootstrap checklist для `regression gate`
-- реально enforced daily request/cost limits для reviewer second pass
-- daily usage visibility этих limits в `/internal/health`
-- сохранение normalization review chain и case chain `raw_input -> normalized_input -> retrieved sources -> final output`
-- сохранение `risk_level`, `confidence`, `flags`, `root_cause`, `input_quality`, `issue_fingerprint`, `issue_cluster_key`
-- различение `test_run` и обычного user flow в internal review preview с показом `test_run_id`, `test_scenario_id`, `test_scenario_group`
-- базовая аналитика по test scenario groups внутри review preview
-
-Что ещё остаётся как прямой scope:
-
-- сущности `ai_test_scenarios`, `ai_test_runs`, `ai_test_run_results`
-- повторный запуск test scenario и сравнение результата до/после
-
-Что ещё может оставаться только как optional maturity, а не как обязательный хвост:
-
-- более зрелый `regression gate` beyond current checklist
-- richer UI beyond current review workflow surface
-- deeper analytics beyond current aggregate summary
-- persisted storage для review annotations при реальной operational необходимости
-- более зрелая reviewer policy или reviewer-specific dataset, если bootstrap reviewer перестанет хватать
-
-Границы этой линии:
-
-- `17` не является частью MVP
-- `17` не подменяет зонтичную линию `08`
-- `17` не заменяет legal core шага `16`, а зависит от него, идёт после него и проверяет уже выстроенную базовую AI-логику
 
 ### `12-post-mvp-template-documents`
 

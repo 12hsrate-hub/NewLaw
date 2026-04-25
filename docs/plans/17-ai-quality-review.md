@@ -4,54 +4,32 @@
 
 Post-MVP. Не входит в MVP.
 
-Текущий repo-state для этого шага:
-
-- стартовый deterministic bootstrap уже реализован в коде
-- спорные AI-кейсы уже могут сохраняться в `AIRequest` с внутренним quality-review snapshot
-- kill switch и review modes `off / log_only / full` уже частично реализованы для bootstrap-слоя
-- отдельный `AI reviewer` model layer уже запущен в базовом виде для `full` режима
-- risky результаты из internal test scenarios шага `16` уже попадают в тот же review bridge через `AIRequest` и `test_run_context`
-- internal review preview уже различает `test_run` и обычный user flow, показывает `test_run_id`, `test_scenario_id`, `test_scenario_group` и умеет считать базовую аналитику по test scenario groups
-- повторный запуск test scenario уже можно сравнивать в `до/после`-режиме по сохранённым `AIRequest`, без отдельного временного storage слоя
-- минимальный persistence-layer для `ai_test_scenarios`, `ai_test_runs`, `ai_test_run_results` уже реализован
-- базовый internal UI и human fix workflow уже реализованы, но ещё не доведены до full operational maturity
-- минимально полезный workflow closure теперь уже собран: lifecycle, closure decision и reopen policy зафиксированы
-
 ## Зависимость от шага 16
 
 Шаг `17` должен идти после [16-ai-legal-core.md](./16-ai-legal-core.md) и зависеть от него.
 
 Это означает:
 
-- `17` не запускается как самостоятельная AI-линия раньше стабилизации шага `16`
-- `17` проверяет уже сформированную базовую AI-логику, а не подменяет её
-- `17` использует `self-assessment`, `source ledger`, `fact ledger` и другие сигналы, которые вводятся в шаге `16`
-- `17` должен учитывать, что `AI Legal Core` является мультисерверным слоем, а не логикой под один сервер
-
-`AI Quality Review` должен оценивать AI-выдачу только в контексте конкретного `server_id` и `law_version`.
-
-Нельзя сравнивать ответы между серверами без учёта различий в законодательстве.
+- `17` не подменяет `AI Legal Core`
+- `17` не проектирует retrieval-ядро заново
+- `17` оценивает результаты шага `16`, а не заменяет его
 
 ## Назначение
 
-Этот шаг фиксирует post-MVP внутренний контроль качества AI-выдачи после того, как базовая AI-логика доведена до рабочего состояния.
+Этот шаг фиксирует только `AI Quality Review`.
 
-Этот шаг:
+Его задача:
 
-- не переоткрывает MVP
-- не заменяет [08-ai-integration.md](./08-ai-integration.md)
-- не заменяет [16-ai-legal-core.md](./16-ai-legal-core.md)
-- не меняет production-логику автоматически
-- не дублирует legal core шага `16`, а проверяет его после стабилизации
+- проверять качество AI-выдачи после прохождения через `AI Legal Core`
+- выявлять ошибки выбора нормы, применения нормы, нормализации и финальной генерации
+- собирать спорные кейсы в управляемый внутренний контур проверки
 
 ## Что проверяется
 
-AI Quality Review применяется к:
+`AI Quality Review` применяется к:
 
 - юридическому помощнику
 - AI-доработке описательной части
-
-Это значит, что слой проверки должен уметь оценивать и ответы помощника, и контролируемую AI-доработку внутри document flows.
 
 ## Что пользователь не видит
 
@@ -63,43 +41,83 @@ AI Quality Review применяется к:
 - `review_items`
 - внутренние замечания
 
-AI Quality Review работает как скрытый внутренний слой качества и не превращается в пользовательский диагностический интерфейс.
+## Мультисерверная проверка
 
-## Сохранение спорных случаев
+`AI Quality Review` должен оценивать AI-выдачу только в контексте конкретных:
 
-Система должна сохранять спорные AI-выдачи для `super_admin`.
+- `server_id`
+- `law_version`
 
-Под спорным случаем здесь понимается любой ответ или AI-доработка, где:
+Нельзя сравнивать ответы между серверами без учёта различий в законодательстве.
 
-- сработали deterministic checks
-- reviewer-модель подняла сигналы риска
-- пришли self-risk сигналы из шага `16`
-- `confidence` и сигналы качества оказались недостаточно надёжными для спокойного закрытия кейса без дополнительной проверки
+## Что шаг 17 получает из шага 16
+
+Шаг `17` использует как вход:
+
+- `raw_input`
+- `normalized_input`
+- `LegalQueryPlan`
+- selected candidates
+- `LawFamily`
+- `NormRole`
+- applicability scoring result
+- structured selection result
+- `direct_basis_status`
+- `source_ledger`
+- `fact_ledger`, если применимо
+- `self_assessment`
+- final output
+
+## Цепочка проверки
+
+`AI Quality Review` должен проверять полную цепочку:
+
+- `raw_input`
+- `normalized_input`
+- `selected norms`
+- `final output`
+
+Эта цепочка нужна, чтобы отделять:
+
+- ошибки нормализации
+- ошибки retrieval
+- ошибки выбора нормы
+- ошибки генерации
+- ошибки правовой базы
 
 ## Состав проверки
 
-Проверка качества должна состоять из трёх слоёв:
+Проверка должна состоять из трёх слоёв:
 
 - `deterministic checks`
 - `AI reviewer`
 - self-risk сигналов из шага `16`
 
-Роль этих слоёв:
+## `law_basis_issue`
 
-- `deterministic checks` ловят предсказуемые структурные ошибки и нарушения поведенческих правил
-- `AI reviewer` даёт более гибкую смысловую оценку спорных ответов
-- сигналы из шага `16` передают внутрь контура проверки внутреннюю оценку риска и нехватки опоры
+В шаге `17` должен быть отдельный класс проблем `law_basis_issue`.
 
-Текущий practical bootstrap этого шага:
+Он нужен для случаев, когда:
 
-- deterministic review snapshot уже сохраняется
-- self-risk сигналы из шага `16` уже протягиваются в review snapshot
-- `AI reviewer` уже может запускаться как отдельный model layer в `full` режиме
-- reviewer пока ещё остаётся compact bootstrap layer, а не финальной production-grade review orchestration
+- выбраны нормы не того `LawFamily`
+- отсутствует `primary_basis`
+- procedural или exception-норма подменяет прямую базу
+- итоговый ответ сильнее, чем позволяют выбранные нормы
+- итоговый вывод конфликтует с `direct_basis_status`
 
-## Обязательные поля модели проверки
+## Флаги проверки (`review flags`)
 
-Для контура проверки нужно предусмотреть:
+Минимально должны поддерживаться review flags:
+
+- `missing_primary_basis_norm`
+- `law_family_mismatch`
+- `selected_norm_scope_mismatch`
+- `department_specific_norm_used_for_general_question`
+- `answer_claim_exceeds_selected_norms`
+- `weak_direct_basis`
+- `off_topic_context_norm`
+
+Дополнительно должны поддерживаться общие поля review-контура:
 
 - `risk_level`
 - `confidence`
@@ -109,29 +127,9 @@ AI Quality Review работает как скрытый внутренний с
 - `issue_fingerprint`
 - `issue_cluster_key`
 
-Смысл этих полей:
-
-- `risk_level` — насколько опасно оставлять кейс без вмешательства
-- `confidence` — насколько слой проверки уверен в собственной оценке
-- `flags` — какие типы проблем или подозрений обнаружены
-- `root_cause` — предполагаемая первопричина ошибки
-- `input_quality` — насколько сам пользовательский ввод пригоден для устойчивой оценки
-- `issue_fingerprint` — стабильный отпечаток конкретной проблемы
-- `issue_cluster_key` — ключ для группировки повторяющихся проблем в один класс
-
-Дополнительно для проблем, связанных с нормализацией входа, нужно предусмотреть:
-
-- `fix_target`
-
-Поддерживаемые значения `fix_target`:
-
-- `normalization_prompt`
-- `normalization_model`
-- `normalization_guardrail`
-
 ## Проверка нормализации входного текста
 
-`AI Quality Review` должен учитывать слой `input normalization` из шага [16-ai-legal-core.md](./16-ai-legal-core.md).
+`AI Quality Review` должен учитывать слой `input normalization` из шага `16`.
 
 Для каждой спорной AI-выдачи нужно сохранять и показывать `super_admin`:
 
@@ -142,36 +140,69 @@ AI Quality Review работает как скрытый внутренний с
 - `normalization_changed`
 - результат сравнения `raw_input` и `normalized_input`
 
-`AI Quality Review` должен уметь помечать ошибки нормализации отдельными `flags`:
+## Флаги нормализации (`normalization flags`)
 
-- `normalization_changed_meaning` — нормализация изменила смысл
-- `normalization_added_fact` — нормализация добавила факт
-- `normalization_removed_fact` — нормализация убрала важный факт
-- `normalization_overlegalized` — нормализация добавила юридическую оценку
-- `normalization_too_aggressive` — нормализация слишком сильно переписала ввод
-- `normalization_failed` — нормализация не исправила явно проблемный текст
+Ошибки нормализации должны помечаться отдельными флагами:
 
-Если подтверждённая проблема возникла из-за нормализации, `root_cause` должен фиксироваться как:
+- `normalization_changed_meaning`
+- `normalization_added_fact`
+- `normalization_removed_fact`
+- `normalization_overlegalized`
+- `normalization_too_aggressive`
+- `normalization_failed`
+
+Если проблема возникла из-за нормализации, `root_cause` должен быть:
 
 - `normalization_issue`
 
-В карточке спорного случая `super_admin` должен видеть полную цепочку:
+## `fix_instruction`
 
-- `raw_input`
-- `normalized_input`
-- `retrieved sources`
-- `final output`
+Для подтверждённой проблемы `super_admin` должен фиксировать `fix_instruction`.
 
-Эта цепочка нужна, чтобы было видно, где именно возникла ошибка:
+В `fix_instruction` обязательно должны быть:
 
-- в нормализации
-- в retrieval
-- в генерации
-- в правовой базе
+- что AI сделал неправильно
+- как AI должен вести себя в будущем
+- когда правило применяется
+- что запрещено
+- плохой пример
+- хороший пример
+- критерии приёмки
+- инструкция для Codex
+- ожидание для regression test
 
-## Связь с тестовыми сценариями из AI Legal Core
+Если подтверждённая проблема связана с нормализацией, дополнительно нужно фиксировать:
 
-`AI Quality Review` должен принимать не только реальные пользовательские AI-выдачи, но и результаты тестовых прогонов из UI `super_admin` из шага [16-ai-legal-core.md](./16-ai-legal-core.md).
+- что именно нормализация изменила неправильно
+- какой смысл был в `raw_input`
+- какой смысл появился в `normalized_input`
+- как должна вести себя нормализация в будущем
+- пример плохой нормализации
+- пример правильной нормализации
+- критерий приёмки для regression test
+
+## `AI Behavior Rules`
+
+Нужен единый реестр `AI Behavior Rules`.
+
+Он должен:
+
+- собирать утверждённые `fix_instruction`
+- быть каноническим списком правил поведения AI
+- отделять подтверждённые правила от разовых замечаний
+
+## `regression gate`
+
+Нужен обязательный `regression gate`.
+
+Подтверждённую проблему нельзя считать исправленной без:
+
+- теста
+- или явного обоснования, почему тест не требуется
+
+## Связь с тестовым раннером (`test runner`)
+
+`AI Quality Review` должен принимать не только реальные пользовательские AI-выдачи, но и результаты тестовых прогонов из шага `16`.
 
 Для таких случаев нужно сохранять:
 
@@ -188,22 +219,16 @@ AI Quality Review работает как скрытый внутренний с
 - `self_assessment`
 - `review_status`
 
-Плохая или спорная выдача из тестового прогона должна попадать в очередь `super_admin` так же, как и проблемная реальная выдача.
+Плохая или спорная выдача из test runner должна попадать в очередь `super_admin` так же, как и проблемная реальная выдача.
 
 После доработки логики `super_admin` должен иметь возможность повторно запустить тот же тестовый сценарий и сравнить результат:
 
 - до изменений
 - после изменений
 
-Ключевой принцип:
-
-- тестовые вопросы — это не просто примеры
-- это механизм ручной проверки `AI Legal Core` через UI
-- это источник задач для `AI Quality Review`
-
 ## Плановые сущности
 
-Для этой линии нужны такие сущности:
+Для этой линии должны быть предусмотрены сущности:
 
 - `ai_test_scenarios`
 - `ai_test_runs`
@@ -242,79 +267,11 @@ AI Quality Review работает как скрытый внутренний с
 - `passed_basic_checks`
 - `sent_to_review`
 
-Текущий practical repo-state:
+Ключевой принцип:
 
-- эти сущности уже реализованы как минимальный storage-layer
-- `AIRequest + test_run_context` остаются rich trace-слоем для `raw_input`, `normalized_input`, `retrieved_sources`, `final_output`, `self_assessment`, `review_status`
-- `ai_test_*` слой сейчас используется как структурированный индекс сценариев, прогонов и результатов, а не как замена detailed AI trace
-
-## Fix Instruction
-
-Для подтверждённой проблемы `super_admin` должен фиксировать `fix_instruction`.
-
-В `fix_instruction` обязательно должны быть:
-
-- что AI сделал неправильно
-- как AI должен вести себя в будущем
-- когда правило применяется
-- что запрещено
-- плохой пример
-- хороший пример
-- критерии приёмки
-- инструкция для Codex
-- ожидание для regression test
-
-Если подтверждённая проблема связана именно с нормализацией, `fix_instruction` дополнительно должен фиксировать:
-
-- что именно нормализация изменила неправильно
-- какой смысл был в `raw_input`
-- какой смысл появился в `normalized_input`
-- как должна вести себя нормализация в будущем
-- пример плохой нормализации
-- пример правильной нормализации
-- критерий приёмки для regression test
-
-`fix_instruction` не должен жить как разовая заметка в отдельной жалобе.
-Это должен быть нормализованный внутренний артефакт, пригодный для дальнейшего `PR`, `commit`, изменений prompts и тестовой фиксации.
-
-## AI Behavior Rules
-
-Нужен единый реестр `AI Behavior Rules`, чтобы правки не жили хаотично в отдельных жалобах.
-
-Этот реестр должен:
-
-- собирать утверждённые `fix_instruction`
-- служить каноническим списком правил поведения AI
-- отделять подтверждённые правила поведения от временных комментариев и сырых наблюдений
-- использоваться как source of truth для будущих обновлений prompts/config/tests
-
-## Regression Gate
-
-Нужен обязательный `regression gate`.
-
-Подтверждённую проблему нельзя считать исправленной без:
-
-- теста
-- или явного обоснования, почему тест не требуется
-
-Это правило нужно, чтобы исправления не замыкались на человеческой памяти или разовой правке prompt без проверяемого следа.
-
-## Будущая UI-часть для super_admin
-
-UI для `super_admin` должен быть отдельной будущей частью шага `17`.
-
-В будущий внутренний UI должны входить:
-
-- спорные случаи
-- статистика
-- цепочка `raw_input -> normalized_input -> retrieved sources -> final output`
-- ошибки по `flags`
-- ошибки по `prompt_version`
-- ошибки по `law_version`
-- стоимость и токены
-- тестовые примеры
-
-По route policy проекта это должен быть внутренний инструмент, а не пользовательский модуль.
+- тестовые вопросы — это не просто примеры
+- это механизм ручной проверки `AI Legal Core`
+- это источник задач для `AI Quality Review`
 
 ## Доступ
 
@@ -325,33 +282,19 @@ UI для `super_admin` должен быть отдельной будущей 
 - `tester` видит sanitized/test examples
 - пользователь не видит этот раздел
 
-Это разделение не должно ломать базовую внутреннюю политику проекта:
-
-- raw-материалы и внутренние замечания не становятся видимыми пользователю
-- доступ уровня сервера не даёт полный контроль над сырыми материалами контура проверки
-- слой проверки не становится публичной аналитикой
-
-## Kill Switch и лимиты
+## Kill switch и лимиты
 
 Нужно предусмотреть:
 
 - `AI_REVIEW_ENABLED`
 - `AI_REVIEW_MODE=off/log_only/full`
-- `daily cost/request limits`
-
-Смысл режимов:
-
-- `off` — контур проверки выключен
-- `log_only` — данные собираются без полного прохода проверки
-- `full` — включён полноценный контур проверки
-
-Лимиты нужны, чтобы слой проверки не превращался в бесконтрольный источник расходов.
+- daily cost/request limits
 
 ## Принцип изменения production-логики
 
 Нужно зафиксировать явно:
 
-- AI Quality Review не меняет production-логику автоматически
+- `AI Quality Review` не меняет production-логику автоматически
 
 Все правки идут только через:
 
@@ -359,141 +302,33 @@ UI для `super_admin` должен быть отдельной будущей 
 - `PR` / `commit`
 - проверку
 
-Это означает:
+## Что не входит в шаг 17
 
-- reviewer не вносит изменения в prompts/config/rules сам по себе
-- `fix_instruction` не применяется автоматически в production без явного инженерного цикла
-- качество AI улучшается через управляемые изменения, а не через скрытый самоизменяющийся цикл
+Не входит:
 
-## Что шаг 17 не делает
+- проектирование retrieval engine
+- проектирование `LegalQueryPlan`
+- определение `LawFamily`
+- определение `NormRole`
+- structured selection как retrieval-механизм
+- UI шага `16`
+- API шага `16`
+- Prisma-изменения ради legal core
 
-Шаг `17` не делает:
-
-- не превращает слой проверки в центр пользовательских предупреждений
-- не подменяет legal core шага `16`
-- не отменяет зонтичную роль шага `08`
-- не считается частью закрытия MVP
-- не даёт автоматическое исправление production prompts без человека
-
-## Что уже реализовано в repo
-
-На текущем этапе в репозитории уже реализованы такие части `AI Quality Review`:
-
-- deterministic review snapshot внутри `AIRequest`
-- bootstrap controls для `AI_REVIEW_ENABLED` и `AI_REVIEW_MODE`
-- release/preflight visibility для `AI_REVIEW_ENABLED`, `AI_REVIEW_MODE` и bootstrap limits
-- internal visibility runtime controls в `/internal/health`
-- compact preview очереди спорных AI-кейсов в `/internal/health`
-- базовый `AI reviewer` second pass через AI proxy в `full` режиме
-- отдельный internal route `/internal/ai-review` как process surface для review queue, `AI Behavior Rules` и `fix_instruction`
-- richer review-карточка в `/internal/ai-review` с цепочкой:
-  - `raw_input`
-  - `normalized_input`
-  - `retrieved sources`
-  - `final output`
-- analytics summary в `/internal/ai-review` по:
-  - `root_cause`
-  - `flags`
-  - `prompt_version`
-  - `law_version`
-  - `fix_target`
-  - `tokens`
-  - `cost`
-- access-scoped view models в `/internal/ai-review`:
-  - `super_admin` видит `full_raw`
-  - `server_admin` получает `anonymized_statistics`
-  - `tester` получает `sanitized_test_examples`
-- repo-managed `Confirmed Issue Registry` как baseline для persisted annotations:
-  - linked `AI Behavior Rules`
-  - `fix_instruction` snapshot
-  - regression follow-up status
-  - example `issue_fingerprint`
-  - example `issue_cluster_key`
-- lifecycle confirmed issue внутри `/internal/ai-review`:
-  - `confirmed_followup_required`
-  - `fix_in_progress`
-  - `regression_ready`
-  - `closed`
-- явные allowed transitions и closure guards для confirmed issues
-- `closure decision` и `reopen policy` для confirmed issues
-- planned ingestion test-run результатов из UI `super_admin` из шага `16`
-- baseline compare-loop для test scenarios:
-  - повторный запуск того же сценария
-  - comparison `до/после` по последним сохранённым `AIRequest`
-- минимальный storage-layer `ai_test_scenarios / ai_test_runs / ai_test_run_results`
-- показ в review-карточке дополнительных полей:
-  - `quality_score`
-  - `confidence`
-  - `input_quality`
-  - `fix_target`
-  - `review_items`
-  - `ai_reviewer status`
-- repo-managed bootstrap реестра `AI Behavior Rules`
-- repo-managed шаблон `fix_instruction` для confirmed issues
-- repo-managed bootstrap checklist для `regression gate`
-- реально работающие daily request/cost limits для reviewer second pass
-- daily usage visibility этих limits в `/internal/health`
-- сохранение `risk_level`, `confidence`, `flags`, `root_cause`, `input_quality`, `issue_fingerprint`, `issue_cluster_key`
-- сохранение normalization review chain:
-  - `raw_input`
-  - `normalized_input`
-  - `normalization_model`
-  - `normalization_prompt_version`
-  - `normalization_changed`
-  - результат сравнения `raw_input` и `normalized_input`
-- сохранение case chain:
-  - `raw_input`
-  - `normalized_input`
-  - `retrieved sources`
-  - `final output`
-- deterministic обработка normalization-related проблем с `root_cause = normalization_issue`
-- deterministic bridge между future-review markers из шага `16` и скрытым review snapshot шага `17`
-
-Это означает, что шаг `17` уже начат как внутренний review bootstrap, а его связь с test-run contour из шага `16` уже существует в первом practical виде.
-
-## Что ещё остаётся до полезного закрытия шага
-
-После текущего среза основной review baseline уже собран, но полезный незакрытый хвост ещё остаётся.
-
-Что ещё остаётся как прямой scope этой линии:
-
-- при необходимости расширить текущий storage-layer до более зрелой persistence-модели, если current `AIRequest + ai_test_*` bridge перестанет хватать operationally
-
-Что может оставаться только как optional operational maturity, а не как обязательный следующий scope:
-
-- более зрелый `regression gate` beyond current checklist
-- richer internal UI beyond current review workflow surface
-- deeper analytics beyond current aggregate summary
-- более зрелая policy limits beyond current bootstrap enforcement
-- отдельный persisted storage вместо repo-managed registries, если этого потребует operational scale
-- reviewer-specific dataset или отдельный reviewer model tier, если bootstrap reviewer перестанет хватать
-
-Что специально не нужно дальше искусственно раздувать внутри шага `17`:
-
-- новый большой subsystem ради reviewer orchestration
-- отдельную БД только ради review annotations без реальной operational необходимости
-- дополнительные route surfaces без новой access-policy задачи
-- усложнение UI без нового confirmed workflow gap
+Это всё относится к шагу `16`.
 
 ## Критерии приёмки
 
-Шаг `17` можно считать корректно зафиксированным как план, если:
+Шаг `17` описан корректно, если:
 
 - он явно зависит от шага `16`
 - проверка распространяется и на юридического помощника, и на AI-доработку описательной части
-- пользователь не видит внутренние поля контура проверки
+- review оценивает цепочку `raw_input -> normalized_input -> selected norms -> final output`
+- отдельно выделяется `law_basis_issue`
+- предусмотрены review flags и normalization flags
+- пользователь не видит внутренние поля review-контура
 - спорные случаи сохраняются для `super_admin`
-- контур проверки состоит из `deterministic checks`, `AI reviewer` и self-risk сигналов из шага `16`
-- предусмотрены `risk_level`, `confidence`, `flags`, `root_cause`, `input_quality`, `issue_fingerprint`, `issue_cluster_key`
-- отдельно описана проверка слоя `input normalization` из шага `16`
-- для normalization-проблем предусмотрены `flags`, `root_cause = normalization_issue` и `fix_target`
-- подтверждённая проблема требует `fix_instruction`
-- есть единый реестр `AI Behavior Rules`
-- проблема не считается исправленной без `regression gate`
-- результаты test-run из шага `16` тоже могут попадать в review queue
-- для test-run результатов предусмотрены поля `test_scenario_id`, `test_run_id`, `server_id`, `law_version`, `actor_context`, `answer_mode`, `raw_input`, `normalized_input`, `retrieved_sources`, `final_output`, `self_assessment`, `review_status`
-- в плане явно предусмотрены `ai_test_scenarios`, `ai_test_runs`, `ai_test_run_results`
-- будущий внутренний UI описан отдельно от текущего пользовательского продукта
-- доступ разделён между `super_admin`, админом сервера, `tester` и обычным пользователем
-- предусмотрены kill switch, режимы работы и дневные лимиты
-- явно зафиксировано, что production-логика меняется только через человека, `PR` / `commit` и проверку
+- предусмотрены `fix_instruction`, `AI Behavior Rules`, `regression gate`
+- результаты test runner из шага `16` тоже могут попадать в review queue
+- review учитывает `server_id` и `law_version` и не сравнивает ответы разных серверов без контекста
+- production-логика меняется только через человека, `PR` / `commit` и проверку
