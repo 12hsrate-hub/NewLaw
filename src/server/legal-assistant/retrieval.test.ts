@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { buildAssistantPrecedentRetrievalQuery } from "@/server/legal-core/assistant-retrieval-query";
 import { buildLegalQueryPlan } from "@/server/legal-core/legal-query-plan";
 import { searchAssistantCorpus } from "@/server/legal-assistant/retrieval";
 
@@ -213,6 +214,19 @@ describe("assistant retrieval envelope", () => {
       },
     });
 
+    const searchCurrentPrecedentCorpus = vi.fn().mockResolvedValue({
+      query: legalQueryPlan.expanded_query,
+      serverId: "server-1",
+      resultCount: 0,
+      corpusSnapshot: {
+        serverId: "server-1",
+        generatedAt: "2026-04-21T08:00:00.000Z",
+        currentVersionIds: [],
+        corpusSnapshotHash: "precedent-snapshot-hash",
+      },
+      results: [],
+    });
+
     const result = await searchAssistantCorpus(
       {
         serverId: "server-1",
@@ -222,18 +236,7 @@ describe("assistant retrieval envelope", () => {
       {
         searchCurrentLawCorpus: vi.fn(),
         searchCurrentLawCorpusWithContext,
-        searchCurrentPrecedentCorpus: vi.fn().mockResolvedValue({
-          query: legalQueryPlan.expanded_query,
-          serverId: "server-1",
-          resultCount: 0,
-          corpusSnapshot: {
-            serverId: "server-1",
-            generatedAt: "2026-04-21T08:00:00.000Z",
-            currentVersionIds: [],
-            corpusSnapshotHash: "precedent-snapshot-hash",
-          },
-          results: [],
-        }),
+        searchCurrentPrecedentCorpus,
         now: () => new Date("2026-04-21T08:00:00.000Z"),
       },
     );
@@ -247,8 +250,107 @@ describe("assistant retrieval envelope", () => {
         }),
       }),
     );
+    expect(searchCurrentPrecedentCorpus).toHaveBeenCalledWith(
+      expect.objectContaining({
+        query: expect.any(String),
+      }),
+    );
     expect(result.retrievalDebug).toMatchObject({
       applied_biases: ["prefer_family:administrative_code"],
     });
+  });
+
+  it("ограничивает precedent query до допустимой длины для длинного assistant retrieval query", async () => {
+    const legalQueryPlan = buildLegalQueryPlan({
+      normalizedInput: "если руководство не ответило на адвокатский запрос",
+      intent: "situation_analysis",
+      actorContext: "general_question",
+      responseMode: "normal",
+      serverId: "server-1",
+    });
+    const searchCurrentPrecedentCorpus = vi.fn().mockResolvedValue({
+      query: legalQueryPlan.expanded_query,
+      serverId: "server-1",
+      resultCount: 0,
+      corpusSnapshot: {
+        serverId: "server-1",
+        generatedAt: "2026-04-21T08:00:00.000Z",
+        currentVersionIds: [],
+        corpusSnapshotHash: "precedent-snapshot-hash",
+      },
+      results: [],
+    });
+
+    await searchAssistantCorpus(
+      {
+        serverId: "server-1",
+        query: legalQueryPlan.expanded_query,
+        legalQueryPlan,
+      },
+      {
+        searchCurrentLawCorpus: vi.fn(),
+        searchCurrentLawCorpusWithContext: vi.fn().mockResolvedValue({
+          query: legalQueryPlan.expanded_query,
+          serverId: "server-1",
+          resultCount: 0,
+          corpusSnapshot: {
+            serverId: "server-1",
+            generatedAt: "2026-04-21T08:00:00.000Z",
+            currentVersionIds: [],
+            corpusSnapshotHash: "law-snapshot-hash",
+          },
+          results: [],
+          retrievalDebug: null,
+        }),
+        searchCurrentPrecedentCorpus,
+        now: () => new Date("2026-04-21T08:00:00.000Z"),
+      },
+    );
+
+    const precedentQuery = searchCurrentPrecedentCorpus.mock.calls[0]?.[0]?.query;
+
+    expect(precedentQuery).toBe(
+      buildAssistantPrecedentRetrievalQuery({
+        normalized_input: legalQueryPlan.normalized_input,
+        breakdown: {
+          expanded_query: legalQueryPlan.expanded_query,
+          base_terms: [],
+          anchor_terms: [
+            "адвокат",
+            "защитник",
+            "право на защиту",
+            "допуск защитника",
+            "адвокатский запрос",
+            "официальный адвокатский запрос",
+            "срок ответа",
+            "обязанность ответить",
+            "служебные обязанности",
+            "обязан",
+            "руководство",
+            "должностное лицо",
+            "санкция",
+            "штраф",
+            "ответственность",
+            "наказание",
+          ],
+          family_terms: [
+            "процессуальный кодекс",
+            "процедура задержания",
+            "закон об адвокатуре",
+            "адвокатская деятельность",
+            "государственная служба",
+            "служебные обязанности",
+            "ведомственный порядок",
+            "служебный регламент",
+            "административный кодекс",
+            "административное правонарушение",
+          ],
+          runtime_tags: ["attorney", "attorney_request", "official_duty"],
+          applied_biases: [],
+        },
+      }),
+    );
+    expect(precedentQuery.length).toBeLessThanOrEqual(500);
+    expect(precedentQuery).toContain("адвокатский запрос");
   });
 });

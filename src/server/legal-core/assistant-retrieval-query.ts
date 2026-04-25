@@ -37,6 +37,9 @@ export type AssistantRetrievalQueryBreakdown = {
   applied_biases: string[];
 };
 
+const DEFAULT_PRECEDENT_RETRIEVAL_QUERY_MAX_LENGTH = 500;
+const DEFAULT_ASSISTANT_RETRIEVAL_QUERY_MAX_LENGTH = 500;
+
 const anchorTermDictionary = {
   administrative_offense: [
     "административный кодекс",
@@ -106,6 +109,47 @@ function pushUniqueTag(target: AssistantRetrievalRuntimeTag[], value: AssistantR
   if (!target.includes(value)) {
     target.push(value);
   }
+}
+
+function buildHintedQuery(input: {
+  normalizedInput: string;
+  hints: string[];
+  prefixLabel: string;
+  maxLength: number;
+}) {
+  if (input.normalizedInput.length === 0) {
+    return input.normalizedInput;
+  }
+
+  if (input.normalizedInput.length >= input.maxLength) {
+    return input.normalizedInput.slice(0, input.maxLength);
+  }
+
+  if (input.hints.length === 0) {
+    return input.normalizedInput;
+  }
+
+  const prefix = `${input.normalizedInput}\n\n${input.prefixLabel}: `;
+  const selectedHints: string[] = [];
+  let currentLength = prefix.length;
+
+  for (const hint of input.hints) {
+    const separatorLength = selectedHints.length > 0 ? 2 : 0;
+    const nextLength = currentLength + separatorLength + hint.length;
+
+    if (nextLength > input.maxLength) {
+      break;
+    }
+
+    selectedHints.push(hint);
+    currentLength = nextLength;
+  }
+
+  if (selectedHints.length === 0) {
+    return input.normalizedInput;
+  }
+
+  return `${prefix}${selectedHints.join("; ")}`;
 }
 
 function tokenizeBaseTerms(input: string) {
@@ -250,14 +294,40 @@ export function buildAssistantRetrievalQuery(
   const retrievalHints = Array.from(new Set([...anchorTerms, ...familyTerms]));
 
   return {
-    expanded_query:
-      retrievalHints.length > 0
-        ? `${normalizedInput}\n\nretrieval_hints: ${retrievalHints.join("; ")}`
-        : normalizedInput,
+    expanded_query: buildHintedQuery({
+      normalizedInput,
+      hints: retrievalHints,
+      prefixLabel: "retrieval_hints",
+      maxLength: DEFAULT_ASSISTANT_RETRIEVAL_QUERY_MAX_LENGTH,
+    }),
     base_terms: baseTerms,
     anchor_terms: anchorTerms,
     family_terms: familyTerms,
     runtime_tags: runtimeTags,
     applied_biases: appliedBiases,
   };
+}
+
+export function buildAssistantPrecedentRetrievalQuery(input: {
+  normalized_input: string;
+  breakdown: AssistantRetrievalQueryBreakdown;
+  maxLength?: number;
+}) {
+  const maxLength = input.maxLength ?? DEFAULT_PRECEDENT_RETRIEVAL_QUERY_MAX_LENGTH;
+  const normalizedInput = input.normalized_input.trim();
+
+  const hints = Array.from(
+    new Set(
+      [...input.breakdown.anchor_terms, ...input.breakdown.family_terms].filter(
+        (term) => term.trim().length > 0,
+      ),
+    ),
+  );
+
+  return buildHintedQuery({
+    normalizedInput,
+    hints,
+    prefixLabel: "precedent_hints",
+    maxLength,
+  });
 }

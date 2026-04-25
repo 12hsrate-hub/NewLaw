@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { buildAssistantRetrievalQuery } from "@/server/legal-core/assistant-retrieval-query";
+import {
+  buildAssistantPrecedentRetrievalQuery,
+  buildAssistantRetrievalQuery,
+} from "@/server/legal-core/assistant-retrieval-query";
 
 describe("assistant retrieval query", () => {
   it("строит structured breakdown для вопроса про маску и задержание", () => {
@@ -70,5 +73,33 @@ describe("assistant retrieval query", () => {
       expect.arrayContaining(["attorney", "attorney_request", "official_duty"]),
     );
     expect(query.applied_biases).toContain("prefer_family:advocacy_law");
+  });
+
+  it("строит compact precedent query в пределах лимита длины", () => {
+    const breakdown = buildAssistantRetrievalQuery({
+      normalized_input: "если руководство не ответило на адвокатский запрос",
+      intent: "law_explanation",
+      required_law_families: [
+        "procedural_code",
+        "advocacy_law",
+        "government_code",
+        "department_specific",
+        "administrative_code",
+      ],
+      preferred_norm_roles: ["right_or_guarantee", "procedure", "primary_basis", "sanction", "remedy"],
+      legal_anchors: ["attorney_rights", "attorney_request", "official_duty", "sanction"],
+      question_scope: "general_question",
+      forbidden_scope_markers: ["официальный адвокатский запрос"],
+    });
+
+    const precedentQuery = buildAssistantPrecedentRetrievalQuery({
+      normalized_input: "если руководство не ответило на адвокатский запрос",
+      breakdown,
+    });
+
+    expect(precedentQuery.length).toBeLessThanOrEqual(500);
+    expect(precedentQuery).toContain("если руководство не ответило на адвокатский запрос");
+    expect(precedentQuery).toContain("адвокатский запрос");
+    expect(precedentQuery).toContain("обязанность ответить");
   });
 });

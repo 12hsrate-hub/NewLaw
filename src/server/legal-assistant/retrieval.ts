@@ -1,6 +1,9 @@
 import { createHash } from "node:crypto";
 
-import { buildAssistantRetrievalQuery } from "@/server/legal-core/assistant-retrieval-query";
+import {
+  buildAssistantPrecedentRetrievalQuery,
+  buildAssistantRetrievalQuery,
+} from "@/server/legal-core/assistant-retrieval-query";
 import type { LegalQueryPlan } from "@/server/legal-core/legal-query-plan";
 import {
   type LawRetrievalResult as CurrentLawRetrievalResult,
@@ -99,6 +102,13 @@ export async function searchAssistantCorpus(
         forbidden_scope_markers: input.legalQueryPlan.forbidden_scope_markers,
       })
     : null;
+  const precedentQuery =
+    input.legalQueryPlan && queryBreakdown
+      ? buildAssistantPrecedentRetrievalQuery({
+          normalized_input: input.legalQueryPlan.normalized_input,
+          breakdown: queryBreakdown,
+        })
+      : input.query;
   const lawRetrievalPromise: Promise<LawRetrievalResult> =
     input.legalQueryPlan && queryBreakdown
       ? dependencies.searchCurrentLawCorpusWithContext({
@@ -122,7 +132,7 @@ export async function searchAssistantCorpus(
     lawRetrievalPromise,
     dependencies.searchCurrentPrecedentCorpus({
       serverId: input.serverId,
-      query: input.query,
+      query: precedentQuery,
       limit: input.precedentLimit ?? 4,
       includeValidityStatuses: ["applicable", "limited"],
     }),
