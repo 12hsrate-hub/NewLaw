@@ -1,25 +1,26 @@
-# План 08: AI Integration
+# План 08: AI-интеграция
 
 ## Статус
 
 `partial`
 
-- public `server legal assistant` уже реализован как отдельный модуль
-- `11.3` добавляет первый document-AI block внутри existing document area
+- публичный `server legal assistant` уже реализован как отдельный модуль
+- `11.3` добавляет первый document-AI блок внутри существующей зоны документов
 - согласованный `v1` scope для `document field rewrite` уже реализован
-- первый grounded `v2` rollout для supported legal sections уже реализован
+- первый grounded `v2` rollout для поддержанных юридических секций уже реализован
 - текущий MVP AI scope уже не считается пустым или блокирующе незавершённым
-- chat UI и broad drafting suite в этом плане не активируются
+- chat UI и широкий drafting suite в этом плане не активируются
 
 Важно:
 
 - `partial` здесь больше не означает “AI ещё не начат”
 - `partial` здесь означает только future expansion beyond current `assistant + document field rewrite v1 + first grounded v2 rollout`
-- шаг `08` остаётся широкой umbrella-линией по AI-интеграции, а не детальным планом одного конкретного AI-подсценария
+- шаг `08` остаётся широкой зонтичной линией по AI-интеграции, а не детальным планом одного конкретного AI-подсценария
 - конкретная доработка ядра юридической AI-выдачи должна быть вынесена в будущий шаг `16 — AI Legal Core`
 - контроль качества AI-выдачи должен быть вынесен в будущий шаг `17 — AI Quality Review`
+- шаги `16` и `17` должны уточнять эту линию, а не дублировать уже описанный шаг `08`
 
-## Текущий реализованный scope
+## Текущий реализованный контур
 
 ### 1. Server legal assistant
 
@@ -30,7 +31,7 @@
 
 ### 2. Document field rewrite v1
 
-Реализован только как helper внутри existing OGP/claims editors:
+Реализован только как helper внутри существующих OGP/claims-редакторов:
 
 - owner-only server action `rewriteDocumentFieldAction({ documentId, sectionKey })`
 - только field-level rewrite
@@ -44,7 +45,7 @@
 
 ### 3. Grounded document AI v2
 
-Реализован как отдельный editor-centric helper поверх existing retrieval foundation:
+Реализован как отдельный editor-centric helper поверх существующей retrieval-основы:
 
 - owner-only server action `rewriteGroundedDocumentFieldAction({ documentId, sectionKey })`
 - reuse existing `searchAssistantCorpus(...)` как lower retrieval layer
@@ -93,7 +94,7 @@
 - template documents
 - route migration
 
-## Product rules
+## Продуктовые правила
 
 - AI helper не становится source of truth final document
 - если editor dirty, AI action блокируется сообщением `сначала сохраните черновик`
@@ -104,7 +105,7 @@
 - precedent никогда не подаётся как норма закона
 - если retrieval support незащитим, grounded flow честно возвращает `insufficient_corpus`
 
-## Logging and safety
+## Логирование и безопасность
 
 - используется existing proxy-only AI foundation
 - используется existing `ai_requests`
@@ -152,7 +153,8 @@
 - assistant и document AI остаются разными product lines
 - шаг `08` остаётся общей AI-линией и не должен подменяться будущими шагами `16` и `17`
 - шаг `16` должен конкретизировать legal core для юридического помощника и связанных legal-answer flows
-- шаг `17` должен описывать quality-review слой поверх уже выделенного legal core
+- шаг `17` должен описывать слой AI Quality Review поверх уже выделенного legal core
+- шаг `16` не должен переписывать весь шаг `08`, а шаг `17` не должен дублировать шаг `16`
 - current MVP AI scope покрывается существующим assistant module + document field rewrite v1
-- grounded document AI v2 уже существует как первый post-MVP expansion inside existing editors
+- grounded document AI v2 уже существует как первое post-MVP расширение внутри существующих редакторов
 - поэтому `partial` здесь означает не “AI для MVP ещё не существует”, а только то, что future expansion beyond current scope ещё не закрыта
