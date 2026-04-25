@@ -362,6 +362,7 @@ describe("answer pipeline", () => {
             law_id: "law-1",
             law_family: expect.any(String),
             norm_role: expect.any(String),
+            primary_basis_eligibility: expect.any(String),
           }),
         ]),
       );
@@ -425,6 +426,11 @@ describe("answer pipeline", () => {
           retrievalResults: expect.arrayContaining([
             expect.objectContaining({ sourceKind: "law" }),
             expect.objectContaining({ sourceKind: "precedent" }),
+          ]),
+          applicability_diagnostics: expect.arrayContaining([
+            expect.objectContaining({
+              primary_basis_eligibility: expect.any(String),
+            }),
           ]),
           source_ledger: expect.objectContaining({
             law_version_ids: ["law-version-1"],

@@ -287,6 +287,59 @@ describe("law corpus retrieval", () => {
     );
   });
 
+  it("для адвокатского запроса оставляет закон об адвокатуре выше OGP и санкционных норм", async () => {
+    const context = createRetrievalContext({
+      normalizedInput: "Если руководство не ответило на адвокатский запрос",
+      intent: "situation_analysis",
+    });
+
+    const result = await searchCurrentLawCorpusWithContext(
+      {
+        serverId: "server-1",
+        query: context.queryBreakdown.expanded_query,
+        limit: 12,
+        retrievalContext: context,
+      },
+      {
+        listCurrentLawBlocksByServer: vi.fn().mockResolvedValue([
+          createLawBlock({
+            id: "block-advocacy",
+            lawId: "law-advocacy",
+            lawKey: "advocacy_law",
+            lawTitle: "Закон об адвокатуре и адвокатской деятельности",
+            topicUrl: "https://forum.gta5rp.com/threads/advocacy/",
+            blockText:
+              "Официальный адвокатский запрос подлежит обязательному рассмотрению. Ответ даётся в установленный срок.",
+            articleNumberNormalized: "5",
+          }),
+          createLawBlock({
+            id: "block-ogp",
+            lawId: "law-ogp",
+            lawKey: "ogp_law",
+            lawTitle: "Закон «О деятельности офиса Генерального прокурора»",
+            topicUrl: "https://forum.gta5rp.com/threads/ogp/",
+            blockText:
+              "Прокурорская группа контролирует исполнение обязательных актов и может требовать отчёты.",
+            articleNumberNormalized: "51",
+          }),
+          createLawBlock({
+            id: "block-ak",
+            lawId: "law-ak",
+            lawKey: "administrative_code",
+            lawTitle: "Административный кодекс",
+            topicUrl: "https://forum.gta5rp.com/threads/ak/",
+            blockText: "Неисполнение служебных обязанностей влечёт штраф.",
+            articleNumberNormalized: "23",
+          }),
+        ]),
+        now: () => new Date("2026-04-20T12:00:00.000Z"),
+      },
+    );
+
+    expect(result.results[0]?.lawKey).toBe("advocacy_law");
+    expect(result.retrievalDebug?.candidate_pool_after_filters[0]?.law_key).toBe("advocacy_law");
+  });
+
   it("в fallback режиме не оставляет пустой pool и держит budget не больше 12 кандидатов", async () => {
     const context = createRetrievalContext({
       normalizedInput: "Если сотрудник не вёл бодикам, это нарушение?",

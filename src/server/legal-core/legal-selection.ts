@@ -30,9 +30,12 @@ export const directBasisStatuses = [
   "no_direct_basis",
 ] as const;
 
+export const primaryBasisEligibilities = ["eligible", "weak", "ineligible"] as const;
+
 export type LawFamily = (typeof lawFamilies)[number];
 export type NormRole = (typeof normRoles)[number];
 export type DirectBasisStatus = (typeof directBasisStatuses)[number];
+export type PrimaryBasisEligibility = (typeof primaryBasisEligibilities)[number];
 
 export type LegalSelectionCandidate = {
   serverId: string;
@@ -52,6 +55,10 @@ export type ScoredLegalCandidate<TCandidate extends LegalSelectionCandidate = Le
   law_family: LawFamily;
   norm_role: NormRole;
   applicability_score: number;
+  primary_basis_eligibility: PrimaryBasisEligibility;
+  primary_basis_eligibility_reason: string | null;
+  ineligible_primary_basis_reasons: string[];
+  weak_primary_basis_reasons: string[];
   matched_anchors: LegalAnchor[];
   matched_required_law_family: boolean;
   matched_preferred_norm_role: boolean;
@@ -86,6 +93,18 @@ function normalizeText(value: string) {
 
 function hasKeyword(source: string, keywords: string[]) {
   return keywords.some((keyword) => source.includes(keyword));
+}
+
+function buildCandidateTitleSearchText(candidate: LegalSelectionCandidate) {
+  return normalizeText([candidate.lawKey, candidate.lawTitle].join(" "));
+}
+
+function buildCandidateLawTitleText(candidate: LegalSelectionCandidate) {
+  return normalizeText(candidate.lawTitle);
+}
+
+function buildCandidateLawKeyText(candidate: LegalSelectionCandidate) {
+  return normalizeText(candidate.lawKey);
 }
 
 function buildCandidateSearchText(candidate: LegalSelectionCandidate) {
@@ -123,7 +142,84 @@ function isArticleLike(candidate: LegalSelectionCandidate) {
 }
 
 export function classifyLawFamily(candidate: LegalSelectionCandidate): LawFamily {
+  const titleText = buildCandidateLawTitleText(candidate);
+  const keyText = buildCandidateLawKeyText(candidate);
   const text = buildCandidateSearchText(candidate);
+
+  if (
+    hasKeyword(titleText, [
+      "адвокатур",
+      "адвокатск запрос",
+      "адвокатская деятельность",
+    ]) ||
+    hasKeyword(keyText, ["advocacy", "attorney_request"])
+  ) {
+    return "advocacy_law";
+  }
+
+  if (
+    hasKeyword(titleText, ["административ", "адм код", " ак ", "(ак)", "административный кодекс"]) ||
+    hasKeyword(keyText, ["administrative", "admin_code", "ak"])
+  ) {
+    return "administrative_code";
+  }
+
+  if (
+    hasKeyword(titleText, ["процессуал", "процессуальный кодекс", " пк ", "(пк)"]) ||
+    hasKeyword(keyText, ["procedural", "procedure", "pk"])
+  ) {
+    return "procedural_code";
+  }
+
+  if (
+    hasKeyword(titleText, ["уголов", "уголовный кодекс", " ук ", "(ук)"]) ||
+    hasKeyword(keyText, ["criminal", "uk"])
+  ) {
+    return "criminal_code";
+  }
+
+  if (hasKeyword(titleText, ["этик"]) || hasKeyword(keyText, ["ethic"])) {
+    return "ethics_code";
+  }
+
+  if (hasKeyword(titleText, ["конституц"]) || hasKeyword(keyText, ["constitution"])) {
+    return "constitution";
+  }
+
+  if (
+    hasKeyword(titleText, ["митинг", "публичн мероприяти", "собрани", "демонстрац"]) ||
+    hasKeyword(keyText, ["assembly", "public_event", "meeting", "demonstration"])
+  ) {
+    return "public_assembly_law";
+  }
+
+  if (hasKeyword(titleText, ["неприкоснов", "иммунитет"]) || hasKeyword(keyText, ["immunity"])) {
+    return "immunity_law";
+  }
+
+  if (
+    hasKeyword(titleText, ["fbi", "fib", "lspd", "lssd", "департамент", "ведомствен", "регламент"]) ||
+    (hasKeyword(titleText, ["национальн"]) && hasKeyword(titleText, ["гвард"])) ||
+    (hasKeyword(titleText, ["управлен"]) && hasKeyword(titleText, ["тюрем"])) ||
+    hasKeyword(keyText, ["national_guard", "prison", "lspd", "lssd", "fib", "department"])
+  ) {
+    return "department_specific";
+  }
+
+  if (
+    hasKeyword(titleText, [
+      "огп",
+      "офис генерального прокурора",
+      "офиса генерального прокурора",
+      "деятельности офиса генерального прокурора",
+      "генерального прокурора",
+      "правительств",
+      "государственн служб",
+    ]) ||
+    hasKeyword(keyText, ["ogp", "prosecutor", "government"])
+  ) {
+    return "government_code";
+  }
 
   if (hasKeyword(text, ["административ", "адм код", " ак ", "(ак)", "административный кодекс"])) {
     return "administrative_code";
@@ -137,7 +233,15 @@ export function classifyLawFamily(candidate: LegalSelectionCandidate): LawFamily
     return "criminal_code";
   }
 
-  if (hasKeyword(text, ["адвокат", "адвокатур"])) {
+  if (
+    hasKeyword(text, [
+      "адвокатур",
+      "адвокатская деятельность",
+      "адвокатский запрос",
+      "официальный адвокатский запрос",
+    ]) &&
+    !hasKeyword(titleText, ["генеральн прокурор", "офис генерального прокурора", "огп", "прокуратур"])
+  ) {
     return "advocacy_law";
   }
 
@@ -157,11 +261,36 @@ export function classifyLawFamily(candidate: LegalSelectionCandidate): LawFamily
     return "immunity_law";
   }
 
-  if (hasKeyword(text, ["правительств", "госслуж", "служебн обязан", "руководств"])) {
+  if (
+    hasKeyword(text, [
+      "генеральн прокурор",
+      "офис генерального прокурора",
+      "огп",
+      "прокуратур",
+      "правительств",
+      "госслуж",
+      "служебн обязан",
+      "руководств",
+    ])
+  ) {
     return "government_code";
   }
 
-  if (hasKeyword(text, ["департамент", "ведомств", "национальн гвард", "body-cam", "bodycam"])) {
+  if (
+    hasKeyword(text, [
+      "департамент",
+      "ведомств",
+      "национальн гвард",
+      "управлени тюрем",
+      "fbi",
+      "fib",
+      "lspd",
+      "lssd",
+      "body-cam",
+      "bodycam",
+      "регламент",
+    ])
+  ) {
     return "department_specific";
   }
 
@@ -238,15 +367,50 @@ export function classifyNormRole(candidate: LegalSelectionCandidate): NormRole {
 function buildAnchorTerms(anchor: LegalAnchor) {
   switch (anchor) {
     case "administrative_offense":
-      return ["административ", "правонаруш", "маск", "штраф"];
+      return [
+        "административ",
+        "правонаруш",
+        "маск",
+        "маскиров",
+        "неприемлем",
+        "идентификац",
+        "личност",
+        "штраф",
+      ];
     case "detention_procedure":
       return ["задерж", "арест", "основания задержания", "процессуал"];
     case "attorney_rights":
-      return ["адвокат", "защитник", "право на защиту"];
+      return [
+        "адвокат",
+        "защитник",
+        "право на защиту",
+        "допуск адвоката",
+        "право задержанного",
+        "реализация прав задержанного",
+        "звонок",
+      ];
     case "attorney_request":
-      return ["адвокатский запрос", "адвокат", "запрос"];
+      return [
+        "адвокатский запрос",
+        "официальный адвокатский запрос",
+        "срок ответа",
+        "обязанность ответить",
+        "получение запроса",
+        "неисполнение адвокатского запроса",
+      ];
     case "video_recording":
-      return ["видеозапис", "видеофиксац", "bodycam", "body-cam", "бодикам"];
+      return [
+        "видеозапис",
+        "видеофиксац",
+        "bodycam",
+        "body-cam",
+        "бодикам",
+        "запись задержания",
+        "предоставить запись",
+        "обязанность вести запись",
+        "аудиодорожк",
+        "видеоряд",
+      ];
     case "official_duty":
       return ["обязан", "служебн", "руководств"];
     case "sanction":
@@ -287,6 +451,259 @@ function isOffTopicCandidate(input: {
   }
 
   return false;
+}
+
+function hasExplicitScopeMarkerForLawFamily(input: {
+  normalizedQuestion: string;
+  lawFamily: LawFamily;
+  candidate: LegalSelectionCandidate;
+}) {
+  const question = normalizeText(input.normalizedQuestion);
+  const candidateTitle = buildCandidateTitleSearchText(input.candidate);
+
+  switch (input.lawFamily) {
+    case "department_specific":
+      return (
+        hasKeyword(question, [
+          "нацгвард",
+          "национальн гвард",
+          "управлен",
+          "тюрьм",
+          "fib",
+          "fbi",
+          "lspd",
+          "lssd",
+          "огп",
+          "офис генерального прокурора",
+          "генеральн прокурор",
+          "департамент",
+          "ведомств",
+        ]) ||
+        hasKeyword(candidateTitle, [
+          "национальн гвард",
+          "управлени тюрем",
+          "fib",
+          "fbi",
+          "lspd",
+          "lssd",
+          "департамент",
+          "ведомств",
+        ]) && hasKeyword(question, ["этот", "данный"])
+      );
+    case "government_code":
+      return hasKeyword(question, [
+        "огп",
+        "офис генерального прокурора",
+        "генеральн прокурор",
+        "правительств",
+        "госслужащ",
+      ]);
+    case "public_assembly_law":
+      return hasKeyword(question, ["митинг", "акци", "публичн меропр", "собрани", "демонстрац"]);
+    case "immunity_law":
+      return hasKeyword(question, ["иммунитет", "неприкоснов", "госслужащ"]);
+    default:
+      return false;
+  }
+}
+
+function hasAdministrativeMaterialTerms(text: string) {
+  return hasKeyword(text, [
+    "состав",
+    "запрещ",
+    "ответственност",
+    "санкц",
+    "штраф",
+    "ограничени свободы",
+    "ограничение свободы",
+    "административн правонаруш",
+  ]);
+}
+
+function hasMaskMaterialTerms(text: string) {
+  return hasKeyword(text, [
+    "маск",
+    "маскиров",
+    "неприемлем",
+    "затрудн",
+    "установлени личности",
+    "идентификац личности",
+    "лицо",
+  ]);
+}
+
+function hasVideoRecordingTerms(text: string) {
+  return hasKeyword(text, [
+    "bodycam",
+    "body-cam",
+    "бодикам",
+    "видеофиксац",
+    "видеозапис",
+    "запись задержания",
+    "процессуальн запись",
+    "аудиодорожк",
+    "видеоряд",
+    "предоставить запись",
+    "обязанность вести запись",
+    "обязан вести запись",
+  ]);
+}
+
+function hasAttorneyRightsTerms(text: string) {
+  return hasKeyword(text, [
+    "адвокат",
+    "защитник",
+    "право на защит",
+    "реализац прав задержан",
+    "звонок",
+    "допуск адвокат",
+    "право задержан",
+    "права задержан",
+  ]);
+}
+
+function hasAttorneyRequestTerms(text: string) {
+  return hasKeyword(text, [
+    "адвокатский запрос",
+    "официальный адвокатский запрос",
+    "обязанность ответить",
+    "обязан ответить",
+    "срок ответа",
+    "получени запроса",
+    "неисполнение адвокатского запроса",
+  ]);
+}
+
+function evaluatePrimaryBasisEligibility<TCandidate extends LegalSelectionCandidate>(input: {
+  candidate: TCandidate;
+  plan: LegalQueryPlan;
+  lawFamily: LawFamily;
+  normRole: NormRole;
+  matchedAnchors: LegalAnchor[];
+  matchedRequiredLawFamily: boolean;
+}) {
+  const text = buildCandidateSearchText(input.candidate);
+  const normalizedQuestion = normalizeText(input.plan.normalized_input);
+  const planAnchors = input.plan.legal_anchors;
+  const ineligibleReasons: string[] = [];
+  const weakReasons: string[] = [];
+
+  if (!isArticleLike(input.candidate)) {
+    ineligibleReasons.push("background_only_block");
+  }
+
+  if (input.normRole === "procedure") {
+    ineligibleReasons.push("procedure_without_material_basis");
+  }
+
+  if (input.normRole === "sanction") {
+    ineligibleReasons.push("sanction_without_material_basis");
+  }
+
+  if (input.normRole === "exception") {
+    ineligibleReasons.push("exception_without_material_basis");
+  }
+
+  if (input.normRole === "background_only") {
+    ineligibleReasons.push("background_only");
+  }
+
+  if (
+    input.normRole === "right_or_guarantee" &&
+    !planAnchors.some((anchor) => anchor === "attorney_rights" || anchor === "remedy")
+  ) {
+    weakReasons.push("right_or_guarantee_outside_anchor_scope");
+  }
+
+  if (!input.matchedRequiredLawFamily && input.plan.required_law_families.length > 0) {
+    weakReasons.push("law_family_not_direct");
+  }
+
+  if (input.plan.question_scope === "general_question") {
+    const hasExplicitScope = hasExplicitScopeMarkerForLawFamily({
+      normalizedQuestion,
+      lawFamily: input.lawFamily,
+      candidate: input.candidate,
+    });
+
+    if (
+      (input.lawFamily === "department_specific" ||
+        input.lawFamily === "public_assembly_law" ||
+        input.lawFamily === "immunity_law") &&
+      !hasExplicitScope
+    ) {
+      ineligibleReasons.push("special_scope_without_marker");
+    }
+
+    if (input.lawFamily === "government_code" && !hasExplicitScope) {
+      weakReasons.push("government_code_general_scope");
+    }
+  }
+
+  if (planAnchors.includes("administrative_offense")) {
+    if (!hasAdministrativeMaterialTerms(text)) {
+      ineligibleReasons.push("missing_anchor_subject_match");
+    }
+
+    if (hasKeyword(normalizedQuestion, ["маск"]) && !hasMaskMaterialTerms(text)) {
+      ineligibleReasons.push("missing_anchor_subject_match");
+    }
+
+    if (input.lawFamily !== "administrative_code") {
+      weakReasons.push("law_family_not_direct");
+    }
+  }
+
+  if (planAnchors.includes("video_recording")) {
+    if (!hasVideoRecordingTerms(text)) {
+      ineligibleReasons.push("video_recording_direct_rule_missing");
+    }
+  }
+
+  if (planAnchors.includes("attorney_rights")) {
+    if (!hasAttorneyRightsTerms(text)) {
+      ineligibleReasons.push("missing_anchor_subject_match");
+    }
+
+    if (!["advocacy_law", "procedural_code"].includes(input.lawFamily)) {
+      weakReasons.push("advocacy_scope_mismatch");
+    }
+  }
+
+  if (planAnchors.includes("attorney_request")) {
+    if (!hasAttorneyRequestTerms(text)) {
+      ineligibleReasons.push("missing_anchor_subject_match");
+    }
+
+    if (input.lawFamily !== "advocacy_law") {
+      weakReasons.push("advocacy_scope_mismatch");
+    }
+  }
+
+  if (ineligibleReasons.length > 0) {
+    return {
+      primary_basis_eligibility: "ineligible" as const,
+      primary_basis_eligibility_reason: ineligibleReasons[0] ?? null,
+      ineligible_primary_basis_reasons: Array.from(new Set(ineligibleReasons)),
+      weak_primary_basis_reasons: Array.from(new Set(weakReasons)),
+    };
+  }
+
+  if (weakReasons.length > 0) {
+    return {
+      primary_basis_eligibility: "weak" as const,
+      primary_basis_eligibility_reason: weakReasons[0] ?? null,
+      ineligible_primary_basis_reasons: [],
+      weak_primary_basis_reasons: Array.from(new Set(weakReasons)),
+    };
+  }
+
+  return {
+    primary_basis_eligibility: "eligible" as const,
+    primary_basis_eligibility_reason: null,
+    ineligible_primary_basis_reasons: [],
+    weak_primary_basis_reasons: [],
+  };
 }
 
 export function scoreLegalCandidate<TCandidate extends LegalSelectionCandidate>(input: {
@@ -350,11 +767,25 @@ export function scoreLegalCandidate<TCandidate extends LegalSelectionCandidate>(
     penalties.push("department_specific_for_general_question");
   }
 
+  const primaryBasisEligibility = evaluatePrimaryBasisEligibility({
+    candidate: input.candidate,
+    plan: input.plan,
+    lawFamily,
+    normRole,
+    matchedAnchors,
+    matchedRequiredLawFamily,
+  });
+
   return {
     candidate: input.candidate,
     law_family: lawFamily,
     norm_role: normRole,
     applicability_score: score,
+    primary_basis_eligibility: primaryBasisEligibility.primary_basis_eligibility,
+    primary_basis_eligibility_reason: primaryBasisEligibility.primary_basis_eligibility_reason,
+    ineligible_primary_basis_reasons:
+      primaryBasisEligibility.ineligible_primary_basis_reasons,
+    weak_primary_basis_reasons: primaryBasisEligibility.weak_primary_basis_reasons,
     matched_anchors: matchedAnchors,
     matched_required_law_family: matchedRequiredLawFamily,
     matched_preferred_norm_role: matchedPreferredNormRole,
@@ -368,6 +799,9 @@ function takeCandidatesByRole<TCandidate extends LegalSelectionCandidate>(
   roles: NormRole[],
   limit: number,
   selectedIds: Set<string>,
+  options?: {
+    allowedEligibilities?: PrimaryBasisEligibility[];
+  },
 ) {
   const selected: TCandidate[] = [];
 
@@ -376,7 +810,9 @@ function takeCandidatesByRole<TCandidate extends LegalSelectionCandidate>(
       selected.length >= limit ||
       !roles.includes(scored.norm_role) ||
       scored.applicability_score <= 0 ||
-      scored.off_topic
+      scored.off_topic ||
+      (options?.allowedEligibilities &&
+        !options.allowedEligibilities.includes(scored.primary_basis_eligibility))
     ) {
       continue;
     }
@@ -409,15 +845,27 @@ export function selectStructuredLegalContext<TCandidate extends LegalSelectionCa
   const selectedIds = new Set<string>();
   const primaryBasisNorms = takeCandidatesByRole(
     scoredCandidates,
-    ["primary_basis"],
+    ["primary_basis", "right_or_guarantee"],
     2,
     selectedIds,
+    {
+      allowedEligibilities: ["eligible"],
+    },
   );
   const procedureNorms = takeCandidatesByRole(
     scoredCandidates,
     ["procedure", "right_or_guarantee"],
     2,
     selectedIds,
+  );
+  const weakPrimaryBasisNorms = takeCandidatesByRole(
+    scoredCandidates,
+    ["primary_basis", "right_or_guarantee"],
+    2,
+    selectedIds,
+    {
+      allowedEligibilities: ["weak"],
+    },
   );
   const exceptionNorms = takeCandidatesByRole(scoredCandidates, ["exception"], 1, selectedIds);
   const supportingNorms = takeCandidatesByRole(
@@ -430,12 +878,13 @@ export function selectStructuredLegalContext<TCandidate extends LegalSelectionCa
     ...primaryBasisNorms,
     ...procedureNorms,
     ...exceptionNorms,
+    ...weakPrimaryBasisNorms,
     ...supportingNorms,
   ];
   const directBasisStatus: DirectBasisStatus =
     primaryBasisNorms.length > 0
       ? "direct_basis_present"
-      : selectedNorms.length > 0
+      : weakPrimaryBasisNorms.length > 0 || selectedNorms.length > 0
         ? "partial_basis_only"
         : "no_direct_basis";
 

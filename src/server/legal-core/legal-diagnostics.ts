@@ -23,6 +23,10 @@ export type LegalCandidateDiagnostic = {
   law_family: string;
   norm_role: string;
   applicability_score: number;
+  primary_basis_eligibility: string;
+  primary_basis_eligibility_reason: string | null;
+  ineligible_primary_basis_reasons: string[];
+  weak_primary_basis_reasons: string[];
   matched_anchors: string[];
   matched_required_law_family: boolean;
   matched_preferred_norm_role: boolean;
@@ -55,6 +59,10 @@ export function buildLegalGroundingDiagnostics<TCandidate extends LegalSelection
     law_family: entry.law_family,
     norm_role: entry.norm_role,
     applicability_score: entry.applicability_score,
+    primary_basis_eligibility: entry.primary_basis_eligibility,
+    primary_basis_eligibility_reason: entry.primary_basis_eligibility_reason,
+    ineligible_primary_basis_reasons: entry.ineligible_primary_basis_reasons,
+    weak_primary_basis_reasons: entry.weak_primary_basis_reasons,
     matched_anchors: entry.matched_anchors,
     matched_required_law_family: entry.matched_required_law_family,
     matched_preferred_norm_role: entry.matched_preferred_norm_role,
