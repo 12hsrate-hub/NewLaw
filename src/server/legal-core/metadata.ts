@@ -1,3 +1,5 @@
+import type { DirectBasisStatus } from "@/server/legal-core/legal-selection";
+
 export const legalCoreIntents = [
   "law_explanation",
   "situation_analysis",
@@ -29,6 +31,57 @@ export type LegalCoreSelfAssessment = {
   insufficient_data: boolean;
   answer_risk_level: LegalCoreRiskLevel;
 };
+
+function lowerConfidence(confidence: LegalCoreAnswerConfidence): LegalCoreAnswerConfidence {
+  switch (confidence) {
+    case "high":
+      return "medium";
+    case "medium":
+      return "low";
+    default:
+      return "low";
+  }
+}
+
+function raiseRiskLevel(riskLevel: LegalCoreRiskLevel): LegalCoreRiskLevel {
+  switch (riskLevel) {
+    case "low":
+      return "medium";
+    case "medium":
+      return "high";
+    default:
+      return "high";
+  }
+}
+
+function applyDirectBasisStatusToSelfAssessment(input: {
+  assessment: LegalCoreSelfAssessment;
+  directBasisStatus?: DirectBasisStatus;
+}) {
+  if (!input.directBasisStatus || input.directBasisStatus === "direct_basis_present") {
+    return input.assessment;
+  }
+
+  if (input.directBasisStatus === "partial_basis_only") {
+    return {
+      answer_confidence:
+        input.assessment.answer_confidence === "high"
+          ? "medium"
+          : input.assessment.answer_confidence,
+      insufficient_data: true,
+      answer_risk_level:
+        input.assessment.answer_risk_level === "low"
+          ? "medium"
+          : input.assessment.answer_risk_level,
+    } satisfies LegalCoreSelfAssessment;
+  }
+
+  return {
+    answer_confidence: lowerConfidence(input.assessment.answer_confidence),
+    insufficient_data: true,
+    answer_risk_level: raiseRiskLevel(raiseRiskLevel(input.assessment.answer_risk_level)),
+  } satisfies LegalCoreSelfAssessment;
+}
 
 function hasKeyword(source: string, keywords: string[]) {
   return keywords.some((keyword) => source.includes(keyword));
@@ -128,44 +181,68 @@ export function buildAssistantSelfAssessment(input: {
   status: "answered" | "no_norms" | "no_corpus" | "unavailable";
   lawResultCount: number;
   precedentResultCount: number;
+  directBasisStatus?: DirectBasisStatus;
 }): LegalCoreSelfAssessment {
+  let assessment: LegalCoreSelfAssessment;
+
   if (input.status === "no_corpus" || input.status === "unavailable") {
-    return {
+    assessment = {
       answer_confidence: "low",
       insufficient_data: true,
       answer_risk_level: "high",
     };
+    return applyDirectBasisStatusToSelfAssessment({
+      assessment,
+      directBasisStatus: input.directBasisStatus,
+    });
   }
 
   if (input.status === "no_norms") {
-    return {
+    assessment = {
       answer_confidence: "low",
       insufficient_data: true,
       answer_risk_level: "high",
     };
+    return applyDirectBasisStatusToSelfAssessment({
+      assessment,
+      directBasisStatus: input.directBasisStatus,
+    });
   }
 
   if (input.lawResultCount === 0 && input.precedentResultCount > 0) {
-    return {
+    assessment = {
       answer_confidence: "medium",
       insufficient_data: true,
       answer_risk_level: "medium",
     };
+    return applyDirectBasisStatusToSelfAssessment({
+      assessment,
+      directBasisStatus: input.directBasisStatus,
+    });
   }
 
   if (input.lawResultCount > 0 && input.precedentResultCount > 0) {
-    return {
+    assessment = {
       answer_confidence: "high",
       insufficient_data: false,
       answer_risk_level: "low",
     };
+    return applyDirectBasisStatusToSelfAssessment({
+      assessment,
+      directBasisStatus: input.directBasisStatus,
+    });
   }
 
-  return {
+  assessment = {
     answer_confidence: "medium",
     insufficient_data: false,
     answer_risk_level: "low",
   };
+
+  return applyDirectBasisStatusToSelfAssessment({
+    assessment,
+    directBasisStatus: input.directBasisStatus,
+  });
 }
 
 export function buildDocumentRewriteSelfAssessment(input: {

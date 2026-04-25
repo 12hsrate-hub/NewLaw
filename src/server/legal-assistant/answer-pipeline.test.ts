@@ -341,6 +341,27 @@ describe("answer pipeline", () => {
       expect(result.metadata.response_mode).toBe("normal");
       expect(result.metadata.prompt_version).toBe("server_legal_assistant_legal_core_v1");
       expect(result.metadata.law_version_ids).toEqual(["law-version-1"]);
+      expect(result.metadata.legal_query_plan).toMatchObject({
+        normalized_input: "Нужен ли письменный договор?",
+        server_id: "server-1",
+        law_version: "current_snapshot_only",
+      });
+      expect(result.metadata.selected_norm_roles).toEqual([
+        expect.objectContaining({
+          law_id: "law-1",
+          norm_role: "primary_basis",
+        }),
+      ]);
+      expect(result.metadata.direct_basis_status).toBe("direct_basis_present");
+      expect(result.metadata.applicability_diagnostics).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            law_id: "law-1",
+            law_family: expect.any(String),
+            norm_role: expect.any(String),
+          }),
+        ]),
+      );
       expect(result.metadata.law_version_contract).toMatchObject({
         contract_mode: "current_snapshot_only",
         is_current_snapshot_consistent: true,
@@ -543,10 +564,11 @@ describe("answer pipeline", () => {
           precedent_id: "precedent-1",
         }),
       ]);
+      expect(result.metadata.direct_basis_status).toBe("no_direct_basis");
       expect(result.metadata.self_assessment).toMatchObject({
-        answer_confidence: "medium",
+        answer_confidence: "low",
         insufficient_data: true,
-        answer_risk_level: "medium",
+        answer_risk_level: "high",
       });
       expect(result.sections.normativeAnalysis).toContain("норма закона");
       expect(result.sections.precedentAnalysis).toContain("precedent");
@@ -558,7 +580,7 @@ describe("answer pipeline", () => {
             output_kind: "assistant_markdown",
           }),
           queue_for_future_ai_quality_review: true,
-          future_review_priority: "medium",
+          future_review_priority: "high",
           future_review_reason_codes: expect.arrayContaining(["precedent_only_grounding"]),
         }),
       }),

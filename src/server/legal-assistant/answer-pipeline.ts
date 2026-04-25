@@ -4,8 +4,13 @@ import {
   searchAssistantCorpus,
 } from "@/server/legal-assistant/retrieval";
 import { requestAssistantProxyCompletion } from "@/server/legal-assistant/ai-proxy";
-import { buildAssistantRetrievalQuery } from "@/server/legal-core/assistant-retrieval-query";
+import { buildLegalGroundingDiagnostics } from "@/server/legal-core/legal-diagnostics";
 import { normalizeLegalInputText } from "@/server/legal-core/input-normalization";
+import { buildLegalQueryPlan } from "@/server/legal-core/legal-query-plan";
+import {
+  selectStructuredLegalContext,
+  type StructuredSelectionResult,
+} from "@/server/legal-core/legal-selection";
 import {
   type LegalCoreActorContext,
   type LegalCoreResponseMode,
@@ -21,6 +26,7 @@ import { attachDeterministicAIQualityReview } from "@/server/legal-core/quality-
 import { buildAssistantFutureReviewMarker } from "@/server/legal-core/review-routing";
 
 type RetrievalResult = Awaited<ReturnType<typeof searchAssistantCorpus>>;
+type AssistantLawSelection = StructuredSelectionResult<RetrievalResult["lawRetrieval"]["results"][number]>;
 
 type AnswerPipelineDependencies = {
   searchAssistantCorpus: typeof searchAssistantCorpus;
@@ -142,7 +148,6 @@ function stripAssistantUsedSourcesManifest(content: string) {
   return content.replace(USED_SOURCES_MANIFEST_PATTERN, "").trim();
 }
 
-const MAX_PROMPT_LAW_BLOCKS = 4;
 const MAX_PROMPT_PRECEDENT_BLOCKS = 3;
 const MAX_PROMPT_BLOCK_TEXT_LENGTH = 1200;
 const MAX_REFERENCE_SNIPPET_LENGTH = 280;
@@ -291,12 +296,11 @@ function buildSourceLedgerEntry(
   };
 }
 
-function buildAssistantUsedSources(retrieval: RetrievalResult): AssistantUsedSource[] {
-  const lawSources = selectPromptContextResults(retrieval.results, "law", MAX_PROMPT_LAW_BLOCKS)
-    .filter((result): result is Extract<AssistantTypedRetrievalReference, { sourceKind: "law" }> => {
-      return result.sourceKind === "law";
-    })
-    .map((result) => ({
+function buildAssistantContextUsedSources(
+  lawContext: RetrievalResult["lawRetrieval"]["results"],
+  retrieval: RetrievalResult,
+): AssistantUsedSource[] {
+  const lawSources = lawContext.map((result) => ({
       source_kind: "law" as const,
       server_id: result.serverId,
       law_id: result.lawId,
@@ -305,11 +309,7 @@ function buildAssistantUsedSources(retrieval: RetrievalResult): AssistantUsedSou
       article_number: result.articleNumberNormalized ?? null,
       source_topic_url: result.sourceTopicUrl,
     }));
-  const precedentSources = selectPromptContextResults(
-    retrieval.results,
-    "precedent",
-    MAX_PROMPT_PRECEDENT_BLOCKS,
-  )
+  const precedentSources = selectPromptContextResults(retrieval.results, "precedent", MAX_PROMPT_PRECEDENT_BLOCKS)
     .filter(
       (result): result is Extract<AssistantTypedRetrievalReference, { sourceKind: "precedent" }> => {
         return result.sourceKind === "precedent";
@@ -328,13 +328,12 @@ function buildAssistantUsedSources(retrieval: RetrievalResult): AssistantUsedSou
   return [...lawSources, ...precedentSources];
 }
 
-function buildAssistantSourceLedger(retrieval: RetrievalResult) {
+function buildAssistantSourceLedger(
+  retrieval: RetrievalResult,
+  lawContext: RetrievalResult["lawRetrieval"]["results"],
+) {
   const foundNorms = retrieval.lawRetrieval.results.map(buildSourceLedgerEntry);
-  const contextNorms = selectPromptContextResults(retrieval.results, "law", MAX_PROMPT_LAW_BLOCKS)
-    .filter((result): result is Extract<AssistantTypedRetrievalReference, { sourceKind: "law" }> => {
-      return result.sourceKind === "law";
-    })
-    .map(buildSourceLedgerEntry);
+  const contextNorms = lawContext.map(buildSourceLedgerEntry);
   const lawVersionIds = Array.from(new Set(foundNorms.map((entry) => entry.law_version)));
 
   return {
@@ -465,6 +464,7 @@ function isAssistantPrecedentUsedInSections(
 
 function inferAssistantUsedSources(input: {
   retrieval: RetrievalResult;
+  lawContext: RetrievalResult["lawRetrieval"]["results"];
   sections: AssistantAnswerSections;
   manifest?: AssistantUsedSourceManifest | null;
 }) {
@@ -476,7 +476,7 @@ function inferAssistantUsedSources(input: {
       (entry) => `${entry.precedent_id}:${entry.precedent_version}`,
     ),
   );
-  const contextSources = buildAssistantUsedSources(input.retrieval);
+  const contextSources = buildAssistantContextUsedSources(input.lawContext, input.retrieval);
 
   return contextSources.filter((source) => {
     if (source.source_kind === "law") {
@@ -594,10 +594,13 @@ function buildGroundedReferences(retrieval: RetrievalResult) {
   });
 }
 
-function buildLawsUsed(retrieval: RetrievalResult) {
+function buildLawsUsed(
+  retrieval: RetrievalResult,
+  lawContext: RetrievalResult["lawRetrieval"]["results"] = retrieval.lawRetrieval.results,
+) {
   return Array.from(
     new Map(
-      retrieval.lawRetrieval.results.map((result) => [
+      lawContext.map((result) => [
         `${result.lawId}:${result.lawVersionId}`,
         {
           lawId: result.lawId,
@@ -611,7 +614,7 @@ function buildLawsUsed(retrieval: RetrievalResult) {
       ]),
     ).values(),
   ).map((entry) => {
-    const matchingResults = retrieval.lawRetrieval.results.filter(
+    const matchingResults = lawContext.filter(
       (result) => result.lawId === entry.lawId && result.lawVersionId === entry.lawVersionId,
     );
 
@@ -749,13 +752,16 @@ function buildAssistantUserPrompt(input: {
   actorContext: LegalCoreActorContext;
   responseMode: LegalCoreResponseMode;
   retrieval: RetrievalResult;
+  legalQueryPlan: ReturnType<typeof buildLegalQueryPlan>;
+  lawSelection: AssistantLawSelection;
+  groundingDiagnostics: ReturnType<typeof buildLegalGroundingDiagnostics>;
 }) {
-  const lawContext = selectPromptContextResults(input.retrieval.results, "law", MAX_PROMPT_LAW_BLOCKS)
+  const selectedRoleMap = new Map(
+    input.lawSelection.selected_norm_roles.map((entry) => [entry.law_block_id, entry]),
+  );
+  const lawContext = input.lawSelection.selected_norms
     .map((result, index) => {
-      if (result.sourceKind !== "law") {
-        return null;
-      }
-
+      const selectedRole = selectedRoleMap.get(result.lawBlockId);
       return [
         `Law source ${index + 1}`,
         `- law_id: ${result.lawId}`,
@@ -765,11 +771,13 @@ function buildAssistantUserPrompt(input: {
         `- block_id: ${result.lawBlockId}`,
         `- block_type: ${result.blockType}`,
         `- article_number_normalized: ${result.articleNumberNormalized ?? "n/a"}`,
+        `- law_family: ${selectedRole?.law_family ?? "other"}`,
+        `- norm_role: ${selectedRole?.norm_role ?? "background_only"}`,
+        `- applicability_score: ${selectedRole?.applicability_score ?? 0}`,
         `- source_topic_url: ${result.sourceTopicUrl}`,
         `- text: ${normalizeSectionText(result.blockText).slice(0, MAX_PROMPT_BLOCK_TEXT_LENGTH)}`,
       ].join("\n");
     })
-    .filter((value): value is string => Boolean(value))
     .join("\n\n");
 
   const precedentContext = selectPromptContextResults(
@@ -803,9 +811,14 @@ function buildAssistantUserPrompt(input: {
     `Вопрос пользователя: ${input.question}`,
     `Actor context: ${input.actorContext}`,
     `Response mode: ${input.responseMode}`,
+    `Direct basis status: ${input.lawSelection.direct_basis_status}`,
+    `Required law families: ${input.legalQueryPlan.required_law_families.join(", ") || "none"}`,
+    `Preferred norm roles: ${input.legalQueryPlan.preferred_norm_roles.join(", ") || "none"}`,
+    `Grounding flags: ${input.groundingDiagnostics.grounding_diagnostics.flags.join(", ") || "none"}`,
     `Combined corpus snapshot hash: ${input.retrieval.combinedRetrievalRevision.combinedCorpusSnapshotHash}`,
     `Law version contract: current_snapshot_only (${input.retrieval.combinedRetrievalRevision.lawCurrentVersionIds.join(", ") || "none"})`,
     buildAssistantResponseModeInstruction(input.responseMode),
+    buildDirectBasisInstruction(input.lawSelection.direct_basis_status),
     "Законы (используй только этот grounded layer, если он есть):",
     lawContext || "Подходящие current primary laws по запросу не найдены.",
     "Судебные прецеденты (используй только этот grounded layer, если он есть):",
@@ -813,6 +826,17 @@ function buildAssistantUserPrompt(input: {
     "Если law layer пустой, но precedent layer есть, прямо обозначь это в выводе.",
     "Если ни один layer не даёт надёжной опоры, признай ограничение и не выдумывай ответ.",
   ].join("\n\n");
+}
+
+function buildDirectBasisInstruction(directBasisStatus: AssistantLawSelection["direct_basis_status"]) {
+  switch (directBasisStatus) {
+    case "direct_basis_present":
+      return "Если direct basis присутствует, допускается более уверенный вывод, но только в пределах выбранных норм.";
+    case "partial_basis_only":
+      return "Если direct basis частичный, делай вывод только через условия и явно отделяй прямую норму от интерпретации.";
+    default:
+      return "Если direct basis отсутствует, ответ должен быть строго условным, без категоричных формулировок и без подмены прямой нормы интерпретацией.";
+  }
 }
 
 function buildAssistantResponseModeInstruction(responseMode: LegalCoreResponseMode) {
@@ -926,26 +950,38 @@ export async function generateServerLegalAssistantAnswer(
     featureKey: "server_legal_assistant",
   });
   const intent = classifyAssistantIntent(normalizedInput.normalized_input);
-  const retrievalQuery = buildAssistantRetrievalQuery({
-    normalizedQuestion: normalizedInput.normalized_input,
+  const responseMode =
+    input.responseModeOverride ?? detectQuestionResponseMode(normalizedInput.normalized_input);
+  const actorContext = input.actorContext ?? "general_question";
+  const legalQueryPlan = buildLegalQueryPlan({
+    normalizedInput: normalizedInput.normalized_input,
     intent,
+    actorContext,
+    responseMode,
+    serverId: input.serverId,
   });
+  const retrievalQuery = legalQueryPlan.expanded_query;
   const retrieval = await dependencies.searchAssistantCorpus({
     serverId: input.serverId,
     query: retrievalQuery,
     lawLimit: 6,
     precedentLimit: 4,
   });
-  const responseMode =
-    input.responseModeOverride ?? detectQuestionResponseMode(normalizedInput.normalized_input);
-  const actorContext = input.actorContext ?? "general_question";
-  const sourceLedgerBase = buildAssistantSourceLedger(retrieval);
+  const lawSelection = selectStructuredLegalContext({
+    candidates: retrieval.lawRetrieval.results,
+    plan: legalQueryPlan,
+  });
+  const groundingDiagnostics = buildLegalGroundingDiagnostics({
+    plan: legalQueryPlan,
+    selection: lawSelection,
+  });
+  const sourceLedgerBase = buildAssistantSourceLedger(retrieval, lawSelection.selected_norms);
   const sourceLedger = buildAssistantSourceLedgerWithUsedNorms(sourceLedgerBase, []);
   const lawVersionContract = buildAssistantLawVersionContract({
     retrieval,
     sourceLedger,
   });
-  const usedSources = buildAssistantUsedSources(retrieval);
+  const usedSources = buildAssistantContextUsedSources(lawSelection.selected_norms, retrieval);
   const inputTrace = buildAssistantInputTrace(normalizedInput.normalized_input);
   const metadataBase = {
     serverId: input.serverId,
@@ -955,7 +991,7 @@ export async function generateServerLegalAssistantAnswer(
     precedentCorpusSnapshot: retrieval.precedentCorpusSnapshot,
     combinedRetrievalRevision: retrieval.combinedRetrievalRevision,
     corpusSnapshot: retrieval.combinedRetrievalRevision,
-    lawsUsed: buildLawsUsed(retrieval),
+    lawsUsed: buildLawsUsed(retrieval, lawSelection.selected_norms),
     precedentsUsed: buildPrecedentsUsed(retrieval),
     references: buildGroundedReferences(retrieval),
     intent,
@@ -969,6 +1005,11 @@ export async function generateServerLegalAssistantAnswer(
     normalization_model: normalizedInput.normalization_model,
     normalization_prompt_version: normalizedInput.normalization_prompt_version,
     normalization_changed: normalizedInput.normalization_changed,
+    legal_query_plan: legalQueryPlan,
+    selected_norm_roles: lawSelection.selected_norm_roles,
+    direct_basis_status: lawSelection.direct_basis_status,
+    applicability_diagnostics: groundingDiagnostics.candidate_diagnostics,
+    grounding_diagnostics: groundingDiagnostics.grounding_diagnostics,
     retrieval_query: retrievalQuery,
     used_sources: usedSources,
     source_ledger: sourceLedger,
@@ -980,6 +1021,7 @@ export async function generateServerLegalAssistantAnswer(
       status: "no_corpus",
       lawResultCount: retrieval.lawRetrieval.resultCount,
       precedentResultCount: retrieval.precedentRetrieval.resultCount,
+      directBasisStatus: lawSelection.direct_basis_status,
     });
     const futureReviewMarker = buildAssistantFutureReviewMarker({
       selfAssessment,
@@ -1004,6 +1046,11 @@ export async function generateServerLegalAssistantAnswer(
       normalization_model: normalizedInput.normalization_model,
       normalization_prompt_version: normalizedInput.normalization_prompt_version,
       normalization_changed: normalizedInput.normalization_changed,
+      legal_query_plan: legalQueryPlan,
+      selected_norm_roles: lawSelection.selected_norm_roles,
+      direct_basis_status: lawSelection.direct_basis_status,
+      applicability_diagnostics: groundingDiagnostics.candidate_diagnostics,
+      grounding_diagnostics: groundingDiagnostics.grounding_diagnostics,
       retrieval_query: retrievalQuery,
       input_trace: inputTrace,
       used_sources: usedSources,
@@ -1072,6 +1119,7 @@ export async function generateServerLegalAssistantAnswer(
       status: "no_norms",
       lawResultCount: retrieval.lawRetrieval.resultCount,
       precedentResultCount: retrieval.precedentRetrieval.resultCount,
+      directBasisStatus: lawSelection.direct_basis_status,
     });
     const futureReviewMarker = buildAssistantFutureReviewMarker({
       selfAssessment,
@@ -1096,6 +1144,11 @@ export async function generateServerLegalAssistantAnswer(
       normalization_model: normalizedInput.normalization_model,
       normalization_prompt_version: normalizedInput.normalization_prompt_version,
       normalization_changed: normalizedInput.normalization_changed,
+      legal_query_plan: legalQueryPlan,
+      selected_norm_roles: lawSelection.selected_norm_roles,
+      direct_basis_status: lawSelection.direct_basis_status,
+      applicability_diagnostics: groundingDiagnostics.candidate_diagnostics,
+      grounding_diagnostics: groundingDiagnostics.grounding_diagnostics,
       retrieval_query: retrievalQuery,
       input_trace: inputTrace,
       used_sources: usedSources,
@@ -1165,6 +1218,7 @@ export async function generateServerLegalAssistantAnswer(
     status: "answered",
     lawResultCount: retrieval.lawRetrieval.resultCount,
     precedentResultCount: retrieval.precedentRetrieval.resultCount,
+    directBasisStatus: lawSelection.direct_basis_status,
   });
   const answeredFutureReviewMarker = buildAssistantFutureReviewMarker({
     selfAssessment: answeredSelfAssessment,
@@ -1189,6 +1243,11 @@ export async function generateServerLegalAssistantAnswer(
     normalization_model: normalizedInput.normalization_model,
     normalization_prompt_version: normalizedInput.normalization_prompt_version,
     normalization_changed: normalizedInput.normalization_changed,
+    legal_query_plan: legalQueryPlan,
+    selected_norm_roles: lawSelection.selected_norm_roles,
+    direct_basis_status: lawSelection.direct_basis_status,
+    applicability_diagnostics: groundingDiagnostics.candidate_diagnostics,
+    grounding_diagnostics: groundingDiagnostics.grounding_diagnostics,
     retrieval_query: retrievalQuery,
     input_trace: inputTrace,
     used_sources: usedSources,
@@ -1230,6 +1289,9 @@ export async function generateServerLegalAssistantAnswer(
       actorContext,
       responseMode,
       retrieval,
+      legalQueryPlan,
+      lawSelection,
+      groundingDiagnostics,
     }),
     requestMetadata: {
       ...proxyRequestPayload,
@@ -1304,6 +1366,7 @@ export async function generateServerLegalAssistantAnswer(
           status: "unavailable",
           lawResultCount: retrieval.lawRetrieval.resultCount,
           precedentResultCount: retrieval.precedentRetrieval.resultCount,
+          directBasisStatus: lawSelection.direct_basis_status,
         }),
       },
     };
@@ -1320,6 +1383,7 @@ export async function generateServerLegalAssistantAnswer(
   const answerMarkdown = composeAssistantAnswerMarkdown(sections);
   const answeredUsedSources = inferAssistantUsedSources({
     retrieval,
+    lawContext: lawSelection.selected_norms,
     sections,
     manifest: usedSourcesManifest,
   });
