@@ -194,6 +194,32 @@ Current MVP-level AI scope уже покрыт:
 
 Остаётся активной, потому что current helper-level AI уже существует, а дальнейшее расширение beyond current scope ещё не закрыто.
 
+Уточнение по роли этой линии:
+
+- `08` остаётся общей umbrella-линией по AI-интеграции
+- будущий `16` должен конкретизировать базовое legal core для юридической AI-выдачи
+- будущий `17` должен описывать слой AI Quality Review уже после legal core
+- `16` и `17` не должны подменять `08`, а должны выступать как его более узкие post-MVP follow-up steps
+
+### `16-ai-legal-core`
+
+Статус: `post-MVP`
+
+Это следующий именованный шаг после `15`, но по product-смыслу он конкретизирует AI-направление именно после `08`.
+
+Source of truth для этой линии:
+
+- [16-ai-legal-core.md](./16-ai-legal-core.md)
+
+Фокус шага:
+
+- довести базовую юридическую AI-выдачу до рабочего состояния до внедрения отдельного слоя `AI Quality Review`
+- распространить единый legal core на `server legal assistant` и AI-доработку описательной части
+- закрепить обязательный grounding по `server_id + law_version`
+- ввести `intent`, `actor_context`, `response_mode`, `source ledger`, `fact ledger` и `self-assessment` как базовые элементы post-MVP legal-answer pipeline
+
+После этого шага отдельной follow-up линией должен идти `17-ai-quality-review`, который не входит в сам шаг `16`.
+
 ### `12-post-mvp-template-documents`
 
 Статус: `post-MVP`
