@@ -266,6 +266,12 @@ describe("grounded document field rewrite flow", () => {
       attemptedProxyKeys: ["primary"],
       responsePayloadJson: {
         choices: [{ finish_reason: "stop" }],
+        usage: {
+          prompt_tokens: 410,
+          completion_tokens: 160,
+          total_tokens: 570,
+          cost_usd: 0.024,
+        },
       },
     });
     const createAIRequest = vi.fn().mockResolvedValue({ id: "ai-request-1" });
@@ -308,13 +314,20 @@ describe("grounded document field rewrite flow", () => {
           featureKey: "document_field_rewrite_grounded",
           documentId: "document-1",
           sectionKey: "violation_summary",
+          intent: "document_text_improvement",
+          actor_context: "representative_for_trustor",
+          response_mode: "document_ready",
+          prompt_version: "document_field_rewrite_grounded_legal_core_v1",
           groundingMode: "law_grounded",
+          law_version_ids: ["law-version-1"],
         }),
       }),
     );
 
     const userPrompt = requestProxyCompletion.mock.calls[0]?.[0]?.userPrompt as string;
     expect(userPrompt).toContain("Grounding mode: law_grounded");
+    expect(userPrompt).toContain("Fact ledger:");
+    expect(userPrompt).toContain('"organization": "LSPD"');
     expect(userPrompt).toContain("Grounded нормы закона:");
     expect(userPrompt).not.toContain("workingNotes");
 
@@ -324,14 +337,44 @@ describe("grounded document field rewrite flow", () => {
         requestPayloadJson: expect.objectContaining({
           documentId: "document-1",
           sectionKey: "violation_summary",
+          actor_context: "representative_for_trustor",
+          intent: "document_text_improvement",
+          response_mode: "document_ready",
+          prompt_version: "document_field_rewrite_grounded_legal_core_v1",
           groundingMode: "law_grounded",
           lawResultCount: 1,
           precedentResultCount: 0,
+          law_version_ids: ["law-version-1"],
+          used_sources: [
+            {
+              source_kind: "law",
+              server_id: "server-1",
+              law_id: "law-1",
+              law_name: "ФЗ о LSPD",
+              law_version: "law-version-1",
+              article_number: "5.1",
+              source_topic_url: "https://forum.gta5rp.com/threads/law.1/",
+            },
+          ],
+          fact_ledger: expect.objectContaining({
+            organization: "LSPD",
+            participants: expect.arrayContaining(["Officer Smoke", "Пётр Доверитель"]),
+          }),
           retrievalPromptBlockCount: 1,
         }),
         responsePayloadJson: expect.objectContaining({
           statusBranch: "law_grounded",
           suggestionLength: "Нарушение сформулировано с опорой на нормы.".length,
+          prompt_tokens: 410,
+          completion_tokens: 160,
+          total_tokens: 570,
+          cost_usd: 0.024,
+          confidence: "high",
+          self_assessment: expect.objectContaining({
+            answer_confidence: "high",
+            insufficient_data: false,
+            answer_risk_level: "low",
+          }),
           references: [
             {
               sourceKind: "law",
@@ -385,6 +428,12 @@ describe("grounded document field rewrite flow", () => {
           attemptedProxyKeys: ["primary"],
           responsePayloadJson: {
             choices: [{ finish_reason: "stop" }],
+            usage: {
+              prompt_tokens: 280,
+              completion_tokens: 110,
+              total_tokens: 390,
+              cost_usd: 0.016,
+            },
           },
         }),
         createAIRequest: vi.fn(),
@@ -400,6 +449,7 @@ describe("grounded document field rewrite flow", () => {
       sourceKind: "precedent",
       precedentKey: "precedent_relief",
     });
+    expect(result.usageMeta.groundingMode).toBe("precedent_grounded");
   });
 
   it("честно возвращает insufficient_corpus, когда retrieval support отсутствует", async () => {

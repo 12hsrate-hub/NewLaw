@@ -85,6 +85,12 @@ describe("document field rewrite flow", () => {
             finish_reason: "stop",
           },
         ],
+        usage: {
+          prompt_tokens: 240,
+          completion_tokens: 120,
+          total_tokens: 360,
+          cost_usd: 0.012,
+        },
       },
     });
     const createAIRequest = vi.fn().mockResolvedValue({
@@ -120,6 +126,10 @@ describe("document field rewrite flow", () => {
           documentId: "document-1",
           documentType: "ogp_complaint",
           sectionKey: "situation_description",
+          intent: "document_text_improvement",
+          actor_context: "representative_for_trustor",
+          response_mode: "document_ready",
+          prompt_version: "document_field_rewrite_legal_core_v1",
         },
       }),
     );
@@ -127,6 +137,8 @@ describe("document field rewrite flow", () => {
     const userPrompt = requestProxyCompletion.mock.calls[0]?.[0]?.userPrompt as string;
     expect(userPrompt).toContain("Изначальное описание ситуации");
     expect(userPrompt).toContain("violationSummary: Изначальная формулировка нарушения");
+    expect(userPrompt).toContain("Fact ledger:");
+    expect(userPrompt).toContain('"organization": "LSPD"');
     expect(userPrompt).not.toContain("workingNotes");
 
     expect(createAIRequest).toHaveBeenCalledWith(
@@ -136,7 +148,13 @@ describe("document field rewrite flow", () => {
           documentId: "document-1",
           documentType: "ogp_complaint",
           sectionKey: "situation_description",
+          actor_context: "representative_for_trustor",
+          intent: "document_text_improvement",
+          response_mode: "document_ready",
+          prompt_version: "document_field_rewrite_legal_core_v1",
           sourceLength: "Изначальное описание ситуации".length,
+          law_version_ids: [],
+          used_sources: [],
           contextFieldKeys: [
             "objectOrganization",
             "objectFullName",
@@ -144,11 +162,25 @@ describe("document field rewrite flow", () => {
             "appealNumber",
             "violationSummary",
           ],
+          fact_ledger: expect.objectContaining({
+            organization: "LSPD",
+            participants: expect.arrayContaining(["Officer Smoke", "Пётр Доверитель"]),
+          }),
         }),
         responsePayloadJson: expect.objectContaining({
           suggestionLength: "Улучшенный и структурированный текст секции.".length,
           latencyMs: 1250,
           finishReason: "stop",
+          prompt_tokens: 240,
+          completion_tokens: 120,
+          total_tokens: 360,
+          cost_usd: 0.012,
+          confidence: "high",
+          self_assessment: expect.objectContaining({
+            answer_confidence: "high",
+            insufficient_data: false,
+            answer_risk_level: "low",
+          }),
         }),
       }),
     );

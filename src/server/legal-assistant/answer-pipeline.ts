@@ -4,6 +4,15 @@ import {
   searchAssistantCorpus,
 } from "@/server/legal-assistant/retrieval";
 import { requestAssistantProxyCompletion } from "@/server/legal-assistant/ai-proxy";
+import {
+  buildAssistantSelfAssessment,
+  classifyAssistantIntent,
+  detectQuestionResponseMode,
+} from "@/server/legal-core/metadata";
+import {
+  extractProxyUsageMetrics,
+  LEGAL_ASSISTANT_PROMPT_VERSION,
+} from "@/server/legal-core/observability";
 
 type RetrievalResult = Awaited<ReturnType<typeof searchAssistantCorpus>>;
 
@@ -143,6 +152,107 @@ type GroundedPrecedentReference = {
     postOrder: number;
   }>;
 };
+
+type AssistantSourceLedgerEntry = {
+  server_id: string;
+  law_id: string;
+  law_name: string;
+  article_number: string | null;
+  part_number: string | null;
+  law_version: string;
+  source_topic_url: string;
+};
+
+type AssistantUsedSource =
+  | {
+      source_kind: "law";
+      server_id: string;
+      law_id: string;
+      law_name: string;
+      law_version: string;
+      article_number: string | null;
+      source_topic_url: string;
+    }
+  | {
+      source_kind: "precedent";
+      server_id: string;
+      precedent_id: string;
+      precedent_name: string;
+      precedent_version: string;
+      validity_status: string;
+      source_topic_url: string;
+    };
+
+function buildSourceLedgerEntry(
+  result:
+    | RetrievalResult["lawRetrieval"]["results"][number]
+    | Extract<AssistantTypedRetrievalReference, { sourceKind: "law" }>,
+): AssistantSourceLedgerEntry {
+  return {
+    server_id: result.serverId,
+    law_id: result.lawId,
+    law_name: result.lawTitle,
+    article_number: result.articleNumberNormalized ?? null,
+    part_number: null,
+    law_version: result.lawVersionId,
+    source_topic_url: result.sourceTopicUrl,
+  };
+}
+
+function buildAssistantUsedSources(retrieval: RetrievalResult): AssistantUsedSource[] {
+  const lawSources = selectPromptContextResults(retrieval.results, "law", MAX_PROMPT_LAW_BLOCKS)
+    .filter((result): result is Extract<AssistantTypedRetrievalReference, { sourceKind: "law" }> => {
+      return result.sourceKind === "law";
+    })
+    .map((result) => ({
+      source_kind: "law" as const,
+      server_id: result.serverId,
+      law_id: result.lawId,
+      law_name: result.lawTitle,
+      law_version: result.lawVersionId,
+      article_number: result.articleNumberNormalized ?? null,
+      source_topic_url: result.sourceTopicUrl,
+    }));
+  const precedentSources = selectPromptContextResults(
+    retrieval.results,
+    "precedent",
+    MAX_PROMPT_PRECEDENT_BLOCKS,
+  )
+    .filter(
+      (result): result is Extract<AssistantTypedRetrievalReference, { sourceKind: "precedent" }> => {
+        return result.sourceKind === "precedent";
+      },
+    )
+    .map((result) => ({
+      source_kind: "precedent" as const,
+      server_id: result.serverId,
+      precedent_id: result.precedentId,
+      precedent_name: result.precedentTitle,
+      precedent_version: result.precedentVersionId,
+      validity_status: result.validityStatus,
+      source_topic_url: result.sourceTopicUrl,
+    }));
+
+  return [...lawSources, ...precedentSources];
+}
+
+function buildAssistantSourceLedger(retrieval: RetrievalResult) {
+  const foundNorms = retrieval.lawRetrieval.results.map(buildSourceLedgerEntry);
+  const contextNorms = selectPromptContextResults(retrieval.results, "law", MAX_PROMPT_LAW_BLOCKS)
+    .filter((result): result is Extract<AssistantTypedRetrievalReference, { sourceKind: "law" }> => {
+      return result.sourceKind === "law";
+    })
+    .map(buildSourceLedgerEntry);
+  const lawVersionIds = Array.from(new Set(foundNorms.map((entry) => entry.law_version)));
+
+  return {
+    server_id: retrieval.serverId,
+    law_version_ids: lawVersionIds,
+    found_norms: foundNorms,
+    context_norms: contextNorms,
+    used_norms: contextNorms,
+  };
+}
 
 function buildGroundedReferences(retrieval: RetrievalResult) {
   return retrieval.results.map((result) => {
@@ -315,8 +425,10 @@ function buildAssistantSystemPrompt() {
     "Законы и судебные прецеденты — разные типы источников. Не выдавай precedent как будто это норма закона.",
     "Если законы есть, law-grounded часть ответа должна идти раньше precedent-grounded части.",
     "Если закон не найден, но найден подтверждённый precedent, прямо напиши, что ответ опирается на precedent-corpus, а не на норму закона.",
-    "Если надёжной нормы или подходящего подтверждённого precedent нет, не выдумывай ответ.",
+    "Если надёжной нормы или подходящего подтверждённого precedent мало, не выдумывай ответ и не делай категоричных выводов.",
     "Если что-то следует не прямо из источника, вынеси это только в секцию интерпретации.",
+    "Не используй для пользователя формулировки: 'недостаточно данных', 'невозможно определить', 'я не нашёл норму', 'нельзя сделать вывод'.",
+    "Если опоры недостаточно, используй аккуратные условные формулировки: 'оценка зависит от...', 'при наличии оснований...', 'при соблюдении порядка...', 'может свидетельствовать...', 'допустимо при условии...'.",
     "Верни ответ строго на русском языке и строго с markdown-секциями второго уровня:",
     "## Краткий вывод",
     "## Что прямо следует из норм закона",
@@ -395,15 +507,15 @@ function buildNoNormsAnswer(retrieval: RetrievalResult) {
   const hasUsablePrecedents = retrieval.hasUsablePrecedentCorpus;
   const sections = {
     summary:
-      "В текущем подтверждённом корпусе выбранного сервера релевантная норма или подтверждённый прецедент по этому вопросу не найдены.",
+      "Оценка по этому вопросу зависит от наличия в подтверждённом корпусе выбранного сервера прямой нормы или подтверждённого прецедента.",
     normativeAnalysis: hasCurrentLaws
-      ? "В current primary laws выбранного сервера retrieval не нашёл статей или иных блоков, на которые можно надёжно опереться."
-      : "Для этого сервера сейчас нет релевантных current primary laws, которые можно использовать как прямую нормативную опору по вопросу.",
+      ? "В current primary laws выбранного сервера сейчас не сформировалась достаточная прямая нормативная опора по заданной формулировке вопроса."
+      : "Для этого сервера прямая нормативная опора по заданной формулировке вопроса пока не сформирована в current primary laws.",
     precedentAnalysis: hasUsablePrecedents
-      ? "Среди подтверждённых current precedents со статусом validity applicable или limited retrieval не нашёл подходящих блоков, которые можно надёжно использовать в ответе."
-      : "В usable precedent corpus выбранного сервера нет подходящих подтверждённых прецедентов, на которые можно добросовестно сослаться.",
+      ? "Среди подтверждённых current precedents со статусом validity applicable или limited сейчас нет достаточной опоры для уверенного самостоятельного вывода."
+      : "Подходящая precedent-опора по этому вопросу для выбранного сервера пока не сформирована.",
     interpretation:
-      "Я не могу добросовестно выводить ответ вне подтверждённого корпуса. Нужна либо более точная формулировка вопроса, либо пополнение confirmed corpus сервера.",
+      "При наличии более точной формулировки вопроса или дополнительной confirmed corpus-опоры вывод может быть уточнён без выхода за пределы законодательства выбранного сервера.",
   } satisfies AssistantAnswerSections;
 
   return {
@@ -433,6 +545,10 @@ export async function generateServerLegalAssistantAnswer(
     lawLimit: 6,
     precedentLimit: 4,
   });
+  const intent = classifyAssistantIntent(input.question);
+  const responseMode = detectQuestionResponseMode(input.question);
+  const sourceLedger = buildAssistantSourceLedger(retrieval);
+  const usedSources = buildAssistantUsedSources(retrieval);
   const metadataBase = {
     serverId: input.serverId,
     serverCode: input.serverCode,
@@ -444,9 +560,21 @@ export async function generateServerLegalAssistantAnswer(
     lawsUsed: buildLawsUsed(retrieval),
     precedentsUsed: buildPrecedentsUsed(retrieval),
     references: buildGroundedReferences(retrieval),
+    intent,
+    actor_context: "general_question" as const,
+    response_mode: responseMode,
+    prompt_version: LEGAL_ASSISTANT_PROMPT_VERSION,
+    law_version_ids: retrieval.combinedRetrievalRevision.lawCurrentVersionIds,
+    used_sources: usedSources,
+    source_ledger: sourceLedger,
   };
 
   if (!retrieval.hasAnyUsableCorpus) {
+    const selfAssessment = buildAssistantSelfAssessment({
+      status: "no_corpus",
+      lawResultCount: retrieval.lawRetrieval.resultCount,
+      precedentResultCount: retrieval.precedentRetrieval.resultCount,
+    });
     await dependencies.createAIRequest({
       accountId: input.accountId ?? null,
       guestSessionId: input.guestSessionId ?? null,
@@ -458,12 +586,27 @@ export async function generateServerLegalAssistantAnswer(
         serverId: input.serverId,
         serverCode: input.serverCode,
         question: input.question,
+        intent,
+        actor_context: "general_question",
+        response_mode: responseMode,
+        prompt_version: LEGAL_ASSISTANT_PROMPT_VERSION,
+        law_version_ids: retrieval.combinedRetrievalRevision.lawCurrentVersionIds,
+        used_sources: usedSources,
+        source_ledger: sourceLedger,
       },
       responsePayloadJson: {
         branch: "no_corpus",
         lawCorpusSnapshot: retrieval.lawCorpusSnapshot,
         precedentCorpusSnapshot: retrieval.precedentCorpusSnapshot,
         combinedRetrievalRevision: retrieval.combinedRetrievalRevision,
+        latencyMs: 0,
+        prompt_tokens: null,
+        completion_tokens: null,
+        total_tokens: null,
+        cost_usd: null,
+        confidence: selfAssessment.answer_confidence,
+        used_sources: usedSources,
+        self_assessment: selfAssessment,
       },
       errorMessage: "Для выбранного сервера нет confirmed current law или precedent corpus.",
     });
@@ -471,12 +614,20 @@ export async function generateServerLegalAssistantAnswer(
     return {
       status: "no_corpus" as const,
       message: "Для выбранного сервера пока нет подтверждённого usable corpus для юридического помощника.",
-      metadata: metadataBase,
+      metadata: {
+        ...metadataBase,
+        self_assessment: selfAssessment,
+      },
     };
   }
 
   if (retrieval.resultCount === 0) {
     const fallbackAnswer = buildNoNormsAnswer(retrieval);
+    const selfAssessment = buildAssistantSelfAssessment({
+      status: "no_norms",
+      lawResultCount: retrieval.lawRetrieval.resultCount,
+      precedentResultCount: retrieval.precedentRetrieval.resultCount,
+    });
 
     await dependencies.createAIRequest({
       accountId: input.accountId ?? null,
@@ -489,6 +640,13 @@ export async function generateServerLegalAssistantAnswer(
         serverId: input.serverId,
         serverCode: input.serverCode,
         question: input.question,
+        intent,
+        actor_context: "general_question",
+        response_mode: responseMode,
+        prompt_version: LEGAL_ASSISTANT_PROMPT_VERSION,
+        law_version_ids: retrieval.combinedRetrievalRevision.lawCurrentVersionIds,
+        used_sources: usedSources,
+        source_ledger: sourceLedger,
       },
       responsePayloadJson: {
         branch: "no_norms",
@@ -496,6 +654,14 @@ export async function generateServerLegalAssistantAnswer(
         precedentCorpusSnapshot: retrieval.precedentCorpusSnapshot,
         combinedRetrievalRevision: retrieval.combinedRetrievalRevision,
         resultCount: retrieval.resultCount,
+        latencyMs: 0,
+        prompt_tokens: null,
+        completion_tokens: null,
+        total_tokens: null,
+        cost_usd: null,
+        confidence: selfAssessment.answer_confidence,
+        used_sources: usedSources,
+        self_assessment: selfAssessment,
       },
       errorMessage: null,
     });
@@ -510,18 +676,33 @@ export async function generateServerLegalAssistantAnswer(
         ...fallbackAnswer.sections,
         sources: buildSourcesSectionText(retrieval),
       },
-      metadata: metadataBase,
+      metadata: {
+        ...metadataBase,
+        self_assessment: selfAssessment,
+      },
     };
   }
 
+  const answeredSelfAssessment = buildAssistantSelfAssessment({
+    status: "answered",
+    lawResultCount: retrieval.lawRetrieval.resultCount,
+    precedentResultCount: retrieval.precedentRetrieval.resultCount,
+  });
   const proxyRequestPayload = {
     featureKey: "server_legal_assistant",
     serverId: input.serverId,
     serverCode: input.serverCode,
     question: input.question,
+    intent,
+    actor_context: "general_question" as const,
+    response_mode: responseMode,
+    prompt_version: LEGAL_ASSISTANT_PROMPT_VERSION,
+    law_version_ids: retrieval.combinedRetrievalRevision.lawCurrentVersionIds,
+    used_sources: usedSources,
     lawCorpusSnapshot: retrieval.lawCorpusSnapshot,
     precedentCorpusSnapshot: retrieval.precedentCorpusSnapshot,
     combinedRetrievalRevision: retrieval.combinedRetrievalRevision,
+    source_ledger: sourceLedger,
     retrievalResults: retrieval.results.map((result) => {
       if (result.sourceKind === "law") {
         return {
@@ -546,6 +727,7 @@ export async function generateServerLegalAssistantAnswer(
       };
     }),
   };
+  const startedAt = dependencies.now();
   const proxyResponse = await dependencies.requestAssistantProxyCompletion({
     systemPrompt: buildAssistantSystemPrompt(),
     userPrompt: buildAssistantUserPrompt({
@@ -560,6 +742,11 @@ export async function generateServerLegalAssistantAnswer(
       precedentResultsCount: retrieval.precedentRetrieval.resultCount,
     },
   });
+  const finishedAt = dependencies.now();
+  const latencyMs = Math.max(0, finishedAt.getTime() - startedAt.getTime());
+  const usageMetrics = extractProxyUsageMetrics(
+    "responsePayloadJson" in proxyResponse ? proxyResponse.responsePayloadJson ?? null : null,
+  );
 
   await dependencies.createAIRequest({
     accountId: input.accountId ?? null,
@@ -571,7 +758,28 @@ export async function generateServerLegalAssistantAnswer(
     model: "model" in proxyResponse ? proxyResponse.model ?? null : null,
     requestPayloadJson: proxyRequestPayload,
     responsePayloadJson:
-      "responsePayloadJson" in proxyResponse ? proxyResponse.responsePayloadJson ?? null : null,
+      "responsePayloadJson" in proxyResponse
+        ? {
+            ...(proxyResponse.responsePayloadJson ?? {}),
+            latencyMs,
+            prompt_tokens: usageMetrics.prompt_tokens,
+            completion_tokens: usageMetrics.completion_tokens,
+            total_tokens: usageMetrics.total_tokens,
+            cost_usd: usageMetrics.cost_usd,
+            confidence: answeredSelfAssessment.answer_confidence,
+            used_sources: usedSources,
+            self_assessment: answeredSelfAssessment,
+          }
+        : {
+            latencyMs,
+            prompt_tokens: usageMetrics.prompt_tokens,
+            completion_tokens: usageMetrics.completion_tokens,
+            total_tokens: usageMetrics.total_tokens,
+            cost_usd: usageMetrics.cost_usd,
+            confidence: answeredSelfAssessment.answer_confidence,
+            used_sources: usedSources,
+            self_assessment: answeredSelfAssessment,
+          },
     status:
       proxyResponse.status === "success"
         ? "success"
@@ -585,7 +793,14 @@ export async function generateServerLegalAssistantAnswer(
     return {
       status: "unavailable" as const,
       message: buildUnavailableMessage(),
-      metadata: metadataBase,
+      metadata: {
+        ...metadataBase,
+        self_assessment: buildAssistantSelfAssessment({
+          status: "unavailable",
+          lawResultCount: retrieval.lawRetrieval.resultCount,
+          precedentResultCount: retrieval.precedentRetrieval.resultCount,
+        }),
+      },
     };
   }
 
@@ -599,6 +814,9 @@ export async function generateServerLegalAssistantAnswer(
     status: "answered" as const,
     answerMarkdown,
     sections,
-    metadata: metadataBase,
+    metadata: {
+      ...metadataBase,
+      self_assessment: answeredSelfAssessment,
+    },
   };
 }

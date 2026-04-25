@@ -24,6 +24,18 @@ import {
   type DocumentRewriteSectionKey,
   type OgpDocumentRewriteSectionKey,
 } from "@/schemas/document-ai";
+import {
+  buildDocumentRewriteSelfAssessment,
+  deriveActorContextFromFilingMode,
+} from "@/server/legal-core/metadata";
+import {
+  buildDocumentRewriteFactLedger,
+  type DocumentRewriteFactLedger,
+} from "@/server/legal-core/document-rewrite";
+import {
+  DOCUMENT_FIELD_REWRITE_PROMPT_VERSION,
+  extractProxyUsageMetrics,
+} from "@/server/legal-core/observability";
 
 const DOCUMENT_FIELD_REWRITE_FEATURE_KEY = "document_field_rewrite";
 const MAX_TARGET_TEXT_LENGTH = 6_000;
@@ -477,8 +489,11 @@ function buildRewriteSystemPrompt() {
     "Ты помогаешь переписать одну секцию юридического документа.",
     "Работай только как writing assistant, а не как legal assistant.",
     "Не придумывай новые факты, даты, имена, доказательства, trustor details, нормы закона, судебные прецеденты, суммы или выводы, которых нет во входных данных.",
+    "Не меняй зафиксированные факты из fact ledger.",
+    "Не добавляй новые доказательства, статьи закона и категоричные правовые выводы.",
     "Сохрани фактический смысл исходного текста.",
     "Сделай текст яснее, структурнее и формальнее.",
+    "Допустимо улучшать стиль, структуру, хронологию и убирать эмоции, если фактическое содержание остаётся тем же.",
     "Не превращай ответ в список советов или комментариев для пользователя.",
     "Не используй markdown, заголовки, кавычки вокруг всего ответа и служебные пояснения.",
     "Верни только улучшенную версию секции как plain text.",
@@ -490,6 +505,7 @@ function buildRewriteUserPrompt(input: {
   documentTitle: string;
   authorFullName: string;
   context: RewritePromptContext;
+  factLedger: DocumentRewriteFactLedger;
 }) {
   return [
     `Сервер: ${input.serverName}`,
@@ -505,6 +521,9 @@ function buildRewriteUserPrompt(input: {
     "",
     "Контекст секции:",
     input.context.contextText || "Дополнительный контекст не передан.",
+    "",
+    "Fact ledger:",
+    JSON.stringify(input.factLedger, null, 2),
     "",
     "Перепиши только исходный текст секции.",
     "Не добавляй новые обстоятельства и не меняй смысл.",
@@ -582,6 +601,12 @@ export async function rewriteOwnedDocumentField(
     payload: document.formPayloadJson,
     sectionKey: input.sectionKey,
   });
+  const factLedger = buildDocumentRewriteFactLedger({
+    documentType: document.documentType,
+    payload: document.formPayloadJson,
+    sectionKey: input.sectionKey,
+    sourceText: promptContext.sourceText,
+  });
   const sourceText = clampText(promptContext.sourceText, MAX_TARGET_TEXT_LENGTH);
 
   if (sourceText.length === 0) {
@@ -589,6 +614,11 @@ export async function rewriteOwnedDocumentField(
   }
 
   const startedAt = dependencies.now();
+  const actorContext = deriveActorContextFromFilingMode(promptContext.filingMode);
+  const selfAssessment = buildDocumentRewriteSelfAssessment({
+    missingDataCount: factLedger.missing_data.length,
+    sourceLength: sourceText.length,
+  });
   const proxyResponse = await dependencies.requestProxyCompletion({
     systemPrompt: buildRewriteSystemPrompt(),
     userPrompt: buildRewriteUserPrompt({
@@ -596,16 +626,24 @@ export async function rewriteOwnedDocumentField(
       documentTitle: document.title,
       authorFullName: authorSnapshot.fullName,
       context: promptContext,
+      factLedger,
     }),
     requestMetadata: {
       featureKey: DOCUMENT_FIELD_REWRITE_FEATURE_KEY,
       documentId: document.id,
       documentType: document.documentType,
       sectionKey: input.sectionKey,
+      intent: "document_text_improvement",
+      actor_context: actorContext,
+      response_mode: "document_ready",
+      prompt_version: DOCUMENT_FIELD_REWRITE_PROMPT_VERSION,
     },
   });
   const finishedAt = dependencies.now();
   const latencyMs = Math.max(0, finishedAt.getTime() - startedAt.getTime());
+  const usageMetrics = extractProxyUsageMetrics(
+    "responsePayloadJson" in proxyResponse ? proxyResponse.responsePayloadJson ?? null : null,
+  );
 
   if (proxyResponse.status !== "success") {
     await dependencies.createAIRequest({
@@ -621,15 +659,28 @@ export async function rewriteOwnedDocumentField(
         sectionKey: input.sectionKey,
         updatedAt: document.updatedAt.toISOString(),
         filingMode: promptContext.filingMode,
+        actor_context: actorContext,
+        intent: "document_text_improvement",
+        response_mode: "document_ready",
+        prompt_version: DOCUMENT_FIELD_REWRITE_PROMPT_VERSION,
         hasTrustor: promptContext.hasTrustor,
         evidenceGroupCount: promptContext.evidenceSummary.groupCount,
         sourceLength: sourceText.length,
         contextFieldKeys: promptContext.contextFieldKeys,
         contextLength: promptContext.contextText.length,
+        law_version_ids: [],
+        used_sources: [],
+        fact_ledger: factLedger,
       },
       responsePayloadJson: {
         latencyMs,
         attemptedProxyKeys: proxyResponse.attemptedProxyKeys,
+        prompt_tokens: usageMetrics.prompt_tokens,
+        completion_tokens: usageMetrics.completion_tokens,
+        total_tokens: usageMetrics.total_tokens,
+        cost_usd: usageMetrics.cost_usd,
+        confidence: selfAssessment.answer_confidence,
+        self_assessment: selfAssessment,
       },
       status: proxyResponse.status,
       errorMessage: proxyResponse.message,
@@ -666,11 +717,18 @@ export async function rewriteOwnedDocumentField(
       sectionKey: input.sectionKey,
       updatedAt: document.updatedAt.toISOString(),
       filingMode: promptContext.filingMode,
+      actor_context: actorContext,
+      intent: "document_text_improvement",
+      response_mode: "document_ready",
+      prompt_version: DOCUMENT_FIELD_REWRITE_PROMPT_VERSION,
       hasTrustor: promptContext.hasTrustor,
       evidenceGroupCount: promptContext.evidenceSummary.groupCount,
       sourceLength: sourceText.length,
       contextFieldKeys: promptContext.contextFieldKeys,
       contextLength: promptContext.contextText.length,
+      law_version_ids: [],
+      used_sources: [],
+      fact_ledger: factLedger,
     },
     responsePayloadJson: {
       suggestionLength: usageMeta.suggestionLength,
@@ -678,6 +736,12 @@ export async function rewriteOwnedDocumentField(
       finishReason: usageMeta.finishReason,
       attemptedProxyKeys: usageMeta.attemptedProxyKeys,
       suggestionPreview: suggestionText.slice(0, MAX_SUGGESTION_PREVIEW_LENGTH),
+      prompt_tokens: usageMetrics.prompt_tokens,
+      completion_tokens: usageMetrics.completion_tokens,
+      total_tokens: usageMetrics.total_tokens,
+      cost_usd: usageMetrics.cost_usd,
+      confidence: selfAssessment.answer_confidence,
+      self_assessment: selfAssessment,
     },
     status: "success",
     errorMessage: null,

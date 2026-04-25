@@ -102,6 +102,17 @@ describe("answer pipeline", () => {
     if (result.status === "no_norms") {
       expect(result.answerMarkdown).toContain("Что подтверждается судебными прецедентами");
       expect(result.metadata.references).toEqual([]);
+      expect(result.metadata.intent).toBe("situation_analysis");
+      expect(result.metadata.actor_context).toBe("general_question");
+      expect(result.metadata.response_mode).toBe("normal");
+      expect(result.metadata.source_ledger).toMatchObject({
+        server_id: "server-1",
+        found_norms: [],
+      });
+      expect(result.metadata.self_assessment).toMatchObject({
+        answer_confidence: "low",
+        insufficient_data: true,
+      });
       expect(result.sections.precedentAnalysis).toContain("precedent");
     }
     expect(requestAssistantProxyCompletion).not.toHaveBeenCalled();
@@ -137,6 +148,12 @@ describe("answer pipeline", () => {
       model: "gpt-5.4",
       responsePayloadJson: {
         choices: [],
+        usage: {
+          prompt_tokens: 320,
+          completion_tokens: 180,
+          total_tokens: 500,
+          cost_usd: 0.021,
+        },
       },
     });
 
@@ -229,6 +246,21 @@ describe("answer pipeline", () => {
       expect(result.metadata.references).toHaveLength(2);
       expect(result.metadata.references[0].sourceKind).toBe("law");
       expect(result.metadata.references[1].sourceKind).toBe("precedent");
+      expect(result.metadata.intent).toBe("situation_analysis");
+      expect(result.metadata.actor_context).toBe("general_question");
+      expect(result.metadata.response_mode).toBe("normal");
+      expect(result.metadata.prompt_version).toBe("server_legal_assistant_legal_core_v1");
+      expect(result.metadata.law_version_ids).toEqual(["law-version-1"]);
+      expect(result.metadata.used_sources).toHaveLength(2);
+      expect(result.metadata.source_ledger).toMatchObject({
+        server_id: "server-1",
+        law_version_ids: ["law-version-1"],
+      });
+      expect(result.metadata.self_assessment).toMatchObject({
+        answer_confidence: "high",
+        insufficient_data: false,
+        answer_risk_level: "low",
+      });
       expect(result.metadata.combinedRetrievalRevision.combinedCorpusSnapshotHash).toBe(
         "combined-snapshot-hash",
       );
@@ -240,6 +272,7 @@ describe("answer pipeline", () => {
         requestMetadata: expect.objectContaining({
           lawResultsCount: 1,
           precedentResultsCount: 1,
+          prompt_version: "server_legal_assistant_legal_core_v1",
         }),
       }),
     );
@@ -249,9 +282,27 @@ describe("answer pipeline", () => {
         accountId: "account-1",
         status: "success",
         requestPayloadJson: expect.objectContaining({
+          intent: "situation_analysis",
+          actor_context: "general_question",
+          response_mode: "normal",
           retrievalResults: expect.arrayContaining([
             expect.objectContaining({ sourceKind: "law" }),
             expect.objectContaining({ sourceKind: "precedent" }),
+          ]),
+          source_ledger: expect.objectContaining({
+            law_version_ids: ["law-version-1"],
+          }),
+        }),
+        responsePayloadJson: expect.objectContaining({
+          latencyMs: 0,
+          prompt_tokens: 320,
+          completion_tokens: 180,
+          total_tokens: 500,
+          cost_usd: 0.021,
+          confidence: "high",
+          used_sources: expect.arrayContaining([
+            expect.objectContaining({ source_kind: "law" }),
+            expect.objectContaining({ source_kind: "precedent" }),
           ]),
         }),
       }),
@@ -331,6 +382,11 @@ describe("answer pipeline", () => {
     if (result.status === "answered") {
       expect(result.metadata.lawsUsed).toEqual([]);
       expect(result.metadata.precedentsUsed).toHaveLength(1);
+      expect(result.metadata.self_assessment).toMatchObject({
+        answer_confidence: "medium",
+        insufficient_data: true,
+        answer_risk_level: "medium",
+      });
       expect(result.sections.normativeAnalysis).toContain("норма закона");
       expect(result.sections.precedentAnalysis).toContain("precedent");
     }
@@ -388,6 +444,11 @@ describe("answer pipeline", () => {
     expect(result.status).toBe("unavailable");
     if (result.status === "unavailable") {
       expect(result.message).toContain("недоступен");
+      expect(result.metadata.self_assessment).toMatchObject({
+        answer_confidence: "low",
+        insufficient_data: true,
+        answer_risk_level: "high",
+      });
     }
     expect(createAIRequest).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -422,11 +483,21 @@ describe("answer pipeline", () => {
 
     expect(result.status).toBe("no_corpus");
     expect(requestAssistantProxyCompletion).not.toHaveBeenCalled();
+    if (result.status === "no_corpus") {
+      expect(result.metadata.self_assessment).toMatchObject({
+        answer_confidence: "low",
+        insufficient_data: true,
+        answer_risk_level: "high",
+      });
+    }
     expect(createAIRequest).toHaveBeenCalledWith(
       expect.objectContaining({
         status: "unavailable",
         requestPayloadJson: expect.objectContaining({
           branch: "no_corpus",
+          intent: "situation_analysis",
+          actor_context: "general_question",
+          response_mode: "normal",
         }),
       }),
     );

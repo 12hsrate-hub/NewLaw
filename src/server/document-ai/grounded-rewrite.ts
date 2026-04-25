@@ -16,6 +16,18 @@ import {
   readOgpComplaintDraftPayload,
 } from "@/server/document-area/persistence";
 import {
+  buildDocumentRewriteFactLedger,
+  type DocumentRewriteFactLedger,
+} from "@/server/legal-core/document-rewrite";
+import {
+  buildGroundedDocumentRewriteSelfAssessment,
+  deriveActorContextFromFilingMode,
+} from "@/server/legal-core/metadata";
+import {
+  extractProxyUsageMetrics,
+  GROUNDED_DOCUMENT_FIELD_REWRITE_PROMPT_VERSION,
+} from "@/server/legal-core/observability";
+import {
   groundedDocumentFieldRewriteUsageMetaSchema,
   type GroundedDocumentFieldRewriteUsageMeta,
   type GroundedDocumentReference,
@@ -74,10 +86,32 @@ type GroundedRewritePromptContext = {
   sectionKey: GroundedDocumentRewriteSectionKey;
   sectionLabel: string;
   sourceText: string;
+  filingMode: "self" | "representative";
+  hasTrustor: boolean;
   contextFieldKeys: string[];
   contextText: string;
   searchQuery: string;
 };
+
+type GroundedUsedSource =
+  | {
+      source_kind: "law";
+      server_id: string;
+      law_id: string;
+      law_name: string;
+      law_version: string;
+      article_number: string | null;
+      source_topic_url: string;
+    }
+  | {
+      source_kind: "precedent";
+      server_id: string;
+      precedent_id: string;
+      precedent_name: string;
+      precedent_version: string;
+      validity_status: string;
+      source_topic_url: string;
+    };
 
 export class GroundedDocumentFieldRewriteBlockedError extends Error {
   constructor(
@@ -241,6 +275,8 @@ function buildOgpGroundedContext(input: {
     sectionKey: input.sectionKey,
     sectionLabel,
     sourceText,
+    filingMode: input.payload.filingMode,
+    hasTrustor: trustorSummary.present,
     contextFieldKeys,
     contextText,
     searchQuery: buildSearchQuery({
@@ -296,6 +332,8 @@ function buildClaimsGroundedContext(input: {
     sectionKey: input.sectionKey,
     sectionLabel,
     sourceText,
+    filingMode: input.payload.filingMode,
+    hasTrustor: trustorSummary.present,
     contextFieldKeys,
     contextText,
     searchQuery: buildSearchQuery({
@@ -370,15 +408,51 @@ function buildCompactReferences(
     }));
 }
 
+function buildGroundedUsedSources(
+  retrieval: AssistantRetrievalResult,
+  groundingMode: GroundedDocumentRewriteMode | null,
+): GroundedUsedSource[] {
+  if (groundingMode === "law_grounded") {
+    return retrieval.lawRetrieval.results.slice(0, MAX_LAW_PROMPT_BLOCKS).map((result) => ({
+      source_kind: "law" as const,
+      server_id: result.serverId,
+      law_id: result.lawId,
+      law_name: result.lawTitle,
+      law_version: result.lawVersionId,
+      article_number: result.articleNumberNormalized ?? null,
+      source_topic_url: result.sourceTopicUrl,
+    }));
+  }
+
+  if (groundingMode === "precedent_grounded") {
+    return retrieval.precedentRetrieval.results
+      .slice(0, MAX_PRECEDENT_PROMPT_BLOCKS)
+      .map((result) => ({
+        source_kind: "precedent" as const,
+        server_id: result.serverId,
+        precedent_id: result.precedentId,
+        precedent_name: result.precedentTitle,
+        precedent_version: result.precedentVersionId,
+        validity_status: result.validityStatus,
+        source_topic_url: result.sourceTopicUrl,
+      }));
+  }
+
+  return [];
+}
+
 function buildGroundedSystemPrompt(mode: GroundedDocumentRewriteMode) {
   const sharedLines = [
     "Ты помогаешь переписать одну юридическую секцию документа.",
     "Работай только как grounded writing assistant.",
     "Используй только переданный confirmed corpus выбранного сервера.",
     "Не придумывай новые факты, даты, имена, trustor details, evidence, нормы закона, судебные прецеденты, суммы или требования, которых нет во входных данных и retrieval context.",
+    "Не меняй зафиксированные факты из fact ledger.",
+    "Не добавляй новые доказательства, статьи закона и категоричные правовые выводы.",
     "Не переписывай весь документ и не давай советы пользователю.",
     "Сохрани фактический смысл исходного текста.",
     "Сделай секцию яснее, структурнее и формальнее.",
+    "Допустимо улучшать стиль, структуру, хронологию и убирать эмоции, если фактическое содержание остаётся тем же.",
     "Верни только улучшенную секцию как plain text без markdown и без служебных пояснений.",
   ];
 
@@ -441,6 +515,7 @@ function buildGroundedUserPrompt(input: {
   context: GroundedRewritePromptContext;
   retrieval: AssistantRetrievalResult;
   groundingMode: GroundedDocumentRewriteMode;
+  factLedger: DocumentRewriteFactLedger;
 }) {
   const groundedSources =
     input.groundingMode === "law_grounded"
@@ -452,6 +527,8 @@ function buildGroundedUserPrompt(input: {
     `Документ: ${input.documentTitle}`,
     `Тип документа: ${input.context.documentType}`,
     `Секция: ${input.context.sectionLabel} (${input.context.sectionKey})`,
+    `Режим подачи: ${input.context.filingMode}`,
+    `Trustor present: ${input.context.hasTrustor ? "yes" : "no"}`,
     `Grounding mode: ${input.groundingMode}`,
     `Combined corpus snapshot hash: ${input.retrieval.combinedRetrievalRevision.combinedCorpusSnapshotHash}`,
     "",
@@ -460,6 +537,9 @@ function buildGroundedUserPrompt(input: {
     "",
     "Контекст секции:",
     input.context.contextText || "Дополнительный контекст не передан.",
+    "",
+    "Fact ledger:",
+    JSON.stringify(input.factLedger, null, 2),
     "",
     input.groundingMode === "law_grounded"
       ? "Grounded нормы закона:"
@@ -565,18 +645,42 @@ export async function rewriteOwnedGroundedDocumentField(
   });
   const groundingMode = buildGroundedMode(retrieval);
   const references = groundingMode ? buildCompactReferences(retrieval, groundingMode) : [];
+  const actorContext = deriveActorContextFromFilingMode(promptContext.filingMode);
+  const factLedger = buildDocumentRewriteFactLedger({
+    documentType: document.documentType,
+    payload: document.formPayloadJson,
+    sectionKey: input.sectionKey,
+    sourceText: promptContext.sourceText,
+  });
+  const usedSources = buildGroundedUsedSources(retrieval, groundingMode);
+  const selfAssessment = buildGroundedDocumentRewriteSelfAssessment({
+    missingDataCount: factLedger.missing_data.length,
+    sourceLength: sourceText.length,
+    groundingMode,
+    lawResultCount: retrieval.lawRetrieval.resultCount,
+    precedentResultCount: retrieval.precedentRetrieval.resultCount,
+  });
   const requestPayloadBase = {
     documentId: document.id,
     documentType: document.documentType,
     sectionKey: input.sectionKey,
     serverId: document.serverId,
     updatedAt: document.updatedAt.toISOString(),
+    filingMode: promptContext.filingMode,
+    actor_context: actorContext,
+    intent: "document_text_improvement",
+    response_mode: "document_ready",
+    prompt_version: GROUNDED_DOCUMENT_FIELD_REWRITE_PROMPT_VERSION,
     groundingMode: groundingMode ?? "insufficient_corpus",
     lawResultCount: retrieval.lawRetrieval.resultCount,
     precedentResultCount: retrieval.precedentRetrieval.resultCount,
     hasCurrentLawCorpus: retrieval.hasCurrentLawCorpus,
     hasUsablePrecedentCorpus: retrieval.hasUsablePrecedentCorpus,
     combinedRetrievalRevision: retrieval.combinedRetrievalRevision,
+    law_version_ids: retrieval.combinedRetrievalRevision.lawCurrentVersionIds,
+    used_sources: usedSources,
+    fact_ledger: factLedger,
+    hasTrustor: promptContext.hasTrustor,
     contextFieldKeys: promptContext.contextFieldKeys,
     sourceLength: sourceText.length,
     retrievalPromptBlockCount: references.length,
@@ -592,7 +696,15 @@ export async function rewriteOwnedGroundedDocumentField(
       requestPayloadJson: requestPayloadBase,
       responsePayloadJson: {
         statusBranch: "insufficient_corpus",
+        latencyMs: 0,
+        prompt_tokens: null,
+        completion_tokens: null,
+        total_tokens: null,
+        cost_usd: null,
+        confidence: selfAssessment.answer_confidence,
         references,
+        used_sources: usedSources,
+        self_assessment: selfAssessment,
       },
       status: "unavailable",
       errorMessage: message,
@@ -610,13 +722,19 @@ export async function rewriteOwnedGroundedDocumentField(
       context: promptContext,
       retrieval,
       groundingMode,
+      factLedger,
     }),
     requestMetadata: {
       featureKey: GROUNDED_DOCUMENT_FIELD_REWRITE_FEATURE_KEY,
       documentId: document.id,
       documentType: document.documentType,
       sectionKey: input.sectionKey,
+      intent: "document_text_improvement",
+      actor_context: actorContext,
+      response_mode: "document_ready",
+      prompt_version: GROUNDED_DOCUMENT_FIELD_REWRITE_PROMPT_VERSION,
       groundingMode,
+      law_version_ids: retrieval.combinedRetrievalRevision.lawCurrentVersionIds,
       lawResultCount: retrieval.lawRetrieval.resultCount,
       precedentResultCount: retrieval.precedentRetrieval.resultCount,
       retrievalPromptBlockCount: references.length,
@@ -624,6 +742,9 @@ export async function rewriteOwnedGroundedDocumentField(
   });
   const finishedAt = dependencies.now();
   const latencyMs = Math.max(0, finishedAt.getTime() - startedAt.getTime());
+  const usageMetrics = extractProxyUsageMetrics(
+    "responsePayloadJson" in proxyResponse ? proxyResponse.responsePayloadJson ?? null : null,
+  );
 
   if (proxyResponse.status !== "success") {
     await dependencies.createAIRequest({
@@ -639,6 +760,13 @@ export async function rewriteOwnedGroundedDocumentField(
         latencyMs,
         references,
         attemptedProxyKeys: proxyResponse.attemptedProxyKeys,
+        prompt_tokens: usageMetrics.prompt_tokens,
+        completion_tokens: usageMetrics.completion_tokens,
+        total_tokens: usageMetrics.total_tokens,
+        cost_usd: usageMetrics.cost_usd,
+        confidence: selfAssessment.answer_confidence,
+        used_sources: usedSources,
+        self_assessment: selfAssessment,
       },
       status: proxyResponse.status,
       errorMessage: proxyResponse.message,
@@ -682,6 +810,13 @@ export async function rewriteOwnedGroundedDocumentField(
       references,
       attemptedProxyKeys: usageMeta.attemptedProxyKeys,
       suggestionPreview: suggestionText.slice(0, MAX_SUGGESTION_PREVIEW_LENGTH),
+      prompt_tokens: usageMetrics.prompt_tokens,
+      completion_tokens: usageMetrics.completion_tokens,
+      total_tokens: usageMetrics.total_tokens,
+      cost_usd: usageMetrics.cost_usd,
+      confidence: selfAssessment.answer_confidence,
+      used_sources: usedSources,
+      self_assessment: selfAssessment,
     },
     status: "success",
     errorMessage: null,
