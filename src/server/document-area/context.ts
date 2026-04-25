@@ -13,25 +13,36 @@ import { requireProtectedAccountContext } from "@/server/auth/protected";
 import { resolveActiveCharacterId } from "@/server/app-shell/state";
 import { getAccountForumConnectionSummary } from "@/server/forum-integration/service";
 import {
-  safeReadDocumentAuthorSnapshot,
-  readClaimsDraftPayload,
+  buildDocumentEditorAuthorSnapshotSummary,
+  buildDocumentEditorServerSummary,
+  buildInvalidDocumentDataSummary,
+} from "@/server/document-area/context-editor-shared";
+import {
+  buildPersistedDocumentListItem,
+  buildReadPathErrorMessage,
+  logDocumentEditorContextParseFailure,
+  readAttorneyRequestGeneratedArtifact,
+  readClaimsGeneratedArtifactSafe as readClaimsGeneratedArtifact,
+  readLegalServicesAgreementGeneratedArtifact,
+  type DocumentAreaPersistedListItem,
+} from "@/server/document-area/context-persisted-documents";
+import {
   isClaimsDocumentType,
+  readClaimsDraftPayload,
   readOgpComplaintDraftPayload,
   safeReadAttorneyRequestDraftPayload,
+  safeReadDocumentAuthorSnapshot,
   safeReadDocumentSignatureSnapshot,
   safeReadLegalServicesAgreementDraftPayload,
 } from "@/server/document-area/persistence";
-import { readClaimsGeneratedArtifact } from "@/server/document-area/claims-rendering";
 import {
-  attorneyRequestRenderedArtifactSchema,
-  type AttorneyRequestDraftPayload,
-  type AttorneyRequestRenderedArtifact,
-} from "@/features/documents/attorney-request/schemas";
-import {
-  legalServicesAgreementRenderedArtifactSchema,
   type LegalServicesAgreementDraftPayload,
   type LegalServicesAgreementRenderedArtifact,
 } from "@/features/documents/legal-services-agreement/schemas";
+import type {
+  AttorneyRequestDraftPayload,
+  AttorneyRequestRenderedArtifact,
+} from "@/features/documents/attorney-request/schemas";
 import { isOgpTrustorRepresentativeReady } from "@/lib/ogp/generation-contract";
 import { buildAccountCharactersBridgeHref } from "@/lib/routes/account-characters";
 import type { TrustorRegistryPrefillOption } from "@/lib/trustors/registry-prefill";
@@ -40,8 +51,8 @@ import type {
   ClaimsDraftPayload,
   DocumentSignatureSnapshot,
   ClaimsRenderedOutput,
-  OgpForumSyncState,
   OgpComplaintDraftPayload,
+  OgpForumSyncState,
 } from "@/schemas/document";
 import type { ForumConnectionSummary } from "@/schemas/forum-integration";
 
@@ -54,14 +65,6 @@ type GroupedServerDocumentCountRow = Awaited<
   ReturnType<typeof listDocumentCountsByAccountAndServerGrouped>
 >[number];
 type AccountCharacterRecord = Awaited<ReturnType<typeof listCharactersForAccount>>[number];
-
-function buildReadPathErrorMessage(error: unknown) {
-  if (error instanceof Error && error.message.trim().length > 0) {
-    return error.message;
-  }
-
-  return String(error);
-}
 
 export type DocumentAreaServerSummary = {
   id: string;
@@ -77,48 +80,7 @@ export type DocumentAreaServerSummary = {
   legalServicesAgreementDocumentCount?: number;
 };
 
-export type DocumentAreaPersistedListItem = {
-  id: string;
-  title: string;
-  documentType:
-    | "ogp_complaint"
-    | "rehabilitation"
-    | "lawsuit"
-    | "attorney_request"
-    | "legal_services_agreement";
-  status: "draft" | "generated" | "published";
-  filingMode: "self" | "representative" | null;
-  subtype: ClaimDocumentType | null;
-  appealNumber: string | null;
-  objectFullName: string | null;
-  objectOrganization: string | null;
-  requestNumber?: string | null;
-  agreementNumber?: string | null;
-  trustorName?: string | null;
-  server: {
-    id: string;
-    code: string;
-    name: string;
-  };
-  authorSnapshot: {
-    fullName: string;
-    passportNumber: string;
-  };
-  dataHealth: "ok" | "invalid_payload";
-  workingNotesPreview: string;
-  generatedAt: string | null;
-  publicationUrl: string | null;
-  isSiteForumSynced: boolean;
-  forumSyncState: OgpForumSyncState | null;
-  forumThreadId: string | null;
-  forumPostId: string | null;
-  forumLastPublishedAt: string | null;
-  forumLastSyncError: string | null;
-  isModifiedAfterGeneration: boolean;
-  snapshotCapturedAt: string;
-  updatedAt: string;
-  createdAt: string;
-};
+export type { DocumentAreaPersistedListItem } from "@/server/document-area/context-persisted-documents";
 
 type AccountDocumentsOverviewContext = {
   account: {
@@ -673,86 +635,6 @@ function buildDocumentTrustorRegistrySummary(
   })) satisfies DocumentTrustorRegistrySummary[];
 }
 
-const INVALID_DOCUMENT_WORKING_NOTES_PREVIEW = "Документ требует восстановления данных.";
-
-function buildInvalidDocumentAuthorSnapshotSummary() {
-  return {
-    fullName: "Данные персонажа повреждены",
-    passportNumber: "не указан",
-  } satisfies DocumentAreaPersistedListItem["authorSnapshot"];
-}
-
-function buildInvalidPersistedDocumentListItem(
-  document: AccountDocumentRecord | (ServerDocumentRecord & { server: AccountDocumentRecord["server"] }),
-): DocumentAreaPersistedListItem {
-  const subtype = isClaimsDocumentType(document.documentType) ? document.documentType : null;
-
-  return {
-    id: document.id,
-    title: document.title,
-    documentType: document.documentType,
-    status: document.status,
-    filingMode: null,
-    subtype,
-    appealNumber: null,
-    objectFullName: null,
-    objectOrganization: null,
-    requestNumber: null,
-    agreementNumber: null,
-    trustorName: null,
-    server: {
-      id: document.server.id,
-      code: document.server.code,
-      name: document.server.name,
-    },
-    authorSnapshot: buildInvalidDocumentAuthorSnapshotSummary(),
-    dataHealth: "invalid_payload",
-    workingNotesPreview: INVALID_DOCUMENT_WORKING_NOTES_PREVIEW,
-    generatedAt: document.generatedAt?.toISOString() ?? null,
-    publicationUrl: document.publicationUrl,
-    isSiteForumSynced: document.isSiteForumSynced,
-    forumSyncState: document.documentType === "ogp_complaint" ? document.forumSyncState : null,
-    forumThreadId: document.documentType === "ogp_complaint" ? document.forumThreadId : null,
-    forumPostId: document.documentType === "ogp_complaint" ? document.forumPostId : null,
-    forumLastPublishedAt:
-      document.documentType === "ogp_complaint"
-        ? document.forumLastPublishedAt?.toISOString() ?? null
-        : null,
-    forumLastSyncError: document.documentType === "ogp_complaint" ? document.forumLastSyncError : null,
-    isModifiedAfterGeneration: document.isModifiedAfterGeneration,
-    snapshotCapturedAt: document.snapshotCapturedAt.toISOString(),
-    updatedAt: document.updatedAt.toISOString(),
-    createdAt: document.createdAt.toISOString(),
-  };
-}
-
-function logDocumentListItemParseFailure(input: {
-  document: AccountDocumentRecord | (ServerDocumentRecord & { server: AccountDocumentRecord["server"] });
-  message: string;
-}) {
-  console.error("DOCUMENT_LIST_ITEM_PARSE_FAILED", {
-    documentId: input.document.id,
-    documentType: input.document.documentType,
-    accountId: input.document.accountId,
-    serverId: input.document.serverId,
-    message: input.message,
-  });
-}
-
-function logDocumentEditorContextParseFailure(input: {
-  accountId: string;
-  document: NonNullable<Awaited<ReturnType<typeof getDocumentByIdForAccount>>>;
-  message: string;
-}) {
-  console.error("DOCUMENT_EDITOR_CONTEXT_PARSE_FAILED", {
-    documentId: input.document.id,
-    documentType: input.document.documentType,
-    accountId: input.accountId,
-    serverId: input.document.serverId,
-    message: input.message,
-  });
-}
-
 function buildInvalidDocumentDataEditorRouteContext(input: {
   account: AccountDocumentsOverviewContext["account"];
   server: {
@@ -768,221 +650,8 @@ function buildInvalidDocumentDataEditorRouteContext(input: {
     account: input.account,
     server: input.server,
     servers: input.servers,
-    document: {
-      id: input.document.id,
-      title: input.document.title,
-      status: input.document.status,
-      createdAt: input.document.createdAt.toISOString(),
-      updatedAt: input.document.updatedAt.toISOString(),
-      snapshotCapturedAt: input.document.snapshotCapturedAt.toISOString(),
-      dataHealth: "invalid_payload",
-    },
+    document: buildInvalidDocumentDataSummary(input.document),
   };
-}
-
-function buildPersistedDocumentListItem(
-  document: AccountDocumentRecord | (ServerDocumentRecord & { server: AccountDocumentRecord["server"] }),
-) {
-  try {
-    const authorSnapshot = safeReadDocumentAuthorSnapshot(document.authorSnapshotJson);
-    const subtype = isClaimsDocumentType(document.documentType) ? document.documentType : null;
-
-    if (!authorSnapshot.ok) {
-      logDocumentListItemParseFailure({
-        document,
-        message: authorSnapshot.message,
-      });
-
-      return buildInvalidPersistedDocumentListItem(document);
-    }
-
-    if (document.documentType === "attorney_request") {
-      const payload = safeReadAttorneyRequestDraftPayload(document.formPayloadJson);
-
-      if (!payload.ok) {
-        logDocumentListItemParseFailure({
-          document,
-          message: payload.message,
-        });
-
-        return buildInvalidPersistedDocumentListItem(document);
-      }
-
-      return {
-        id: document.id,
-        title: document.title,
-        documentType: document.documentType,
-        status: document.status,
-        filingMode: null,
-        subtype,
-        appealNumber: null,
-        objectFullName: null,
-        objectOrganization: null,
-        requestNumber: payload.data.requestNumberNormalized,
-        trustorName: payload.data.trustorSnapshot.fullName,
-        server: {
-          id: document.server.id,
-          code: document.server.code,
-          name: document.server.name,
-        },
-        authorSnapshot: {
-          fullName: authorSnapshot.data.fullName,
-          passportNumber: authorSnapshot.data.passportNumber,
-        },
-        dataHealth: "ok",
-        workingNotesPreview: payload.data.workingNotes.slice(0, 240),
-        generatedAt: document.generatedAt?.toISOString() ?? null,
-        publicationUrl: document.publicationUrl,
-        isSiteForumSynced: document.isSiteForumSynced,
-        forumSyncState: null,
-        forumThreadId: null,
-        forumPostId: null,
-        forumLastPublishedAt: null,
-        forumLastSyncError: null,
-        isModifiedAfterGeneration: document.isModifiedAfterGeneration,
-        snapshotCapturedAt: document.snapshotCapturedAt.toISOString(),
-        updatedAt: document.updatedAt.toISOString(),
-        createdAt: document.createdAt.toISOString(),
-      } satisfies DocumentAreaPersistedListItem;
-    }
-
-    if (document.documentType === "legal_services_agreement") {
-      const payload = safeReadLegalServicesAgreementDraftPayload(document.formPayloadJson);
-
-      if (!payload.ok) {
-        logDocumentListItemParseFailure({
-          document,
-          message: payload.message,
-        });
-
-        return buildInvalidPersistedDocumentListItem(document);
-      }
-
-      return {
-        id: document.id,
-        title: document.title,
-        documentType: document.documentType,
-        status: document.status,
-        filingMode: null,
-        subtype,
-        appealNumber: null,
-        objectFullName: null,
-        objectOrganization: null,
-        agreementNumber: payload.data.manualFields.agreementNumber,
-        trustorName: payload.data.trustorSnapshot.fullName,
-        server: {
-          id: document.server.id,
-          code: document.server.code,
-          name: document.server.name,
-        },
-        authorSnapshot: {
-          fullName: authorSnapshot.data.fullName,
-          passportNumber: authorSnapshot.data.passportNumber,
-        },
-        dataHealth: "ok",
-        workingNotesPreview: payload.data.workingNotes.slice(0, 240),
-        generatedAt: document.generatedAt?.toISOString() ?? null,
-        publicationUrl: document.publicationUrl,
-        isSiteForumSynced: document.isSiteForumSynced,
-        forumSyncState: null,
-        forumThreadId: null,
-        forumPostId: null,
-        forumLastPublishedAt: null,
-        forumLastSyncError: null,
-        isModifiedAfterGeneration: document.isModifiedAfterGeneration,
-        snapshotCapturedAt: document.snapshotCapturedAt.toISOString(),
-        updatedAt: document.updatedAt.toISOString(),
-        createdAt: document.createdAt.toISOString(),
-      } satisfies DocumentAreaPersistedListItem;
-    }
-
-    if (document.documentType !== "ogp_complaint") {
-      const payload = readClaimsDraftPayload(document.documentType, document.formPayloadJson);
-
-      return {
-        id: document.id,
-        title: document.title,
-        documentType: document.documentType,
-        status: document.status,
-        filingMode: payload.filingMode,
-        subtype,
-        appealNumber: null,
-        objectFullName: null,
-        objectOrganization: null,
-        requestNumber: null,
-        trustorName: payload.trustorSnapshot?.fullName ?? null,
-        server: {
-          id: document.server.id,
-          code: document.server.code,
-          name: document.server.name,
-        },
-        authorSnapshot: {
-          fullName: authorSnapshot.data.fullName,
-          passportNumber: authorSnapshot.data.passportNumber,
-        },
-        dataHealth: "ok",
-        workingNotesPreview: payload.workingNotes.slice(0, 240),
-        generatedAt: document.generatedAt?.toISOString() ?? null,
-        publicationUrl: document.publicationUrl,
-        isSiteForumSynced: document.isSiteForumSynced,
-        forumSyncState: null,
-        forumThreadId: null,
-        forumPostId: null,
-        forumLastPublishedAt: null,
-        forumLastSyncError: null,
-        isModifiedAfterGeneration: document.isModifiedAfterGeneration,
-        snapshotCapturedAt: document.snapshotCapturedAt.toISOString(),
-        updatedAt: document.updatedAt.toISOString(),
-        createdAt: document.createdAt.toISOString(),
-      } satisfies DocumentAreaPersistedListItem;
-    }
-
-    const payload = readOgpComplaintDraftPayload(document.formPayloadJson);
-
-    return {
-      id: document.id,
-      title: document.title,
-      documentType: document.documentType,
-      status: document.status,
-      filingMode: payload.filingMode,
-      subtype,
-      appealNumber: payload.appealNumber,
-      objectFullName: payload.objectFullName,
-      objectOrganization: payload.objectOrganization,
-      requestNumber: null,
-      trustorName: payload.trustorSnapshot?.fullName ?? null,
-      server: {
-        id: document.server.id,
-        code: document.server.code,
-        name: document.server.name,
-      },
-      authorSnapshot: {
-        fullName: authorSnapshot.data.fullName,
-        passportNumber: authorSnapshot.data.passportNumber,
-      },
-      dataHealth: "ok",
-      workingNotesPreview: payload.workingNotes.slice(0, 240),
-      generatedAt: document.generatedAt?.toISOString() ?? null,
-      publicationUrl: document.publicationUrl,
-      isSiteForumSynced: document.isSiteForumSynced,
-      forumSyncState: document.forumSyncState,
-      forumThreadId: document.forumThreadId,
-      forumPostId: document.forumPostId,
-      forumLastPublishedAt: document.forumLastPublishedAt?.toISOString() ?? null,
-      forumLastSyncError: document.forumLastSyncError,
-      isModifiedAfterGeneration: document.isModifiedAfterGeneration,
-      snapshotCapturedAt: document.snapshotCapturedAt.toISOString(),
-      updatedAt: document.updatedAt.toISOString(),
-      createdAt: document.createdAt.toISOString(),
-    } satisfies DocumentAreaPersistedListItem;
-  } catch (error) {
-    logDocumentListItemParseFailure({
-      document,
-      message: buildReadPathErrorMessage(error),
-    });
-
-    return buildInvalidPersistedDocumentListItem(document);
-  }
 }
 
 function buildDocumentTypeCountMapFromDocuments(
@@ -1497,18 +1166,6 @@ export async function getAttorneyRequestFamilyRouteContext(input: {
   };
 }
 
-function readAttorneyRequestGeneratedArtifact(value: unknown) {
-  const parsed = attorneyRequestRenderedArtifactSchema.safeParse(value);
-
-  return parsed.success ? parsed.data : null;
-}
-
-function readLegalServicesAgreementGeneratedArtifact(value: unknown) {
-  const parsed = legalServicesAgreementRenderedArtifactSchema.safeParse(value);
-
-  return parsed.success ? parsed.data : null;
-}
-
 export async function getClaimsEditorRouteContext(input: {
   serverSlug: string;
   documentId: string;
@@ -1604,23 +1261,8 @@ export async function getClaimsEditorRouteContext(input: {
       generatedRendererVersion: document.generatedRendererVersion,
       generatedArtifact,
       isModifiedAfterGeneration: document.isModifiedAfterGeneration,
-      server: {
-        code: document.server.code,
-        name: document.server.name,
-      },
-      authorSnapshot: {
-        fullName: authorSnapshot.data.fullName,
-        passportNumber: authorSnapshot.data.passportNumber,
-        position: authorSnapshot.data.position,
-        address: authorSnapshot.data.address,
-        phone: authorSnapshot.data.phone,
-        icEmail: authorSnapshot.data.icEmail,
-        passportImageUrl: authorSnapshot.data.passportImageUrl,
-        nickname: authorSnapshot.data.nickname,
-        roleKeys: authorSnapshot.data.roleKeys,
-        accessFlags: authorSnapshot.data.accessFlags,
-        isProfileComplete: authorSnapshot.data.isProfileComplete,
-      },
+      server: buildDocumentEditorServerSummary(document.server),
+      authorSnapshot: buildDocumentEditorAuthorSnapshotSummary(authorSnapshot.data),
       trustorRegistry,
       payload,
     },
@@ -1735,23 +1377,8 @@ export async function getLegalServicesAgreementEditorRouteContext(input: {
       generatedRendererVersion: document.generatedRendererVersion,
       generatedArtifact,
       isModifiedAfterGeneration: document.isModifiedAfterGeneration,
-      server: {
-        code: document.server.code,
-        name: document.server.name,
-      },
-      authorSnapshot: {
-        fullName: authorSnapshot.data.fullName,
-        passportNumber: authorSnapshot.data.passportNumber,
-        position: authorSnapshot.data.position,
-        address: authorSnapshot.data.address,
-        phone: authorSnapshot.data.phone,
-        icEmail: authorSnapshot.data.icEmail,
-        passportImageUrl: authorSnapshot.data.passportImageUrl,
-        nickname: authorSnapshot.data.nickname,
-        roleKeys: authorSnapshot.data.roleKeys,
-        accessFlags: authorSnapshot.data.accessFlags,
-        isProfileComplete: authorSnapshot.data.isProfileComplete,
-      },
+      server: buildDocumentEditorServerSummary(document.server),
+      authorSnapshot: buildDocumentEditorAuthorSnapshotSummary(authorSnapshot.data),
       payload: payload.data,
     },
   };
@@ -1878,23 +1505,8 @@ export async function getAttorneyRequestEditorRouteContext(input: {
       generatedRendererVersion: document.generatedRendererVersion,
       generatedArtifact,
       isModifiedAfterGeneration: document.isModifiedAfterGeneration,
-      server: {
-        code: document.server.code,
-        name: document.server.name,
-      },
-      authorSnapshot: {
-        fullName: authorSnapshot.data.fullName,
-        passportNumber: authorSnapshot.data.passportNumber,
-        position: authorSnapshot.data.position,
-        address: authorSnapshot.data.address,
-        phone: authorSnapshot.data.phone,
-        icEmail: authorSnapshot.data.icEmail,
-        passportImageUrl: authorSnapshot.data.passportImageUrl,
-        nickname: authorSnapshot.data.nickname,
-        roleKeys: authorSnapshot.data.roleKeys,
-        accessFlags: authorSnapshot.data.accessFlags,
-        isProfileComplete: authorSnapshot.data.isProfileComplete,
-      },
+      server: buildDocumentEditorServerSummary(document.server),
+      authorSnapshot: buildDocumentEditorAuthorSnapshotSummary(authorSnapshot.data),
       signatureSnapshot: normalizedSignatureSnapshot,
       hasActiveCharacterSignature: Boolean(document.character?.activeSignature),
       payload: payload.data,
@@ -2005,23 +1617,8 @@ export async function getOgpComplaintEditorRouteContext(input: {
       forumLastSyncError: document.forumLastSyncError,
       isModifiedAfterGeneration: document.isModifiedAfterGeneration,
       forumConnection,
-      server: {
-        code: document.server.code,
-        name: document.server.name,
-      },
-      authorSnapshot: {
-        fullName: authorSnapshot.data.fullName,
-        passportNumber: authorSnapshot.data.passportNumber,
-        position: authorSnapshot.data.position,
-        address: authorSnapshot.data.address,
-        phone: authorSnapshot.data.phone,
-        icEmail: authorSnapshot.data.icEmail,
-        passportImageUrl: authorSnapshot.data.passportImageUrl,
-        nickname: authorSnapshot.data.nickname,
-        roleKeys: authorSnapshot.data.roleKeys,
-        accessFlags: authorSnapshot.data.accessFlags,
-        isProfileComplete: authorSnapshot.data.isProfileComplete,
-      },
+      server: buildDocumentEditorServerSummary(document.server),
+      authorSnapshot: buildDocumentEditorAuthorSnapshotSummary(authorSnapshot.data),
       trustorRegistry,
       payload,
     },
