@@ -4,6 +4,12 @@
 
 Этот документ фиксирует безопасный operational порядок для перехода runtime DB с `Supabase Postgres` на local Postgres на том же VPS.
 
+Текущий status snapshot:
+
+- migration уже выполнена
+- production runtime DB уже работает на local `PostgreSQL 17`
+- документ сохраняется как historical runbook и rollback reference
+
 Он не заменяет:
 
 - [release-runbook.md](./release-runbook.md)
@@ -97,6 +103,16 @@ scripts/postgres-cutover-restore-rehearsal.sh \
 
 Для app restart и smoke после env switch использовать уже канонический порядок из [release-runbook.md](./release-runbook.md).
 
+## Execution note
+
+На текущем repo-state этот порядок уже был выполнен:
+
+- был использован app-level dump схемы `public`
+- rehearsal restore на `PG17` прошёл успешно
+- production restore на local `PG17` прошёл успешно
+- `DATABASE_URL` / `DIRECT_URL` были переключены на `127.0.0.1:5433`
+- `Supabase Auth` не выносился из текущего контура
+
 ## Safety rules
 
 - cutover не совмещается с feature release
@@ -123,3 +139,5 @@ Cutover не считается успешным, пока:
 - приложение не работает на новом `DATABASE_URL` / `DIRECT_URL`
 - `/api/health` не даёт `200`
 - DB-backed smoke не проходит
+
+На текущем repo-state этот cutover уже считается successful.

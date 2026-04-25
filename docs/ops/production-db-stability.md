@@ -11,6 +11,11 @@
 
 ## Production env snapshot
 
+Важно:
+
+- этот snapshot исторический и относится к состоянию до local Postgres cutover
+- current production runtime DB уже не использует этот Supabase pooler path
+
 Secrets в репозиторий не публикуются. Ниже зафиксирован только безопасный redacted snapshot.
 
 - `DATABASE_URL`: `postgresql://postgres.spzdskokmenvfgnxliea:***@aws-1-us-east-1.pooler.supabase.com:****/postgres`

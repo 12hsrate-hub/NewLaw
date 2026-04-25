@@ -39,6 +39,7 @@ Source of truth:
 - `Next.js + TypeScript + App Router`
 - `Supabase Auth`
 - `Prisma` + текущая прикладная data model
+- production runtime `PostgreSQL 17` на том же VPS
 - account/security foundation
 - character management
 - server context foundation
@@ -98,6 +99,13 @@ Current MVP-level AI scope уже покрыт:
 - shared env
 - canonical deploy script
 - preflight / smoke / rollback helpers
+- local production `PostgreSQL 17` runtime на VPS
+
+Дополнительно уже закрыто:
+
+- runtime DB cutover с `Supabase Postgres` на local `PostgreSQL 17`
+- `DATABASE_URL` / `DIRECT_URL` в production больше не используют Supabase pooler
+- `Supabase Auth` остаётся в текущем контуре
 
 `Docker Compose` не является текущим blocker и остаётся future operational target.
 
@@ -137,27 +145,6 @@ Current MVP-level AI scope уже покрыт:
 - активный source-of-truth для этой линии — [12-post-mvp-template-documents.md](./12-post-mvp-template-documents.md)
 
 ## Что остаётся активными линиями
-
-### `15-vps-postgres-cutover-from-supabase-db`
-
-Статус: `active / infrastructure DB migration`
-
-Это не MVP blocker и не product expansion.
-
-Это отдельная infrastructure line после production DB stability hotfix и после выявленного egress / pooler pressure, направленная на:
-
-- controlled DB hosting cutover
-- перевод runtime/migration DB с `Supabase Postgres` на local Postgres на VPS
-- снижение зависимости от `Supabase shared pooler egress`
-- явный rollback-aware migration path без изменения продуктового поведения
-
-Отдельные правила этой линии:
-
-- `Supabase Auth` при этом не выносится из текущего контура
-- DB source of truth остаётся `docs/architecture/database.md` + `prisma/schema.prisma`
-- release source of truth остаётся `docs/ops/release-runbook.md`
-- план `15` описывает hosting / cutover / rollback, а не product behavior
-- план `15` не подменяет и не расширяет plan `14`
 
 ### `14-codebase-maintainability-db-stability-and-safe-refactor`
 
@@ -234,6 +221,16 @@ Current MVP-level AI scope уже покрыт:
 - richer release tooling
 
 Это не blocker для current done state.
+
+### Post-cutover observation and eventual Supabase DB retirement
+
+Статус: `future / operational follow-up`
+
+Зафиксировано:
+
+- runtime DB cutover уже завершён
+- отдельного активного migration-плана для этого больше не требуется
+- остаются только observation, monitoring и решение о сроках historical retirement старой Supabase DB
 
 ## Что специально не должно выглядеть как active task
 

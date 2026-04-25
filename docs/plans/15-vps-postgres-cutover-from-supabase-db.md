@@ -2,7 +2,7 @@
 
 ## Статус блока
 
-Статус: `active / infrastructure DB migration`
+Статус: `implemented in repo / infrastructure DB migration`
 
 Этот блок:
 
@@ -12,6 +12,13 @@
 - не замена [../ops/release-runbook.md](../ops/release-runbook.md)
 - не continuation плана [14-codebase-maintainability-db-stability-and-safe-refactor.md](./14-codebase-maintainability-db-stability-and-safe-refactor.md), а отдельная infra-линия
 - сохраняет `Supabase Auth` и при необходимости `Supabase Storage` в текущем контуре
+
+Текущий repo-state после выполнения cutover:
+
+- production runtime DB уже переведена с `Supabase Postgres` на local `PostgreSQL 17` на том же VPS
+- `DATABASE_URL` и `DIRECT_URL` в production уже указывают на `127.0.0.1:5433`
+- `Supabase Auth` остаётся в текущем контуре
+- old `Supabase DB` больше не используется как runtime DB
 
 ## Цель
 
@@ -58,6 +65,27 @@
 - `DIRECT_URL` указывает на local admin/migration user
 - `DATABASE_URL` и `DIRECT_URL` остаются разными credential paths даже на одном host
 - `Supabase Auth` и текущие env для него сохраняются
+
+## Execution snapshot
+
+По фактическому выполнению уже сделано:
+
+1. docs-only фиксация решения
+2. VPS capacity / preflight
+3. cleanup VPS disk pressure перед локальным Postgres
+4. local `PostgreSQL 17` install / config
+5. rollback env snapshot
+6. rehearsal restore через `public` schema dump
+7. финальный `public` dump из Supabase
+8. restore в local `newlaw_production`
+9. `prisma migrate deploy` против локального `DIRECT_URL`
+10. production env switch и app restart
+11. post-cutover smoke
+
+Важно:
+
+- для NewLaw корректным оказался не full Supabase cluster dump, а app-level dump схемы `public`
+- Supabase-specific managed objects и extensions не считаются целевой моделью для local Postgres cutover
 
 ## Work order
 
@@ -113,3 +141,15 @@
 - rollback описан и проверен как реальная опция
 - `Supabase DB` больше не является runtime DB
 - `Supabase Auth` продолжает работать в текущем контуре
+
+На текущем repo-state эти критерии уже закрыты.
+
+## Что остаётся после cutover
+
+После завершения миграции остаются только post-cutover follow-up задачи:
+
+- observation window и дополнительный мониторинг логов
+- ручная проверка авторизованных сценариев `/account/documents`, `/account/trustors` и editor routes
+- решение о сроках архивации или отключения старой Supabase DB как historical source
+
+Это уже не reopen этого плана как активной migration-линии, а обычный post-cutover operational follow-up.

@@ -8,6 +8,19 @@
 
 Этот документ не повторяет Prisma построчно, а фиксирует актуальную прикладную модель и ключевые правила.
 
+## Runtime hosting snapshot
+
+Текущий production runtime hosting:
+
+- production runtime DB = local `PostgreSQL 17` на том же VPS, что и приложение
+- `DATABASE_URL` и `DIRECT_URL` в production уже указывают на локальный Postgres
+- `Supabase Auth` остаётся внешним authentication provider
+
+Это означает:
+
+- `Supabase Postgres` больше не является production runtime DB
+- source of truth по схеме по-прежнему остаётся [prisma/schema.prisma](../../prisma/schema.prisma), а не hosting provider
+
 ## Текущие enum-модели
 
 ### Character
@@ -280,6 +293,7 @@ OGP-specific attempt log.
 - data repair не выполняется silently
 - `DIRECT_URL` и `DATABASE_URL` должны рассматриваться отдельно в staging/production
 - `DIRECT_URL = DATABASE_URL` не является целевой production схемой
+- после cutover на local `PostgreSQL 17` production больше не использует `Supabase pooler` как runtime path
 
 ## Publication policy
 
