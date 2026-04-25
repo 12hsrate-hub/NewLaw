@@ -11,6 +11,10 @@ import {
   ClaimsFieldHint,
   ClaimsFormFields,
 } from "@/components/product/document-area/document-claims-editor-form";
+import {
+  ClaimsEditorActionBar,
+  ClaimsEditorPreviewPanels,
+} from "@/components/product/document-area/document-claims-editor-panels";
 import { DocumentFieldRewritePanel } from "@/components/product/document-area/document-field-rewrite-panel";
 import {
   areStatesEqual,
@@ -25,7 +29,6 @@ import {
 } from "@/components/product/document-area/document-claims-editor-shared";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import {
   createClaimDraftAction,
   generateClaimsStructuredCheckpointAction,
@@ -691,130 +694,39 @@ export function ClaimsDraftEditorClient(props: ClaimsDraftEditorClientProps) {
         updatedAtLabel={new Date(savedUpdatedAt).toLocaleString("ru-RU")}
       />
 
-      <div className="flex flex-wrap items-center gap-3">
-        <Button
-          disabled={!isDirty}
-          onClick={() => {
-            startTransition(() => {
-              void performSave("manual");
-            });
-          }}
-          type="button"
-        >
-          Сохранить claims draft
-        </Button>
-        <Button
-          disabled={isDirty}
-          onClick={() => {
-            startTransition(() => {
-              void handleGeneratePreview();
-            });
-          }}
-          type="button"
-          variant="secondary"
-        >
-          Собрать structured preview
-        </Button>
-        <Button
-          disabled={isDirty}
-          onClick={() => {
-            startTransition(() => {
-              void handleGenerateCheckpoint();
-            });
-          }}
-          type="button"
-          variant="secondary"
-        >
-          Зафиксировать generated checkpoint
-        </Button>
-        <Button
-          disabled={!previewState}
-          onClick={() => {
-            startTransition(() => {
-              void handleCopyPreview();
-            });
-          }}
-          type="button"
-          variant="secondary"
-        >
-          Копировать текст preview
-        </Button>
-      </div>
+      <ClaimsEditorActionBar
+        hasPreview={previewState !== null}
+        isDirty={isDirty}
+        onCopyPreview={() => {
+          startTransition(() => {
+            void handleCopyPreview();
+          });
+        }}
+        onGenerateCheckpoint={() => {
+          startTransition(() => {
+            void handleGenerateCheckpoint();
+          });
+        }}
+        onGeneratePreview={() => {
+          startTransition(() => {
+            void handleGeneratePreview();
+          });
+        }}
+        onSave={() => {
+          startTransition(() => {
+            void performSave("manual");
+          });
+        }}
+      />
 
       {saveMessage ? <p className="text-sm text-[var(--muted)]">{saveMessage}</p> : null}
       {previewMessage ? <p className="text-sm text-[var(--muted)]">{previewMessage}</p> : null}
 
-      <div className="space-y-4 rounded-3xl border border-[var(--border)] bg-white/70 p-4">
-        <div className="space-y-1">
-          <h3 className="text-lg font-semibold">Claims output preview</h3>
-          <ClaimsFieldHint>
-            Это отдельный claims structured renderer. Он не использует OGP BBCode и не включает publication workflow.
-          </ClaimsFieldHint>
-        </div>
-        <ul className="space-y-2 text-sm leading-6 text-[var(--muted)]">
-          <li>Document status: {generationState.status}</li>
-          <li>Preview format: {previewState?.format ?? generationState.generatedOutputFormat ?? "ещё не собран"}</li>
-          <li>Renderer version: {previewState?.rendererVersion ?? generationState.generatedRendererVersion ?? "ещё не собран"}</li>
-          <li>
-            Generated at:{" "}
-            {generationState.generatedAt
-              ? new Date(generationState.generatedAt).toLocaleString("ru-RU")
-              : "checkpoint ещё не фиксировался"}
-          </li>
-          <li>
-            Generated form schema version: {generationState.generatedFormSchemaVersion ?? "ещё не зафиксирована"}
-          </li>
-          <li>
-            Modified after generation: {generationState.isModifiedAfterGeneration ? "да" : "нет"}
-          </li>
-          <li>Publication / forum sync для claims на этом шаге не активируются.</li>
-          {previewState ? (
-            <li>
-              Blocking reasons: {previewState.blockingReasons.length > 0 ? previewState.blockingReasons.join(", ") : "нет"}
-            </li>
-          ) : null}
-          {isPreviewStale ? (
-            <li>Текущий preview устарел после последнего сохранения. Можно собрать preview заново или перезаписать generated checkpoint.</li>
-          ) : null}
-        </ul>
-      </div>
-
-      <div className="space-y-4 rounded-3xl border border-[var(--border)] bg-white/70 p-4">
-        <div className="space-y-1">
-          <h3 className="text-lg font-semibold">Structured preview</h3>
-          <ClaimsFieldHint>
-            Preview и copyText строятся из одного и того же deterministic output shape.
-          </ClaimsFieldHint>
-        </div>
-        {previewState ? (
-          <div className="space-y-4">
-            {previewState.sections.map((section) => (
-              <div className="space-y-2 rounded-2xl border border-[var(--border)] bg-white/80 p-4" key={section.key}>
-                <h4 className="text-sm font-semibold text-[var(--foreground)]">{section.title}</h4>
-                <pre className="whitespace-pre-wrap text-sm leading-6 text-[var(--muted)]">{section.body}</pre>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="rounded-2xl border border-dashed border-[var(--border)] px-4 py-5 text-sm text-[var(--muted)]">
-            Structured preview ещё не собран. Сначала сохрани draft, затем запусти Generate preview.
-          </div>
-        )}
-      </div>
-
-      <div className="space-y-4 rounded-3xl border border-[var(--border)] bg-white/70 p-4">
-        <div className="space-y-1">
-          <h3 className="text-lg font-semibold">Copy-friendly text</h3>
-          <ClaimsFieldHint>
-            Это не BBCode и не publication artifact. Текст только для просмотра и копирования.
-          </ClaimsFieldHint>
-        </div>
-        <Textarea
-          className="min-h-[320px] font-mono text-xs"
-          readOnly
-          value={previewState?.copyText ?? "Preview ещё не собран."}
-        />
-      </div>
+      <ClaimsEditorPreviewPanels
+        generationState={generationState}
+        isPreviewStale={isPreviewStale}
+        previewState={previewState}
+      />
     </div>
   );
 }
