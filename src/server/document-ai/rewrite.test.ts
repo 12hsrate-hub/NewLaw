@@ -70,6 +70,105 @@ function createBaseDocument(input?: {
   };
 }
 
+function createGuardrailRetrievalResult() {
+  return {
+    query: "query",
+    serverId: "server-1",
+    generatedAt: "2026-04-22T11:00:00.000Z",
+    hasCurrentLawCorpus: true,
+    hasUsablePrecedentCorpus: true,
+    hasAnyUsableCorpus: true,
+    lawRetrieval: {
+      resultCount: 1,
+      corpusSnapshot: {
+        serverId: "server-1",
+        generatedAt: "2026-04-22T11:00:00.000Z",
+        currentVersionIds: ["law-version-1"],
+        corpusSnapshotHash: "law-hash",
+      },
+      results: [
+        {
+          serverId: "server-1",
+          lawId: "law-1",
+          lawKey: "fzk_lspd",
+          lawTitle: "ФЗ о LSPD",
+          lawVersionId: "law-version-1",
+          lawVersionStatus: "current",
+          lawBlockId: "law-block-1",
+          blockType: "article",
+          blockOrder: 1,
+          articleNumberNormalized: "5.1",
+          snippet: "Норма о порядке рассмотрения жалоб.",
+          blockText: "Статья 5.1. Жалоба должна быть рассмотрена в установленный срок.",
+          sourceTopicUrl: "https://forum.gta5rp.com/threads/law.1/",
+          sourcePosts: [],
+          metadata: {
+            sourceSnapshotHash: "law-source-hash",
+            normalizedTextHash: "law-text-hash",
+            corpusSnapshotHash: "law-hash",
+          },
+        },
+      ],
+    },
+    precedentRetrieval: {
+      resultCount: 0,
+      corpusSnapshot: {
+        serverId: "server-1",
+        generatedAt: "2026-04-22T11:00:00.000Z",
+        currentVersionIds: ["precedent-version-1"],
+        corpusSnapshotHash: "precedent-hash",
+      },
+      results: [],
+    },
+    resultCount: 1,
+    results: [
+      {
+        serverId: "server-1",
+        lawId: "law-1",
+        lawKey: "fzk_lspd",
+        lawTitle: "ФЗ о LSPD",
+        lawVersionId: "law-version-1",
+        lawVersionStatus: "current",
+        lawBlockId: "law-block-1",
+        blockType: "article",
+        blockOrder: 1,
+        articleNumberNormalized: "5.1",
+        snippet: "Норма о порядке рассмотрения жалоб.",
+        blockText: "Статья 5.1. Жалоба должна быть рассмотрена в установленный срок.",
+        sourceTopicUrl: "https://forum.gta5rp.com/threads/law.1/",
+        sourcePosts: [],
+        metadata: {
+          sourceSnapshotHash: "law-source-hash",
+          normalizedTextHash: "law-text-hash",
+          corpusSnapshotHash: "law-hash",
+        },
+        sourceKind: "law" as const,
+      },
+    ],
+    lawCorpusSnapshot: {
+      serverId: "server-1",
+      generatedAt: "2026-04-22T11:00:00.000Z",
+      currentVersionIds: ["law-version-1"],
+      corpusSnapshotHash: "law-hash",
+    },
+    precedentCorpusSnapshot: {
+      serverId: "server-1",
+      generatedAt: "2026-04-22T11:00:00.000Z",
+      currentVersionIds: ["precedent-version-1"],
+      corpusSnapshotHash: "precedent-hash",
+    },
+    combinedRetrievalRevision: {
+      serverId: "server-1",
+      generatedAt: "2026-04-22T11:00:00.000Z",
+      lawCorpusSnapshotHash: "law-hash",
+      precedentCorpusSnapshotHash: "precedent-hash",
+      combinedCorpusSnapshotHash: "combined-hash",
+      lawCurrentVersionIds: ["law-version-1"],
+      precedentCurrentVersionIds: ["precedent-version-1"],
+    },
+  };
+}
+
 describe("document field rewrite flow", () => {
   it("строит suggestion только из persisted owner document и пишет safe ai log", async () => {
     const requestProxyCompletion = vi.fn().mockResolvedValue({
@@ -105,6 +204,7 @@ describe("document field rewrite flow", () => {
       },
       {
         getDocumentByIdForAccount: vi.fn().mockResolvedValue(createBaseDocument()),
+        searchAssistantCorpus: vi.fn().mockResolvedValue(createGuardrailRetrievalResult()),
         requestProxyCompletion,
         createAIRequest,
         now: vi
@@ -121,7 +221,7 @@ describe("document field rewrite flow", () => {
 
     expect(requestProxyCompletion).toHaveBeenCalledWith(
       expect.objectContaining({
-        requestMetadata: {
+        requestMetadata: expect.objectContaining({
           featureKey: "document_field_rewrite",
           documentId: "document-1",
           documentType: "ogp_complaint",
@@ -130,7 +230,8 @@ describe("document field rewrite flow", () => {
           actor_context: "representative_for_trustor",
           response_mode: "document_ready",
           prompt_version: "document_field_rewrite_legal_core_v1",
-        },
+          law_version_ids: ["law-version-1"],
+        }),
       }),
     );
 
@@ -139,6 +240,8 @@ describe("document field rewrite flow", () => {
     expect(userPrompt).toContain("violationSummary: Изначальная формулировка нарушения");
     expect(userPrompt).toContain("Fact ledger:");
     expect(userPrompt).toContain('"organization": "LSPD"');
+    expect(userPrompt).toContain("Legal guardrails:");
+    expect(userPrompt).toContain("ФЗ о LSPD");
     expect(userPrompt).not.toContain("workingNotes");
 
     expect(createAIRequest).toHaveBeenCalledWith(
@@ -153,8 +256,18 @@ describe("document field rewrite flow", () => {
           response_mode: "document_ready",
           prompt_version: "document_field_rewrite_legal_core_v1",
           sourceLength: "Изначальное описание ситуации".length,
-          law_version_ids: [],
-          used_sources: [],
+          law_version_ids: ["law-version-1"],
+          used_sources: [
+            {
+              source_kind: "law",
+              server_id: "server-1",
+              law_id: "law-1",
+              law_name: "ФЗ о LSPD",
+              law_version: "law-version-1",
+              article_number: "5.1",
+              source_topic_url: "https://forum.gta5rp.com/threads/law.1/",
+            },
+          ],
           contextFieldKeys: [
             "objectOrganization",
             "objectFullName",
@@ -176,6 +289,10 @@ describe("document field rewrite flow", () => {
           total_tokens: 360,
           cost_usd: 0.012,
           confidence: "high",
+          queue_for_future_ai_quality_review: false,
+          future_review_priority: "low",
+          future_review_flags: [],
+          future_review_reason_codes: [],
           self_assessment: expect.objectContaining({
             answer_confidence: "high",
             insufficient_data: false,
@@ -200,6 +317,7 @@ describe("document field rewrite flow", () => {
         },
         {
           getDocumentByIdForAccount: vi.fn().mockResolvedValue(createBaseDocument()),
+          searchAssistantCorpus: vi.fn(),
           requestProxyCompletion: vi.fn(),
           createAIRequest: vi.fn(),
           now: () => new Date("2026-04-22T11:05:00.000Z"),
@@ -220,6 +338,7 @@ describe("document field rewrite flow", () => {
         },
         {
           getDocumentByIdForAccount: vi.fn().mockResolvedValue(null),
+          searchAssistantCorpus: vi.fn(),
           requestProxyCompletion: vi.fn(),
           createAIRequest: vi.fn(),
           now: () => new Date("2026-04-22T11:05:00.000Z"),
@@ -242,6 +361,7 @@ describe("document field rewrite flow", () => {
         },
         {
           getDocumentByIdForAccount: vi.fn().mockResolvedValue(createBaseDocument()),
+          searchAssistantCorpus: vi.fn().mockResolvedValue(createGuardrailRetrievalResult()),
           requestProxyCompletion: vi.fn().mockResolvedValue({
             status: "unavailable",
             message: "AI proxy не настроен для текущего окружения.",
@@ -260,6 +380,11 @@ describe("document field rewrite flow", () => {
       expect.objectContaining({
         status: "unavailable",
         errorMessage: "AI proxy не настроен для текущего окружения.",
+        responsePayloadJson: expect.objectContaining({
+          queue_for_future_ai_quality_review: true,
+          future_review_priority: "high",
+          future_review_reason_codes: expect.arrayContaining(["rewrite_proxy_unavailable"]),
+        }),
       }),
     );
   });
@@ -281,6 +406,7 @@ describe("document field rewrite flow", () => {
               },
             }),
           ),
+          searchAssistantCorpus: vi.fn(),
           requestProxyCompletion: vi.fn(),
           createAIRequest: vi.fn(),
           now: () => new Date("2026-04-22T11:05:00.000Z"),

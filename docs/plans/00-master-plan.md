@@ -203,7 +203,7 @@
 
 ### `16-ai-legal-core`
 
-Статус: `post-MVP`
+Статус: `post-MVP / active / partial`
 
 Это следующий именованный шаг после `15`, но по product-смыслу он конкретизирует AI-направление именно после `08`.
 
@@ -217,6 +217,22 @@
 - распространить единый legal core на `server legal assistant` и AI-доработку описательной части
 - закрепить обязательный grounding по `server_id + law_version`
 - ввести `intent`, `actor_context`, `response_mode`, `source ledger`, `fact ledger` и `self-assessment` как базовые элементы post-MVP контура юридической AI-выдачи, не подменяя общую AI-линию шага `08`
+
+Что уже реализовано в repo:
+
+- legal-core metadata и internal logging для assistant и document rewrite flows
+- `source ledger` / `used_sources` для assistant
+- `fact ledger` для AI-доработки описательной части
+- retrieval-aware legal guardrails для обычного rewrite
+- grounded rewrite с теми же legal-core принципами
+- скрытые future-review markers как мост к шагу `17`, но без включения самого review-слоя
+
+Что ещё остаётся до formal done:
+
+- полноценный `actor_context` contract beyond `general_question` для assistant
+- более жёсткий `law_version` / retrieval contract без смешения версий
+- более строгий `used_norms` слой внутри `source ledger`
+- финальная унификация `input` / `output` trace и operational split между cheap и expensive AI operations
 
 После этого шага отдельной follow-up линией должен идти `17-ai-quality-review`, который не входит в сам шаг `16`.
 

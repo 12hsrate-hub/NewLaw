@@ -20,6 +20,12 @@ import {
   type DocumentRewriteFactLedger,
 } from "@/server/legal-core/document-rewrite";
 import {
+  buildDocumentGuardrailContextText,
+  buildDocumentGuardrailSearchQuery,
+  buildDocumentGuardrailUsedSources,
+  buildDocumentRewritePolicyLines,
+} from "@/server/legal-core/document-guardrails";
+import {
   buildGroundedDocumentRewriteSelfAssessment,
   deriveActorContextFromFilingMode,
 } from "@/server/legal-core/metadata";
@@ -27,6 +33,7 @@ import {
   extractProxyUsageMetrics,
   GROUNDED_DOCUMENT_FIELD_REWRITE_PROMPT_VERSION,
 } from "@/server/legal-core/observability";
+import { buildGroundedDocumentRewriteFutureReviewMarker } from "@/server/legal-core/review-routing";
 import {
   groundedDocumentFieldRewriteUsageMetaSchema,
   type GroundedDocumentFieldRewriteUsageMeta,
@@ -92,26 +99,6 @@ type GroundedRewritePromptContext = {
   contextText: string;
   searchQuery: string;
 };
-
-type GroundedUsedSource =
-  | {
-      source_kind: "law";
-      server_id: string;
-      law_id: string;
-      law_name: string;
-      law_version: string;
-      article_number: string | null;
-      source_topic_url: string;
-    }
-  | {
-      source_kind: "precedent";
-      server_id: string;
-      precedent_id: string;
-      precedent_name: string;
-      precedent_version: string;
-      validity_status: string;
-      source_topic_url: string;
-    };
 
 export class GroundedDocumentFieldRewriteBlockedError extends Error {
   constructor(
@@ -229,10 +216,10 @@ function buildSearchQuery(input: {
   sourceText: string;
   contextText: string;
 }) {
-  return clampText(
-    [input.sectionLabel, input.sourceText, input.contextText].filter(Boolean).join("\n"),
-    MAX_SEARCH_QUERY_LENGTH,
-  );
+  return buildDocumentGuardrailSearchQuery({
+    ...input,
+    maxLength: MAX_SEARCH_QUERY_LENGTH,
+  });
 }
 
 function buildOgpGroundedContext(input: {
@@ -411,50 +398,30 @@ function buildCompactReferences(
 function buildGroundedUsedSources(
   retrieval: AssistantRetrievalResult,
   groundingMode: GroundedDocumentRewriteMode | null,
-): GroundedUsedSource[] {
+) {
   if (groundingMode === "law_grounded") {
-    return retrieval.lawRetrieval.results.slice(0, MAX_LAW_PROMPT_BLOCKS).map((result) => ({
-      source_kind: "law" as const,
-      server_id: result.serverId,
-      law_id: result.lawId,
-      law_name: result.lawTitle,
-      law_version: result.lawVersionId,
-      article_number: result.articleNumberNormalized ?? null,
-      source_topic_url: result.sourceTopicUrl,
-    }));
+    return buildDocumentGuardrailUsedSources(retrieval, {
+      lawLimit: MAX_LAW_PROMPT_BLOCKS,
+      precedentLimit: 0,
+      mode: "law",
+    });
   }
 
   if (groundingMode === "precedent_grounded") {
-    return retrieval.precedentRetrieval.results
-      .slice(0, MAX_PRECEDENT_PROMPT_BLOCKS)
-      .map((result) => ({
-        source_kind: "precedent" as const,
-        server_id: result.serverId,
-        precedent_id: result.precedentId,
-        precedent_name: result.precedentTitle,
-        precedent_version: result.precedentVersionId,
-        validity_status: result.validityStatus,
-        source_topic_url: result.sourceTopicUrl,
-      }));
+    return buildDocumentGuardrailUsedSources(retrieval, {
+      lawLimit: 0,
+      precedentLimit: MAX_PRECEDENT_PROMPT_BLOCKS,
+      mode: "precedent",
+    });
   }
 
   return [];
 }
 
 function buildGroundedSystemPrompt(mode: GroundedDocumentRewriteMode) {
-  const sharedLines = [
-    "Ты помогаешь переписать одну юридическую секцию документа.",
-    "Работай только как grounded writing assistant.",
-    "Используй только переданный confirmed corpus выбранного сервера.",
-    "Не придумывай новые факты, даты, имена, trustor details, evidence, нормы закона, судебные прецеденты, суммы или требования, которых нет во входных данных и retrieval context.",
-    "Не меняй зафиксированные факты из fact ledger.",
-    "Не добавляй новые доказательства, статьи закона и категоричные правовые выводы.",
-    "Не переписывай весь документ и не давай советы пользователю.",
-    "Сохрани фактический смысл исходного текста.",
-    "Сделай секцию яснее, структурнее и формальнее.",
-    "Допустимо улучшать стиль, структуру, хронологию и убирать эмоции, если фактическое содержание остаётся тем же.",
-    "Верни только улучшенную секцию как plain text без markdown и без служебных пояснений.",
-  ];
+  const sharedLines = buildDocumentRewritePolicyLines({
+    includeGroundedCorpusLine: true,
+  });
 
   if (mode === "law_grounded") {
     return [
@@ -474,39 +441,29 @@ function buildGroundedSystemPrompt(mode: GroundedDocumentRewriteMode) {
 }
 
 function buildLawGroundedContextText(retrieval: AssistantRetrievalResult) {
-  return retrieval.lawRetrieval.results
-    .slice(0, MAX_LAW_PROMPT_BLOCKS)
-    .map((result, index) =>
-      [
-        `Law source ${index + 1}`,
-        `- law_key: ${result.lawKey}`,
-        `- title: ${result.lawTitle}`,
-        `- article_number_normalized: ${result.articleNumberNormalized ?? "n/a"}`,
-        `- law_version_id: ${result.lawVersionId}`,
-        `- law_block_id: ${result.lawBlockId}`,
-        `- source_topic_url: ${result.sourceTopicUrl}`,
-        `- text: ${clampText(result.blockText, MAX_PROMPT_BLOCK_TEXT_LENGTH)}`,
-      ].join("\n"),
-    )
-    .join("\n\n");
+  return buildDocumentGuardrailContextText(retrieval, {
+    lawLimit: MAX_LAW_PROMPT_BLOCKS,
+    precedentLimit: 0,
+    maxBlockTextLength: MAX_PROMPT_BLOCK_TEXT_LENGTH,
+    lawLabel: "Law source",
+    buildLawDetails: (result) => [
+      `- law_key: ${result.lawKey}`,
+      `- law_block_id: ${result.lawBlockId}`,
+    ],
+  }).lawContext;
 }
 
 function buildPrecedentGroundedContextText(retrieval: AssistantRetrievalResult) {
-  return retrieval.precedentRetrieval.results
-    .slice(0, MAX_PRECEDENT_PROMPT_BLOCKS)
-    .map((result, index) =>
-      [
-        `Precedent source ${index + 1}`,
-        `- precedent_key: ${result.precedentKey}`,
-        `- title: ${result.precedentTitle}`,
-        `- validity_status: ${result.validityStatus}`,
-        `- precedent_version_id: ${result.precedentVersionId}`,
-        `- precedent_block_id: ${result.precedentBlockId}`,
-        `- source_topic_url: ${result.sourceTopicUrl}`,
-        `- text: ${clampText(result.blockText, MAX_PROMPT_BLOCK_TEXT_LENGTH)}`,
-      ].join("\n"),
-    )
-    .join("\n\n");
+  return buildDocumentGuardrailContextText(retrieval, {
+    lawLimit: 0,
+    precedentLimit: MAX_PRECEDENT_PROMPT_BLOCKS,
+    maxBlockTextLength: MAX_PROMPT_BLOCK_TEXT_LENGTH,
+    precedentLabel: "Precedent source",
+    buildPrecedentDetails: (result) => [
+      `- precedent_key: ${result.precedentKey}`,
+      `- precedent_block_id: ${result.precedentBlockId}`,
+    ],
+  }).precedentContext;
 }
 
 function buildGroundedUserPrompt(input: {
@@ -660,6 +617,24 @@ export async function rewriteOwnedGroundedDocumentField(
     lawResultCount: retrieval.lawRetrieval.resultCount,
     precedentResultCount: retrieval.precedentRetrieval.resultCount,
   });
+  const successFutureReviewMarker = buildGroundedDocumentRewriteFutureReviewMarker({
+    selfAssessment,
+    status: "success",
+    missingDataCount: factLedger.missing_data.length,
+    groundingMode,
+  });
+  const unavailableFutureReviewMarker = buildGroundedDocumentRewriteFutureReviewMarker({
+    selfAssessment,
+    status: "unavailable",
+    missingDataCount: factLedger.missing_data.length,
+    groundingMode,
+  });
+  const insufficientCorpusFutureReviewMarker = buildGroundedDocumentRewriteFutureReviewMarker({
+    selfAssessment,
+    status: "insufficient_corpus",
+    missingDataCount: factLedger.missing_data.length,
+    groundingMode,
+  });
   const requestPayloadBase = {
     documentId: document.id,
     documentType: document.documentType,
@@ -704,6 +679,7 @@ export async function rewriteOwnedGroundedDocumentField(
         confidence: selfAssessment.answer_confidence,
         references,
         used_sources: usedSources,
+        ...insufficientCorpusFutureReviewMarker,
         self_assessment: selfAssessment,
       },
       status: "unavailable",
@@ -766,6 +742,7 @@ export async function rewriteOwnedGroundedDocumentField(
         cost_usd: usageMetrics.cost_usd,
         confidence: selfAssessment.answer_confidence,
         used_sources: usedSources,
+        ...unavailableFutureReviewMarker,
         self_assessment: selfAssessment,
       },
       status: proxyResponse.status,
@@ -816,6 +793,7 @@ export async function rewriteOwnedGroundedDocumentField(
       cost_usd: usageMetrics.cost_usd,
       confidence: selfAssessment.answer_confidence,
       used_sources: usedSources,
+      ...successFutureReviewMarker,
       self_assessment: selfAssessment,
     },
     status: "success",

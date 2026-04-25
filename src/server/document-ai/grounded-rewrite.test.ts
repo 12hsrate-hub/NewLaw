@@ -370,6 +370,10 @@ describe("grounded document field rewrite flow", () => {
           total_tokens: 570,
           cost_usd: 0.024,
           confidence: "high",
+          queue_for_future_ai_quality_review: false,
+          future_review_priority: "low",
+          future_review_flags: [],
+          future_review_reason_codes: [],
           self_assessment: expect.objectContaining({
             answer_confidence: "high",
             insufficient_data: false,
@@ -392,6 +396,7 @@ describe("grounded document field rewrite flow", () => {
   });
 
   it("переходит в precedent_grounded branch, когда law results отсутствуют", async () => {
+    const createAIRequest = vi.fn();
     const result = await rewriteOwnedGroundedDocumentField(
       {
         accountId: "account-1",
@@ -436,7 +441,7 @@ describe("grounded document field rewrite flow", () => {
             },
           },
         }),
-        createAIRequest: vi.fn(),
+        createAIRequest,
         now: vi
           .fn()
           .mockReturnValueOnce(new Date("2026-04-22T11:05:00.000Z"))
@@ -450,9 +455,19 @@ describe("grounded document field rewrite flow", () => {
       precedentKey: "precedent_relief",
     });
     expect(result.usageMeta.groundingMode).toBe("precedent_grounded");
+    expect(createAIRequest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        responsePayloadJson: expect.objectContaining({
+          queue_for_future_ai_quality_review: true,
+          future_review_priority: "medium",
+          future_review_reason_codes: expect.arrayContaining(["precedent_only_grounding"]),
+        }),
+      }),
+    );
   });
 
   it("честно возвращает insufficient_corpus, когда retrieval support отсутствует", async () => {
+    const createAIRequest = vi.fn();
     await expect(
       rewriteOwnedGroundedDocumentField(
         {
@@ -503,11 +518,21 @@ describe("grounded document field rewrite flow", () => {
             },
           }),
           requestProxyCompletion: vi.fn(),
-          createAIRequest: vi.fn(),
+          createAIRequest,
           now: () => new Date("2026-04-22T11:05:00.000Z"),
         },
       ),
     ).rejects.toBeInstanceOf(GroundedDocumentFieldRewriteInsufficientCorpusError);
+
+    expect(createAIRequest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        responsePayloadJson: expect.objectContaining({
+          queue_for_future_ai_quality_review: true,
+          future_review_priority: "high",
+          future_review_reason_codes: expect.arrayContaining(["insufficient_grounding"]),
+        }),
+      }),
+    );
   });
 
   it("не даёт вызывать grounded rewrite для unsupported section", async () => {
@@ -551,6 +576,7 @@ describe("grounded document field rewrite flow", () => {
   });
 
   it("даёт safe unavailable error при proxy failure", async () => {
+    const createAIRequest = vi.fn();
     await expect(
       rewriteOwnedGroundedDocumentField(
         {
@@ -566,7 +592,7 @@ describe("grounded document field rewrite flow", () => {
             message: "AI proxy временно недоступен.",
             attemptedProxyKeys: [],
           }),
-          createAIRequest: vi.fn(),
+          createAIRequest,
           now: vi
             .fn()
             .mockReturnValueOnce(new Date("2026-04-22T11:05:00.000Z"))
@@ -574,6 +600,16 @@ describe("grounded document field rewrite flow", () => {
         },
       ),
     ).rejects.toBeInstanceOf(GroundedDocumentFieldRewriteUnavailableError);
+
+    expect(createAIRequest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        responsePayloadJson: expect.objectContaining({
+          queue_for_future_ai_quality_review: true,
+          future_review_priority: "high",
+          future_review_reason_codes: expect.arrayContaining(["rewrite_proxy_unavailable"]),
+        }),
+      }),
+    );
   });
 
   it("строит section-specific query только для supported legal context", () => {

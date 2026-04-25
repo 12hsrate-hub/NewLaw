@@ -13,6 +13,7 @@ import {
   extractProxyUsageMetrics,
   LEGAL_ASSISTANT_PROMPT_VERSION,
 } from "@/server/legal-core/observability";
+import { buildAssistantFutureReviewMarker } from "@/server/legal-core/review-routing";
 
 type RetrievalResult = Awaited<ReturnType<typeof searchAssistantCorpus>>;
 
@@ -109,6 +110,7 @@ const MAX_PROMPT_LAW_BLOCKS = 4;
 const MAX_PROMPT_PRECEDENT_BLOCKS = 3;
 const MAX_PROMPT_BLOCK_TEXT_LENGTH = 1200;
 const MAX_REFERENCE_SNIPPET_LENGTH = 280;
+const MAX_ANSWER_PREVIEW_LENGTH = 280;
 
 type GroundedLawReference = {
   sourceKind: "law";
@@ -528,6 +530,10 @@ function buildUnavailableMessage() {
   return "Сервис юридического помощника сейчас недоступен. Попробуй задать вопрос позже.";
 }
 
+function buildAnswerPreview(value: string) {
+  return normalizeSectionText(value).slice(0, MAX_ANSWER_PREVIEW_LENGTH);
+}
+
 export async function generateServerLegalAssistantAnswer(
   input: {
     serverId: string;
@@ -575,6 +581,12 @@ export async function generateServerLegalAssistantAnswer(
       lawResultCount: retrieval.lawRetrieval.resultCount,
       precedentResultCount: retrieval.precedentRetrieval.resultCount,
     });
+    const futureReviewMarker = buildAssistantFutureReviewMarker({
+      selfAssessment,
+      status: "no_corpus",
+      lawResultCount: retrieval.lawRetrieval.resultCount,
+      precedentResultCount: retrieval.precedentRetrieval.resultCount,
+    });
     await dependencies.createAIRequest({
       accountId: input.accountId ?? null,
       guestSessionId: input.guestSessionId ?? null,
@@ -606,6 +618,7 @@ export async function generateServerLegalAssistantAnswer(
         cost_usd: null,
         confidence: selfAssessment.answer_confidence,
         used_sources: usedSources,
+        ...futureReviewMarker,
         self_assessment: selfAssessment,
       },
       errorMessage: "Для выбранного сервера нет confirmed current law или precedent corpus.",
@@ -623,7 +636,18 @@ export async function generateServerLegalAssistantAnswer(
 
   if (retrieval.resultCount === 0) {
     const fallbackAnswer = buildNoNormsAnswer(retrieval);
+    const fallbackSections = {
+      ...fallbackAnswer.sections,
+      sources: buildSourcesSectionText(retrieval),
+    };
+    const fallbackAnswerMarkdown = composeAssistantAnswerMarkdown(fallbackSections);
     const selfAssessment = buildAssistantSelfAssessment({
+      status: "no_norms",
+      lawResultCount: retrieval.lawRetrieval.resultCount,
+      precedentResultCount: retrieval.precedentRetrieval.resultCount,
+    });
+    const futureReviewMarker = buildAssistantFutureReviewMarker({
+      selfAssessment,
       status: "no_norms",
       lawResultCount: retrieval.lawRetrieval.resultCount,
       precedentResultCount: retrieval.precedentRetrieval.resultCount,
@@ -661,6 +685,9 @@ export async function generateServerLegalAssistantAnswer(
         cost_usd: null,
         confidence: selfAssessment.answer_confidence,
         used_sources: usedSources,
+        answer_markdown_preview: buildAnswerPreview(fallbackAnswerMarkdown),
+        answer_sections: fallbackSections,
+        ...futureReviewMarker,
         self_assessment: selfAssessment,
       },
       errorMessage: null,
@@ -668,14 +695,8 @@ export async function generateServerLegalAssistantAnswer(
 
     return {
       status: "no_norms" as const,
-      answerMarkdown: composeAssistantAnswerMarkdown({
-        ...fallbackAnswer.sections,
-        sources: buildSourcesSectionText(retrieval),
-      }),
-      sections: {
-        ...fallbackAnswer.sections,
-        sources: buildSourcesSectionText(retrieval),
-      },
+      answerMarkdown: fallbackAnswerMarkdown,
+      sections: fallbackSections,
       metadata: {
         ...metadataBase,
         self_assessment: selfAssessment,
@@ -684,6 +705,12 @@ export async function generateServerLegalAssistantAnswer(
   }
 
   const answeredSelfAssessment = buildAssistantSelfAssessment({
+    status: "answered",
+    lawResultCount: retrieval.lawRetrieval.resultCount,
+    precedentResultCount: retrieval.precedentRetrieval.resultCount,
+  });
+  const answeredFutureReviewMarker = buildAssistantFutureReviewMarker({
+    selfAssessment: answeredSelfAssessment,
     status: "answered",
     lawResultCount: retrieval.lawRetrieval.resultCount,
     precedentResultCount: retrieval.precedentRetrieval.resultCount,
@@ -748,48 +775,45 @@ export async function generateServerLegalAssistantAnswer(
     "responsePayloadJson" in proxyResponse ? proxyResponse.responsePayloadJson ?? null : null,
   );
 
-  await dependencies.createAIRequest({
-    accountId: input.accountId ?? null,
-    guestSessionId: input.guestSessionId ?? null,
-    serverId: input.serverId,
-    featureKey: "server_legal_assistant",
-    providerKey: "providerKey" in proxyResponse ? proxyResponse.providerKey ?? null : null,
-    proxyKey: "proxyKey" in proxyResponse ? proxyResponse.proxyKey ?? null : null,
-    model: "model" in proxyResponse ? proxyResponse.model ?? null : null,
-    requestPayloadJson: proxyRequestPayload,
-    responsePayloadJson:
-      "responsePayloadJson" in proxyResponse
-        ? {
-            ...(proxyResponse.responsePayloadJson ?? {}),
-            latencyMs,
-            prompt_tokens: usageMetrics.prompt_tokens,
-            completion_tokens: usageMetrics.completion_tokens,
-            total_tokens: usageMetrics.total_tokens,
-            cost_usd: usageMetrics.cost_usd,
-            confidence: answeredSelfAssessment.answer_confidence,
-            used_sources: usedSources,
-            self_assessment: answeredSelfAssessment,
-          }
-        : {
-            latencyMs,
-            prompt_tokens: usageMetrics.prompt_tokens,
-            completion_tokens: usageMetrics.completion_tokens,
-            total_tokens: usageMetrics.total_tokens,
-            cost_usd: usageMetrics.cost_usd,
-            confidence: answeredSelfAssessment.answer_confidence,
-            used_sources: usedSources,
-            self_assessment: answeredSelfAssessment,
-          },
-    status:
-      proxyResponse.status === "success"
-        ? "success"
-        : proxyResponse.status === "failure"
-          ? "failure"
-          : "unavailable",
-    errorMessage: proxyResponse.status === "success" ? null : proxyResponse.message,
-  });
-
   if (proxyResponse.status !== "success") {
+    await dependencies.createAIRequest({
+      accountId: input.accountId ?? null,
+      guestSessionId: input.guestSessionId ?? null,
+      serverId: input.serverId,
+      featureKey: "server_legal_assistant",
+      providerKey: "providerKey" in proxyResponse ? proxyResponse.providerKey ?? null : null,
+      proxyKey: "proxyKey" in proxyResponse ? proxyResponse.proxyKey ?? null : null,
+      model: "model" in proxyResponse ? proxyResponse.model ?? null : null,
+      requestPayloadJson: proxyRequestPayload,
+      responsePayloadJson:
+        "responsePayloadJson" in proxyResponse
+          ? {
+              ...(proxyResponse.responsePayloadJson ?? {}),
+              latencyMs,
+              prompt_tokens: usageMetrics.prompt_tokens,
+              completion_tokens: usageMetrics.completion_tokens,
+              total_tokens: usageMetrics.total_tokens,
+              cost_usd: usageMetrics.cost_usd,
+              confidence: answeredSelfAssessment.answer_confidence,
+              used_sources: usedSources,
+              ...answeredFutureReviewMarker,
+              self_assessment: answeredSelfAssessment,
+            }
+          : {
+              latencyMs,
+              prompt_tokens: usageMetrics.prompt_tokens,
+              completion_tokens: usageMetrics.completion_tokens,
+              total_tokens: usageMetrics.total_tokens,
+              cost_usd: usageMetrics.cost_usd,
+              confidence: answeredSelfAssessment.answer_confidence,
+              used_sources: usedSources,
+              ...answeredFutureReviewMarker,
+              self_assessment: answeredSelfAssessment,
+            },
+      status: proxyResponse.status === "failure" ? "failure" : "unavailable",
+      errorMessage: proxyResponse.message,
+    });
+
     return {
       status: "unavailable" as const,
       message: buildUnavailableMessage(),
@@ -809,6 +833,33 @@ export async function generateServerLegalAssistantAnswer(
     sources: buildSourcesSectionText(retrieval),
   };
   const answerMarkdown = composeAssistantAnswerMarkdown(sections);
+
+  await dependencies.createAIRequest({
+    accountId: input.accountId ?? null,
+    guestSessionId: input.guestSessionId ?? null,
+    serverId: input.serverId,
+    featureKey: "server_legal_assistant",
+    providerKey: proxyResponse.providerKey ?? null,
+    proxyKey: proxyResponse.proxyKey ?? null,
+    model: proxyResponse.model ?? null,
+    requestPayloadJson: proxyRequestPayload,
+    responsePayloadJson: {
+      ...(proxyResponse.responsePayloadJson ?? {}),
+      latencyMs,
+      prompt_tokens: usageMetrics.prompt_tokens,
+      completion_tokens: usageMetrics.completion_tokens,
+      total_tokens: usageMetrics.total_tokens,
+      cost_usd: usageMetrics.cost_usd,
+      confidence: answeredSelfAssessment.answer_confidence,
+      used_sources: usedSources,
+      answer_markdown_preview: buildAnswerPreview(answerMarkdown),
+      answer_sections: sections,
+      ...answeredFutureReviewMarker,
+      self_assessment: answeredSelfAssessment,
+    },
+    status: "success",
+    errorMessage: null,
+  });
 
   return {
     status: "answered" as const,

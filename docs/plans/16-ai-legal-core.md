@@ -4,6 +4,12 @@
 
 Post-MVP. Не входит в MVP.
 
+Текущий repo-state для этого шага:
+
+- шаг уже частично реализован в коде
+- legal core уже применяется к `server legal assistant`, `document field rewrite v1` и `grounded document rewrite v2`
+- шаг ещё не считается формально закрытым целиком, потому что часть требований остаётся незавершённой
+
 ## Назначение
 
 Этот шаг фиксирует post-MVP ядро `AI Legal Core` для базовой юридической AI-выдачи.
@@ -248,6 +254,36 @@ Legal Core должен придерживаться такой пользова
 
 Шаг `16` должен сначала стабилизировать базовое legal core, а уже потом отдавать материал в отдельный будущий шаг `17 — AI Quality Review`.
 Он не должен подменять зонтичную роль шага `08` и не должен включать review-слой шага `17`.
+
+## Что уже реализовано в repo
+
+На текущем этапе в репозитории уже реализованы такие части `AI Legal Core`:
+
+- единый legal-core metadata layer для `intent`, `actor_context`, `response_mode` и `self-assessment`
+- `prompt_version`, `tokens`, `cost`, `latency`, `confidence` и расширенное internal AI logging
+- `source ledger` и `used_sources` для юридического помощника
+- `fact ledger` для AI-доработки описательной части
+- retrieval-aware legal grounding для `server legal assistant`
+- retrieval-aware legal guardrails для обычного `document_text_improvement`
+- grounded legal rewrite для части legal sections
+- скрытые future-review markers для спорных кейсов без включения самого слоя `AI Quality Review`
+- общий shared contract для document guardrails, retrieval query, prompt policy и `used_sources`
+
+Это означает, что шаг `16` уже не является только планом на будущее: значимая часть legal core реально существует в текущем коде.
+
+## Что ещё остаётся до формального закрытия шага
+
+Несмотря на уже реализованный legal core, для полного закрытия шага `16` остаются такие незавершённые части:
+
+- для юридического помощника пока фактически используется только `actor_context = general_question`; варианты `self` и `representative_for_trustor` ещё не доведены до production contract
+- `law_version` пока в основном приходит как результат retrieval и логирования; нужен более явный pipeline contract, где legal-answer проход детерминированно опирается на один согласованный `law_version`
+- для assistant `source ledger` пока не отделяет достаточно строго нормы, реально использованные в финальном ответе, от норм, просто переданных в context
+- нужен более жёсткий guard против смешения нескольких `law_version` в одном legal-answer проходе
+- `input` / `output` logging уже усилен, но ещё не полностью унифицирован между assistant, обычным rewrite и grounded rewrite
+- правило про `law context` из `3–7` релевантных норм уже частично соблюдается на уровне retrieval limits, но ещё не оформлено как единый enforceable contract для всех веток legal core
+- разделение дешёвых и дорогих операций пока существует по смыслу, но ещё не завершено как отдельный устойчивый execution contract
+
+Пока эти пункты не закрыты, шаг `16` следует считать `partial / in progress`, даже если большая часть базового legal core уже работает.
 
 ## Критерии приёмки
 

@@ -11,6 +11,7 @@ import {
   isRewriteSectionSupportedForDocumentType,
 } from "@/document-ai/sections";
 import { requestAssistantProxyCompletion } from "@/server/legal-assistant/ai-proxy";
+import { searchAssistantCorpus } from "@/server/legal-assistant/retrieval";
 import {
   DocumentAccessDeniedError,
   readClaimsDraftPayload,
@@ -33,17 +34,29 @@ import {
   type DocumentRewriteFactLedger,
 } from "@/server/legal-core/document-rewrite";
 import {
+  buildDocumentGuardrailContextText,
+  buildDocumentGuardrailSearchQuery,
+  buildDocumentGuardrailUsedSources,
+  buildDocumentRewritePolicyLines,
+} from "@/server/legal-core/document-guardrails";
+import {
   DOCUMENT_FIELD_REWRITE_PROMPT_VERSION,
   extractProxyUsageMetrics,
 } from "@/server/legal-core/observability";
+import { buildDocumentRewriteFutureReviewMarker } from "@/server/legal-core/review-routing";
 
 const DOCUMENT_FIELD_REWRITE_FEATURE_KEY = "document_field_rewrite";
 const MAX_TARGET_TEXT_LENGTH = 6_000;
 const MAX_CONTEXT_TEXT_LENGTH = 2_500;
+const MAX_GUARDRAIL_QUERY_LENGTH = 1_400;
+const MAX_GUARDRAIL_LAW_BLOCKS = 3;
+const MAX_GUARDRAIL_PRECEDENT_BLOCKS = 2;
+const MAX_GUARDRAIL_BLOCK_TEXT_LENGTH = 700;
 const MAX_SUGGESTION_PREVIEW_LENGTH = 160;
 
 type DocumentFieldRewriteDependencies = {
   getDocumentByIdForAccount: typeof getDocumentByIdForAccount;
+  searchAssistantCorpus: typeof searchAssistantCorpus;
   requestProxyCompletion: typeof requestAssistantProxyCompletion;
   createAIRequest: typeof createAIRequest;
   now: () => Date;
@@ -51,6 +64,7 @@ type DocumentFieldRewriteDependencies = {
 
 const defaultDependencies: DocumentFieldRewriteDependencies = {
   getDocumentByIdForAccount,
+  searchAssistantCorpus,
   requestProxyCompletion: requestAssistantProxyCompletion,
   createAIRequest,
   now: () => new Date(),
@@ -192,6 +206,36 @@ function buildContextText(input: {
   lines.push(`evidenceSummary: ${formatEvidenceSummary(input.evidenceSummary)}`);
 
   return clampText(lines.join("\n"), MAX_CONTEXT_TEXT_LENGTH);
+}
+
+function buildSearchQuery(input: {
+  sectionLabel: string;
+  sourceText: string;
+  contextText: string;
+}) {
+  return buildDocumentGuardrailSearchQuery({
+    ...input,
+    maxLength: MAX_GUARDRAIL_QUERY_LENGTH,
+  });
+}
+
+type RewriteGuardrailRetrievalResult = Awaited<ReturnType<typeof searchAssistantCorpus>>;
+
+function buildRewriteGuardrailUsedSources(
+  retrieval: RewriteGuardrailRetrievalResult,
+) {
+  return buildDocumentGuardrailUsedSources(retrieval, {
+    lawLimit: MAX_GUARDRAIL_LAW_BLOCKS,
+    precedentLimit: MAX_GUARDRAIL_PRECEDENT_BLOCKS,
+  });
+}
+
+function buildRewriteGuardrailContext(retrieval: RewriteGuardrailRetrievalResult) {
+  return buildDocumentGuardrailContextText(retrieval, {
+    lawLimit: MAX_GUARDRAIL_LAW_BLOCKS,
+    precedentLimit: MAX_GUARDRAIL_PRECEDENT_BLOCKS,
+    maxBlockTextLength: MAX_GUARDRAIL_BLOCK_TEXT_LENGTH,
+  });
 }
 
 function buildOgpRewriteContext(input: {
@@ -486,14 +530,9 @@ function buildRewritePromptContext(input: {
 
 function buildRewriteSystemPrompt() {
   return [
-    "Ты помогаешь переписать одну секцию юридического документа.",
-    "Работай только как writing assistant, а не как legal assistant.",
-    "Не придумывай новые факты, даты, имена, доказательства, trustor details, нормы закона, судебные прецеденты, суммы или выводы, которых нет во входных данных.",
-    "Не меняй зафиксированные факты из fact ledger.",
-    "Не добавляй новые доказательства, статьи закона и категоричные правовые выводы.",
-    "Сохрани фактический смысл исходного текста.",
-    "Сделай текст яснее, структурнее и формальнее.",
-    "Допустимо улучшать стиль, структуру, хронологию и убирать эмоции, если фактическое содержание остаётся тем же.",
+    ...buildDocumentRewritePolicyLines({
+      includeGuardrailsAsBoundary: true,
+    }),
     "Не превращай ответ в список советов или комментариев для пользователя.",
     "Не используй markdown, заголовки, кавычки вокруг всего ответа и служебные пояснения.",
     "Верни только улучшенную версию секции как plain text.",
@@ -506,6 +545,11 @@ function buildRewriteUserPrompt(input: {
   authorFullName: string;
   context: RewritePromptContext;
   factLedger: DocumentRewriteFactLedger;
+  guardrailContext: {
+    combinedCorpusSnapshotHash: string;
+    lawContext: string;
+    precedentContext: string;
+  };
 }) {
   return [
     `Сервер: ${input.serverName}`,
@@ -524,6 +568,12 @@ function buildRewriteUserPrompt(input: {
     "",
     "Fact ledger:",
     JSON.stringify(input.factLedger, null, 2),
+    "",
+    "Legal guardrails:",
+    `Combined corpus snapshot hash: ${input.guardrailContext.combinedCorpusSnapshotHash}`,
+    input.guardrailContext.lawContext || "Подходящие legal guardrails по нормам закона не найдены.",
+    input.guardrailContext.precedentContext ||
+      "Подходящие legal guardrails по подтверждённым прецедентам не найдены.",
     "",
     "Перепиши только исходный текст секции.",
     "Не добавляй новые обстоятельства и не меняй смысл.",
@@ -619,6 +669,30 @@ export async function rewriteOwnedDocumentField(
     missingDataCount: factLedger.missing_data.length,
     sourceLength: sourceText.length,
   });
+  const guardrailRetrieval = await dependencies.searchAssistantCorpus({
+    serverId: document.serverId,
+    query: buildSearchQuery({
+      sectionLabel: promptContext.sectionLabel,
+      sourceText: promptContext.sourceText,
+      contextText: promptContext.contextText,
+    }),
+    lawLimit: MAX_GUARDRAIL_LAW_BLOCKS,
+    precedentLimit: MAX_GUARDRAIL_PRECEDENT_BLOCKS,
+  });
+  const guardrailUsedSources = buildRewriteGuardrailUsedSources(guardrailRetrieval);
+  const guardrailContext = buildRewriteGuardrailContext(guardrailRetrieval);
+  const successFutureReviewMarker = buildDocumentRewriteFutureReviewMarker({
+    selfAssessment,
+    status: "success",
+    missingDataCount: factLedger.missing_data.length,
+    usedSourceCount: guardrailUsedSources.length,
+  });
+  const unavailableFutureReviewMarker = buildDocumentRewriteFutureReviewMarker({
+    selfAssessment,
+    status: "unavailable",
+    missingDataCount: factLedger.missing_data.length,
+    usedSourceCount: guardrailUsedSources.length,
+  });
   const proxyResponse = await dependencies.requestProxyCompletion({
     systemPrompt: buildRewriteSystemPrompt(),
     userPrompt: buildRewriteUserPrompt({
@@ -627,6 +701,7 @@ export async function rewriteOwnedDocumentField(
       authorFullName: authorSnapshot.fullName,
       context: promptContext,
       factLedger,
+      guardrailContext,
     }),
     requestMetadata: {
       featureKey: DOCUMENT_FIELD_REWRITE_FEATURE_KEY,
@@ -637,6 +712,9 @@ export async function rewriteOwnedDocumentField(
       actor_context: actorContext,
       response_mode: "document_ready",
       prompt_version: DOCUMENT_FIELD_REWRITE_PROMPT_VERSION,
+      law_version_ids: guardrailRetrieval.combinedRetrievalRevision.lawCurrentVersionIds,
+      lawResultsCount: guardrailRetrieval.lawRetrieval.resultCount,
+      precedentResultsCount: guardrailRetrieval.precedentRetrieval.resultCount,
     },
   });
   const finishedAt = dependencies.now();
@@ -668,8 +746,9 @@ export async function rewriteOwnedDocumentField(
         sourceLength: sourceText.length,
         contextFieldKeys: promptContext.contextFieldKeys,
         contextLength: promptContext.contextText.length,
-        law_version_ids: [],
-        used_sources: [],
+        combinedRetrievalRevision: guardrailRetrieval.combinedRetrievalRevision,
+        law_version_ids: guardrailRetrieval.combinedRetrievalRevision.lawCurrentVersionIds,
+        used_sources: guardrailUsedSources,
         fact_ledger: factLedger,
       },
       responsePayloadJson: {
@@ -680,6 +759,7 @@ export async function rewriteOwnedDocumentField(
         total_tokens: usageMetrics.total_tokens,
         cost_usd: usageMetrics.cost_usd,
         confidence: selfAssessment.answer_confidence,
+        ...unavailableFutureReviewMarker,
         self_assessment: selfAssessment,
       },
       status: proxyResponse.status,
@@ -726,8 +806,9 @@ export async function rewriteOwnedDocumentField(
       sourceLength: sourceText.length,
       contextFieldKeys: promptContext.contextFieldKeys,
       contextLength: promptContext.contextText.length,
-      law_version_ids: [],
-      used_sources: [],
+      combinedRetrievalRevision: guardrailRetrieval.combinedRetrievalRevision,
+      law_version_ids: guardrailRetrieval.combinedRetrievalRevision.lawCurrentVersionIds,
+      used_sources: guardrailUsedSources,
       fact_ledger: factLedger,
     },
     responsePayloadJson: {
@@ -741,6 +822,7 @@ export async function rewriteOwnedDocumentField(
       total_tokens: usageMetrics.total_tokens,
       cost_usd: usageMetrics.cost_usd,
       confidence: selfAssessment.answer_confidence,
+      ...successFutureReviewMarker,
       self_assessment: selfAssessment,
     },
     status: "success",

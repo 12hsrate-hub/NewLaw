@@ -122,6 +122,16 @@ describe("answer pipeline", () => {
         requestPayloadJson: expect.objectContaining({
           branch: "no_norms",
         }),
+        responsePayloadJson: expect.objectContaining({
+          answer_markdown_preview: expect.stringContaining("Краткий вывод"),
+          answer_sections: expect.objectContaining({
+            summary: expect.any(String),
+            normativeAnalysis: expect.any(String),
+            precedentAnalysis: expect.any(String),
+            interpretation: expect.any(String),
+            sources: expect.any(String),
+          }),
+        }),
       }),
     );
   });
@@ -300,6 +310,15 @@ describe("answer pipeline", () => {
           total_tokens: 500,
           cost_usd: 0.021,
           confidence: "high",
+          answer_markdown_preview: expect.stringContaining("Краткий вывод"),
+          answer_sections: expect.objectContaining({
+            summary: expect.stringContaining("письменная форма"),
+            normativeAnalysis: expect.stringContaining("Статья 1"),
+          }),
+          queue_for_future_ai_quality_review: false,
+          future_review_priority: "low",
+          future_review_flags: [],
+          future_review_reason_codes: [],
           used_sources: expect.arrayContaining([
             expect.objectContaining({ source_kind: "law" }),
             expect.objectContaining({ source_kind: "precedent" }),
@@ -332,6 +351,7 @@ describe("answer pipeline", () => {
         choices: [],
       },
     });
+    const createAIRequest = vi.fn();
 
     const result = await generateServerLegalAssistantAnswer(
       {
@@ -372,7 +392,7 @@ describe("answer pipeline", () => {
           }),
         ),
         requestAssistantProxyCompletion,
-        createAIRequest: vi.fn(),
+        createAIRequest,
         now: () => new Date("2026-04-21T08:00:00.000Z"),
       },
     );
@@ -390,6 +410,15 @@ describe("answer pipeline", () => {
       expect(result.sections.normativeAnalysis).toContain("норма закона");
       expect(result.sections.precedentAnalysis).toContain("precedent");
     }
+    expect(createAIRequest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        responsePayloadJson: expect.objectContaining({
+          queue_for_future_ai_quality_review: true,
+          future_review_priority: "medium",
+          future_review_reason_codes: expect.arrayContaining(["precedent_only_grounding"]),
+        }),
+      }),
+    );
   });
 
   it("возвращает безопасный unavailable state, если AI proxy недоступен", async () => {
@@ -493,6 +522,11 @@ describe("answer pipeline", () => {
     expect(createAIRequest).toHaveBeenCalledWith(
       expect.objectContaining({
         status: "unavailable",
+        responsePayloadJson: expect.objectContaining({
+          queue_for_future_ai_quality_review: true,
+          future_review_priority: "high",
+          future_review_reason_codes: expect.arrayContaining(["no_usable_corpus"]),
+        }),
         requestPayloadJson: expect.objectContaining({
           branch: "no_corpus",
           intent: "situation_analysis",
