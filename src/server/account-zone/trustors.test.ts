@@ -35,6 +35,29 @@ describe("account-zone trustors", () => {
     } as never);
   });
 
+  it("логирует и пробрасывает ошибку, если не загружаются обязательные trustor data", async () => {
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    vi.mocked(getServers).mockRejectedValue(new Error("server query failed"));
+    vi.mocked(listTrustorsForAccount).mockResolvedValue([] as never);
+
+    await expect(
+      getAccountTrustorsOverviewContext({
+        nextPath: "/account/trustors",
+      }),
+    ).rejects.toThrow("server query failed");
+
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      "ACCOUNT_TRUSTORS_REQUIRED_DATA_LOAD_FAILED",
+      expect.objectContaining({
+        accountId: "account-1",
+        message: "server query failed",
+      }),
+    );
+
+    consoleErrorSpy.mockRestore();
+  });
+
   it("строит grouped-by-server overview с focus route и честными empty states", async () => {
     vi.mocked(getServers).mockResolvedValue([
       {

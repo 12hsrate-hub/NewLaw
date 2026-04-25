@@ -191,6 +191,9 @@ describe("document area context", () => {
           appealNumber: "OGP-001",
           objectOrganization: "LSPD",
           objectFullName: "Сотрудник Полиции",
+          incidentAt: "2026-04-21T11:15",
+          situationDescription: "Описание ситуации",
+          violationSummary: "Резюме нарушения",
           workingNotes: "Черновая заметка",
           evidenceGroups: [],
         },
@@ -408,8 +411,11 @@ describe("document area context", () => {
         formPayloadJson: {
           filingMode: "self",
           appealNumber: "OLD-001",
-          objectOrganization: "",
-          objectFullName: "",
+          objectOrganization: "LSPD",
+          objectFullName: "Исторический сотрудник",
+          incidentAt: "2026-04-21T11:15",
+          situationDescription: "Историческое описание",
+          violationSummary: "Историческое резюме",
           workingNotes: "Исторические заметки",
           evidenceGroups: [],
         },
@@ -1206,6 +1212,27 @@ describe("document area context", () => {
         },
       }),
     );
+  });
+
+  it("логирует и пробрасывает ошибку, если не загружаются обязательные account document data", async () => {
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    vi.mocked(requireProtectedAccountContext).mockResolvedValue(accountContext);
+    vi.mocked(getServers).mockRejectedValue(new Error("document overview query failed"));
+
+    await expect(getAccountDocumentsOverviewContext("/account/documents")).rejects.toThrow(
+      "document overview query failed",
+    );
+
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      "ACCOUNT_DOCUMENTS_REQUIRED_DATA_LOAD_FAILED",
+      expect.objectContaining({
+        accountId: accountContext.account.id,
+        message: "document overview query failed",
+      }),
+    );
+
+    consoleErrorSpy.mockRestore();
   });
 
   it("legal services agreement editor context возвращает invalid_document_data вместо throw", async () => {

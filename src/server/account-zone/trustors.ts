@@ -14,6 +14,14 @@ type AccountTrustorsViewerSummary = {
   login: string;
 };
 
+function buildReadPathErrorMessage(error: unknown) {
+  if (error instanceof Error && error.message.trim().length > 0) {
+    return error.message;
+  }
+
+  return String(error);
+}
+
 export type AccountTrustorSummary = {
   id: string;
   fullName: string;
@@ -74,10 +82,21 @@ export async function getAccountTrustorsOverviewContext(input: {
     allowMustChangePassword: true,
   });
   const focusedServerCode = input.focusedServerCode?.trim().toLowerCase() || null;
-  const [servers, trustors] = await Promise.all([
-    getServers(),
-    listTrustorsForAccount(account.id),
-  ]);
+  let servers: Awaited<ReturnType<typeof getServers>>;
+  let trustors: Awaited<ReturnType<typeof listTrustorsForAccount>>;
+
+  try {
+    [servers, trustors] = await Promise.all([
+      getServers(),
+      listTrustorsForAccount(account.id),
+    ]);
+  } catch (error) {
+    console.error("ACCOUNT_TRUSTORS_REQUIRED_DATA_LOAD_FAILED", {
+      accountId: account.id,
+      message: buildReadPathErrorMessage(error),
+    });
+    throw error;
+  }
   const serverCodeById = new Map(servers.map((server) => [server.id, server.code]));
   let attorneyRequestDocuments: Awaited<ReturnType<typeof listAttorneyRequestDocumentsByAccount>> = [];
 
@@ -86,7 +105,7 @@ export async function getAccountTrustorsOverviewContext(input: {
   } catch (error) {
     console.error("ACCOUNT_TRUSTORS_ATTORNEY_REQUESTS_LOAD_FAILED", {
       accountId: account.id,
-      message: error instanceof Error ? error.message : String(error),
+      message: buildReadPathErrorMessage(error),
     });
   }
 

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/db/repositories/server.repository", () => ({
   getServers: vi.fn(),
@@ -20,14 +20,24 @@ vi.mock("@/server/auth/protected", () => ({
   requireProtectedAccountContext: vi.fn(),
 }));
 
+vi.mock("@/server/character-signatures/service", () => ({
+  createCharacterSignaturePreviewUrl: vi.fn(),
+}));
+
 import { getServers } from "@/db/repositories/server.repository";
 import { listCharactersForAccount } from "@/db/repositories/character.repository";
 import { listCharacterAccessRequestsForAccount } from "@/db/repositories/character-access-request.repository";
 import { getUserServerStates } from "@/db/repositories/user-server-state.repository";
 import { requireProtectedAccountContext } from "@/server/auth/protected";
+import { createCharacterSignaturePreviewUrl } from "@/server/character-signatures/service";
 import { getAccountCharactersOverviewContext } from "@/server/account-zone/characters";
 
 describe("getAccountCharactersOverviewContext", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(createCharacterSignaturePreviewUrl).mockResolvedValue("https://example.com/signature.png");
+  });
+
   it("строит account-wide overview по серверам и показывает default character только как informational state", async () => {
     vi.mocked(requireProtectedAccountContext).mockResolvedValue({
       user: {
@@ -215,5 +225,114 @@ describe("getAccountCharactersOverviewContext", () => {
       reviewComment: "Недостаточно данных",
       createdAt: "2026-04-24T10:00:00.000Z",
     });
+  });
+
+  it("логирует и пробрасывает ошибку, если не загружаются обязательные character data", async () => {
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    vi.mocked(requireProtectedAccountContext).mockResolvedValue({
+      user: {
+        id: "user-1",
+        email: "user@example.com",
+      },
+      account: {
+        id: "account-1",
+        email: "user@example.com",
+        login: "tester",
+        mustChangePassword: false,
+      },
+    } as never);
+    vi.mocked(getServers).mockRejectedValue(new Error("server query failed"));
+
+    await expect(
+      getAccountCharactersOverviewContext({
+        nextPath: "/account/characters",
+      }),
+    ).rejects.toThrow("server query failed");
+
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      "ACCOUNT_CHARACTERS_REQUIRED_DATA_LOAD_FAILED",
+      expect.objectContaining({
+        accountId: "account-1",
+        message: "server query failed",
+      }),
+    );
+
+    consoleErrorSpy.mockRestore();
+  });
+
+  it("не роняет overview, если preview активной подписи временно недоступен", async () => {
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    vi.mocked(requireProtectedAccountContext).mockResolvedValue({
+      user: {
+        id: "user-1",
+        email: "user@example.com",
+      },
+      account: {
+        id: "account-1",
+        email: "user@example.com",
+        login: "tester",
+        mustChangePassword: false,
+      },
+    } as never);
+    vi.mocked(getServers).mockResolvedValue([
+      {
+        id: "server-1",
+        code: "blackberry",
+        name: "Blackberry",
+      },
+    ] as never);
+    vi.mocked(listCharactersForAccount).mockResolvedValue([
+      {
+        id: "character-1",
+        accountId: "account-1",
+        serverId: "server-1",
+        fullName: "Игорь Юристов",
+        nickname: "Игорь Юристов",
+        passportNumber: "AA-001",
+        isProfileComplete: true,
+        profileDataJson: null,
+        roles: [{ roleKey: "lawyer" }],
+        accessFlags: [{ flagKey: "advocate" }],
+        activeSignature: {
+          id: "signature-1",
+          characterId: "character-1",
+          storagePath: "signatures/sig-1.png",
+          mimeType: "image/png",
+          width: 400,
+          height: 120,
+          fileSize: 1024,
+          createdAt: new Date("2026-04-24T10:00:00.000Z"),
+          updatedAt: new Date("2026-04-24T10:00:00.000Z"),
+        },
+      },
+    ] as never);
+    vi.mocked(getUserServerStates).mockResolvedValue([] as never);
+    vi.mocked(listCharacterAccessRequestsForAccount).mockResolvedValue([] as never);
+    vi.mocked(createCharacterSignaturePreviewUrl).mockRejectedValue(
+      new Error("storage unavailable"),
+    );
+
+    const context = await getAccountCharactersOverviewContext({
+      nextPath: "/account/characters",
+    });
+
+    expect(context.serverGroups[0].characters[0].activeSignature).toEqual(
+      expect.objectContaining({
+        id: "signature-1",
+        previewUrl: null,
+      }),
+    );
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      "ACCOUNT_CHARACTERS_SIGNATURE_PREVIEW_FAILED",
+      expect.objectContaining({
+        accountId: "account-1",
+        characterId: "character-1",
+        message: "storage unavailable",
+      }),
+    );
+
+    consoleErrorSpy.mockRestore();
   });
 });

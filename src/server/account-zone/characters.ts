@@ -74,6 +74,14 @@ export type AccountCharactersOverviewContext = {
   serverGroups: AccountCharactersServerGroup[];
 };
 
+function buildReadPathErrorMessage(error: unknown) {
+  if (error instanceof Error && error.message.trim().length > 0) {
+    return error.message;
+  }
+
+  return String(error);
+}
+
 function buildAdvocateAccessRequestSummary(input: {
   character: {
     id: string;
@@ -254,13 +262,25 @@ export async function getAccountCharactersOverviewContext(input: {
     allowMustChangePassword: true,
   });
   const focusedServerCode = input.focusedServerCode?.trim().toLowerCase() || null;
+  let servers: Awaited<ReturnType<typeof getServers>>;
+  let characters: Awaited<ReturnType<typeof listCharactersForAccount>>;
+  let characterAccessRequests: Awaited<ReturnType<typeof listCharacterAccessRequestsForAccount>>;
+  let userServerStates: Awaited<ReturnType<typeof getUserServerStates>>;
 
-  const [servers, characters, characterAccessRequests, userServerStates] = await Promise.all([
-    getServers(),
-    listCharactersForAccount(account.id),
-    listCharacterAccessRequestsForAccount(account.id),
-    getUserServerStates(account.id),
-  ]);
+  try {
+    [servers, characters, characterAccessRequests, userServerStates] = await Promise.all([
+      getServers(),
+      listCharactersForAccount(account.id),
+      listCharacterAccessRequestsForAccount(account.id),
+      getUserServerStates(account.id),
+    ]);
+  } catch (error) {
+    console.error("ACCOUNT_CHARACTERS_REQUIRED_DATA_LOAD_FAILED", {
+      accountId: account.id,
+      message: buildReadPathErrorMessage(error),
+    });
+    throw error;
+  }
 
   const serverGroups = await Promise.all(servers.map(async (server) => {
     const serverCharacters = characters.filter((character) => character.serverId === server.id);
@@ -291,7 +311,23 @@ export async function getAccountCharactersOverviewContext(input: {
         const activeSignature = character.activeSignature
           ? {
               id: character.activeSignature.id,
-              previewUrl: await createCharacterSignaturePreviewUrl(character.activeSignature.storagePath),
+              previewUrl: await (async () => {
+                try {
+                  return await createCharacterSignaturePreviewUrl(
+                    character.activeSignature!.storagePath,
+                  );
+                } catch (error) {
+                  console.error("ACCOUNT_CHARACTERS_SIGNATURE_PREVIEW_FAILED", {
+                    accountId: account.id,
+                    characterId: character.id,
+                    serverId: character.serverId,
+                    signatureId: character.activeSignature?.id ?? null,
+                    message: buildReadPathErrorMessage(error),
+                  });
+
+                  return null;
+                }
+              })(),
               mimeType: character.activeSignature.mimeType,
               width: character.activeSignature.width,
               height: character.activeSignature.height,

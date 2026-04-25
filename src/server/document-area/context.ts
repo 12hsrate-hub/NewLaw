@@ -55,6 +55,14 @@ type GroupedServerDocumentCountRow = Awaited<
 >[number];
 type AccountCharacterRecord = Awaited<ReturnType<typeof listCharactersForAccount>>[number];
 
+function buildReadPathErrorMessage(error: unknown) {
+  if (error instanceof Error && error.message.trim().length > 0) {
+    return error.message;
+  }
+
+  return String(error);
+}
+
 export type DocumentAreaServerSummary = {
   id: string;
   code: string;
@@ -775,120 +783,161 @@ function buildInvalidDocumentDataEditorRouteContext(input: {
 function buildPersistedDocumentListItem(
   document: AccountDocumentRecord | (ServerDocumentRecord & { server: AccountDocumentRecord["server"] }),
 ) {
-  const authorSnapshot = safeReadDocumentAuthorSnapshot(document.authorSnapshotJson);
-  const subtype = isClaimsDocumentType(document.documentType) ? document.documentType : null;
+  try {
+    const authorSnapshot = safeReadDocumentAuthorSnapshot(document.authorSnapshotJson);
+    const subtype = isClaimsDocumentType(document.documentType) ? document.documentType : null;
 
-  if (!authorSnapshot.ok) {
-    logDocumentListItemParseFailure({
-      document,
-      message: authorSnapshot.message,
-    });
-
-    return buildInvalidPersistedDocumentListItem(document);
-  }
-
-  if (document.documentType === "attorney_request") {
-    const payload = safeReadAttorneyRequestDraftPayload(document.formPayloadJson);
-
-    if (!payload.ok) {
+    if (!authorSnapshot.ok) {
       logDocumentListItemParseFailure({
         document,
-        message: payload.message,
+        message: authorSnapshot.message,
       });
 
       return buildInvalidPersistedDocumentListItem(document);
     }
 
-    return {
-      id: document.id,
-      title: document.title,
-      documentType: document.documentType,
-      status: document.status,
-      filingMode: null,
-      subtype,
-      appealNumber: null,
-      objectFullName: null,
-      objectOrganization: null,
-      requestNumber: payload.data.requestNumberNormalized,
-      trustorName: payload.data.trustorSnapshot.fullName,
-      server: {
-        id: document.server.id,
-        code: document.server.code,
-        name: document.server.name,
-      },
-      authorSnapshot: {
-        fullName: authorSnapshot.data.fullName,
-        passportNumber: authorSnapshot.data.passportNumber,
-      },
-      dataHealth: "ok",
-      workingNotesPreview: payload.data.workingNotes.slice(0, 240),
-      generatedAt: document.generatedAt?.toISOString() ?? null,
-      publicationUrl: document.publicationUrl,
-      isSiteForumSynced: document.isSiteForumSynced,
-      forumSyncState: null,
-      forumThreadId: null,
-      forumPostId: null,
-      forumLastPublishedAt: null,
-      forumLastSyncError: null,
-      isModifiedAfterGeneration: document.isModifiedAfterGeneration,
-      snapshotCapturedAt: document.snapshotCapturedAt.toISOString(),
-      updatedAt: document.updatedAt.toISOString(),
-      createdAt: document.createdAt.toISOString(),
-    } satisfies DocumentAreaPersistedListItem;
-  }
+    if (document.documentType === "attorney_request") {
+      const payload = safeReadAttorneyRequestDraftPayload(document.formPayloadJson);
 
-  if (document.documentType === "legal_services_agreement") {
-    const payload = safeReadLegalServicesAgreementDraftPayload(document.formPayloadJson);
+      if (!payload.ok) {
+        logDocumentListItemParseFailure({
+          document,
+          message: payload.message,
+        });
 
-    if (!payload.ok) {
-      logDocumentListItemParseFailure({
-        document,
-        message: payload.message,
-      });
+        return buildInvalidPersistedDocumentListItem(document);
+      }
 
-      return buildInvalidPersistedDocumentListItem(document);
+      return {
+        id: document.id,
+        title: document.title,
+        documentType: document.documentType,
+        status: document.status,
+        filingMode: null,
+        subtype,
+        appealNumber: null,
+        objectFullName: null,
+        objectOrganization: null,
+        requestNumber: payload.data.requestNumberNormalized,
+        trustorName: payload.data.trustorSnapshot.fullName,
+        server: {
+          id: document.server.id,
+          code: document.server.code,
+          name: document.server.name,
+        },
+        authorSnapshot: {
+          fullName: authorSnapshot.data.fullName,
+          passportNumber: authorSnapshot.data.passportNumber,
+        },
+        dataHealth: "ok",
+        workingNotesPreview: payload.data.workingNotes.slice(0, 240),
+        generatedAt: document.generatedAt?.toISOString() ?? null,
+        publicationUrl: document.publicationUrl,
+        isSiteForumSynced: document.isSiteForumSynced,
+        forumSyncState: null,
+        forumThreadId: null,
+        forumPostId: null,
+        forumLastPublishedAt: null,
+        forumLastSyncError: null,
+        isModifiedAfterGeneration: document.isModifiedAfterGeneration,
+        snapshotCapturedAt: document.snapshotCapturedAt.toISOString(),
+        updatedAt: document.updatedAt.toISOString(),
+        createdAt: document.createdAt.toISOString(),
+      } satisfies DocumentAreaPersistedListItem;
     }
 
-    return {
-      id: document.id,
-      title: document.title,
-      documentType: document.documentType,
-      status: document.status,
-      filingMode: null,
-      subtype,
-      appealNumber: null,
-      objectFullName: null,
-      objectOrganization: null,
-      agreementNumber: payload.data.manualFields.agreementNumber,
-      trustorName: payload.data.trustorSnapshot.fullName,
-      server: {
-        id: document.server.id,
-        code: document.server.code,
-        name: document.server.name,
-      },
-      authorSnapshot: {
-        fullName: authorSnapshot.data.fullName,
-        passportNumber: authorSnapshot.data.passportNumber,
-      },
-      dataHealth: "ok",
-      workingNotesPreview: payload.data.workingNotes.slice(0, 240),
-      generatedAt: document.generatedAt?.toISOString() ?? null,
-      publicationUrl: document.publicationUrl,
-      isSiteForumSynced: document.isSiteForumSynced,
-      forumSyncState: null,
-      forumThreadId: null,
-      forumPostId: null,
-      forumLastPublishedAt: null,
-      forumLastSyncError: null,
-      isModifiedAfterGeneration: document.isModifiedAfterGeneration,
-      snapshotCapturedAt: document.snapshotCapturedAt.toISOString(),
-      updatedAt: document.updatedAt.toISOString(),
-      createdAt: document.createdAt.toISOString(),
-    } satisfies DocumentAreaPersistedListItem;
-  }
+    if (document.documentType === "legal_services_agreement") {
+      const payload = safeReadLegalServicesAgreementDraftPayload(document.formPayloadJson);
 
-  if (document.documentType !== "ogp_complaint") {
-    const payload = readClaimsDraftPayload(document.documentType, document.formPayloadJson);
+      if (!payload.ok) {
+        logDocumentListItemParseFailure({
+          document,
+          message: payload.message,
+        });
+
+        return buildInvalidPersistedDocumentListItem(document);
+      }
+
+      return {
+        id: document.id,
+        title: document.title,
+        documentType: document.documentType,
+        status: document.status,
+        filingMode: null,
+        subtype,
+        appealNumber: null,
+        objectFullName: null,
+        objectOrganization: null,
+        agreementNumber: payload.data.manualFields.agreementNumber,
+        trustorName: payload.data.trustorSnapshot.fullName,
+        server: {
+          id: document.server.id,
+          code: document.server.code,
+          name: document.server.name,
+        },
+        authorSnapshot: {
+          fullName: authorSnapshot.data.fullName,
+          passportNumber: authorSnapshot.data.passportNumber,
+        },
+        dataHealth: "ok",
+        workingNotesPreview: payload.data.workingNotes.slice(0, 240),
+        generatedAt: document.generatedAt?.toISOString() ?? null,
+        publicationUrl: document.publicationUrl,
+        isSiteForumSynced: document.isSiteForumSynced,
+        forumSyncState: null,
+        forumThreadId: null,
+        forumPostId: null,
+        forumLastPublishedAt: null,
+        forumLastSyncError: null,
+        isModifiedAfterGeneration: document.isModifiedAfterGeneration,
+        snapshotCapturedAt: document.snapshotCapturedAt.toISOString(),
+        updatedAt: document.updatedAt.toISOString(),
+        createdAt: document.createdAt.toISOString(),
+      } satisfies DocumentAreaPersistedListItem;
+    }
+
+    if (document.documentType !== "ogp_complaint") {
+      const payload = readClaimsDraftPayload(document.documentType, document.formPayloadJson);
+
+      return {
+        id: document.id,
+        title: document.title,
+        documentType: document.documentType,
+        status: document.status,
+        filingMode: payload.filingMode,
+        subtype,
+        appealNumber: null,
+        objectFullName: null,
+        objectOrganization: null,
+        requestNumber: null,
+        trustorName: payload.trustorSnapshot?.fullName ?? null,
+        server: {
+          id: document.server.id,
+          code: document.server.code,
+          name: document.server.name,
+        },
+        authorSnapshot: {
+          fullName: authorSnapshot.data.fullName,
+          passportNumber: authorSnapshot.data.passportNumber,
+        },
+        dataHealth: "ok",
+        workingNotesPreview: payload.workingNotes.slice(0, 240),
+        generatedAt: document.generatedAt?.toISOString() ?? null,
+        publicationUrl: document.publicationUrl,
+        isSiteForumSynced: document.isSiteForumSynced,
+        forumSyncState: null,
+        forumThreadId: null,
+        forumPostId: null,
+        forumLastPublishedAt: null,
+        forumLastSyncError: null,
+        isModifiedAfterGeneration: document.isModifiedAfterGeneration,
+        snapshotCapturedAt: document.snapshotCapturedAt.toISOString(),
+        updatedAt: document.updatedAt.toISOString(),
+        createdAt: document.createdAt.toISOString(),
+      } satisfies DocumentAreaPersistedListItem;
+    }
+
+    const payload = readOgpComplaintDraftPayload(document.formPayloadJson);
 
     return {
       id: document.id,
@@ -897,9 +946,9 @@ function buildPersistedDocumentListItem(
       status: document.status,
       filingMode: payload.filingMode,
       subtype,
-      appealNumber: null,
-      objectFullName: null,
-      objectOrganization: null,
+      appealNumber: payload.appealNumber,
+      objectFullName: payload.objectFullName,
+      objectOrganization: payload.objectOrganization,
       requestNumber: null,
       trustorName: payload.trustorSnapshot?.fullName ?? null,
       server: {
@@ -916,56 +965,24 @@ function buildPersistedDocumentListItem(
       generatedAt: document.generatedAt?.toISOString() ?? null,
       publicationUrl: document.publicationUrl,
       isSiteForumSynced: document.isSiteForumSynced,
-      forumSyncState: null,
-      forumThreadId: null,
-      forumPostId: null,
-      forumLastPublishedAt: null,
-      forumLastSyncError: null,
+      forumSyncState: document.forumSyncState,
+      forumThreadId: document.forumThreadId,
+      forumPostId: document.forumPostId,
+      forumLastPublishedAt: document.forumLastPublishedAt?.toISOString() ?? null,
+      forumLastSyncError: document.forumLastSyncError,
       isModifiedAfterGeneration: document.isModifiedAfterGeneration,
       snapshotCapturedAt: document.snapshotCapturedAt.toISOString(),
       updatedAt: document.updatedAt.toISOString(),
       createdAt: document.createdAt.toISOString(),
     } satisfies DocumentAreaPersistedListItem;
+  } catch (error) {
+    logDocumentListItemParseFailure({
+      document,
+      message: buildReadPathErrorMessage(error),
+    });
+
+    return buildInvalidPersistedDocumentListItem(document);
   }
-
-  const payload = readOgpComplaintDraftPayload(document.formPayloadJson);
-
-  return {
-    id: document.id,
-    title: document.title,
-    documentType: document.documentType,
-    status: document.status,
-    filingMode: payload.filingMode,
-    subtype,
-    appealNumber: payload.appealNumber,
-    objectFullName: payload.objectFullName,
-    objectOrganization: payload.objectOrganization,
-    requestNumber: null,
-    trustorName: payload.trustorSnapshot?.fullName ?? null,
-    server: {
-      id: document.server.id,
-      code: document.server.code,
-      name: document.server.name,
-    },
-    authorSnapshot: {
-      fullName: authorSnapshot.data.fullName,
-      passportNumber: authorSnapshot.data.passportNumber,
-    },
-    dataHealth: "ok",
-    workingNotesPreview: payload.workingNotes.slice(0, 240),
-    generatedAt: document.generatedAt?.toISOString() ?? null,
-    publicationUrl: document.publicationUrl,
-    isSiteForumSynced: document.isSiteForumSynced,
-    forumSyncState: document.forumSyncState,
-    forumThreadId: document.forumThreadId,
-    forumPostId: document.forumPostId,
-    forumLastPublishedAt: document.forumLastPublishedAt?.toISOString() ?? null,
-    forumLastSyncError: document.forumLastSyncError,
-    isModifiedAfterGeneration: document.isModifiedAfterGeneration,
-    snapshotCapturedAt: document.snapshotCapturedAt.toISOString(),
-    updatedAt: document.updatedAt.toISOString(),
-    createdAt: document.createdAt.toISOString(),
-  } satisfies DocumentAreaPersistedListItem;
 }
 
 function buildDocumentTypeCountMapFromDocuments(
@@ -1079,12 +1096,25 @@ export async function getAccountDocumentsOverviewContext(
   const { account } = await requireProtectedAccountContext(nextPath, undefined, {
     allowMustChangePassword: true,
   });
-  const [servers, serverStates, characters, documents] = await Promise.all([
-    getServers(),
-    getUserServerStates(account.id),
-    listCharactersForAccount(account.id),
-    listDocumentsByAccount(account.id),
-  ]);
+  let servers: Awaited<ReturnType<typeof getServers>>;
+  let serverStates: Awaited<ReturnType<typeof getUserServerStates>>;
+  let characters: Awaited<ReturnType<typeof listCharactersForAccount>>;
+  let documents: Awaited<ReturnType<typeof listDocumentsByAccount>>;
+
+  try {
+    [servers, serverStates, characters, documents] = await Promise.all([
+      getServers(),
+      getUserServerStates(account.id),
+      listCharactersForAccount(account.id),
+      listDocumentsByAccount(account.id),
+    ]);
+  } catch (error) {
+    console.error("ACCOUNT_DOCUMENTS_REQUIRED_DATA_LOAD_FAILED", {
+      accountId: account.id,
+      message: buildReadPathErrorMessage(error),
+    });
+    throw error;
+  }
   const countMap = buildDocumentTypeCountMapFromDocuments(documents);
 
   return {
