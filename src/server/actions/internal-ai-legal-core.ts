@@ -35,12 +35,14 @@ const RUN_GROUP_SCENARIO_LIMIT = 4;
 
 const runTargetSchema = z.enum(["scenario", "group"]);
 const lawVersionSelectionSchema = z.literal("current_snapshot_only");
+const executionModeSchema = z.enum(["full_generation", "core_only", "compact_generation"]);
 
 const aiLegalCoreTestRunInputSchema = z.object({
   serverSlug: z.string().trim().min(1).max(64),
   lawVersionSelection: lawVersionSelectionSchema,
   actorContext: z.enum(legalCoreActorContexts),
   answerMode: z.enum(legalCoreResponseModes),
+  executionMode: executionModeSchema.optional(),
   scenarioGroup: z.enum(aiLegalCoreScenarioGroupKeys),
   scenarioId: z.string().trim().optional(),
   runTarget: runTargetSchema,
@@ -53,7 +55,8 @@ export type InternalAILegalCoreTestRunResult = {
   targetFlow: AILegalCoreScenarioTargetFlow;
   inputText: string;
   expectedBehavior: string;
-  status: "answered" | "no_norms" | "no_corpus" | "unavailable" | "error";
+  status: "answered" | "no_norms" | "no_corpus" | "unavailable" | "core_only" | "error";
+  executionMode: "full_generation" | "core_only" | "compact_generation";
   message: string | null;
   answer: {
     question: string;
@@ -83,6 +86,27 @@ export type InternalAILegalCoreTestRunResult = {
     sentToReview: boolean;
     reviewPriority: string | null;
   };
+  coreSnapshot: {
+    normalized_input: string | null;
+    legal_query_plan: Record<string, unknown> | null;
+    selected_norm_roles: unknown[];
+    primary_basis_eligibility: Array<{
+      law_id: string | null;
+      law_version: string | null;
+      law_block_id: string | null;
+      primary_basis_eligibility: string | null;
+      primary_basis_eligibility_reason: string | null;
+      ineligible_primary_basis_reasons: string[];
+      weak_primary_basis_reasons: string[];
+    }>;
+    direct_basis_status: string | null;
+    used_sources: unknown[];
+    diagnostics: {
+      applicability_diagnostics: unknown[];
+      grounding_diagnostics: Record<string, unknown> | null;
+    } | null;
+    stage_usage: Record<string, unknown> | null;
+  } | null;
   comparison: AILegalCoreScenarioComparison | null;
 };
 
@@ -139,6 +163,20 @@ function readMetadataObject(metadata: Record<string, unknown> | null | undefined
   return metadata && typeof metadata === "object" ? metadata : null;
 }
 
+function readJsonObject(value: unknown) {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function readString(value: unknown) {
+  return typeof value === "string" ? value : null;
+}
+
+function readArray(value: unknown) {
+  return Array.isArray(value) ? value : [];
+}
+
 function readTechnicalSnapshot(metadata: Record<string, unknown> | null | undefined) {
   const safeMetadata = readMetadataObject(metadata);
   const usedSources = Array.isArray(safeMetadata?.used_sources) ? safeMetadata.used_sources : [];
@@ -178,6 +216,66 @@ function readTechnicalSnapshot(metadata: Record<string, unknown> | null | undefi
   };
 }
 
+function readCoreSnapshot(input: {
+  requestPayloadJson: unknown;
+  responsePayloadJson: unknown;
+}) {
+  const requestPayload = readJsonObject(input.requestPayloadJson);
+  const responsePayload = readJsonObject(input.responsePayloadJson);
+
+  if (!requestPayload && !responsePayload) {
+    return null;
+  }
+
+  const selectedNormRoles = readArray(requestPayload?.selected_norm_roles);
+  const applicabilityDiagnostics = readArray(requestPayload?.applicability_diagnostics)
+    .map((entry) => readJsonObject(entry))
+    .filter((entry): entry is Record<string, unknown> => Boolean(entry));
+  const selectedPrimaryBasisEligibility = applicabilityDiagnostics
+    .filter((entry) =>
+      selectedNormRoles.some((selected) => {
+        const selectedObject = readJsonObject(selected);
+
+        if (!selectedObject) {
+          return false;
+        }
+
+        return (
+          readString(selectedObject.law_id) === readString(entry.law_id) &&
+          readString(selectedObject.law_version) === readString(entry.law_version) &&
+          readString(selectedObject.law_block_id) === readString(entry.law_block_id)
+        );
+      }),
+    )
+    .map((entry) => ({
+      law_id: readString(entry.law_id),
+      law_version: readString(entry.law_version),
+      law_block_id: readString(entry.law_block_id),
+      primary_basis_eligibility: readString(entry.primary_basis_eligibility),
+      primary_basis_eligibility_reason: readString(entry.primary_basis_eligibility_reason),
+      ineligible_primary_basis_reasons: readArray(entry.ineligible_primary_basis_reasons).filter(
+        (value): value is string => typeof value === "string",
+      ),
+      weak_primary_basis_reasons: readArray(entry.weak_primary_basis_reasons).filter(
+        (value): value is string => typeof value === "string",
+      ),
+    }));
+
+  return {
+    normalized_input: readString(requestPayload?.normalized_input),
+    legal_query_plan: readJsonObject(requestPayload?.legal_query_plan),
+    selected_norm_roles: selectedNormRoles,
+    primary_basis_eligibility: selectedPrimaryBasisEligibility,
+    direct_basis_status: readString(requestPayload?.direct_basis_status),
+    used_sources: readArray(responsePayload?.used_sources ?? requestPayload?.used_sources),
+    diagnostics: {
+      applicability_diagnostics: applicabilityDiagnostics,
+      grounding_diagnostics: readJsonObject(requestPayload?.grounding_diagnostics),
+    },
+    stage_usage: readJsonObject(responsePayload?.stage_usage),
+  };
+}
+
 function buildActionResultFromScenario(input: {
   scenario: AILegalCoreTestScenario;
   result: Awaited<ReturnType<typeof generateServerLegalAssistantAnswer>>;
@@ -191,6 +289,7 @@ function buildActionResultFromScenario(input: {
       inputText: input.scenario.inputText,
       expectedBehavior: input.scenario.expectedBehavior,
       status: input.result.status,
+      executionMode: "full_generation",
       message: null,
       answer: {
         question: input.scenario.inputText,
@@ -201,6 +300,26 @@ function buildActionResultFromScenario(input: {
       },
       rewrite: null,
       technical: readTechnicalSnapshot(input.result.metadata),
+      coreSnapshot: null,
+      comparison: null,
+    };
+  }
+
+  if (input.result.status === "core_only") {
+    return {
+      scenarioId: input.scenario.id,
+      scenarioTitle: input.scenario.title,
+      scenarioGroup: input.scenario.scenarioGroup,
+      targetFlow: input.scenario.targetFlow,
+      inputText: input.scenario.inputText,
+      expectedBehavior: input.scenario.expectedBehavior,
+      status: "core_only",
+      executionMode: "core_only",
+      message: input.result.message,
+      answer: null,
+      rewrite: null,
+      technical: readTechnicalSnapshot(input.result.metadata),
+      coreSnapshot: null,
       comparison: null,
     };
   }
@@ -213,10 +332,12 @@ function buildActionResultFromScenario(input: {
     inputText: input.scenario.inputText,
     expectedBehavior: input.scenario.expectedBehavior,
     status: input.result.status,
+    executionMode: "full_generation",
     message: input.result.message,
     answer: null,
     rewrite: null,
     technical: readTechnicalSnapshot(input.result.metadata),
+    coreSnapshot: null,
     comparison: null,
   };
 }
@@ -234,6 +355,7 @@ function buildRewriteResultFromScenario(input: {
       inputText: input.scenario.inputText,
       expectedBehavior: input.scenario.expectedBehavior,
       status: "answered",
+      executionMode: "full_generation",
       message: null,
       answer: null,
       rewrite: {
@@ -242,6 +364,7 @@ function buildRewriteResultFromScenario(input: {
         metadata: input.result.metadata,
       },
       technical: readTechnicalSnapshot(input.result.metadata),
+      coreSnapshot: null,
       comparison: null,
     };
   }
@@ -254,10 +377,12 @@ function buildRewriteResultFromScenario(input: {
     inputText: input.scenario.inputText,
     expectedBehavior: input.scenario.expectedBehavior,
     status: input.result.status,
+    executionMode: "full_generation",
     message: input.result.message,
     answer: null,
     rewrite: null,
     technical: readTechnicalSnapshot(input.result.metadata),
+    coreSnapshot: null,
     comparison: null,
   };
 }
@@ -274,6 +399,7 @@ function buildErrorResultFromScenario(
     inputText: scenario.inputText,
     expectedBehavior: scenario.expectedBehavior,
     status: "error",
+    executionMode: "full_generation",
     message,
     answer: null,
     rewrite: null,
@@ -287,6 +413,7 @@ function buildErrorResultFromScenario(
       sentToReview: false,
       reviewPriority: null,
     },
+    coreSnapshot: null,
     comparison: null,
   };
 }
@@ -315,7 +442,7 @@ function selectScenariosForRun(input: {
 function mapResultStatusToRunResultStatus(
   result: InternalAILegalCoreTestRunResult,
 ): "success" | "failure" | "unavailable" {
-  if (result.status === "answered" || result.status === "no_norms") {
+  if (result.status === "answered" || result.status === "no_norms" || result.status === "core_only") {
     return "success";
   }
 
@@ -340,6 +467,10 @@ export async function runInternalAILegalCoreScenariosAction(
       lawVersionSelection: String(formData.get("lawVersionSelection") ?? ""),
       actorContext: String(formData.get("actorContext") ?? ""),
       answerMode: String(formData.get("answerMode") ?? ""),
+      executionMode:
+        typeof formData.get("executionMode") === "string"
+          ? String(formData.get("executionMode"))
+          : undefined,
       scenarioGroup: String(formData.get("scenarioGroup") ?? ""),
       scenarioId:
         typeof formData.get("scenarioId") === "string" ? String(formData.get("scenarioId")) : undefined,
@@ -360,6 +491,7 @@ export async function runInternalAILegalCoreScenariosAction(
     }
 
     const scenarios = selectScenariosForRun(parsed);
+    const executionMode = parsed.executionMode ?? "full_generation";
 
     if (scenarios.length === 0) {
       return {
@@ -420,9 +552,15 @@ export async function runInternalAILegalCoreScenariosAction(
               test_scenario_title: scenario.title,
               law_version_selection: parsed.lawVersionSelection,
             },
+            internalExecutionMode:
+              executionMode === "core_only"
+                ? "core_only"
+                : executionMode === "compact_generation"
+                  ? "compact_generation"
+                  : "full_generation",
           });
 
-          const actionResult = buildActionResultFromScenario({
+          let actionResult = buildActionResultFromScenario({
             scenario,
             result,
           });
@@ -433,6 +571,22 @@ export async function runInternalAILegalCoreScenariosAction(
             serverId: server.id,
           });
 
+          if (executionMode === "core_only") {
+            actionResult = {
+              ...actionResult,
+              executionMode: "core_only",
+              coreSnapshot: readCoreSnapshot({
+                requestPayloadJson: aiRequest?.requestPayloadJson,
+                responsePayloadJson: aiRequest?.responsePayloadJson,
+              }),
+            };
+          } else if (executionMode === "compact_generation") {
+            actionResult = {
+              ...actionResult,
+              executionMode: "compact_generation",
+            };
+          }
+
           await dependencies.createAITestRunResult({
             testRunId,
             testScenarioId: scenario.id,
@@ -441,7 +595,9 @@ export async function runInternalAILegalCoreScenariosAction(
             riskLevel: actionResult.technical.reviewPriority,
             passedBasicChecks:
               !actionResult.technical.sentToReview &&
-              (actionResult.status === "answered" || actionResult.status === "no_norms"),
+              (actionResult.status === "answered" ||
+                actionResult.status === "no_norms" ||
+                actionResult.status === "core_only"),
             sentToReview: actionResult.technical.sentToReview,
           });
           results.push(actionResult);

@@ -12,6 +12,19 @@ describe("legal input normalization", () => {
       status: "success",
       content: "Исправленный и нейтральный текст.",
       model: LEGAL_INPUT_NORMALIZATION_MODEL,
+      attempts: [
+        {
+          proxyKey: "primary",
+          providerKey: "openai_compatible",
+          model: LEGAL_INPUT_NORMALIZATION_MODEL,
+          status: "success",
+          latency_ms: 120,
+          prompt_tokens: 80,
+          completion_tokens: 20,
+          total_tokens: 100,
+          cost_usd: null,
+        },
+      ],
     });
 
     const result = await normalizeLegalInputText(
@@ -41,6 +54,15 @@ describe("legal input normalization", () => {
       normalization_model: LEGAL_INPUT_NORMALIZATION_MODEL,
       normalization_prompt_version: LEGAL_INPUT_NORMALIZATION_PROMPT_VERSION,
       normalization_changed: true,
+      normalization_stage_usage: {
+        model: LEGAL_INPUT_NORMALIZATION_MODEL,
+        prompt_tokens: 80,
+        completion_tokens: 20,
+        total_tokens: 100,
+        estimated_cost_usd: 0.000041,
+        latency_ms: expect.any(Number),
+      },
+      normalization_retry_stage_usage: null,
     });
   });
 
@@ -54,6 +76,19 @@ describe("legal input normalization", () => {
         requestProxyCompletion: vi.fn().mockResolvedValue({
           status: "unavailable",
           message: "proxy down",
+          attempts: [
+            {
+              proxyKey: "primary",
+              providerKey: "openai_compatible",
+              model: LEGAL_INPUT_NORMALIZATION_MODEL,
+              status: "unavailable",
+              latency_ms: 0,
+              prompt_tokens: null,
+              completion_tokens: null,
+              total_tokens: null,
+              cost_usd: null,
+            },
+          ],
         }),
       },
     );
@@ -64,7 +99,64 @@ describe("legal input normalization", () => {
       normalization_model: LEGAL_INPUT_NORMALIZATION_MODEL,
       normalization_prompt_version: LEGAL_INPUT_NORMALIZATION_PROMPT_VERSION,
       normalization_changed: true,
+      normalization_stage_usage: {
+        model: LEGAL_INPUT_NORMALIZATION_MODEL,
+        prompt_tokens: null,
+        completion_tokens: null,
+        total_tokens: null,
+        estimated_cost_usd: null,
+        latency_ms: expect.any(Number),
+      },
+      normalization_retry_stage_usage: null,
+    });
+  });
+
+  it("агрегирует retry usage, если normalization переключилась на второй proxy", async () => {
+    const result = await normalizeLegalInputText(
+      {
+        rawInput: "кривой текст",
+        featureKey: "server_legal_assistant",
+      },
+      {
+        requestProxyCompletion: vi.fn().mockResolvedValue({
+          status: "success",
+          content: "Кривой текст.",
+          model: LEGAL_INPUT_NORMALIZATION_MODEL,
+          attempts: [
+            {
+              proxyKey: "primary",
+              providerKey: "openai_compatible",
+              model: LEGAL_INPUT_NORMALIZATION_MODEL,
+              status: "unavailable",
+              latency_ms: 300,
+              prompt_tokens: null,
+              completion_tokens: null,
+              total_tokens: null,
+              cost_usd: null,
+            },
+            {
+              proxyKey: "secondary",
+              providerKey: "openai_compatible",
+              model: LEGAL_INPUT_NORMALIZATION_MODEL,
+              status: "success",
+              latency_ms: 200,
+              prompt_tokens: 40,
+              completion_tokens: 10,
+              total_tokens: 50,
+              cost_usd: null,
+            },
+          ],
+        }),
+      },
+    );
+
+    expect(result.normalization_retry_stage_usage).toEqual({
+      model: LEGAL_INPUT_NORMALIZATION_MODEL,
+      prompt_tokens: null,
+      completion_tokens: null,
+      total_tokens: null,
+      estimated_cost_usd: null,
+      latency_ms: 300,
     });
   });
 });
-

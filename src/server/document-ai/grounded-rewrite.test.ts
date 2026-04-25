@@ -16,6 +16,15 @@ function createNormalizationResult(rawInput: string, normalizedInput = rawInput)
     normalization_model: "gpt-5.4-nano",
     normalization_prompt_version: "legal_input_normalization_v1",
     normalization_changed: normalizedInput !== rawInput,
+    normalization_stage_usage: {
+      model: "gpt-5.4-nano",
+      prompt_tokens: null,
+      completion_tokens: null,
+      total_tokens: null,
+      estimated_cost_usd: null,
+      latency_ms: 0,
+    },
+    normalization_retry_stage_usage: null,
   };
 }
 
@@ -280,6 +289,7 @@ describe("grounded document field rewrite flow", () => {
       providerKey: "openai_compatible",
       model: "gpt-5.4",
       attemptedProxyKeys: ["primary"],
+      attempts: [],
       responsePayloadJson: {
         choices: [{ finish_reason: "stop" }],
         usage: {
@@ -491,6 +501,7 @@ describe("grounded document field rewrite flow", () => {
           providerKey: "openai_compatible",
           model: "gpt-5.4",
           attemptedProxyKeys: ["primary"],
+          attempts: [],
           responsePayloadJson: {
             choices: [{ finish_reason: "stop" }],
             usage: {
@@ -661,6 +672,7 @@ describe("grounded document field rewrite flow", () => {
             status: "unavailable",
             message: "AI proxy временно недоступен.",
             attemptedProxyKeys: [],
+            attempts: [],
           }),
           createAIRequest,
           now: vi
@@ -710,6 +722,7 @@ describe("grounded document field rewrite flow", () => {
           providerKey: "openai_compatible",
           model: "gpt-5.4",
           attemptedProxyKeys: ["primary"],
+          attempts: [],
           responsePayloadJson: {
             choices: [{ finish_reason: "stop" }],
             usage: {

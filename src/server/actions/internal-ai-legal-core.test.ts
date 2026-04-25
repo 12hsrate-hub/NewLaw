@@ -193,6 +193,252 @@ describe("internal ai legal core action", () => {
     });
   });
 
+  it("в core_only режиме возвращает legal-core snapshot без final answer generation", async () => {
+    const formData = new FormData();
+    formData.set("serverSlug", "blackberry");
+    formData.set("lawVersionSelection", "current_snapshot_only");
+    formData.set("actorContext", "general_question");
+    formData.set("answerMode", "normal");
+    formData.set("executionMode", "core_only");
+    formData.set("scenarioGroup", "general_legal_questions");
+    formData.set("scenarioId", "general-mask-detention");
+    formData.set("runTarget", "scenario");
+
+    const generateServerLegalAssistantAnswer = vi.fn().mockResolvedValue({
+      status: "core_only",
+      message: null,
+      metadata: {
+        used_sources: [{ source_kind: "law", law_id: "law-1" }],
+        self_assessment: {
+          answer_confidence: "medium",
+          insufficient_data: false,
+        },
+        review_status: {
+          queue_for_future_ai_quality_review: false,
+          future_review_priority: "low",
+        },
+      },
+    });
+
+    const result = await runInternalAILegalCoreScenariosAction(
+      {
+        status: "idle",
+        errorMessage: null,
+        fieldErrors: {},
+        runSummary: null,
+        results: [],
+      },
+      formData,
+      {
+        requireSuperAdminAccountContext: vi.fn().mockResolvedValue({
+          account: {
+            id: "account-1",
+            isSuperAdmin: true,
+          },
+        }),
+        getServerByCode: vi.fn().mockResolvedValue({
+          id: "server-1",
+          code: "blackberry",
+          name: "Blackberry",
+        }),
+        generateServerLegalAssistantAnswer,
+        runInternalDocumentTextImprovementScenario: vi.fn(),
+        syncAITestScenarios: vi.fn().mockResolvedValue(undefined),
+        createAITestRun: vi.fn().mockResolvedValue(undefined),
+        completeAITestRun: vi.fn().mockResolvedValue(undefined),
+        createAITestRunResult: vi.fn().mockResolvedValue(undefined),
+        findLatestAIRequestByTestRunContext: vi.fn().mockResolvedValue({
+          id: "ai-request-core-only-1",
+          requestPayloadJson: {
+            normalized_input: "Можно ли задержать человека за маску?",
+            legal_query_plan: {
+              normalized_input: "Можно ли задержать человека за маску?",
+            },
+            selected_norm_roles: [
+              {
+                law_id: "law-1",
+                law_version: "law-version-1",
+                law_block_id: "law-block-1",
+                norm_role: "primary_basis",
+              },
+            ],
+            applicability_diagnostics: [
+              {
+                law_id: "law-1",
+                law_version: "law-version-1",
+                law_block_id: "law-block-1",
+                primary_basis_eligibility: "eligible",
+                primary_basis_eligibility_reason: null,
+                ineligible_primary_basis_reasons: [],
+                weak_primary_basis_reasons: [],
+              },
+            ],
+            grounding_diagnostics: {
+              direct_basis_status: "direct_basis_present",
+            },
+            direct_basis_status: "direct_basis_present",
+          },
+          responsePayloadJson: {
+            used_sources: [{ source_kind: "law", law_id: "law-1" }],
+            stage_usage: {
+              normalization: {
+                model: "gpt-5.4-nano",
+                prompt_tokens: 10,
+                completion_tokens: 3,
+                total_tokens: 13,
+                estimated_cost_usd: 0.00001,
+                latency_ms: 120,
+              },
+            },
+          },
+        }),
+        getAILegalCoreScenarioComparisons: vi.fn().mockResolvedValue(new Map()),
+        now: () => new Date("2026-04-26T12:00:00.000Z"),
+        createId: () => "test-run-core-only-1",
+      },
+    );
+
+    expect(result.status).toBe("success");
+    expect(generateServerLegalAssistantAnswer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        internalExecutionMode: "core_only",
+      }),
+    );
+    expect(result.results[0]).toMatchObject({
+      scenarioId: "general-mask-detention",
+      status: "core_only",
+      executionMode: "core_only",
+      answer: null,
+      technical: {
+        confidence: "medium",
+      },
+      coreSnapshot: {
+        normalized_input: "Можно ли задержать человека за маску?",
+        legal_query_plan: {
+          normalized_input: "Можно ли задержать человека за маску?",
+        },
+        selected_norm_roles: [
+          expect.objectContaining({
+            law_id: "law-1",
+          }),
+        ],
+        primary_basis_eligibility: [
+          expect.objectContaining({
+            primary_basis_eligibility: "eligible",
+          }),
+        ],
+        direct_basis_status: "direct_basis_present",
+        used_sources: [
+          expect.objectContaining({
+            source_kind: "law",
+          }),
+        ],
+        diagnostics: {
+          applicability_diagnostics: expect.any(Array),
+          grounding_diagnostics: expect.objectContaining({
+            direct_basis_status: "direct_basis_present",
+          }),
+        },
+        stage_usage: {
+          normalization: expect.objectContaining({
+            model: "gpt-5.4-nano",
+          }),
+        },
+      },
+    });
+  });
+
+  it("в compact_generation режиме прокидывает internal compact mode без изменения public surface", async () => {
+    const formData = new FormData();
+    formData.set("serverSlug", "blackberry");
+    formData.set("lawVersionSelection", "current_snapshot_only");
+    formData.set("actorContext", "general_question");
+    formData.set("answerMode", "normal");
+    formData.set("executionMode", "compact_generation");
+    formData.set("scenarioGroup", "general_legal_questions");
+    formData.set("scenarioId", "general-mask-detention");
+    formData.set("runTarget", "scenario");
+
+    const generateServerLegalAssistantAnswer = vi.fn().mockResolvedValue({
+      status: "answered",
+      answerMarkdown:
+        "## Краткий вывод\nКраткий вывод.\n\n## Что прямо следует из норм закона\nПункт.\n\n## Что подтверждается судебными прецедентами\nНе использовались.\n\n## Вывод / интерпретация\nЧто делать: действовать по процедуре.",
+      sections: {
+        summary: "Краткий вывод.",
+        normativeAnalysis: "Пункт.",
+        precedentAnalysis: "Не использовались.",
+        interpretation: "Что делать: действовать по процедуре.",
+        sources: "АК 18.",
+      },
+      metadata: {
+        used_sources: [{ source_kind: "law", law_id: "law-1" }],
+        total_tokens: 180,
+        cost_usd: 0.004,
+        latency_ms: 140,
+        self_assessment: {
+          answer_confidence: "medium",
+          insufficient_data: false,
+        },
+        review_status: {
+          queue_for_future_ai_quality_review: false,
+          future_review_priority: "low",
+        },
+      },
+    });
+
+    const result = await runInternalAILegalCoreScenariosAction(
+      {
+        status: "idle",
+        errorMessage: null,
+        fieldErrors: {},
+        runSummary: null,
+        results: [],
+      },
+      formData,
+      {
+        requireSuperAdminAccountContext: vi.fn().mockResolvedValue({
+          account: {
+            id: "account-1",
+            isSuperAdmin: true,
+          },
+        }),
+        getServerByCode: vi.fn().mockResolvedValue({
+          id: "server-1",
+          code: "blackberry",
+          name: "Blackberry",
+        }),
+        generateServerLegalAssistantAnswer,
+        runInternalDocumentTextImprovementScenario: vi.fn(),
+        syncAITestScenarios: vi.fn().mockResolvedValue(undefined),
+        createAITestRun: vi.fn().mockResolvedValue(undefined),
+        completeAITestRun: vi.fn().mockResolvedValue(undefined),
+        createAITestRunResult: vi.fn().mockResolvedValue(undefined),
+        findLatestAIRequestByTestRunContext: vi.fn().mockResolvedValue({
+          id: "ai-request-compact-1",
+        }),
+        getAILegalCoreScenarioComparisons: vi.fn().mockResolvedValue(new Map()),
+        now: () => new Date("2026-04-26T12:05:00.000Z"),
+        createId: () => "test-run-compact-1",
+      },
+    );
+
+    expect(result.status).toBe("success");
+    expect(generateServerLegalAssistantAnswer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        internalExecutionMode: "compact_generation",
+      }),
+    );
+    expect(result.results[0]).toMatchObject({
+      status: "answered",
+      executionMode: "compact_generation",
+      technical: {
+        tokens: 180,
+        costUsd: 0.004,
+        latencyMs: 140,
+      },
+    });
+  });
+
   it("запускает document_text_improvement scenario через internal rewrite runner", async () => {
     const formData = new FormData();
     formData.set("serverSlug", "blackberry");

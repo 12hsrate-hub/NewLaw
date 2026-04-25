@@ -94,6 +94,13 @@ describe("ai proxy", () => {
     if (result.status === "success") {
       expect(result.content).toContain("Краткий вывод");
       expect(result.attemptedProxyKeys).toEqual(["primary"]);
+      expect(result.attempts).toEqual([
+        expect.objectContaining({
+          proxyKey: "primary",
+          status: "success",
+          model: "gpt-5.4",
+        }),
+      ]);
     }
   });
 
@@ -157,6 +164,17 @@ describe("ai proxy", () => {
     if (result.status === "success") {
       expect(result.proxyKey).toBe("secondary");
       expect(result.attemptedProxyKeys).toEqual(["primary", "secondary"]);
+      expect(result.attempts).toEqual([
+        expect.objectContaining({
+          proxyKey: "primary",
+          status: "unavailable",
+        }),
+        expect.objectContaining({
+          proxyKey: "secondary",
+          status: "success",
+          model: "gpt-5.4-mini",
+        }),
+      ]);
     }
   });
 
@@ -190,6 +208,13 @@ describe("ai proxy", () => {
     if (result.status === "unavailable") {
       expect(result.message).toContain("secret");
       expect(result.attemptedProxyKeys).toEqual(["primary"]);
+      expect(result.attempts).toEqual([
+        expect.objectContaining({
+          proxyKey: "primary",
+          status: "unavailable",
+          model: "gpt-5.4",
+        }),
+      ]);
     }
   });
 
@@ -251,6 +276,56 @@ describe("ai proxy", () => {
       "https://proxy.internal.test/v1/chat/completions",
       expect.objectContaining({
         body: expect.stringContaining('"model":"gpt-5.4-nano"'),
+      }),
+    );
+  });
+
+  it("позволяет ограничить max output tokens для internal compact_generation", async () => {
+    const fetchSpy = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        choices: [
+          {
+            message: {
+              content: "Короткий ответ.",
+            },
+          },
+        ],
+      }),
+    });
+
+    await requestAssistantProxyCompletion(
+      {
+        systemPrompt: "system",
+        userPrompt: "user",
+        maxOutputTokens: 320,
+      },
+      {
+        fetch: fetchSpy as typeof fetch,
+        getRuntimeEnv: () => ({
+          AI_PROXY_ACTIVE_KEY: "primary",
+          AI_PROXY_CONFIGS_JSON: JSON.stringify([
+            {
+              proxyKey: "primary",
+              providerKey: "openai_compatible",
+              endpointUrl: "https://proxy.internal.test/v1/chat/completions",
+              secretEnvKeyName: "AI_PROXY_SECRET_PRIMARY",
+              model: "gpt-5.4-mini",
+              priority: 100,
+              weight: 1,
+            },
+          ]),
+        }),
+        getProcessEnv: () => ({
+          AI_PROXY_SECRET_PRIMARY: "secret",
+        }),
+      },
+    );
+
+    expect(fetchSpy).toHaveBeenCalledWith(
+      "https://proxy.internal.test/v1/chat/completions",
+      expect.objectContaining({
+        body: expect.stringContaining('"max_completion_tokens":320'),
       }),
     );
   });

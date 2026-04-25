@@ -177,6 +177,7 @@ describe("ai quality review snapshot", () => {
           providerKey: "openai_compatible",
           model: "gpt-5.4-mini",
           attemptedProxyKeys: ["primary"],
+          attempts: [],
           responsePayloadJson: {
             choices: [],
             usage: {

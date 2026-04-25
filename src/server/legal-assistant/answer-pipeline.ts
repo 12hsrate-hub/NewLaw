@@ -3,7 +3,10 @@ import {
   type AssistantTypedRetrievalReference,
   searchAssistantCorpus,
 } from "@/server/legal-assistant/retrieval";
-import { requestAssistantProxyCompletion } from "@/server/legal-assistant/ai-proxy";
+import {
+  type ProxyAttemptTrace,
+  requestAssistantProxyCompletion,
+} from "@/server/legal-assistant/ai-proxy";
 import { buildAssistantRetrievalQuery } from "@/server/legal-core/assistant-retrieval-query";
 import { buildLegalGroundingDiagnostics } from "@/server/legal-core/legal-diagnostics";
 import { normalizeLegalInputText } from "@/server/legal-core/input-normalization";
@@ -21,8 +24,11 @@ import {
   detectQuestionResponseMode,
 } from "@/server/legal-core/metadata";
 import {
+  buildAIStageUsageEntry,
+  extractAIReviewerStageUsage,
   extractProxyUsageMetrics,
   LEGAL_ASSISTANT_PROMPT_VERSION,
+  mergeAIStageUsageEntries,
 } from "@/server/legal-core/observability";
 import { attachDeterministicAIQualityReview } from "@/server/legal-core/quality-review";
 import { buildAssistantFutureReviewMarker } from "@/server/legal-core/review-routing";
@@ -76,6 +82,8 @@ type AssistantTestRunContext = {
   test_scenario_title: string;
   law_version_selection: "current_snapshot_only";
 };
+
+type AssistantInternalExecutionMode = "full_generation" | "core_only" | "compact_generation";
 
 const USED_SOURCES_MANIFEST_PATTERN = /<!--\s*used_sources_json:\s*([\s\S]*?)\s*-->/i;
 
@@ -158,10 +166,12 @@ type AssistantGenerationBudget = {
   max_total_sources: number;
   max_excerpt_chars_per_source: number;
   max_total_context_chars: number;
+  max_output_tokens: number | null;
 };
 
 type AssistantGenerationBudgetTrace = AssistantGenerationBudget & {
   response_mode: LegalCoreResponseMode;
+  execution_mode: AssistantInternalExecutionMode;
 };
 
 type AssistantPromptLawContextEntry = RetrievalResult["lawRetrieval"]["results"][number] & {
@@ -291,6 +301,13 @@ type AssistantReviewStatus = {
   future_review_priority: "low" | "medium" | "high";
   future_review_flags: string[];
   future_review_reason_codes: string[];
+};
+
+type AssistantStageUsage = {
+  normalization: ReturnType<typeof buildAIStageUsageEntry>;
+  generation?: ReturnType<typeof buildAIStageUsageEntry>;
+  review?: ReturnType<typeof buildAIStageUsageEntry>;
+  retry?: ReturnType<typeof buildAIStageUsageEntry>;
 };
 
 function parseAssistantUsedSourcesManifest(content: string): AssistantUsedSourceManifest | null {
@@ -708,37 +725,57 @@ function selectPromptContextResults(
     .slice(0, limit);
 }
 
-function getAssistantGenerationBudget(
-  responseMode: LegalCoreResponseMode,
-): AssistantGenerationBudgetTrace {
-  switch (responseMode) {
+function getAssistantGenerationBudget(input: {
+  responseMode: LegalCoreResponseMode;
+  internalExecutionMode: AssistantInternalExecutionMode;
+}): AssistantGenerationBudgetTrace {
+  if (input.internalExecutionMode === "compact_generation") {
+    return {
+      response_mode: input.responseMode,
+      execution_mode: input.internalExecutionMode,
+      max_total_sources: 3,
+      max_excerpt_chars_per_source: 420,
+      max_total_context_chars: 1400,
+      max_output_tokens: 320,
+    };
+  }
+
+  switch (input.responseMode) {
     case "short":
       return {
-        response_mode: responseMode,
+        response_mode: input.responseMode,
+        execution_mode: input.internalExecutionMode,
         max_total_sources: 2,
         max_excerpt_chars_per_source: 450,
         max_total_context_chars: 1200,
+        max_output_tokens: 320,
       };
     case "detailed":
       return {
-        response_mode: responseMode,
+        response_mode: input.responseMode,
+        execution_mode: input.internalExecutionMode,
         max_total_sources: 6,
         max_excerpt_chars_per_source: 900,
         max_total_context_chars: 4200,
+        max_output_tokens: 900,
       };
     case "document_ready":
       return {
-        response_mode: responseMode,
+        response_mode: input.responseMode,
+        execution_mode: input.internalExecutionMode,
         max_total_sources: 4,
         max_excerpt_chars_per_source: 700,
         max_total_context_chars: 2600,
+        max_output_tokens: 420,
       };
     default:
       return {
-        response_mode: responseMode,
+        response_mode: input.responseMode,
+        execution_mode: input.internalExecutionMode,
         max_total_sources: 4,
         max_excerpt_chars_per_source: 650,
         max_total_context_chars: 2400,
+        max_output_tokens: 520,
       };
   }
 }
@@ -785,8 +822,12 @@ function buildAssistantGenerationContext(input: {
   retrieval: RetrievalResult;
   lawSelection: AssistantLawSelection;
   responseMode: LegalCoreResponseMode;
+  internalExecutionMode: AssistantInternalExecutionMode;
 }) {
-  const budget = getAssistantGenerationBudget(input.responseMode);
+  const budget = getAssistantGenerationBudget({
+    responseMode: input.responseMode,
+    internalExecutionMode: input.internalExecutionMode,
+  });
   const selectedRoleMap = new Map(
     input.lawSelection.selected_norm_roles.map((entry) => [entry.law_block_id, entry]),
   );
@@ -974,6 +1015,7 @@ function buildAssistantUserPrompt(input: {
   question: string;
   actorContext: LegalCoreActorContext;
   responseMode: LegalCoreResponseMode;
+  internalExecutionMode: AssistantInternalExecutionMode;
   generationContext: AssistantGenerationContext;
   lawSelection: AssistantLawSelection;
 }) {
@@ -982,8 +1024,12 @@ function buildAssistantUserPrompt(input: {
     `Вопрос пользователя: ${input.question}`,
     `Actor context: ${input.actorContext}`,
     `Response mode: ${input.responseMode}`,
+    `Execution mode: ${input.internalExecutionMode}`,
     `Direct basis status: ${input.lawSelection.direct_basis_status}`,
-    buildAssistantResponseModeInstruction(input.responseMode),
+    buildAssistantResponseModeInstruction({
+      responseMode: input.responseMode,
+      internalExecutionMode: input.internalExecutionMode,
+    }),
     buildDirectBasisInstruction(input.lawSelection.direct_basis_status),
     "Законы (используй только этот grounded layer, если он есть):",
     input.generationContext.law_context_text || "Подходящие current primary laws по запросу не найдены.",
@@ -1006,8 +1052,15 @@ function buildDirectBasisInstruction(directBasisStatus: AssistantLawSelection["d
   }
 }
 
-function buildAssistantResponseModeInstruction(responseMode: LegalCoreResponseMode) {
-  switch (responseMode) {
+function buildAssistantResponseModeInstruction(input: {
+  responseMode: LegalCoreResponseMode;
+  internalExecutionMode: AssistantInternalExecutionMode;
+}) {
+  if (input.internalExecutionMode === "compact_generation") {
+    return "Режим ответа: compact_generation. Дай краткий вывод, затем 2–3 коротких grounded пункта по нормам и в конце одну короткую строку 'что делать'. Не раздувай ответ, не повторяй одни и те же тезисы и не превращай его в длинное заключение.";
+  }
+
+  switch (input.responseMode) {
     case "short":
       return "Режим ответа: short. Дай очень короткий ответ: максимум 2–3 коротких пункта по сути, без длинного разбора и без повторов, сохраняя все обязательные секции.";
     case "detailed":
@@ -1062,6 +1115,60 @@ function buildAssistantRunObservability(input: {
   };
 }
 
+function buildProxyRetryStageUsage(
+  proxyResponse: { attempts?: ProxyAttemptTrace[] } | null | undefined,
+) {
+  const attempts = proxyResponse?.attempts ?? [];
+
+  if (attempts.length <= 1) {
+    return null;
+  }
+
+  return mergeAIStageUsageEntries(
+    attempts.slice(0, -1).map((attempt) =>
+      buildAIStageUsageEntry({
+        model: attempt.model,
+        prompt_tokens: attempt.prompt_tokens,
+        completion_tokens: attempt.completion_tokens,
+        total_tokens: attempt.total_tokens,
+        cost_usd: attempt.cost_usd,
+        latency_ms: attempt.latency_ms,
+      }),
+    ),
+  );
+}
+
+function buildAssistantStageUsage(input: {
+  normalizationStageUsage: ReturnType<typeof buildAIStageUsageEntry>;
+  normalizationRetryStageUsage?: ReturnType<typeof mergeAIStageUsageEntries>;
+  generationStageUsage?: ReturnType<typeof buildAIStageUsageEntry> | null;
+  generationRetryStageUsage?: ReturnType<typeof mergeAIStageUsageEntries>;
+  responsePayloadJson?: Record<string, unknown> | null;
+}) {
+  const retryStageUsage = mergeAIStageUsageEntries([
+    input.normalizationRetryStageUsage ?? null,
+    input.generationRetryStageUsage ?? null,
+  ]);
+  const reviewStageUsage = extractAIReviewerStageUsage(input.responsePayloadJson ?? null);
+  const stageUsage: AssistantStageUsage = {
+    normalization: input.normalizationStageUsage,
+  };
+
+  if (input.generationStageUsage) {
+    stageUsage.generation = input.generationStageUsage;
+  }
+
+  if (reviewStageUsage) {
+    stageUsage.review = reviewStageUsage;
+  }
+
+  if (retryStageUsage) {
+    stageUsage.retry = retryStageUsage;
+  }
+
+  return stageUsage;
+}
+
 function buildAssistantReviewStatus(
   futureReviewMarker: ReturnType<typeof buildAssistantFutureReviewMarker>,
 ): AssistantReviewStatus {
@@ -1108,6 +1215,7 @@ export async function generateServerLegalAssistantAnswer(
     accountId?: string | null;
     guestSessionId?: string | null;
     testRunContext?: AssistantTestRunContext;
+    internalExecutionMode?: AssistantInternalExecutionMode;
   },
   dependencies: AnswerPipelineDependencies = defaultDependencies,
 ) {
@@ -1116,6 +1224,22 @@ export async function generateServerLegalAssistantAnswer(
     rawInput: input.question,
     featureKey: "server_legal_assistant",
   });
+  const normalizationStageUsage =
+    "normalization_stage_usage" in normalizedInput &&
+    normalizedInput.normalization_stage_usage
+      ? normalizedInput.normalization_stage_usage
+      : buildAIStageUsageEntry({
+          model: normalizedInput.normalization_model,
+          prompt_tokens: null,
+          completion_tokens: null,
+          total_tokens: null,
+          cost_usd: null,
+          latency_ms: 0,
+        });
+  const normalizationRetryStageUsage =
+    "normalization_retry_stage_usage" in normalizedInput
+      ? normalizedInput.normalization_retry_stage_usage
+      : null;
   const intent = classifyAssistantIntent(normalizedInput.normalized_input);
   const responseMode =
     input.responseModeOverride ?? detectQuestionResponseMode(normalizedInput.normalized_input);
@@ -1158,10 +1282,12 @@ export async function generateServerLegalAssistantAnswer(
     retrieval,
     sourceLedger,
   });
+  const internalExecutionMode = input.internalExecutionMode ?? "full_generation";
   const generationContext = buildAssistantGenerationContext({
     retrieval,
     lawSelection,
     responseMode,
+    internalExecutionMode,
   });
   const usedSources = buildAssistantContextUsedSources({
     lawContext: generationContext.law_sources,
@@ -1218,6 +1344,7 @@ export async function generateServerLegalAssistantAnswer(
     generation_context_chars: generationContext.generation_context_chars,
     generation_context_trimmed: generationContext.generation_context_trimmed,
     answer_mode_effective_budget: generationContext.answer_mode_effective_budget,
+    generation_max_output_tokens: generationContext.answer_mode_effective_budget.max_output_tokens,
     test_run_context: input.testRunContext ?? null,
   };
 
@@ -1267,6 +1394,7 @@ export async function generateServerLegalAssistantAnswer(
       generation_context_chars: generationContext.generation_context_chars,
       generation_context_trimmed: generationContext.generation_context_trimmed,
       answer_mode_effective_budget: generationContext.answer_mode_effective_budget,
+      generation_max_output_tokens: generationContext.answer_mode_effective_budget.max_output_tokens,
       test_run_context: input.testRunContext ?? null,
     };
     const noCorpusResponsePayload = {
@@ -1285,6 +1413,11 @@ export async function generateServerLegalAssistantAnswer(
       ...futureReviewMarker,
       self_assessment: selfAssessment,
     };
+    const reviewedNoCorpusResponsePayload = await attachDeterministicAIQualityReview({
+      featureKey: "server_legal_assistant",
+      requestPayloadJson: noCorpusRequestPayload,
+      responsePayloadJson: noCorpusResponsePayload,
+    });
     await dependencies.createAIRequest({
       accountId: input.accountId ?? null,
       guestSessionId: input.guestSessionId ?? null,
@@ -1292,11 +1425,14 @@ export async function generateServerLegalAssistantAnswer(
       featureKey: "server_legal_assistant",
       status: "unavailable",
       requestPayloadJson: noCorpusRequestPayload,
-      responsePayloadJson: await attachDeterministicAIQualityReview({
-        featureKey: "server_legal_assistant",
-        requestPayloadJson: noCorpusRequestPayload,
-        responsePayloadJson: noCorpusResponsePayload,
-      }),
+      responsePayloadJson: {
+        ...reviewedNoCorpusResponsePayload,
+        stage_usage: buildAssistantStageUsage({
+          normalizationStageUsage,
+          normalizationRetryStageUsage,
+          responsePayloadJson: reviewedNoCorpusResponsePayload,
+        }),
+      },
       errorMessage: "Для выбранного сервера нет confirmed current law или precedent corpus.",
     });
 
@@ -1372,6 +1508,7 @@ export async function generateServerLegalAssistantAnswer(
       generation_context_chars: generationContext.generation_context_chars,
       generation_context_trimmed: generationContext.generation_context_trimmed,
       answer_mode_effective_budget: generationContext.answer_mode_effective_budget,
+      generation_max_output_tokens: generationContext.answer_mode_effective_budget.max_output_tokens,
       test_run_context: input.testRunContext ?? null,
     };
     const noNormsResponsePayload = {
@@ -1396,6 +1533,11 @@ export async function generateServerLegalAssistantAnswer(
       ...futureReviewMarker,
       self_assessment: selfAssessment,
     };
+    const reviewedNoNormsResponsePayload = await attachDeterministicAIQualityReview({
+      featureKey: "server_legal_assistant",
+      requestPayloadJson: noNormsRequestPayload,
+      responsePayloadJson: noNormsResponsePayload,
+    });
 
     await dependencies.createAIRequest({
       accountId: input.accountId ?? null,
@@ -1404,11 +1546,14 @@ export async function generateServerLegalAssistantAnswer(
       featureKey: "server_legal_assistant",
       status: "success",
       requestPayloadJson: noNormsRequestPayload,
-      responsePayloadJson: await attachDeterministicAIQualityReview({
-        featureKey: "server_legal_assistant",
-        requestPayloadJson: noNormsRequestPayload,
-        responsePayloadJson: noNormsResponsePayload,
-      }),
+      responsePayloadJson: {
+        ...reviewedNoNormsResponsePayload,
+        stage_usage: buildAssistantStageUsage({
+          normalizationStageUsage,
+          normalizationRetryStageUsage,
+          responsePayloadJson: reviewedNoNormsResponsePayload,
+        }),
+      },
       errorMessage: null,
     });
 
@@ -1481,6 +1626,7 @@ export async function generateServerLegalAssistantAnswer(
     generation_context_chars: generationContext.generation_context_chars,
     generation_context_trimmed: generationContext.generation_context_trimmed,
     answer_mode_effective_budget: generationContext.answer_mode_effective_budget,
+    generation_max_output_tokens: generationContext.answer_mode_effective_budget.max_output_tokens,
     test_run_context: input.testRunContext ?? null,
     retrievalResults: retrieval.results.map((result) => {
       if (result.sourceKind === "law") {
@@ -1506,6 +1652,66 @@ export async function generateServerLegalAssistantAnswer(
       };
     }),
   };
+
+  if (internalExecutionMode === "core_only") {
+    const coreOnlyRequestPayload = {
+      ...proxyRequestPayload,
+      branch: "core_only",
+    };
+    const coreOnlyResponsePayload = {
+      branch: "core_only",
+      lawCorpusSnapshot: retrieval.lawCorpusSnapshot,
+      precedentCorpusSnapshot: retrieval.precedentCorpusSnapshot,
+      combinedRetrievalRevision: retrieval.combinedRetrievalRevision,
+      latencyMs: 0,
+      prompt_tokens: null,
+      completion_tokens: null,
+      total_tokens: null,
+      cost_usd: null,
+      confidence: answeredSelfAssessment.answer_confidence,
+      output_trace: null,
+      used_sources: usedSources,
+      ...answeredFutureReviewMarker,
+      self_assessment: answeredSelfAssessment,
+    };
+
+    await dependencies.createAIRequest({
+      accountId: input.accountId ?? null,
+      guestSessionId: input.guestSessionId ?? null,
+      serverId: input.serverId,
+      featureKey: "server_legal_assistant",
+      requestPayloadJson: coreOnlyRequestPayload,
+      responsePayloadJson: {
+        ...coreOnlyResponsePayload,
+        stage_usage: buildAssistantStageUsage({
+          normalizationStageUsage,
+          normalizationRetryStageUsage,
+          responsePayloadJson: coreOnlyResponsePayload,
+        }),
+      },
+      status: "success",
+      errorMessage: null,
+    });
+
+    return {
+      status: "core_only" as const,
+      message: null,
+      metadata: {
+        ...metadataBase,
+        ...buildAssistantRunObservability({
+          latencyMs: 0,
+          usageMetrics: {
+            prompt_tokens: null,
+            completion_tokens: null,
+            total_tokens: null,
+            cost_usd: null,
+          },
+        }),
+        review_status: buildAssistantReviewStatus(answeredFutureReviewMarker),
+        self_assessment: answeredSelfAssessment,
+      },
+    };
+  }
   const startedAt = dependencies.now();
   const proxyResponse = await dependencies.requestAssistantProxyCompletion({
     systemPrompt: buildAssistantSystemPrompt(),
@@ -1514,9 +1720,11 @@ export async function generateServerLegalAssistantAnswer(
       question: normalizedInput.normalized_input,
       actorContext,
       responseMode,
+      internalExecutionMode,
       generationContext,
       lawSelection,
     }),
+    maxOutputTokens: generationContext.answer_mode_effective_budget.max_output_tokens ?? undefined,
     requestMetadata: {
       ...proxyRequestPayload,
       retrievalResultsCount: proxyRequestPayload.retrievalResults.length,
@@ -1529,6 +1737,19 @@ export async function generateServerLegalAssistantAnswer(
   const usageMetrics = extractProxyUsageMetrics(
     "responsePayloadJson" in proxyResponse ? proxyResponse.responsePayloadJson ?? null : null,
   );
+  const generationAttempts = proxyResponse.attempts ?? [];
+  const generationFinalAttempt = generationAttempts.at(-1) ?? null;
+  const generationStageUsage = buildAIStageUsageEntry({
+    model: "model" in proxyResponse ? proxyResponse.model ?? null : null,
+    prompt_tokens: generationFinalAttempt?.prompt_tokens ?? usageMetrics.prompt_tokens,
+    completion_tokens: generationFinalAttempt?.completion_tokens ?? usageMetrics.completion_tokens,
+    total_tokens: generationFinalAttempt?.total_tokens ?? usageMetrics.total_tokens,
+    cost_usd: generationFinalAttempt?.cost_usd ?? usageMetrics.cost_usd,
+    latency_ms: generationFinalAttempt?.latency_ms ?? latencyMs,
+  });
+  const generationRetryStageUsage = buildProxyRetryStageUsage({
+    attempts: generationAttempts,
+  });
 
   if (proxyResponse.status !== "success") {
     const unavailableResponsePayload =
@@ -1558,6 +1779,11 @@ export async function generateServerLegalAssistantAnswer(
             ...answeredFutureReviewMarker,
             self_assessment: answeredSelfAssessment,
           };
+    const reviewedUnavailableResponsePayload = await attachDeterministicAIQualityReview({
+      featureKey: "server_legal_assistant",
+      requestPayloadJson: proxyRequestPayload,
+      responsePayloadJson: unavailableResponsePayload,
+    });
     await dependencies.createAIRequest({
       accountId: input.accountId ?? null,
       guestSessionId: input.guestSessionId ?? null,
@@ -1567,11 +1793,16 @@ export async function generateServerLegalAssistantAnswer(
       proxyKey: "proxyKey" in proxyResponse ? proxyResponse.proxyKey ?? null : null,
       model: "model" in proxyResponse ? proxyResponse.model ?? null : null,
       requestPayloadJson: proxyRequestPayload,
-      responsePayloadJson: await attachDeterministicAIQualityReview({
-        featureKey: "server_legal_assistant",
-        requestPayloadJson: proxyRequestPayload,
-        responsePayloadJson: unavailableResponsePayload,
-      }),
+      responsePayloadJson: {
+        ...reviewedUnavailableResponsePayload,
+        stage_usage: buildAssistantStageUsage({
+          normalizationStageUsage,
+          normalizationRetryStageUsage,
+          generationStageUsage,
+          generationRetryStageUsage,
+          responsePayloadJson: reviewedUnavailableResponsePayload,
+        }),
+      },
       status: proxyResponse.status === "failure" ? "failure" : "unavailable",
       errorMessage: proxyResponse.message,
     });
@@ -1647,6 +1878,11 @@ export async function generateServerLegalAssistantAnswer(
     ...answeredFutureReviewMarker,
     self_assessment: answeredSelfAssessment,
   };
+  const reviewedAnsweredResponsePayload = await attachDeterministicAIQualityReview({
+    featureKey: "server_legal_assistant",
+    requestPayloadJson: answeredRequestPayload,
+    responsePayloadJson: answeredResponsePayload,
+  });
 
   await dependencies.createAIRequest({
     accountId: input.accountId ?? null,
@@ -1657,11 +1893,16 @@ export async function generateServerLegalAssistantAnswer(
     proxyKey: proxyResponse.proxyKey ?? null,
     model: proxyResponse.model ?? null,
     requestPayloadJson: answeredRequestPayload,
-    responsePayloadJson: await attachDeterministicAIQualityReview({
-      featureKey: "server_legal_assistant",
-      requestPayloadJson: answeredRequestPayload,
-      responsePayloadJson: answeredResponsePayload,
-    }),
+    responsePayloadJson: {
+      ...reviewedAnsweredResponsePayload,
+      stage_usage: buildAssistantStageUsage({
+        normalizationStageUsage,
+        normalizationRetryStageUsage,
+        generationStageUsage,
+        generationRetryStageUsage,
+        responsePayloadJson: reviewedAnsweredResponsePayload,
+      }),
+    },
     status: "success",
     errorMessage: null,
   });

@@ -1,10 +1,12 @@
 import { aiProxyConfigListSchema, type AIProxyConfigEntry } from "@/schemas/legal-assistant";
 import { getAIProxyRuntimeEnv, hasLiveAIProxyRuntimeEnv } from "@/schemas/env";
+import { extractProxyUsageMetrics } from "@/server/legal-core/observability";
 
 type ProxyCompletionInput = {
   systemPrompt: string;
   userPrompt: string;
   modelOverride?: string;
+  maxOutputTokens?: number;
   temperature?: number;
   requestMetadata?: Record<string, unknown>;
 };
@@ -29,6 +31,18 @@ type ProxyAttempt = {
   model: string;
   endpointUrl: string;
   secretEnvKeyName: string;
+};
+
+export type ProxyAttemptTrace = {
+  proxyKey: string;
+  providerKey: string;
+  model: string;
+  status: "success" | "failure" | "unavailable";
+  latency_ms: number;
+  prompt_tokens: number | null;
+  completion_tokens: number | null;
+  total_tokens: number | null;
+  cost_usd: number | null;
 };
 
 function parseProxyConfigs(configsJson: string) {
@@ -131,6 +145,7 @@ export async function requestAssistantProxyCompletion(
       status: "unavailable" as const,
       message: "AI proxy не настроен для текущего окружения.",
       attemptedProxyKeys: [] as string[],
+      attempts: [] as ProxyAttemptTrace[],
     };
   }
 
@@ -139,6 +154,7 @@ export async function requestAssistantProxyCompletion(
       status: "unavailable" as const,
       message: "AI proxy не настроен для текущего окружения.",
       attemptedProxyKeys: [] as string[],
+      attempts: [] as ProxyAttemptTrace[],
     };
   }
 
@@ -151,23 +167,26 @@ export async function requestAssistantProxyCompletion(
       status: "unavailable" as const,
       message: "Конфигурация AI proxy повреждена или неполна.",
       attemptedProxyKeys: [] as string[],
+      attempts: [] as ProxyAttemptTrace[],
     };
   }
 
-  const attempts = selectProxyAttempts({
+  const proxyAttempts = selectProxyAttempts({
     activeKey: runtimeEnv.AI_PROXY_ACTIVE_KEY,
     configs,
   });
 
-  if (attempts.length === 0) {
+  if (proxyAttempts.length === 0) {
     return {
       status: "unavailable" as const,
       message: "Не найден активный AI proxy endpoint.",
       attemptedProxyKeys: [] as string[],
+      attempts: [] as ProxyAttemptTrace[],
     };
   }
 
   const attemptedProxyKeys: string[] = [];
+  const attemptTraces: ProxyAttemptTrace[] = [];
   let lastFailure:
     | {
         status: "failure" | "unavailable";
@@ -180,7 +199,7 @@ export async function requestAssistantProxyCompletion(
     | null = null;
   const processEnv = dependencies.getProcessEnv();
 
-  for (const config of attempts) {
+  for (const config of proxyAttempts) {
     attemptedProxyKeys.push(config.proxyKey);
 
     const secret = readProxySecret({
@@ -189,6 +208,17 @@ export async function requestAssistantProxyCompletion(
     });
 
     if (!secret) {
+      attemptTraces.push({
+        proxyKey: config.proxyKey,
+        providerKey: config.providerKey,
+        model: config.model,
+        status: "unavailable",
+        latency_ms: 0,
+        prompt_tokens: null,
+        completion_tokens: null,
+        total_tokens: null,
+        cost_usd: null,
+      });
       lastFailure = {
         status: "unavailable",
         message: `Не найден server-side secret для proxy ${config.proxyKey}.`,
@@ -200,6 +230,7 @@ export async function requestAssistantProxyCompletion(
     }
 
     try {
+      const startedAt = Date.now();
       const response = await dependencies.fetch(config.endpointUrl, {
         method: "POST",
         headers: buildAuthorizedHeaders({
@@ -207,6 +238,7 @@ export async function requestAssistantProxyCompletion(
         }),
         body: JSON.stringify({
           model: input.modelOverride ?? config.model,
+          max_completion_tokens: input.maxOutputTokens ?? undefined,
           temperature: input.temperature ?? 0.1,
           messages: [
             {
@@ -235,8 +267,23 @@ export async function requestAssistantProxyCompletion(
             };
           }
         | null;
+      const latencyMs = Math.max(0, Date.now() - startedAt);
+      const usageMetrics = extractProxyUsageMetrics(
+        payload && typeof payload === "object" ? payload : null,
+      );
 
       if (!response.ok) {
+        attemptTraces.push({
+          proxyKey: config.proxyKey,
+          providerKey: config.providerKey,
+          model: config.model,
+          status: "failure",
+          latency_ms: latencyMs,
+          prompt_tokens: usageMetrics.prompt_tokens,
+          completion_tokens: usageMetrics.completion_tokens,
+          total_tokens: usageMetrics.total_tokens,
+          cost_usd: usageMetrics.cost_usd,
+        });
         lastFailure = {
           status: "failure",
           message: payload?.error?.message ?? "AI proxy вернул ошибку.",
@@ -251,6 +298,17 @@ export async function requestAssistantProxyCompletion(
       const content = payload?.choices?.[0]?.message?.content?.trim();
 
       if (!content) {
+        attemptTraces.push({
+          proxyKey: config.proxyKey,
+          providerKey: config.providerKey,
+          model: config.model,
+          status: "failure",
+          latency_ms: latencyMs,
+          prompt_tokens: usageMetrics.prompt_tokens,
+          completion_tokens: usageMetrics.completion_tokens,
+          total_tokens: usageMetrics.total_tokens,
+          cost_usd: usageMetrics.cost_usd,
+        });
         lastFailure = {
           status: "failure",
           message: "AI proxy не вернул содержимое ответа.",
@@ -262,6 +320,17 @@ export async function requestAssistantProxyCompletion(
         continue;
       }
 
+      attemptTraces.push({
+        proxyKey: config.proxyKey,
+        providerKey: config.providerKey,
+        model: input.modelOverride ?? config.model,
+        status: "success",
+        latency_ms: latencyMs,
+        prompt_tokens: usageMetrics.prompt_tokens,
+        completion_tokens: usageMetrics.completion_tokens,
+        total_tokens: usageMetrics.total_tokens,
+        cost_usd: usageMetrics.cost_usd,
+      });
       return {
         status: "success" as const,
         content,
@@ -269,9 +338,21 @@ export async function requestAssistantProxyCompletion(
         providerKey: config.providerKey,
         model: input.modelOverride ?? config.model,
         attemptedProxyKeys,
+        attempts: attemptTraces,
         responsePayloadJson: payload && typeof payload === "object" ? payload : null,
       };
     } catch (error) {
+      attemptTraces.push({
+        proxyKey: config.proxyKey,
+        providerKey: config.providerKey,
+        model: config.model,
+        status: "unavailable",
+        latency_ms: 0,
+        prompt_tokens: null,
+        completion_tokens: null,
+        total_tokens: null,
+        cost_usd: null,
+      });
       lastFailure = {
         status: "unavailable",
         message: error instanceof Error ? error.message : "AI proxy временно недоступен.",
@@ -283,16 +364,18 @@ export async function requestAssistantProxyCompletion(
   }
 
   if (lastFailure) {
-    return {
-      ...lastFailure,
-      attemptedProxyKeys,
-    };
+      return {
+        ...lastFailure,
+        attemptedProxyKeys,
+        attempts: attemptTraces,
+      };
   }
 
   return {
     status: "unavailable" as const,
     message: "AI proxy недоступен.",
     attemptedProxyKeys,
+    attempts: attemptTraces,
   };
 }
 

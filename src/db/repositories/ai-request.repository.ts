@@ -144,6 +144,7 @@ export async function findLatestAIRequestByTestRunContext(input: {
       id: true,
       createdAt: true,
       requestPayloadJson: true,
+      responsePayloadJson: true,
     },
   });
 

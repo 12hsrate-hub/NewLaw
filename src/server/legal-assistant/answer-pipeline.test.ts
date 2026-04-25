@@ -9,6 +9,15 @@ function createNormalizationResult(rawInput: string, normalizedInput = rawInput)
     normalization_model: "gpt-5.4-nano",
     normalization_prompt_version: "legal_input_normalization_v1",
     normalization_changed: normalizedInput !== rawInput,
+    normalization_stage_usage: {
+      model: "gpt-5.4-nano",
+      prompt_tokens: null,
+      completion_tokens: null,
+      total_tokens: null,
+      estimated_cost_usd: null,
+      latency_ms: 0,
+    },
+    normalization_retry_stage_usage: null,
   };
 }
 
@@ -187,6 +196,12 @@ describe("answer pipeline", () => {
           }),
         }),
         responsePayloadJson: expect.objectContaining({
+          stage_usage: expect.objectContaining({
+            normalization: expect.objectContaining({
+              model: "gpt-5.4-nano",
+              estimated_cost_usd: null,
+            }),
+          }),
           output_trace: expect.objectContaining({
             output_kind: "assistant_markdown",
             section_keys: expect.arrayContaining([
@@ -487,6 +502,24 @@ describe("answer pipeline", () => {
       completion_tokens: 180,
       total_tokens: 500,
       cost_usd: 0.021,
+      stage_usage: {
+        normalization: {
+          model: "gpt-5.4-nano",
+          prompt_tokens: null,
+          completion_tokens: null,
+          total_tokens: null,
+          estimated_cost_usd: null,
+          latency_ms: 0,
+        },
+        generation: {
+          model: "gpt-5.4",
+          prompt_tokens: 320,
+          completion_tokens: 180,
+          total_tokens: 500,
+          estimated_cost_usd: 0.021,
+          latency_ms: 0,
+        },
+      },
       confidence: "high",
       output_trace: expect.objectContaining({
         output_kind: "assistant_markdown",
@@ -801,10 +834,333 @@ describe("answer pipeline", () => {
           }),
         }),
         responsePayloadJson: expect.objectContaining({
+          stage_usage: expect.objectContaining({
+            normalization: expect.objectContaining({
+              model: "gpt-5.4-nano",
+            }),
+            generation: expect.objectContaining({
+              model: "gpt-5.4",
+              estimated_cost_usd: null,
+            }),
+          }),
           output_trace: null,
         }),
       }),
     );
+  });
+
+  it("логирует retry stage usage, если generation переключилась на резервный proxy", async () => {
+    const createAIRequest = vi.fn();
+
+    await generateServerLegalAssistantAnswer(
+      {
+        serverId: "server-1",
+        serverCode: "blackberry",
+        serverName: "Blackberry",
+        question: "Нужен ли письменный договор?",
+      },
+      {
+        searchAssistantCorpus: vi.fn().mockResolvedValue(
+          createAssistantRetrieval({
+            lawResults: [
+              {
+                serverId: "server-1",
+                lawId: "law-1",
+                lawKey: "civil_code",
+                lawTitle: "Гражданский кодекс",
+                lawVersionId: "law-version-1",
+                lawVersionStatus: "current",
+                lawBlockId: "law-block-1",
+                blockType: "article",
+                blockOrder: 1,
+                articleNumberNormalized: "1",
+                snippet: "Статья 1. Договор заключается письменно.",
+                blockText: "Статья 1. Договор заключается письменно.",
+                sourceTopicUrl: "https://forum.gta5rp.com/threads/100001/",
+                sourcePosts: [],
+                metadata: {
+                  sourceSnapshotHash: "source-hash",
+                  normalizedTextHash: "normalized-hash",
+                  corpusSnapshotHash: "snapshot-hash",
+                },
+              },
+            ],
+          }),
+        ),
+        normalizeInputText: vi
+          .fn()
+          .mockResolvedValue(createNormalizationResult("Нужен ли письменный договор?")),
+        requestAssistantProxyCompletion: vi.fn().mockResolvedValue({
+          status: "success",
+          content: [
+            "## Краткий вывод",
+            "Да.",
+            "",
+            "## Что прямо следует из норм закона",
+            "Статья 1.",
+            "",
+            "## Что подтверждается судебными прецедентами",
+            "Подтверждённые прецеденты не использовались.",
+            "",
+            "## Вывод / интерпретация",
+            "Интерпретация.",
+            "",
+            "## Использованные нормы / источники",
+            "Гражданский кодекс — статья 1.",
+          ].join("\n"),
+          proxyKey: "secondary",
+          providerKey: "openai_compatible",
+          model: "gpt-5.4-mini",
+          attemptedProxyKeys: ["primary", "secondary"],
+          attempts: [
+            {
+              proxyKey: "primary",
+              providerKey: "openai_compatible",
+              model: "gpt-5.4-mini",
+              status: "unavailable",
+              latency_ms: 900,
+              prompt_tokens: null,
+              completion_tokens: null,
+              total_tokens: null,
+              cost_usd: null,
+            },
+            {
+              proxyKey: "secondary",
+              providerKey: "openai_compatible",
+              model: "gpt-5.4-mini",
+              status: "success",
+              latency_ms: 700,
+              prompt_tokens: 200,
+              completion_tokens: 50,
+              total_tokens: 250,
+              cost_usd: null,
+            },
+          ],
+          responsePayloadJson: {
+            choices: [],
+          },
+        }),
+        createAIRequest,
+        now: () => new Date("2026-04-21T08:00:00.000Z"),
+      },
+    );
+
+    expect(createAIRequest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        responsePayloadJson: expect.objectContaining({
+          stage_usage: expect.objectContaining({
+            retry: {
+              model: "gpt-5.4-mini",
+              prompt_tokens: null,
+              completion_tokens: null,
+              total_tokens: null,
+              estimated_cost_usd: null,
+              latency_ms: 900,
+            },
+          }),
+        }),
+      }),
+    );
+  });
+
+  it("в internal core_only режиме выполняет legal core без финальной generation и пишет stage_usage", async () => {
+    const createAIRequest = vi.fn();
+    const requestAssistantProxyCompletion = vi.fn();
+
+    const result = await generateServerLegalAssistantAnswer(
+      {
+        serverId: "server-1",
+        serverCode: "blackberry",
+        serverName: "Blackberry",
+        question: "Можно ли задержать человека за маску?",
+        internalExecutionMode: "core_only",
+        testRunContext: {
+          run_kind: "internal_ai_legal_core_test",
+          server_id: "server-1",
+          server_code: "blackberry",
+          test_run_id: "test-run-1",
+          test_scenario_id: "scenario-1",
+          test_scenario_group: "general_legal_questions",
+          test_scenario_title: "Mask",
+          law_version_selection: "current_snapshot_only",
+        },
+      },
+      {
+        searchAssistantCorpus: vi.fn().mockResolvedValue(
+          createAssistantRetrieval({
+            lawResults: [
+              {
+                serverId: "server-1",
+                lawId: "law-1",
+                lawKey: "administrative_code",
+                lawTitle: "Административный кодекс",
+                lawVersionId: "law-version-1",
+                lawVersionStatus: "current",
+                lawBlockId: "law-block-1",
+                blockType: "article",
+                blockOrder: 1,
+                articleNumberNormalized: "18",
+                snippet: "Статья 18. Использование маски запрещено.",
+                blockText: "Статья 18. Использование маски запрещено.",
+                sourceTopicUrl: "https://forum.gta5rp.com/threads/100001/",
+                sourcePosts: [],
+                metadata: {
+                  sourceSnapshotHash: "source-hash",
+                  normalizedTextHash: "normalized-hash",
+                  corpusSnapshotHash: "snapshot-hash",
+                },
+              },
+            ],
+          }),
+        ),
+        normalizeInputText: vi
+          .fn()
+          .mockResolvedValue(createNormalizationResult("Можно ли задержать человека за маску?")),
+        requestAssistantProxyCompletion,
+        createAIRequest,
+        now: () => new Date("2026-04-26T08:00:00.000Z"),
+      },
+    );
+
+    expect(result.status).toBe("core_only");
+    expect(requestAssistantProxyCompletion).not.toHaveBeenCalled();
+    if (result.status === "core_only") {
+      expect(result.metadata.legal_query_plan).toMatchObject({
+        normalized_input: "Можно ли задержать человека за маску?",
+      });
+      expect(result.metadata.selected_norm_roles).toEqual([
+        expect.objectContaining({
+          law_id: "law-1",
+        }),
+      ]);
+      expect(result.metadata.direct_basis_status).toBe("direct_basis_present");
+      expect(result.metadata.self_assessment).toMatchObject({
+        answer_confidence: "medium",
+      });
+    }
+    expect(createAIRequest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: "success",
+        requestPayloadJson: expect.objectContaining({
+          branch: expect.anything(),
+          legal_query_plan: expect.any(Object),
+          selected_norm_roles: expect.any(Array),
+          direct_basis_status: "direct_basis_present",
+          applicability_diagnostics: expect.any(Array),
+          grounding_diagnostics: expect.any(Object),
+        }),
+        responsePayloadJson: expect.objectContaining({
+          branch: "core_only",
+          output_trace: null,
+          stage_usage: expect.objectContaining({
+            normalization: expect.objectContaining({
+              model: "gpt-5.4-nano",
+            }),
+          }),
+        }),
+      }),
+    );
+  });
+
+  it("в internal compact_generation режиме использует более жёсткий budget и ограничение output tokens", async () => {
+    const requestAssistantProxyCompletion = vi.fn().mockResolvedValue({
+      status: "success",
+      content: [
+        "## Краткий вывод",
+        "Короткий вывод.",
+        "",
+        "## Что прямо следует из норм закона",
+        "1. Пункт один.\n2. Пункт два.",
+        "",
+        "## Что подтверждается судебными прецедентами",
+        "Подтверждённые прецеденты не использовались.",
+        "",
+        "## Вывод / интерпретация",
+        "Что делать: действовать по процедуре.",
+        "",
+        "## Использованные нормы / источники",
+        "Кодекс, ст. 18.",
+      ].join("\n"),
+      proxyKey: "primary",
+      providerKey: "openai_compatible",
+      model: "gpt-5.4-mini",
+      responsePayloadJson: {
+        choices: [],
+      },
+    });
+
+    const lawResults = Array.from({ length: 6 }, (_, index) => ({
+      serverId: "server-1",
+      lawId: `law-${index + 1}`,
+      lawKey: index === 0 ? "administrative_code" : `law_key_${index + 1}`,
+      lawTitle: index === 0 ? "Административный кодекс" : `Закон ${index + 1}`,
+      lawVersionId: "law-version-1",
+      lawVersionStatus: "current",
+      lawBlockId: `law-block-${index + 1}`,
+      blockType: "article",
+      blockOrder: index + 1,
+      articleNumberNormalized: String(index + 1),
+      snippet: `Статья ${index + 1}. Текст.`,
+      blockText: `Статья ${index + 1}. ${"Текст нормы ".repeat(40)}`.trim(),
+      sourceTopicUrl: `https://forum.gta5rp.com/threads/10000${index + 1}/`,
+      sourcePosts: [],
+      metadata: {
+        sourceSnapshotHash: "source-hash",
+        normalizedTextHash: "normalized-hash",
+        corpusSnapshotHash: "snapshot-hash",
+      },
+    }));
+
+    const result = await generateServerLegalAssistantAnswer(
+      {
+        serverId: "server-1",
+        serverCode: "blackberry",
+        serverName: "Blackberry",
+        question: "Можно ли задержать человека за маску?",
+        responseModeOverride: "normal",
+        internalExecutionMode: "compact_generation",
+      },
+      {
+        searchAssistantCorpus: vi.fn().mockResolvedValue(
+          createAssistantRetrieval({
+            lawResults,
+          }),
+        ),
+        normalizeInputText: vi
+          .fn()
+          .mockResolvedValue(createNormalizationResult("Можно ли задержать человека за маску?")),
+        requestAssistantProxyCompletion,
+        createAIRequest: vi.fn(),
+        now: () => new Date("2026-04-26T08:00:00.000Z"),
+      },
+    );
+
+    expect(result.status).toBe("answered");
+    if (result.status === "answered") {
+      expect(result.metadata.answer_mode_effective_budget).toMatchObject({
+        response_mode: "normal",
+        execution_mode: "compact_generation",
+        max_total_sources: 3,
+        max_excerpt_chars_per_source: 420,
+        max_total_context_chars: 1400,
+        max_output_tokens: 320,
+      });
+      expect(result.metadata.generation_source_budget).toBe(3);
+      expect(result.metadata.generation_excerpt_budget).toBe(420);
+      expect(result.metadata.generation_max_output_tokens).toBe(320);
+    }
+
+    expect(requestAssistantProxyCompletion).toHaveBeenCalledWith(
+      expect.objectContaining({
+        maxOutputTokens: 320,
+      }),
+    );
+    const promptInput = requestAssistantProxyCompletion.mock.calls[0]?.[0]?.userPrompt as string;
+    expect((promptInput.match(/Law source \d+/g) ?? []).length).toBeLessThanOrEqual(3);
+    expect(promptInput).toContain("Execution mode: compact_generation");
+    expect(promptInput).toContain("Режим ответа: compact_generation.");
+    expect(promptInput).toContain("2–3 коротких grounded пункта");
+    expect(promptInput).toContain("одну короткую строку 'что делать'");
   });
 
   it("логирует no_corpus без вызова модели, если нет ни current laws, ни usable precedents", async () => {
@@ -847,6 +1203,11 @@ describe("answer pipeline", () => {
       expect.objectContaining({
         status: "unavailable",
         responsePayloadJson: expect.objectContaining({
+          stage_usage: expect.objectContaining({
+            normalization: expect.objectContaining({
+              model: "gpt-5.4-nano",
+            }),
+          }),
           output_trace: null,
           queue_for_future_ai_quality_review: true,
           future_review_priority: "high",

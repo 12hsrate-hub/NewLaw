@@ -1,4 +1,8 @@
 import { requestAssistantProxyCompletion } from "@/server/legal-assistant/ai-proxy";
+import {
+  buildAIStageUsageEntry,
+  mergeAIStageUsageEntries,
+} from "@/server/legal-core/observability";
 
 export const LEGAL_INPUT_NORMALIZATION_PROMPT_VERSION = "legal_input_normalization_v1";
 export const LEGAL_INPUT_NORMALIZATION_MODEL = "gpt-5.4-nano";
@@ -17,6 +21,8 @@ export type LegalInputNormalizationResult = {
   normalization_model: string | null;
   normalization_prompt_version: string;
   normalization_changed: boolean;
+  normalization_stage_usage: ReturnType<typeof buildAIStageUsageEntry>;
+  normalization_retry_stage_usage: ReturnType<typeof mergeAIStageUsageEntries> | null;
 };
 
 function normalizeWhitespaceOnly(input: string) {
@@ -54,6 +60,15 @@ export async function normalizeLegalInputText(
 ): Promise<LegalInputNormalizationResult> {
   const rawInput = input.rawInput;
   const fallbackNormalizedInput = normalizeWhitespaceOnly(rawInput);
+  const buildFallbackUsage = () =>
+    buildAIStageUsageEntry({
+      model: LEGAL_INPUT_NORMALIZATION_MODEL,
+      prompt_tokens: null,
+      completion_tokens: null,
+      total_tokens: null,
+      cost_usd: null,
+      latency_ms: 0,
+    });
 
   if (fallbackNormalizedInput.length === 0) {
     return {
@@ -62,9 +77,12 @@ export async function normalizeLegalInputText(
       normalization_model: LEGAL_INPUT_NORMALIZATION_MODEL,
       normalization_prompt_version: LEGAL_INPUT_NORMALIZATION_PROMPT_VERSION,
       normalization_changed: fallbackNormalizedInput !== rawInput,
+      normalization_stage_usage: buildFallbackUsage(),
+      normalization_retry_stage_usage: null,
     };
   }
 
+  const startedAt = Date.now();
   const proxyResponse = await dependencies.requestProxyCompletion({
     systemPrompt: buildNormalizationSystemPrompt(),
     userPrompt: buildNormalizationUserPrompt(rawInput),
@@ -76,6 +94,21 @@ export async function normalizeLegalInputText(
       normalization_prompt_version: LEGAL_INPUT_NORMALIZATION_PROMPT_VERSION,
     },
   });
+  const latencyMs = Math.max(0, Date.now() - startedAt);
+  const normalizationAttempts = proxyResponse.attempts ?? [];
+  const finalAttempt = normalizationAttempts.at(-1) ?? null;
+  const retryStageUsage = mergeAIStageUsageEntries(
+    normalizationAttempts.slice(0, -1).map((attempt) =>
+      buildAIStageUsageEntry({
+        model: attempt.model,
+        prompt_tokens: attempt.prompt_tokens,
+        completion_tokens: attempt.completion_tokens,
+        total_tokens: attempt.total_tokens,
+        cost_usd: attempt.cost_usd,
+        latency_ms: attempt.latency_ms,
+      }),
+    ),
+  );
 
   if (proxyResponse.status !== "success") {
     return {
@@ -84,6 +117,18 @@ export async function normalizeLegalInputText(
       normalization_model: LEGAL_INPUT_NORMALIZATION_MODEL,
       normalization_prompt_version: LEGAL_INPUT_NORMALIZATION_PROMPT_VERSION,
       normalization_changed: fallbackNormalizedInput !== rawInput,
+      normalization_stage_usage: buildAIStageUsageEntry({
+        model:
+          "model" in proxyResponse && typeof proxyResponse.model === "string"
+            ? proxyResponse.model
+            : LEGAL_INPUT_NORMALIZATION_MODEL,
+        prompt_tokens: finalAttempt?.prompt_tokens ?? null,
+        completion_tokens: finalAttempt?.completion_tokens ?? null,
+        total_tokens: finalAttempt?.total_tokens ?? null,
+        cost_usd: finalAttempt?.cost_usd ?? null,
+        latency_ms: latencyMs,
+      }),
+      normalization_retry_stage_usage: retryStageUsage,
     };
   }
 
@@ -95,6 +140,14 @@ export async function normalizeLegalInputText(
     normalization_model: proxyResponse.model ?? LEGAL_INPUT_NORMALIZATION_MODEL,
     normalization_prompt_version: LEGAL_INPUT_NORMALIZATION_PROMPT_VERSION,
     normalization_changed: (normalizedInput || fallbackNormalizedInput) !== rawInput,
+    normalization_stage_usage: buildAIStageUsageEntry({
+      model: proxyResponse.model ?? LEGAL_INPUT_NORMALIZATION_MODEL,
+      prompt_tokens: finalAttempt?.prompt_tokens ?? null,
+      completion_tokens: finalAttempt?.completion_tokens ?? null,
+      total_tokens: finalAttempt?.total_tokens ?? null,
+      cost_usd: finalAttempt?.cost_usd ?? null,
+      latency_ms: latencyMs,
+    }),
+    normalization_retry_stage_usage: retryStageUsage,
   };
 }
-
