@@ -15,6 +15,9 @@
 
 - `partial` здесь больше не означает “AI ещё не начат”
 - `partial` здесь означает только future expansion beyond current `assistant + document field rewrite v1 + first grounded v2 rollout`
+- шаг `08` остаётся широкой umbrella-линией по AI-интеграции, а не детальным планом одного конкретного AI-подсценария
+- конкретная доработка ядра юридической AI-выдачи должна быть вынесена в будущий шаг `16 — AI Legal Core`
+- контроль качества AI-выдачи должен быть вынесен в будущий шаг `17 — AI Quality Review`
 
 ## Текущий реализованный scope
 
@@ -135,6 +138,8 @@
 Отдельными будущими решениями остаются:
 
 - document consistency check
+- базовое ядро юридической AI-выдачи как отдельный шаг `16 — AI Legal Core`
+- отдельный слой контроля качества AI-выдачи как шаг `17 — AI Quality Review`
 - broader drafting assist beyond field-level rewrite
 - grounded expansion beyond first supported legal sections
 - deeper document-AI UX поверх existing grounded rewrite foundation
@@ -145,6 +150,9 @@
 Отдельно зафиксировано:
 
 - assistant и document AI остаются разными product lines
+- шаг `08` остаётся общей AI-линией и не должен подменяться будущими шагами `16` и `17`
+- шаг `16` должен конкретизировать legal core для юридического помощника и связанных legal-answer flows
+- шаг `17` должен описывать quality-review слой поверх уже выделенного legal core
 - current MVP AI scope покрывается существующим assistant module + document field rewrite v1
 - grounded document AI v2 уже существует как первый post-MVP expansion inside existing editors
 - поэтому `partial` здесь означает не “AI для MVP ещё не существует”, а только то, что future expansion beyond current scope ещё не закрыта
