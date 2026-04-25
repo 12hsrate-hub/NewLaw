@@ -13,9 +13,16 @@ export const assistantQuestionSchema = z
   .min(6, "Сформулируй вопрос чуть подробнее.")
   .max(1500, "Вопрос слишком длинный для assistant MVP.");
 
+export const assistantActorContextSchema = z.enum([
+  "self",
+  "representative_for_trustor",
+  "general_question",
+]);
+
 export const assistantQuestionInputSchema = z.object({
   serverSlug: assistantServerSlugSchema,
   question: assistantQuestionSchema,
+  actorContext: assistantActorContextSchema.default("general_question"),
 });
 
 export const assistantGuestTokenSchema = z.string().trim().min(16).max(128);

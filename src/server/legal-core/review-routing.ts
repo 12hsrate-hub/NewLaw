@@ -28,6 +28,7 @@ function derivePriority(selfAssessment: LegalCoreSelfAssessment, reasonCodes: st
     selfAssessment.answer_risk_level === "high" ||
     reasonCodes.includes("no_usable_corpus") ||
     reasonCodes.includes("insufficient_grounding") ||
+    reasonCodes.includes("law_version_contract_violation") ||
     reasonCodes.includes("model_unavailable_after_retrieval") ||
     reasonCodes.includes("rewrite_proxy_unavailable")
   ) {
@@ -51,6 +52,7 @@ export function buildAssistantFutureReviewMarker(input: {
   status: "answered" | "no_norms" | "no_corpus" | "unavailable";
   lawResultCount: number;
   precedentResultCount: number;
+  lawVersionContractConsistent?: boolean;
 }) {
   const flags: string[] = [];
   const reasonCodes: string[] = [];
@@ -79,6 +81,10 @@ export function buildAssistantFutureReviewMarker(input: {
     reasonCodes.push("precedent_only_grounding");
   }
 
+  if (input.lawVersionContractConsistent === false) {
+    reasonCodes.push("law_version_contract_violation");
+  }
+
   return buildMarker({
     priority: derivePriority(input.selfAssessment, reasonCodes),
     flags,
@@ -91,6 +97,7 @@ export function buildDocumentRewriteFutureReviewMarker(input: {
   status: "success" | "unavailable";
   missingDataCount: number;
   usedSourceCount: number;
+  lawVersionContractConsistent?: boolean;
 }) {
   const flags: string[] = [];
   const reasonCodes: string[] = [];
@@ -115,6 +122,10 @@ export function buildDocumentRewriteFutureReviewMarker(input: {
     reasonCodes.push("rewrite_proxy_unavailable");
   }
 
+  if (input.lawVersionContractConsistent === false) {
+    reasonCodes.push("law_version_contract_violation");
+  }
+
   return buildMarker({
     priority: derivePriority(input.selfAssessment, reasonCodes),
     flags,
@@ -127,6 +138,7 @@ export function buildGroundedDocumentRewriteFutureReviewMarker(input: {
   status: "success" | "unavailable" | "insufficient_corpus";
   missingDataCount: number;
   groundingMode: "law_grounded" | "precedent_grounded" | null;
+  lawVersionContractConsistent?: boolean;
 }) {
   const flags: string[] = [];
   const reasonCodes: string[] = [];
@@ -153,6 +165,10 @@ export function buildGroundedDocumentRewriteFutureReviewMarker(input: {
 
   if (input.status === "unavailable") {
     reasonCodes.push("rewrite_proxy_unavailable");
+  }
+
+  if (input.lawVersionContractConsistent === false) {
+    reasonCodes.push("law_version_contract_violation");
   }
 
   return buildMarker({

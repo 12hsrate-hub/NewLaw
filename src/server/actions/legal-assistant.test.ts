@@ -69,6 +69,16 @@ describe("submit assistant question action", () => {
           response_mode: "normal",
           prompt_version: "server_legal_assistant_legal_core_v1",
           law_version_ids: ["version-1"],
+          law_version_contract: {
+            server_id: "server-1",
+            law_corpus_snapshot_hash: "law-snapshot-hash",
+            law_version_ids: ["version-1"],
+            contract_mode: "current_snapshot_only",
+            found_norms_outside_current_snapshot: [],
+            context_norms_outside_current_snapshot: [],
+            used_norms_outside_current_snapshot: [],
+            is_current_snapshot_consistent: true,
+          },
           used_sources: [],
           source_ledger: {
             server_id: "server-1",
@@ -93,6 +103,7 @@ describe("submit assistant question action", () => {
     const formData = new FormData();
     formData.set("serverSlug", "blackberry");
     formData.set("question", "Что с договором?");
+    formData.set("actorContext", "self");
 
     const result = await submitAssistantQuestionAction(
       {
@@ -107,6 +118,11 @@ describe("submit assistant question action", () => {
 
     expect(result.status).toBe("answered");
     expect(result.answer?.sections.summary).toBe("Ответ.");
+    expect(answerLegalAssistantQuestion).toHaveBeenCalledWith({
+      serverSlug: "blackberry",
+      question: "Что с договором?",
+      actorContext: "self",
+    });
   });
 
   it("показывает CTA, если гость уже исчерпал вопрос", async () => {

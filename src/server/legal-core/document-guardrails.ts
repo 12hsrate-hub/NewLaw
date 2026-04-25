@@ -22,8 +22,32 @@ export type DocumentGuardrailUsedSource =
       source_topic_url: string;
     };
 
+export type DocumentLawVersionContract = {
+  server_id: string;
+  law_corpus_snapshot_hash: string;
+  law_version_ids: string[];
+  contract_mode: "current_snapshot_only";
+  found_norms_outside_current_snapshot: string[];
+  context_norms_outside_current_snapshot: string[];
+  used_norms_outside_current_snapshot: string[];
+  is_current_snapshot_consistent: boolean;
+};
+
 function clampText(value: string, maxLength: number) {
   return value.trim().slice(0, maxLength);
+}
+
+function collectOutsideSnapshotLawVersionIds(input: {
+  lawVersionIds: string[];
+  currentLawVersionIds: string[];
+}) {
+  const currentLawVersionIdSet = new Set(input.currentLawVersionIds);
+
+  return Array.from(
+    new Set(
+      input.lawVersionIds.filter((lawVersionId) => !currentLawVersionIdSet.has(lawVersionId)),
+    ),
+  );
 }
 
 export function buildDocumentGuardrailSearchQuery(input: {
@@ -73,6 +97,49 @@ export function buildDocumentGuardrailUsedSources(
         }));
 
   return [...lawSources, ...precedentSources];
+}
+
+export function buildDocumentLawVersionContract(input: {
+  retrieval: DocumentGuardrailRetrievalResult;
+  contextSources: DocumentGuardrailUsedSource[];
+  usedSources?: DocumentGuardrailUsedSource[];
+}) {
+  const foundLawVersionIds = input.retrieval.lawRetrieval.results.map((result) => result.lawVersionId);
+  const contextLawVersionIds = input.contextSources
+    .filter((source): source is Extract<DocumentGuardrailUsedSource, { source_kind: "law" }> => {
+      return source.source_kind === "law";
+    })
+    .map((source) => source.law_version);
+  const usedLawVersionIds = (input.usedSources ?? input.contextSources)
+    .filter((source): source is Extract<DocumentGuardrailUsedSource, { source_kind: "law" }> => {
+      return source.source_kind === "law";
+    })
+    .map((source) => source.law_version);
+  const currentLawVersionIds = input.retrieval.combinedRetrievalRevision.lawCurrentVersionIds;
+  const foundOutside = collectOutsideSnapshotLawVersionIds({
+    lawVersionIds: foundLawVersionIds,
+    currentLawVersionIds,
+  });
+  const contextOutside = collectOutsideSnapshotLawVersionIds({
+    lawVersionIds: contextLawVersionIds,
+    currentLawVersionIds,
+  });
+  const usedOutside = collectOutsideSnapshotLawVersionIds({
+    lawVersionIds: usedLawVersionIds,
+    currentLawVersionIds,
+  });
+
+  return {
+    server_id: input.retrieval.serverId,
+    law_corpus_snapshot_hash: input.retrieval.lawCorpusSnapshot.corpusSnapshotHash,
+    law_version_ids: currentLawVersionIds,
+    contract_mode: "current_snapshot_only" as const,
+    found_norms_outside_current_snapshot: foundOutside,
+    context_norms_outside_current_snapshot: contextOutside,
+    used_norms_outside_current_snapshot: usedOutside,
+    is_current_snapshot_consistent:
+      foundOutside.length === 0 && contextOutside.length === 0 && usedOutside.length === 0,
+  } satisfies DocumentLawVersionContract;
 }
 
 export function buildDocumentGuardrailContextText(

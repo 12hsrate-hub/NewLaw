@@ -68,6 +68,7 @@ describe("legal assistant flow", () => {
       {
         serverSlug: "blackberry",
         question: "Что с договором?",
+        actorContext: "representative_for_trustor",
       },
       {
         getServerByCode: vi.fn().mockResolvedValue({
@@ -94,6 +95,11 @@ describe("legal assistant flow", () => {
     );
 
     expect(generateServerLegalAssistantAnswer).toHaveBeenCalled();
+    expect(generateServerLegalAssistantAnswer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actorContext: "representative_for_trustor",
+      }),
+    );
     expect(result.status).toBe("answered");
   });
 });

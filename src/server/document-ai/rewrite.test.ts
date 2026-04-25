@@ -70,7 +70,13 @@ function createBaseDocument(input?: {
   };
 }
 
-function createGuardrailRetrievalResult() {
+function createGuardrailRetrievalResult(input?: {
+  lawVersionId?: string;
+  lawCurrentVersionIds?: string[];
+}) {
+  const lawVersionId = input?.lawVersionId ?? "law-version-1";
+  const lawCurrentVersionIds = input?.lawCurrentVersionIds ?? ["law-version-1"];
+
   return {
     query: "query",
     serverId: "server-1",
@@ -83,7 +89,7 @@ function createGuardrailRetrievalResult() {
       corpusSnapshot: {
         serverId: "server-1",
         generatedAt: "2026-04-22T11:00:00.000Z",
-        currentVersionIds: ["law-version-1"],
+        currentVersionIds: lawCurrentVersionIds,
         corpusSnapshotHash: "law-hash",
       },
       results: [
@@ -92,7 +98,7 @@ function createGuardrailRetrievalResult() {
           lawId: "law-1",
           lawKey: "fzk_lspd",
           lawTitle: "ФЗ о LSPD",
-          lawVersionId: "law-version-1",
+          lawVersionId,
           lawVersionStatus: "current",
           lawBlockId: "law-block-1",
           blockType: "article",
@@ -127,7 +133,7 @@ function createGuardrailRetrievalResult() {
         lawId: "law-1",
         lawKey: "fzk_lspd",
         lawTitle: "ФЗ о LSPD",
-        lawVersionId: "law-version-1",
+        lawVersionId,
         lawVersionStatus: "current",
         lawBlockId: "law-block-1",
         blockType: "article",
@@ -148,7 +154,7 @@ function createGuardrailRetrievalResult() {
     lawCorpusSnapshot: {
       serverId: "server-1",
       generatedAt: "2026-04-22T11:00:00.000Z",
-      currentVersionIds: ["law-version-1"],
+      currentVersionIds: lawCurrentVersionIds,
       corpusSnapshotHash: "law-hash",
     },
     precedentCorpusSnapshot: {
@@ -163,7 +169,7 @@ function createGuardrailRetrievalResult() {
       lawCorpusSnapshotHash: "law-hash",
       precedentCorpusSnapshotHash: "precedent-hash",
       combinedCorpusSnapshotHash: "combined-hash",
-      lawCurrentVersionIds: ["law-version-1"],
+      lawCurrentVersionIds,
       precedentCurrentVersionIds: ["precedent-version-1"],
     },
   };
@@ -231,6 +237,10 @@ describe("document field rewrite flow", () => {
           response_mode: "document_ready",
           prompt_version: "document_field_rewrite_legal_core_v1",
           law_version_ids: ["law-version-1"],
+          law_version_contract: expect.objectContaining({
+            contract_mode: "current_snapshot_only",
+            is_current_snapshot_consistent: true,
+          }),
         }),
       }),
     );
@@ -241,6 +251,7 @@ describe("document field rewrite flow", () => {
     expect(userPrompt).toContain("Fact ledger:");
     expect(userPrompt).toContain('"organization": "LSPD"');
     expect(userPrompt).toContain("Legal guardrails:");
+    expect(userPrompt).toContain("Law version contract: current_snapshot_only (law-version-1)");
     expect(userPrompt).toContain("ФЗ о LSPD");
     expect(userPrompt).not.toContain("workingNotes");
 
@@ -257,6 +268,10 @@ describe("document field rewrite flow", () => {
           prompt_version: "document_field_rewrite_legal_core_v1",
           sourceLength: "Изначальное описание ситуации".length,
           law_version_ids: ["law-version-1"],
+          law_version_contract: expect.objectContaining({
+            contract_mode: "current_snapshot_only",
+            is_current_snapshot_consistent: true,
+          }),
           used_sources: [
             {
               source_kind: "law",
@@ -380,6 +395,11 @@ describe("document field rewrite flow", () => {
       expect.objectContaining({
         status: "unavailable",
         errorMessage: "AI proxy не настроен для текущего окружения.",
+        requestPayloadJson: expect.objectContaining({
+          law_version_contract: expect.objectContaining({
+            contract_mode: "current_snapshot_only",
+          }),
+        }),
         responsePayloadJson: expect.objectContaining({
           queue_for_future_ai_quality_review: true,
           future_review_priority: "high",
@@ -415,6 +435,69 @@ describe("document field rewrite flow", () => {
     ).rejects.toMatchObject({
       reasons: ["source_text_empty"],
     } satisfies Pick<DocumentFieldRewriteBlockedError, "reasons">);
+  });
+
+  it("помечает нарушение law version contract, если guardrail вне current snapshot", async () => {
+    const createAIRequest = vi.fn().mockResolvedValue({
+      id: "ai-request-law-version-violation",
+    });
+
+    await rewriteOwnedDocumentField(
+      {
+        accountId: "account-1",
+        documentId: "document-1",
+        sectionKey: "situation_description",
+      },
+      {
+        getDocumentByIdForAccount: vi.fn().mockResolvedValue(createBaseDocument()),
+        searchAssistantCorpus: vi.fn().mockResolvedValue(
+          createGuardrailRetrievalResult({
+            lawVersionId: "law-version-2",
+            lawCurrentVersionIds: ["law-version-1"],
+          }),
+        ),
+        requestProxyCompletion: vi.fn().mockResolvedValue({
+          status: "success",
+          content: "Улучшенный текст без добавления новых фактов.",
+          proxyKey: "primary",
+          providerKey: "openai_compatible",
+          model: "gpt-5.4",
+          attemptedProxyKeys: ["primary"],
+          responsePayloadJson: {
+            choices: [{ finish_reason: "stop" }],
+            usage: {
+              prompt_tokens: 210,
+              completion_tokens: 90,
+              total_tokens: 300,
+              cost_usd: 0.01,
+            },
+          },
+        }),
+        createAIRequest,
+        now: vi
+          .fn()
+          .mockReturnValueOnce(new Date("2026-04-22T11:05:00.000Z"))
+          .mockReturnValueOnce(new Date("2026-04-22T11:05:00.500Z")),
+      },
+    );
+
+    expect(createAIRequest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        requestPayloadJson: expect.objectContaining({
+          law_version_contract: expect.objectContaining({
+            is_current_snapshot_consistent: false,
+            found_norms_outside_current_snapshot: ["law-version-2"],
+            context_norms_outside_current_snapshot: ["law-version-2"],
+            used_norms_outside_current_snapshot: ["law-version-2"],
+          }),
+        }),
+        responsePayloadJson: expect.objectContaining({
+          queue_for_future_ai_quality_review: true,
+          future_review_priority: "high",
+          future_review_reason_codes: expect.arrayContaining(["law_version_contract_violation"]),
+        }),
+      }),
+    );
   });
 
   it("не смешивает v1 rewrite с grounded assistant policy", () => {

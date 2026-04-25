@@ -73,7 +73,13 @@ function createBaseDocument(input?: {
   };
 }
 
-function createLawRetrievalResult() {
+function createLawRetrievalResult(input?: {
+  lawVersionId?: string;
+  lawCurrentVersionIds?: string[];
+}) {
+  const lawVersionId = input?.lawVersionId ?? "law-version-1";
+  const lawCurrentVersionIds = input?.lawCurrentVersionIds ?? ["law-version-1"];
+
   return {
     query: "query",
     serverId: "server-1",
@@ -86,7 +92,7 @@ function createLawRetrievalResult() {
       corpusSnapshot: {
         serverId: "server-1",
         generatedAt: "2026-04-22T11:00:00.000Z",
-        currentVersionIds: ["law-version-1"],
+        currentVersionIds: lawCurrentVersionIds,
         corpusSnapshotHash: "law-hash",
       },
       results: [
@@ -95,7 +101,7 @@ function createLawRetrievalResult() {
           lawId: "law-1",
           lawKey: "fzk_lspd",
           lawTitle: "ФЗ о LSPD",
-          lawVersionId: "law-version-1",
+          lawVersionId,
           lawVersionStatus: "current",
           lawBlockId: "law-block-1",
           blockType: "article",
@@ -131,7 +137,7 @@ function createLawRetrievalResult() {
         lawId: "law-1",
         lawKey: "fzk_lspd",
         lawTitle: "ФЗ о LSPD",
-        lawVersionId: "law-version-1",
+        lawVersionId,
         lawVersionStatus: "current",
         lawBlockId: "law-block-1",
         blockType: "article",
@@ -152,7 +158,7 @@ function createLawRetrievalResult() {
     lawCorpusSnapshot: {
       serverId: "server-1",
       generatedAt: "2026-04-22T11:00:00.000Z",
-      currentVersionIds: ["law-version-1"],
+      currentVersionIds: lawCurrentVersionIds,
       corpusSnapshotHash: "law-hash",
     },
     precedentCorpusSnapshot: {
@@ -167,7 +173,7 @@ function createLawRetrievalResult() {
       lawCorpusSnapshotHash: "law-hash",
       precedentCorpusSnapshotHash: "precedent-hash",
       combinedCorpusSnapshotHash: "combined-hash",
-      lawCurrentVersionIds: ["law-version-1"],
+      lawCurrentVersionIds,
       precedentCurrentVersionIds: ["precedent-version-1"],
     },
   };
@@ -320,6 +326,10 @@ describe("grounded document field rewrite flow", () => {
           prompt_version: "document_field_rewrite_grounded_legal_core_v1",
           groundingMode: "law_grounded",
           law_version_ids: ["law-version-1"],
+          law_version_contract: expect.objectContaining({
+            contract_mode: "current_snapshot_only",
+            is_current_snapshot_consistent: true,
+          }),
         }),
       }),
     );
@@ -329,6 +339,7 @@ describe("grounded document field rewrite flow", () => {
     expect(userPrompt).toContain("Fact ledger:");
     expect(userPrompt).toContain('"organization": "LSPD"');
     expect(userPrompt).toContain("Grounded нормы закона:");
+    expect(userPrompt).toContain("Law version contract: current_snapshot_only (law-version-1)");
     expect(userPrompt).not.toContain("workingNotes");
 
     expect(createAIRequest).toHaveBeenCalledWith(
@@ -345,6 +356,10 @@ describe("grounded document field rewrite flow", () => {
           lawResultCount: 1,
           precedentResultCount: 0,
           law_version_ids: ["law-version-1"],
+          law_version_contract: expect.objectContaining({
+            contract_mode: "current_snapshot_only",
+            is_current_snapshot_consistent: true,
+          }),
           used_sources: [
             {
               source_kind: "law",
@@ -607,6 +622,67 @@ describe("grounded document field rewrite flow", () => {
           queue_for_future_ai_quality_review: true,
           future_review_priority: "high",
           future_review_reason_codes: expect.arrayContaining(["rewrite_proxy_unavailable"]),
+        }),
+      }),
+    );
+  });
+
+  it("помечает нарушение law version contract в law_grounded режиме", async () => {
+    const createAIRequest = vi.fn();
+
+    await rewriteOwnedGroundedDocumentField(
+      {
+        accountId: "account-1",
+        documentId: "document-1",
+        sectionKey: "violation_summary",
+      },
+      {
+        getDocumentByIdForAccount: vi.fn().mockResolvedValue(createBaseDocument()),
+        searchAssistantCorpus: vi.fn().mockResolvedValue(
+          createLawRetrievalResult({
+            lawVersionId: "law-version-2",
+            lawCurrentVersionIds: ["law-version-1"],
+          }),
+        ),
+        requestProxyCompletion: vi.fn().mockResolvedValue({
+          status: "success",
+          content: "Нарушение изложено нейтрально и структурно.",
+          proxyKey: "primary",
+          providerKey: "openai_compatible",
+          model: "gpt-5.4",
+          attemptedProxyKeys: ["primary"],
+          responsePayloadJson: {
+            choices: [{ finish_reason: "stop" }],
+            usage: {
+              prompt_tokens: 330,
+              completion_tokens: 140,
+              total_tokens: 470,
+              cost_usd: 0.019,
+            },
+          },
+        }),
+        createAIRequest,
+        now: vi
+          .fn()
+          .mockReturnValueOnce(new Date("2026-04-22T11:05:00.000Z"))
+          .mockReturnValueOnce(new Date("2026-04-22T11:05:00.700Z")),
+      },
+    );
+
+    expect(createAIRequest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        requestPayloadJson: expect.objectContaining({
+          law_version_contract: expect.objectContaining({
+            is_current_snapshot_consistent: false,
+            found_norms_outside_current_snapshot: ["law-version-2"],
+            context_norms_outside_current_snapshot: ["law-version-2"],
+            used_norms_outside_current_snapshot: ["law-version-2"],
+          }),
+        }),
+        responsePayloadJson: expect.objectContaining({
+          queue_for_future_ai_quality_review: true,
+          future_review_priority: "high",
+          future_review_reason_codes: expect.arrayContaining(["law_version_contract_violation"]),
         }),
       }),
     );

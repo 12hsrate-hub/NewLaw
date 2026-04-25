@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildDocumentGuardrailContextText,
+  buildDocumentLawVersionContract,
   buildDocumentGuardrailSearchQuery,
   buildDocumentGuardrailUsedSources,
   buildDocumentRewritePolicyLines,
@@ -186,6 +187,39 @@ describe("document guardrails helpers", () => {
     expect(context.lawContext).toContain("- law_key: fzk_lspd");
     expect(context.precedentContext).toContain("Precedent source 1");
     expect(context.precedentContext).toContain("- precedent_key: precedent_relief");
+  });
+
+  it("строит law version contract и помечает нормы вне current snapshot", () => {
+    const retrieval = createRetrievalResult();
+    const contract = buildDocumentLawVersionContract({
+      retrieval: {
+        ...retrieval,
+        lawRetrieval: {
+          ...retrieval.lawRetrieval,
+          results: retrieval.lawRetrieval.results.map((result) => ({
+            ...result,
+            lawVersionId: "law-version-2",
+          })),
+        },
+      },
+      contextSources: [
+        {
+          source_kind: "law",
+          server_id: "server-1",
+          law_id: "law-1",
+          law_name: "ФЗ о LSPD",
+          law_version: "law-version-2",
+          article_number: "5.1",
+          source_topic_url: "https://forum.gta5rp.com/threads/law.1/",
+        },
+      ],
+    });
+
+    expect(contract.contract_mode).toBe("current_snapshot_only");
+    expect(contract.is_current_snapshot_consistent).toBe(false);
+    expect(contract.found_norms_outside_current_snapshot).toEqual(["law-version-2"]);
+    expect(contract.context_norms_outside_current_snapshot).toEqual(["law-version-2"]);
+    expect(contract.used_norms_outside_current_snapshot).toEqual(["law-version-2"]);
   });
 
   it("строит policy lines для boundary и grounded режимов", () => {

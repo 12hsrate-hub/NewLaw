@@ -30,6 +30,7 @@ export async function answerLegalAssistantQuestion(
   input: {
     serverSlug: string;
     question: string;
+    actorContext?: "self" | "representative_for_trustor" | "general_question";
   },
   dependencies: LegalAssistantFlowDependencies = defaultDependencies,
 ) {
@@ -85,6 +86,7 @@ export async function answerLegalAssistantQuestion(
     serverCode: server.code,
     serverName: server.name,
     question: parsed.question,
+    actorContext: parsed.actorContext,
     accountId: viewer.account?.id ?? null,
     guestSessionId: guestUsageState?.session?.id ?? null,
   });

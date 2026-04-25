@@ -21,6 +21,7 @@ import {
 } from "@/server/legal-core/document-rewrite";
 import {
   buildDocumentGuardrailContextText,
+  buildDocumentLawVersionContract,
   buildDocumentGuardrailSearchQuery,
   buildDocumentGuardrailUsedSources,
   buildDocumentRewritePolicyLines,
@@ -488,6 +489,7 @@ function buildGroundedUserPrompt(input: {
     `Trustor present: ${input.context.hasTrustor ? "yes" : "no"}`,
     `Grounding mode: ${input.groundingMode}`,
     `Combined corpus snapshot hash: ${input.retrieval.combinedRetrievalRevision.combinedCorpusSnapshotHash}`,
+    `Law version contract: current_snapshot_only (${input.retrieval.combinedRetrievalRevision.lawCurrentVersionIds.join(", ") || "none"})`,
     "",
     "Исходный текст секции:",
     clampText(input.context.sourceText, MAX_TARGET_TEXT_LENGTH) || "(пусто)",
@@ -610,6 +612,10 @@ export async function rewriteOwnedGroundedDocumentField(
     sourceText: promptContext.sourceText,
   });
   const usedSources = buildGroundedUsedSources(retrieval, groundingMode);
+  const lawVersionContract = buildDocumentLawVersionContract({
+    retrieval,
+    contextSources: usedSources,
+  });
   const selfAssessment = buildGroundedDocumentRewriteSelfAssessment({
     missingDataCount: factLedger.missing_data.length,
     sourceLength: sourceText.length,
@@ -622,18 +628,21 @@ export async function rewriteOwnedGroundedDocumentField(
     status: "success",
     missingDataCount: factLedger.missing_data.length,
     groundingMode,
+    lawVersionContractConsistent: lawVersionContract.is_current_snapshot_consistent,
   });
   const unavailableFutureReviewMarker = buildGroundedDocumentRewriteFutureReviewMarker({
     selfAssessment,
     status: "unavailable",
     missingDataCount: factLedger.missing_data.length,
     groundingMode,
+    lawVersionContractConsistent: lawVersionContract.is_current_snapshot_consistent,
   });
   const insufficientCorpusFutureReviewMarker = buildGroundedDocumentRewriteFutureReviewMarker({
     selfAssessment,
     status: "insufficient_corpus",
     missingDataCount: factLedger.missing_data.length,
     groundingMode,
+    lawVersionContractConsistent: lawVersionContract.is_current_snapshot_consistent,
   });
   const requestPayloadBase = {
     documentId: document.id,
@@ -653,6 +662,7 @@ export async function rewriteOwnedGroundedDocumentField(
     hasUsablePrecedentCorpus: retrieval.hasUsablePrecedentCorpus,
     combinedRetrievalRevision: retrieval.combinedRetrievalRevision,
     law_version_ids: retrieval.combinedRetrievalRevision.lawCurrentVersionIds,
+    law_version_contract: lawVersionContract,
     used_sources: usedSources,
     fact_ledger: factLedger,
     hasTrustor: promptContext.hasTrustor,
@@ -711,6 +721,7 @@ export async function rewriteOwnedGroundedDocumentField(
       prompt_version: GROUNDED_DOCUMENT_FIELD_REWRITE_PROMPT_VERSION,
       groundingMode,
       law_version_ids: retrieval.combinedRetrievalRevision.lawCurrentVersionIds,
+      law_version_contract: lawVersionContract,
       lawResultCount: retrieval.lawRetrieval.resultCount,
       precedentResultCount: retrieval.precedentRetrieval.resultCount,
       retrievalPromptBlockCount: references.length,

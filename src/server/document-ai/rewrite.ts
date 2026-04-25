@@ -35,6 +35,7 @@ import {
 } from "@/server/legal-core/document-rewrite";
 import {
   buildDocumentGuardrailContextText,
+  buildDocumentLawVersionContract,
   buildDocumentGuardrailSearchQuery,
   buildDocumentGuardrailUsedSources,
   buildDocumentRewritePolicyLines,
@@ -545,6 +546,7 @@ function buildRewriteUserPrompt(input: {
   authorFullName: string;
   context: RewritePromptContext;
   factLedger: DocumentRewriteFactLedger;
+  lawVersionIds: string[];
   guardrailContext: {
     combinedCorpusSnapshotHash: string;
     lawContext: string;
@@ -571,6 +573,7 @@ function buildRewriteUserPrompt(input: {
     "",
     "Legal guardrails:",
     `Combined corpus snapshot hash: ${input.guardrailContext.combinedCorpusSnapshotHash}`,
+    `Law version contract: current_snapshot_only (${input.lawVersionIds.join(", ") || "none"})`,
     input.guardrailContext.lawContext || "Подходящие legal guardrails по нормам закона не найдены.",
     input.guardrailContext.precedentContext ||
       "Подходящие legal guardrails по подтверждённым прецедентам не найдены.",
@@ -680,18 +683,24 @@ export async function rewriteOwnedDocumentField(
     precedentLimit: MAX_GUARDRAIL_PRECEDENT_BLOCKS,
   });
   const guardrailUsedSources = buildRewriteGuardrailUsedSources(guardrailRetrieval);
+  const lawVersionContract = buildDocumentLawVersionContract({
+    retrieval: guardrailRetrieval,
+    contextSources: guardrailUsedSources,
+  });
   const guardrailContext = buildRewriteGuardrailContext(guardrailRetrieval);
   const successFutureReviewMarker = buildDocumentRewriteFutureReviewMarker({
     selfAssessment,
     status: "success",
     missingDataCount: factLedger.missing_data.length,
     usedSourceCount: guardrailUsedSources.length,
+    lawVersionContractConsistent: lawVersionContract.is_current_snapshot_consistent,
   });
   const unavailableFutureReviewMarker = buildDocumentRewriteFutureReviewMarker({
     selfAssessment,
     status: "unavailable",
     missingDataCount: factLedger.missing_data.length,
     usedSourceCount: guardrailUsedSources.length,
+    lawVersionContractConsistent: lawVersionContract.is_current_snapshot_consistent,
   });
   const proxyResponse = await dependencies.requestProxyCompletion({
     systemPrompt: buildRewriteSystemPrompt(),
@@ -701,6 +710,7 @@ export async function rewriteOwnedDocumentField(
       authorFullName: authorSnapshot.fullName,
       context: promptContext,
       factLedger,
+      lawVersionIds: guardrailRetrieval.combinedRetrievalRevision.lawCurrentVersionIds,
       guardrailContext,
     }),
     requestMetadata: {
@@ -713,6 +723,7 @@ export async function rewriteOwnedDocumentField(
       response_mode: "document_ready",
       prompt_version: DOCUMENT_FIELD_REWRITE_PROMPT_VERSION,
       law_version_ids: guardrailRetrieval.combinedRetrievalRevision.lawCurrentVersionIds,
+      law_version_contract: lawVersionContract,
       lawResultsCount: guardrailRetrieval.lawRetrieval.resultCount,
       precedentResultsCount: guardrailRetrieval.precedentRetrieval.resultCount,
     },
@@ -748,6 +759,7 @@ export async function rewriteOwnedDocumentField(
         contextLength: promptContext.contextText.length,
         combinedRetrievalRevision: guardrailRetrieval.combinedRetrievalRevision,
         law_version_ids: guardrailRetrieval.combinedRetrievalRevision.lawCurrentVersionIds,
+        law_version_contract: lawVersionContract,
         used_sources: guardrailUsedSources,
         fact_ledger: factLedger,
       },
@@ -808,6 +820,7 @@ export async function rewriteOwnedDocumentField(
       contextLength: promptContext.contextText.length,
       combinedRetrievalRevision: guardrailRetrieval.combinedRetrievalRevision,
       law_version_ids: guardrailRetrieval.combinedRetrievalRevision.lawCurrentVersionIds,
+      law_version_contract: lawVersionContract,
       used_sources: guardrailUsedSources,
       fact_ledger: factLedger,
     },

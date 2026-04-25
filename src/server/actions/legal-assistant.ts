@@ -41,11 +41,20 @@ export async function submitAssistantQuestionAction(
 ): Promise<AssistantQuestionActionState> {
   const serverSlug = typeof formData.get("serverSlug") === "string" ? String(formData.get("serverSlug")) : "";
   const question = typeof formData.get("question") === "string" ? String(formData.get("question")) : "";
+  const rawActorContext =
+    typeof formData.get("actorContext") === "string" ? String(formData.get("actorContext")) : "";
+  const actorContext =
+    rawActorContext === "self" ||
+    rawActorContext === "representative_for_trustor" ||
+    rawActorContext === "general_question"
+      ? rawActorContext
+      : "general_question";
 
   try {
     const result = await answerLegalAssistantQuestion({
       serverSlug,
       question,
+      actorContext,
     });
 
     if (result.status === "answered" || result.status === "no_norms") {

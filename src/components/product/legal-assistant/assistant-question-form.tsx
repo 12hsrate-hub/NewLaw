@@ -12,6 +12,16 @@ import {
   type AssistantQuestionActionState,
 } from "@/server/actions/legal-assistant";
 
+function readActorContextFromMetadata(metadata: Record<string, unknown> | null | undefined) {
+  const actorContext = metadata?.actor_context;
+
+  return actorContext === "self" ||
+    actorContext === "representative_for_trustor" ||
+    actorContext === "general_question"
+    ? actorContext
+    : "general_question";
+}
+
 type AssistantQuestionFormProps = {
   serverSlug: string;
   serverName: string;
@@ -34,6 +44,7 @@ export function AssistantQuestionForm({
   const safeState = state ?? initialState;
   const isGuestBlocked = safeState.status === "guest_limit_reached";
   const isSubmitDisabled = isPending || !isAssistantAvailable || isGuestBlocked;
+  const selectedActorContext = readActorContextFromMetadata(safeState.answer?.metadata);
 
   return (
     <div className="space-y-6">
@@ -57,6 +68,26 @@ export function AssistantQuestionForm({
 
         <form action={formAction} className="space-y-4">
           <input name="serverSlug" type="hidden" value={serverSlug} />
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium" htmlFor="actorContext">
+              Контекст вопроса
+            </label>
+            <select
+              className="w-full rounded-2xl border border-[var(--border)] bg-white px-4 py-3 text-sm"
+              defaultValue={selectedActorContext}
+              id="actorContext"
+              name="actorContext"
+            >
+              <option value="general_question">Общий вопрос</option>
+              <option value="self">Действую от себя</option>
+              <option value="representative_for_trustor">Действую в интересах доверителя</option>
+            </select>
+            <p className="text-sm leading-6 text-[var(--muted)]">
+              Это влияет на рамку анализа и формулировки ответа, но не расширяет правовую опору за
+              пределы законодательства выбранного сервера.
+            </p>
+          </div>
 
           <div className="space-y-2">
             <label className="text-sm font-medium" htmlFor="question">
