@@ -12,7 +12,7 @@ import { extractProxyUsageMetrics } from "@/server/legal-core/observability";
 
 export const AI_QUALITY_REVIEW_VERSION = "ai_quality_review_v1";
 export const AI_QUALITY_REVIEWER_PROMPT_VERSION = "ai_quality_reviewer_v1";
-export const AI_QUALITY_REVIEWER_MODEL = "gpt-5.4-nano";
+export const AI_QUALITY_REVIEWER_MODEL = "gpt-5.4-mini";
 export type AIQualityReviewMode = "off" | "log_only" | "full";
 
 async function getAIQualityReviewUsageSinceSafe(input: { since: Date }) {

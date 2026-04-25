@@ -21,7 +21,7 @@ const validEnv = {
   NEXT_PUBLIC_SUPABASE_ANON_KEY: "prod-anon-key",
   SUPABASE_SERVICE_ROLE_KEY: "prod-service-role-key",
   AI_PROXY_CONFIGS_JSON:
-    '[{"proxyKey":"primary","providerKey":"openai_compatible","endpointUrl":"https://proxy.internal/api","secretEnvKeyName":"AI_PROXY_INTERNAL_TOKEN","model":"gpt-5.4","priority":100,"weight":1,"isEnabled":true,"capabilities":["server_legal_assistant"]}]',
+    '[{"proxyKey":"primary","providerKey":"openai_compatible","endpointUrl":"https://proxy.internal/api","secretEnvKeyName":"AI_PROXY_INTERNAL_TOKEN","model":"gpt-5.4-mini","priority":100,"weight":1,"isEnabled":true,"capabilities":["server_legal_assistant"]}]',
   AI_PROXY_INTERNAL_TOKEN: "prod-internal-token",
   OPENAI_API_KEY: "prod-openai-key",
   FORUM_SESSION_ENCRYPTION_KEY: "abcdefghijklmnopqrstuvwxyz123456",

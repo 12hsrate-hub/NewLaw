@@ -175,7 +175,7 @@ describe("ai quality review snapshot", () => {
           }),
           proxyKey: "primary",
           providerKey: "openai_compatible",
-          model: "gpt-5.4-nano",
+          model: "gpt-5.4-mini",
           attemptedProxyKeys: ["primary"],
           responsePayloadJson: {
             choices: [],
@@ -200,7 +200,7 @@ describe("ai quality review snapshot", () => {
     );
     expect(snapshot.layers.ai_reviewer).toMatchObject({
       status: "completed",
-      model: "gpt-5.4-nano",
+      model: "gpt-5.4-mini",
       prompt_version: "ai_quality_reviewer_v1",
     });
   });

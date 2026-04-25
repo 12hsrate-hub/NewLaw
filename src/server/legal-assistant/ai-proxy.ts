@@ -21,6 +21,8 @@ const defaultDependencies: ProxyRuntimeDependencies = {
   getProcessEnv: () => process.env,
 };
 
+export const DEFAULT_AI_PROXY_MODEL = "gpt-5.4-mini";
+
 type ProxyAttempt = {
   proxyKey: string;
   providerKey: string;
@@ -306,7 +308,7 @@ export function buildInternalAssistantProxyConfig(input: {
         providerKey: "openai_compatible",
         endpointUrl: input.endpointUrl,
         secretEnvKeyName: "AI_PROXY_INTERNAL_TOKEN",
-        model: "gpt-5.4",
+        model: DEFAULT_AI_PROXY_MODEL,
         isEnabled: true,
         priority: 100,
         weight: 1,

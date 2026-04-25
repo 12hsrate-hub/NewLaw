@@ -201,6 +201,7 @@ describe("ai proxy", () => {
     const parsed = JSON.parse(config.AI_PROXY_CONFIGS_JSON);
     expect(config.AI_PROXY_ACTIVE_KEY).toBe("primary");
     expect(parsed[0].secretEnvKeyName).toBe("AI_PROXY_INTERNAL_TOKEN");
+    expect(parsed[0].model).toBe("gpt-5.4-mini");
   });
 
   it("позволяет переопределить model для дешёвого preprocessing слоя", async () => {
