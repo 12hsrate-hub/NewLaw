@@ -1,20 +1,13 @@
 import type { LegalCoreIntent } from "@/server/legal-core/metadata";
 import type { LawFamily, NormRole } from "@/server/legal-core/legal-selection";
+import {
+  LEGAL_SEMANTIC_RETRIEVAL_ANCHOR_TERMS,
+  LEGAL_SEMANTIC_RETRIEVAL_FAMILY_TERMS,
+  LEGAL_SEMANTIC_RUNTIME_TAG_KEYWORDS,
+  LEGAL_SEMANTIC_RUNTIME_TAGS,
+} from "@/server/legal-core/legal-semantic-dictionaries";
 
-export const assistantRetrievalRuntimeTags = [
-  "material_offense",
-  "detention",
-  "ticket",
-  "identity_check",
-  "attorney",
-  "attorney_request",
-  "bodycam",
-  "evidence",
-  "official_duty",
-  "special_service_scope",
-  "public_assembly",
-  "immunity",
-] as const;
+export const assistantRetrievalRuntimeTags = LEGAL_SEMANTIC_RUNTIME_TAGS;
 
 export type AssistantRetrievalRuntimeTag = (typeof assistantRetrievalRuntimeTags)[number];
 
@@ -23,7 +16,7 @@ export type AssistantRetrievalPlanInput = {
   intent: LegalCoreIntent;
   required_law_families: LawFamily[];
   preferred_norm_roles: NormRole[];
-  legal_anchors: Array<keyof typeof anchorTermDictionary>;
+  legal_anchors: Array<keyof typeof LEGAL_SEMANTIC_RETRIEVAL_ANCHOR_TERMS>;
   question_scope: "general_question" | "self_case" | "representative_case";
   forbidden_scope_markers: string[];
 };
@@ -40,56 +33,11 @@ export type AssistantRetrievalQueryBreakdown = {
 const DEFAULT_PRECEDENT_RETRIEVAL_QUERY_MAX_LENGTH = 500;
 const DEFAULT_ASSISTANT_RETRIEVAL_QUERY_MAX_LENGTH = 500;
 
-const anchorTermDictionary = {
-  administrative_offense: [
-    "административный кодекс",
-    "правонарушение",
-    "состав",
-    "штраф",
-    "тикет",
-    "маскировка",
-  ],
-  detention_procedure: [
-    "процессуальный кодекс",
-    "задержание",
-    "основания задержания",
-    "доставка",
-    "идентификация",
-  ],
-  attorney_rights: ["адвокат", "защитник", "право на защиту", "допуск защитника"],
-  attorney_request: [
-    "адвокатский запрос",
-    "официальный адвокатский запрос",
-    "срок ответа",
-    "обязанность ответить",
-  ],
-  video_recording: ["bodycam", "body-cam", "бодикам", "видеофиксация", "видеозапись"],
-  official_duty: ["служебные обязанности", "обязан", "руководство", "должностное лицо"],
-  sanction: ["санкция", "штраф", "ответственность", "наказание"],
-  exception: ["исключение", "кроме случаев", "за исключением"],
-  remedy: ["жалоба", "обжалование", "оспаривание"],
-  evidence: ["доказательства", "запись", "видео", "подтверждение"],
-} as const satisfies Record<string, readonly string[]>;
-
-const lawFamilyTermDictionary = {
-  administrative_code: ["административный кодекс", "административное правонарушение"],
-  procedural_code: ["процессуальный кодекс", "процедура задержания"],
-  criminal_code: ["уголовный кодекс", "уголовная ответственность"],
-  advocacy_law: ["закон об адвокатуре", "адвокатская деятельность"],
-  ethics_code: ["этический кодекс", "этические обязанности"],
-  constitution: ["конституция", "конституционные гарантии"],
-  department_specific: ["ведомственный порядок", "служебный регламент"],
-  government_code: ["государственная служба", "служебные обязанности"],
-  immunity_law: ["иммунитет", "неприкосновенность"],
-  public_assembly_law: ["публичное мероприятие", "митинг", "собрание"],
-  other: [],
-} as const satisfies Record<LawFamily, readonly string[]>;
-
 function normalizeQuestion(input: string) {
   return input.trim().toLowerCase();
 }
 
-function hasKeyword(source: string, keywords: string[]) {
+function hasKeyword(source: string, keywords: readonly string[]) {
   return keywords.some((keyword) => source.includes(keyword));
 }
 
@@ -170,11 +118,11 @@ function buildRuntimeTags(input: AssistantRetrievalPlanInput) {
     pushUniqueTag(tags, "detention");
   }
 
-  if (hasKeyword(normalizedSource, ["штраф", "тикет", "квитанц"])) {
+  if (hasKeyword(normalizedSource, LEGAL_SEMANTIC_RUNTIME_TAG_KEYWORDS.question_ticket)) {
     pushUniqueTag(tags, "ticket");
   }
 
-  if (hasKeyword(normalizedSource, ["идентификац", "личност"])) {
+  if (hasKeyword(normalizedSource, LEGAL_SEMANTIC_RUNTIME_TAG_KEYWORDS.question_identity_check)) {
     pushUniqueTag(tags, "identity_check");
   }
 
@@ -199,24 +147,15 @@ function buildRuntimeTags(input: AssistantRetrievalPlanInput) {
     pushUniqueTag(tags, "official_duty");
   }
 
-  if (
-    hasKeyword(normalizedSource, [
-      "департамент",
-      "тюрьм",
-      "нацгвард",
-      "национальн гвард",
-      "управление тюрем",
-      "правительство",
-    ])
-  ) {
+  if (hasKeyword(normalizedSource, LEGAL_SEMANTIC_RUNTIME_TAG_KEYWORDS.question_special_service_scope)) {
     pushUniqueTag(tags, "special_service_scope");
   }
 
-  if (hasKeyword(normalizedSource, ["митинг", "акци", "публичн меропр", "собра"])) {
+  if (hasKeyword(normalizedSource, LEGAL_SEMANTIC_RUNTIME_TAG_KEYWORDS.question_public_assembly)) {
     pushUniqueTag(tags, "public_assembly");
   }
 
-  if (hasKeyword(normalizedSource, ["иммунитет", "неприкоснов"])) {
+  if (hasKeyword(normalizedSource, LEGAL_SEMANTIC_RUNTIME_TAG_KEYWORDS.question_immunity)) {
     pushUniqueTag(tags, "immunity");
   }
 
@@ -279,13 +218,13 @@ export function buildAssistantRetrievalQuery(
   const anchorTerms: string[] = [];
 
   for (const anchor of input.legal_anchors) {
-    pushUniqueTerms(anchorTerms, anchorTermDictionary[anchor] ?? []);
+    pushUniqueTerms(anchorTerms, LEGAL_SEMANTIC_RETRIEVAL_ANCHOR_TERMS[anchor] ?? []);
   }
 
   const familyTerms: string[] = [];
 
   for (const family of input.required_law_families) {
-    pushUniqueTerms(familyTerms, lawFamilyTermDictionary[family] ?? []);
+    pushUniqueTerms(familyTerms, LEGAL_SEMANTIC_RETRIEVAL_FAMILY_TERMS[family] ?? []);
   }
 
   const baseTerms = tokenizeBaseTerms(normalizedInput);

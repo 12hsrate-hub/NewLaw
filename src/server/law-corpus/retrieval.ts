@@ -6,6 +6,7 @@ import type {
   AssistantRetrievalRuntimeTag,
 } from "@/server/legal-core/assistant-retrieval-query";
 import type { LegalQueryPlan } from "@/server/legal-core/legal-query-plan";
+import { LEGAL_SEMANTIC_RUNTIME_TAG_KEYWORDS } from "@/server/legal-core/legal-semantic-dictionaries";
 import {
   classifyLawFamily,
   classifyNormRole,
@@ -142,7 +143,7 @@ function tokenizeText(input: string) {
   );
 }
 
-function hasKeyword(source: string, keywords: string[]) {
+function hasKeyword(source: string, keywords: readonly string[]) {
   return keywords.some((keyword) => source.includes(keyword));
 }
 
@@ -306,65 +307,65 @@ function buildRuntimeTags(candidate: LegalSelectionCandidate, lawFamily: LawFami
 
   if (
     lawFamily === "administrative_code" ||
-    hasKeyword(normalizedSource, ["правонаруш", "запрещ", "штраф", "влеч"]) ||
+    hasKeyword(normalizedSource, LEGAL_SEMANTIC_RUNTIME_TAG_KEYWORDS.candidate_material_offense) ||
     candidate.lawKey.includes("ak")
   ) {
     tags.add("material_offense");
   }
 
-  if (hasKeyword(normalizedSource, ["задерж", "арест", "достав"])) {
+  if (hasKeyword(normalizedSource, LEGAL_SEMANTIC_RUNTIME_TAG_KEYWORDS.candidate_detention)) {
     tags.add("detention");
   }
 
-  if (hasKeyword(normalizedSource, ["тикет", "штраф", "квитанц"])) {
+  if (hasKeyword(normalizedSource, LEGAL_SEMANTIC_RUNTIME_TAG_KEYWORDS.candidate_ticket)) {
     tags.add("ticket");
   }
 
-  if (hasKeyword(normalizedSource, ["идентификац", "личност"])) {
+  if (hasKeyword(normalizedSource, LEGAL_SEMANTIC_RUNTIME_TAG_KEYWORDS.candidate_identity_check)) {
     tags.add("identity_check");
   }
 
-  if (hasKeyword(normalizedSource, ["адвокат", "защитник", "адвокатур"])) {
+  if (hasKeyword(normalizedSource, LEGAL_SEMANTIC_RUNTIME_TAG_KEYWORDS.candidate_attorney)) {
     tags.add("attorney");
   }
 
-  if (hasKeyword(normalizedSource, ["адвокатский запрос", "официальный адвокатский запрос"])) {
+  if (hasKeyword(normalizedSource, LEGAL_SEMANTIC_RUNTIME_TAG_KEYWORDS.candidate_attorney_request)) {
     tags.add("attorney_request");
   }
 
-  if (hasKeyword(normalizedSource, ["bodycam", "body-cam", "бодикам", "видеофиксац", "видеозапис"])) {
+  if (hasKeyword(normalizedSource, LEGAL_SEMANTIC_RUNTIME_TAG_KEYWORDS.candidate_bodycam)) {
     tags.add("bodycam");
   }
 
-  if (hasKeyword(normalizedSource, ["доказ", "видео", "запис", "подтвержд"])) {
+  if (hasKeyword(normalizedSource, LEGAL_SEMANTIC_RUNTIME_TAG_KEYWORDS.candidate_evidence)) {
     tags.add("evidence");
   }
 
   if (
     lawFamily === "government_code" ||
-    hasKeyword(normalizedSource, ["служебн обязан", "должностн лиц", "руководств", "обязан"])
+    hasKeyword(normalizedSource, LEGAL_SEMANTIC_RUNTIME_TAG_KEYWORDS.candidate_official_duty)
   ) {
     tags.add("official_duty");
   }
 
   if (
     lawFamily === "department_specific" ||
-    hasKeyword(normalizedSource, [
-      "национальн гвард",
-      "управлени тюрем",
-      "департамент",
-      "ведомств",
-      "военнослужащ",
-    ])
+    hasKeyword(normalizedSource, LEGAL_SEMANTIC_RUNTIME_TAG_KEYWORDS.candidate_special_service_scope)
   ) {
     tags.add("special_service_scope");
   }
 
-  if (lawFamily === "public_assembly_law" || hasKeyword(normalizedSource, ["митинг", "публичн меропр", "собрани"])) {
+  if (
+    lawFamily === "public_assembly_law" ||
+    hasKeyword(normalizedSource, LEGAL_SEMANTIC_RUNTIME_TAG_KEYWORDS.candidate_public_assembly)
+  ) {
     tags.add("public_assembly");
   }
 
-  if (lawFamily === "immunity_law" || hasKeyword(normalizedSource, ["иммунитет", "неприкоснов"])) {
+  if (
+    lawFamily === "immunity_law" ||
+    hasKeyword(normalizedSource, LEGAL_SEMANTIC_RUNTIME_TAG_KEYWORDS.candidate_immunity)
+  ) {
     tags.add("immunity");
   }
 
