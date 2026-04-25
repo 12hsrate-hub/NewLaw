@@ -18,6 +18,11 @@ import {
   buildInvalidDocumentDataSummary,
 } from "@/server/document-area/context-editor-shared";
 import {
+  buildDocumentRouteServerSummary,
+  buildPersistedServerDocumentItems,
+  sortDocumentsByUpdatedAtDesc,
+} from "@/server/document-area/context-family-shared";
+import {
   buildPersistedDocumentListItem,
   buildReadPathErrorMessage,
   logDocumentEditorContextParseFailure,
@@ -871,11 +876,7 @@ export async function getServerDocumentsRouteContext(input: {
     return {
       status: "no_characters",
       account,
-      server: {
-        id: server.id,
-        code: server.code,
-        name: server.name,
-      },
+      server: buildDocumentRouteServerSummary(server),
       servers,
       ogpComplaintDocumentCount,
       claimsDocumentCount: rehabilitationDocumentCount + lawsuitDocumentCount,
@@ -887,11 +888,7 @@ export async function getServerDocumentsRouteContext(input: {
   return {
     status: "ready",
     account,
-    server: {
-      id: server.id,
-      code: server.code,
-      name: server.name,
-    },
+    server: buildDocumentRouteServerSummary(server),
     servers,
     characters: characters.map((character) => buildSelectableCharacterSummary(character)),
     selectedCharacter,
@@ -942,24 +939,15 @@ export async function getOgpComplaintFamilyRouteContext(input: {
     serverStates,
   });
 
-  return {
-    status: "ready",
-    account,
-    server: {
-      id: server.id,
-      code: server.code,
-      name: server.name,
-    },
-    servers,
-    canCreateDocuments: selectedCharacter !== null,
-    selectedCharacter,
-    documents: documents.map((document) =>
-      buildPersistedDocumentListItem({
-        ...document,
-        server,
-      }),
-    ),
-  };
+    return {
+      status: "ready",
+      account,
+      server: buildDocumentRouteServerSummary(server),
+      servers,
+      canCreateDocuments: selectedCharacter !== null,
+      selectedCharacter,
+      documents: buildPersistedServerDocumentItems(documents, server),
+    };
 }
 
 export async function getClaimsFamilyRouteContext(input: {
@@ -1005,31 +993,15 @@ export async function getClaimsFamilyRouteContext(input: {
     characters,
     serverStates,
   });
-  const documents = [...rehabilitationDocuments, ...lawsuitDocuments]
-    .sort((left, right) => {
-      const updatedAtDiff = right.updatedAt.getTime() - left.updatedAt.getTime();
-
-      if (updatedAtDiff !== 0) {
-        return updatedAtDiff;
-      }
-
-      return right.createdAt.getTime() - left.createdAt.getTime();
-    })
-    .map((document) =>
-      buildPersistedDocumentListItem({
-        ...document,
-        server,
-      }),
-    );
+  const documents = buildPersistedServerDocumentItems(
+    sortDocumentsByUpdatedAtDesc([...rehabilitationDocuments, ...lawsuitDocuments]),
+    server,
+  );
 
   return {
     status: "ready",
     account,
-    server: {
-      id: server.id,
-      code: server.code,
-      name: server.name,
-    },
+    server: buildDocumentRouteServerSummary(server),
     servers,
     canCreateDocuments: selectedCharacter !== null,
     selectedCharacter,
@@ -1083,21 +1055,12 @@ export async function getLegalServicesAgreementFamilyRouteContext(input: {
   return {
     status: "ready",
     account,
-    server: {
-      id: server.id,
-      code: server.code,
-      name: server.name,
-    },
+    server: buildDocumentRouteServerSummary(server),
     servers,
     canCreateDocuments: selectedCharacter !== null && trustorRegistryRecords.length > 0,
     selectedCharacter,
     trustorRegistry: buildDocumentTrustorRegistrySummary(trustorRegistryRecords),
-    documents: documents.map((document) =>
-      buildPersistedDocumentListItem({
-        ...document,
-        server,
-      }),
-    ),
+    documents: buildPersistedServerDocumentItems(documents, server),
   };
 }
 
@@ -1147,22 +1110,13 @@ export async function getAttorneyRequestFamilyRouteContext(input: {
   return {
     status: "ready",
     account,
-    server: {
-      id: server.id,
-      code: server.code,
-      name: server.name,
-    },
+    server: buildDocumentRouteServerSummary(server),
     servers,
     canCreateDocuments:
       selectedCharacter?.canCreateAttorneyRequest === true && trustorRegistryRecords.length > 0,
     selectedCharacter,
     trustorRegistry: buildDocumentTrustorRegistrySummary(trustorRegistryRecords),
-    documents: documents.map((document) =>
-      buildPersistedDocumentListItem({
-        ...document,
-        server,
-      }),
-    ),
+    documents: buildPersistedServerDocumentItems(documents, server),
   };
 }
 
