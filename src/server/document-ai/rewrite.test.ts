@@ -8,6 +8,16 @@ import {
 } from "@/server/document-ai/rewrite";
 import { DocumentAccessDeniedError } from "@/server/document-area/persistence";
 
+function createNormalizationResult(rawInput: string, normalizedInput = rawInput) {
+  return {
+    raw_input: rawInput,
+    normalized_input: normalizedInput,
+    normalization_model: "gpt-5.4-nano",
+    normalization_prompt_version: "legal_input_normalization_v1",
+    normalization_changed: normalizedInput !== rawInput,
+  };
+}
+
 function createBaseDocument(input?: {
   documentType?: "ogp_complaint" | "rehabilitation" | "lawsuit";
   payload?: Record<string, unknown>;
@@ -211,6 +221,9 @@ describe("document field rewrite flow", () => {
       {
         getDocumentByIdForAccount: vi.fn().mockResolvedValue(createBaseDocument()),
         searchAssistantCorpus: vi.fn().mockResolvedValue(createGuardrailRetrievalResult()),
+        normalizeInputText: vi
+          .fn()
+          .mockResolvedValue(createNormalizationResult("Изначальное описание ситуации")),
         requestProxyCompletion,
         createAIRequest,
         now: vi
@@ -266,6 +279,9 @@ describe("document field rewrite flow", () => {
           intent: "document_text_improvement",
           response_mode: "document_ready",
           prompt_version: "document_field_rewrite_legal_core_v1",
+          raw_input: "Изначальное описание ситуации",
+          normalized_input: "Изначальное описание ситуации",
+          normalization_model: "gpt-5.4-nano",
           sourceLength: "Изначальное описание ситуации".length,
           law_version_ids: ["law-version-1"],
           law_version_contract: expect.objectContaining({
@@ -274,7 +290,8 @@ describe("document field rewrite flow", () => {
           }),
           input_trace: expect.objectContaining({
             input_kind: "document_section_rewrite",
-            source_text_preview: "Изначальное описание ситуации",
+            raw_input_preview: "Изначальное описание ситуации",
+            normalized_input_preview: "Изначальное описание ситуации",
             context_field_keys: [
               "objectOrganization",
               "objectFullName",
@@ -409,6 +426,9 @@ describe("document field rewrite flow", () => {
         {
           getDocumentByIdForAccount: vi.fn().mockResolvedValue(createBaseDocument()),
           searchAssistantCorpus: vi.fn().mockResolvedValue(createGuardrailRetrievalResult()),
+          normalizeInputText: vi
+            .fn()
+            .mockResolvedValue(createNormalizationResult("Изначальное описание ситуации")),
           requestProxyCompletion: vi.fn().mockResolvedValue({
             status: "unavailable",
             message: "AI proxy не настроен для текущего окружения.",
@@ -428,6 +448,8 @@ describe("document field rewrite flow", () => {
         status: "unavailable",
         errorMessage: "AI proxy не настроен для текущего окружения.",
         requestPayloadJson: expect.objectContaining({
+          raw_input: "Изначальное описание ситуации",
+          normalized_input: "Изначальное описание ситуации",
           law_version_contract: expect.objectContaining({
             contract_mode: "current_snapshot_only",
           }),
@@ -492,6 +514,9 @@ describe("document field rewrite flow", () => {
             lawCurrentVersionIds: ["law-version-1"],
           }),
         ),
+        normalizeInputText: vi
+          .fn()
+          .mockResolvedValue(createNormalizationResult("Изначальное описание ситуации")),
         requestProxyCompletion: vi.fn().mockResolvedValue({
           status: "success",
           content: "Улучшенный текст без добавления новых фактов.",

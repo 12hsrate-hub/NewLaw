@@ -4,6 +4,8 @@ import { getAIProxyRuntimeEnv, hasLiveAIProxyRuntimeEnv } from "@/schemas/env";
 type ProxyCompletionInput = {
   systemPrompt: string;
   userPrompt: string;
+  modelOverride?: string;
+  temperature?: number;
   requestMetadata?: Record<string, unknown>;
 };
 
@@ -202,8 +204,8 @@ export async function requestAssistantProxyCompletion(
           secret,
         }),
         body: JSON.stringify({
-          model: config.model,
-          temperature: 0.1,
+          model: input.modelOverride ?? config.model,
+          temperature: input.temperature ?? 0.1,
           messages: [
             {
               role: "system",
@@ -263,7 +265,7 @@ export async function requestAssistantProxyCompletion(
         content,
         proxyKey: config.proxyKey,
         providerKey: config.providerKey,
-        model: config.model,
+        model: input.modelOverride ?? config.model,
         attemptedProxyKeys,
         responsePayloadJson: payload && typeof payload === "object" ? payload : null,
       };

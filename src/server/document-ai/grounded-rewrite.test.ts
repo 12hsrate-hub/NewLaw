@@ -9,6 +9,16 @@ import {
 } from "@/server/document-ai/grounded-rewrite";
 import { DocumentAccessDeniedError } from "@/server/document-area/persistence";
 
+function createNormalizationResult(rawInput: string, normalizedInput = rawInput) {
+  return {
+    raw_input: rawInput,
+    normalized_input: normalizedInput,
+    normalization_model: "gpt-5.4-nano",
+    normalization_prompt_version: "legal_input_normalization_v1",
+    normalization_changed: normalizedInput !== rawInput,
+  };
+}
+
 function createBaseDocument(input?: {
   documentType?: "ogp_complaint" | "rehabilitation" | "lawsuit";
   payload?: Record<string, unknown>;
@@ -291,6 +301,9 @@ describe("grounded document field rewrite flow", () => {
       {
         getDocumentByIdForAccount: vi.fn().mockResolvedValue(createBaseDocument()),
         searchAssistantCorpus: vi.fn().mockResolvedValue(createLawRetrievalResult()),
+        normalizeInputText: vi
+          .fn()
+          .mockResolvedValue(createNormalizationResult("Сотрудник нарушил порядок рассмотрения жалобы.")),
         requestProxyCompletion,
         createAIRequest,
         now: vi
@@ -324,6 +337,9 @@ describe("grounded document field rewrite flow", () => {
           actor_context: "representative_for_trustor",
           response_mode: "document_ready",
           prompt_version: "document_field_rewrite_grounded_legal_core_v1",
+          raw_input: "Сотрудник нарушил порядок рассмотрения жалобы.",
+          normalized_input: "Сотрудник нарушил порядок рассмотрения жалобы.",
+          normalization_model: "gpt-5.4-nano",
           groundingMode: "law_grounded",
           law_version_ids: ["law-version-1"],
           law_version_contract: expect.objectContaining({
@@ -363,7 +379,8 @@ describe("grounded document field rewrite flow", () => {
           input_trace: expect.objectContaining({
             input_kind: "grounded_document_section_rewrite",
             grounding_mode: "law_grounded",
-            source_text_preview: "Сотрудник нарушил порядок рассмотрения жалобы.",
+            raw_input_preview: "Сотрудник нарушил порядок рассмотрения жалобы.",
+            normalized_input_preview: "Сотрудник нарушил порядок рассмотрения жалобы.",
           }),
           source_ledger: expect.objectContaining({
             used_sources_strategy: "grounded_prompt_subset",
@@ -464,6 +481,9 @@ describe("grounded document field rewrite flow", () => {
           }),
         ),
         searchAssistantCorpus: vi.fn().mockResolvedValue(createPrecedentRetrievalResult()),
+        normalizeInputText: vi
+          .fn()
+          .mockResolvedValue(createNormalizationResult("Прошу пересмотреть решение.")),
         requestProxyCompletion: vi.fn().mockResolvedValue({
           status: "success",
           content: "Прошу пересмотреть решение с учётом подтверждённого precedent.",
@@ -560,6 +580,9 @@ describe("grounded document field rewrite flow", () => {
               corpusSnapshotHash: "precedent-hash",
             },
           }),
+          normalizeInputText: vi
+            .fn()
+            .mockResolvedValue(createNormalizationResult("Сотрудник нарушил порядок рассмотрения жалобы.")),
           requestProxyCompletion: vi.fn(),
           createAIRequest,
           now: () => new Date("2026-04-22T11:05:00.000Z"),
@@ -631,6 +654,9 @@ describe("grounded document field rewrite flow", () => {
         {
           getDocumentByIdForAccount: vi.fn().mockResolvedValue(createBaseDocument()),
           searchAssistantCorpus: vi.fn().mockResolvedValue(createLawRetrievalResult()),
+          normalizeInputText: vi
+            .fn()
+            .mockResolvedValue(createNormalizationResult("Сотрудник нарушил порядок рассмотрения жалобы.")),
           requestProxyCompletion: vi.fn().mockResolvedValue({
             status: "unavailable",
             message: "AI proxy временно недоступен.",
@@ -674,6 +700,9 @@ describe("grounded document field rewrite flow", () => {
             lawCurrentVersionIds: ["law-version-1"],
           }),
         ),
+        normalizeInputText: vi
+          .fn()
+          .mockResolvedValue(createNormalizationResult("Сотрудник нарушил порядок рассмотрения жалобы.")),
         requestProxyCompletion: vi.fn().mockResolvedValue({
           status: "success",
           content: "Нарушение изложено нейтрально и структурно.",

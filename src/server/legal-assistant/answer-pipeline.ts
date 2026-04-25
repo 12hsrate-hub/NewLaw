@@ -4,6 +4,7 @@ import {
   searchAssistantCorpus,
 } from "@/server/legal-assistant/retrieval";
 import { requestAssistantProxyCompletion } from "@/server/legal-assistant/ai-proxy";
+import { normalizeLegalInputText } from "@/server/legal-core/input-normalization";
 import {
   type LegalCoreActorContext,
   buildAssistantSelfAssessment,
@@ -21,6 +22,7 @@ type RetrievalResult = Awaited<ReturnType<typeof searchAssistantCorpus>>;
 type AnswerPipelineDependencies = {
   searchAssistantCorpus: typeof searchAssistantCorpus;
   requestAssistantProxyCompletion: typeof requestAssistantProxyCompletion;
+  normalizeInputText?: typeof normalizeLegalInputText;
   createAIRequest: typeof createAIRequest;
   now: () => Date;
 };
@@ -692,14 +694,19 @@ export async function generateServerLegalAssistantAnswer(
   },
   dependencies: AnswerPipelineDependencies = defaultDependencies,
 ) {
+  const normalizeInputText = dependencies.normalizeInputText ?? normalizeLegalInputText;
+  const normalizedInput = await normalizeInputText({
+    rawInput: input.question,
+    featureKey: "server_legal_assistant",
+  });
   const retrieval = await dependencies.searchAssistantCorpus({
     serverId: input.serverId,
-    query: input.question,
+    query: normalizedInput.normalized_input,
     lawLimit: 6,
     precedentLimit: 4,
   });
-  const intent = classifyAssistantIntent(input.question);
-  const responseMode = detectQuestionResponseMode(input.question);
+  const intent = classifyAssistantIntent(normalizedInput.normalized_input);
+  const responseMode = detectQuestionResponseMode(normalizedInput.normalized_input);
   const actorContext = input.actorContext ?? "general_question";
   const sourceLedgerBase = buildAssistantSourceLedger(retrieval);
   const sourceLedger = buildAssistantSourceLedgerWithUsedNorms(sourceLedgerBase, []);
@@ -708,7 +715,7 @@ export async function generateServerLegalAssistantAnswer(
     sourceLedger,
   });
   const usedSources = buildAssistantUsedSources(retrieval);
-  const inputTrace = buildAssistantInputTrace(input.question);
+  const inputTrace = buildAssistantInputTrace(normalizedInput.normalized_input);
   const metadataBase = {
     serverId: input.serverId,
     serverCode: input.serverCode,
@@ -726,6 +733,11 @@ export async function generateServerLegalAssistantAnswer(
     prompt_version: LEGAL_ASSISTANT_PROMPT_VERSION,
     law_version_ids: retrieval.combinedRetrievalRevision.lawCurrentVersionIds,
     law_version_contract: lawVersionContract,
+    raw_input: normalizedInput.raw_input,
+    normalized_input: normalizedInput.normalized_input,
+    normalization_model: normalizedInput.normalization_model,
+    normalization_prompt_version: normalizedInput.normalization_prompt_version,
+    normalization_changed: normalizedInput.normalization_changed,
     used_sources: usedSources,
     source_ledger: sourceLedger,
   };
@@ -753,13 +765,18 @@ export async function generateServerLegalAssistantAnswer(
         branch: "no_corpus",
         serverId: input.serverId,
         serverCode: input.serverCode,
-        question: input.question,
+        question: normalizedInput.normalized_input,
         intent,
         actor_context: actorContext,
         response_mode: responseMode,
         prompt_version: LEGAL_ASSISTANT_PROMPT_VERSION,
         law_version_ids: retrieval.combinedRetrievalRevision.lawCurrentVersionIds,
         law_version_contract: lawVersionContract,
+        raw_input: normalizedInput.raw_input,
+        normalized_input: normalizedInput.normalized_input,
+        normalization_model: normalizedInput.normalization_model,
+        normalization_prompt_version: normalizedInput.normalization_prompt_version,
+        normalization_changed: normalizedInput.normalization_changed,
         input_trace: inputTrace,
         used_sources: usedSources,
         source_ledger: sourceLedger,
@@ -823,13 +840,18 @@ export async function generateServerLegalAssistantAnswer(
         branch: "no_norms",
         serverId: input.serverId,
         serverCode: input.serverCode,
-        question: input.question,
+        question: normalizedInput.normalized_input,
         intent,
         actor_context: actorContext,
         response_mode: responseMode,
         prompt_version: LEGAL_ASSISTANT_PROMPT_VERSION,
         law_version_ids: retrieval.combinedRetrievalRevision.lawCurrentVersionIds,
         law_version_contract: lawVersionContract,
+        raw_input: normalizedInput.raw_input,
+        normalized_input: normalizedInput.normalized_input,
+        normalization_model: normalizedInput.normalization_model,
+        normalization_prompt_version: normalizedInput.normalization_prompt_version,
+        normalization_changed: normalizedInput.normalization_changed,
         input_trace: inputTrace,
         used_sources: usedSources,
         source_ledger: sourceLedger,
@@ -886,13 +908,18 @@ export async function generateServerLegalAssistantAnswer(
     featureKey: "server_legal_assistant",
     serverId: input.serverId,
     serverCode: input.serverCode,
-    question: input.question,
+    question: normalizedInput.normalized_input,
     intent,
     actor_context: actorContext,
     response_mode: responseMode,
     prompt_version: LEGAL_ASSISTANT_PROMPT_VERSION,
     law_version_ids: retrieval.combinedRetrievalRevision.lawCurrentVersionIds,
     law_version_contract: lawVersionContract,
+    raw_input: normalizedInput.raw_input,
+    normalized_input: normalizedInput.normalized_input,
+    normalization_model: normalizedInput.normalization_model,
+    normalization_prompt_version: normalizedInput.normalization_prompt_version,
+    normalization_changed: normalizedInput.normalization_changed,
     input_trace: inputTrace,
     used_sources: usedSources,
     lawCorpusSnapshot: retrieval.lawCorpusSnapshot,
@@ -928,7 +955,7 @@ export async function generateServerLegalAssistantAnswer(
     systemPrompt: buildAssistantSystemPrompt(),
     userPrompt: buildAssistantUserPrompt({
       serverName: input.serverName,
-      question: input.question,
+      question: normalizedInput.normalized_input,
       actorContext,
       retrieval,
     }),

@@ -68,6 +68,11 @@ describe("submit assistant question action", () => {
           actor_context: "general_question",
           response_mode: "normal",
           prompt_version: "server_legal_assistant_legal_core_v1",
+          raw_input: "Что с договором?",
+          normalized_input: "Что с договором?",
+          normalization_model: "gpt-5.4-nano",
+          normalization_prompt_version: "legal_input_normalization_v1",
+          normalization_changed: false,
           law_version_ids: ["version-1"],
           law_version_contract: {
             server_id: "server-1",

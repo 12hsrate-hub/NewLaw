@@ -94,6 +94,56 @@ AI Quality Review работает как скрытый внутренний с
 - `issue_fingerprint` — стабильный отпечаток конкретной проблемы
 - `issue_cluster_key` — ключ для группировки повторяющихся проблем в один класс
 
+Дополнительно для проблем, связанных с нормализацией входа, нужно предусмотреть:
+
+- `fix_target`
+
+Поддерживаемые значения `fix_target`:
+
+- `normalization_prompt`
+- `normalization_model`
+- `normalization_guardrail`
+
+## Проверка нормализации входного текста
+
+`AI Quality Review` должен учитывать слой `input normalization` из шага [16-ai-legal-core.md](./16-ai-legal-core.md).
+
+Для каждой спорной AI-выдачи нужно сохранять и показывать `super_admin`:
+
+- `raw_input`
+- `normalized_input`
+- `normalization_model`
+- `normalization_prompt_version`
+- `normalization_changed`
+- результат сравнения `raw_input` и `normalized_input`
+
+`AI Quality Review` должен уметь помечать ошибки нормализации отдельными `flags`:
+
+- `normalization_changed_meaning` — нормализация изменила смысл
+- `normalization_added_fact` — нормализация добавила факт
+- `normalization_removed_fact` — нормализация убрала важный факт
+- `normalization_overlegalized` — нормализация добавила юридическую оценку
+- `normalization_too_aggressive` — нормализация слишком сильно переписала ввод
+- `normalization_failed` — нормализация не исправила явно проблемный текст
+
+Если подтверждённая проблема возникла из-за нормализации, `root_cause` должен фиксироваться как:
+
+- `normalization_issue`
+
+В карточке спорного случая `super_admin` должен видеть полную цепочку:
+
+- `raw_input`
+- `normalized_input`
+- `retrieved sources`
+- `final output`
+
+Эта цепочка нужна, чтобы было видно, где именно возникла ошибка:
+
+- в нормализации
+- в retrieval
+- в генерации
+- в правовой базе
+
 ## Fix Instruction
 
 Для подтверждённой проблемы `super_admin` должен фиксировать `fix_instruction`.
@@ -109,6 +159,16 @@ AI Quality Review работает как скрытый внутренний с
 - критерии приёмки
 - инструкция для Codex
 - ожидание для regression test
+
+Если подтверждённая проблема связана именно с нормализацией, `fix_instruction` дополнительно должен фиксировать:
+
+- что именно нормализация изменила неправильно
+- какой смысл был в `raw_input`
+- какой смысл появился в `normalized_input`
+- как должна вести себя нормализация в будущем
+- пример плохой нормализации
+- пример правильной нормализации
+- критерий приёмки для regression test
 
 `fix_instruction` не должен жить как разовая заметка в отдельной жалобе.
 Это должен быть нормализованный внутренний артефакт, пригодный для дальнейшего `PR`, `commit`, изменений prompts и тестовой фиксации.
@@ -143,6 +203,7 @@ UI для `super_admin` должен быть отдельной будущей 
 
 - спорные случаи
 - статистика
+- цепочка `raw_input -> normalized_input -> retrieved sources -> final output`
 - ошибки по `flags`
 - ошибки по `prompt_version`
 - ошибки по `law_version`
@@ -220,6 +281,8 @@ UI для `super_admin` должен быть отдельной будущей 
 - спорные случаи сохраняются для `super_admin`
 - контур проверки состоит из `deterministic checks`, `AI reviewer` и self-risk сигналов из шага `16`
 - предусмотрены `risk_level`, `confidence`, `flags`, `root_cause`, `input_quality`, `issue_fingerprint`, `issue_cluster_key`
+- отдельно описана проверка слоя `input normalization` из шага `16`
+- для normalization-проблем предусмотрены `flags`, `root_cause = normalization_issue` и `fix_target`
 - подтверждённая проблема требует `fix_instruction`
 - есть единый реестр `AI Behavior Rules`
 - проблема не считается исправленной без `regression gate`

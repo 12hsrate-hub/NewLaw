@@ -202,4 +202,55 @@ describe("ai proxy", () => {
     expect(config.AI_PROXY_ACTIVE_KEY).toBe("primary");
     expect(parsed[0].secretEnvKeyName).toBe("AI_PROXY_INTERNAL_TOKEN");
   });
+
+  it("позволяет переопределить model для дешёвого preprocessing слоя", async () => {
+    const fetchSpy = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        choices: [
+          {
+            message: {
+              content: "Нормализованный текст.",
+            },
+          },
+        ],
+      }),
+    });
+
+    await requestAssistantProxyCompletion(
+      {
+        systemPrompt: "system",
+        userPrompt: "user",
+        modelOverride: "gpt-5.4-nano",
+        temperature: 0,
+      },
+      {
+        fetch: fetchSpy as typeof fetch,
+        getRuntimeEnv: () => ({
+          AI_PROXY_ACTIVE_KEY: "primary",
+          AI_PROXY_CONFIGS_JSON: JSON.stringify([
+            {
+              proxyKey: "primary",
+              providerKey: "openai_compatible",
+              endpointUrl: "https://proxy.internal.test/v1/chat/completions",
+              secretEnvKeyName: "AI_PROXY_SECRET_PRIMARY",
+              model: "gpt-5.4",
+              priority: 100,
+              weight: 1,
+            },
+          ]),
+        }),
+        getProcessEnv: () => ({
+          AI_PROXY_SECRET_PRIMARY: "secret",
+        }),
+      },
+    );
+
+    expect(fetchSpy).toHaveBeenCalledWith(
+      "https://proxy.internal.test/v1/chat/completions",
+      expect.objectContaining({
+        body: expect.stringContaining('"model":"gpt-5.4-nano"'),
+      }),
+    );
+  });
 });

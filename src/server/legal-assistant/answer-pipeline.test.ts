@@ -2,6 +2,16 @@ import { describe, expect, it, vi } from "vitest";
 
 import { generateServerLegalAssistantAnswer } from "@/server/legal-assistant/answer-pipeline";
 
+function createNormalizationResult(rawInput: string, normalizedInput = rawInput) {
+  return {
+    raw_input: rawInput,
+    normalized_input: normalizedInput,
+    normalization_model: "gpt-5.4-nano",
+    normalization_prompt_version: "legal_input_normalization_v1",
+    normalization_changed: normalizedInput !== rawInput,
+  };
+}
+
 function createAssistantRetrieval(overrides?: Partial<{
   hasCurrentLawCorpus: boolean;
   hasUsablePrecedentCorpus: boolean;
@@ -95,6 +105,9 @@ describe("answer pipeline", () => {
             hasUsablePrecedentCorpus: true,
           }),
         ),
+        normalizeInputText: vi
+          .fn()
+          .mockResolvedValue(createNormalizationResult("Есть ли норма про неизвестный институт?")),
         requestAssistantProxyCompletion,
         createAIRequest,
         now: () => new Date("2026-04-21T08:00:00.000Z"),
@@ -124,6 +137,9 @@ describe("answer pipeline", () => {
         status: "success",
         requestPayloadJson: expect.objectContaining({
           branch: "no_norms",
+          raw_input: "Есть ли норма про неизвестный институт?",
+          normalized_input: "Есть ли норма про неизвестный институт?",
+          normalization_model: "gpt-5.4-nano",
           input_trace: expect.objectContaining({
             input_kind: "assistant_question",
             question_preview: "Есть ли норма про неизвестный институт?",
@@ -260,6 +276,9 @@ describe("answer pipeline", () => {
             ],
           }),
         ),
+        normalizeInputText: vi
+          .fn()
+          .mockResolvedValue(createNormalizationResult("Нужен ли письменный договор?")),
         requestAssistantProxyCompletion,
         createAIRequest,
         now: () => new Date("2026-04-21T08:00:00.000Z"),
@@ -314,6 +333,7 @@ describe("answer pipeline", () => {
           lawResultsCount: 1,
           precedentResultsCount: 1,
           prompt_version: "server_legal_assistant_legal_core_v1",
+          normalized_input: "Нужен ли письменный договор?",
         }),
       }),
     );
@@ -326,6 +346,9 @@ describe("answer pipeline", () => {
           intent: "situation_analysis",
           actor_context: "self",
           response_mode: "normal",
+          raw_input: "Нужен ли письменный договор?",
+          normalized_input: "Нужен ли письменный договор?",
+          normalization_model: "gpt-5.4-nano",
           input_trace: expect.objectContaining({
             input_kind: "assistant_question",
             question_preview: "Нужен ли письменный договор?",
@@ -445,6 +468,9 @@ describe("answer pipeline", () => {
             ],
           }),
         ),
+        normalizeInputText: vi
+          .fn()
+          .mockResolvedValue(createNormalizationResult("Что если только precedent?")),
         requestAssistantProxyCompletion,
         createAIRequest,
         now: () => new Date("2026-04-21T08:00:00.000Z"),
@@ -517,6 +543,9 @@ describe("answer pipeline", () => {
             ],
           }),
         ),
+        normalizeInputText: vi
+          .fn()
+          .mockResolvedValue(createNormalizationResult("Что с нормой вне current snapshot?")),
         requestAssistantProxyCompletion: vi.fn().mockResolvedValue({
           status: "success",
           content: [
@@ -608,6 +637,9 @@ describe("answer pipeline", () => {
             ],
           }),
         ),
+        normalizeInputText: vi
+          .fn()
+          .mockResolvedValue(createNormalizationResult("Нужен ли письменный договор?")),
         requestAssistantProxyCompletion: vi.fn().mockResolvedValue({
           status: "unavailable",
           message: "AI proxy не настроен.",
@@ -633,6 +665,8 @@ describe("answer pipeline", () => {
       expect.objectContaining({
         status: "unavailable",
         requestPayloadJson: expect.objectContaining({
+          raw_input: "Нужен ли письменный договор?",
+          normalized_input: "Нужен ли письменный договор?",
           input_trace: expect.objectContaining({
             input_kind: "assistant_question",
           }),
@@ -662,6 +696,9 @@ describe("answer pipeline", () => {
             hasUsablePrecedentCorpus: false,
           }),
         ),
+        normalizeInputText: vi
+          .fn()
+          .mockResolvedValue(createNormalizationResult("Нужен ли письменный договор?")),
         requestAssistantProxyCompletion,
         createAIRequest,
         now: () => new Date("2026-04-21T08:00:00.000Z"),
@@ -691,6 +728,8 @@ describe("answer pipeline", () => {
           intent: "situation_analysis",
           actor_context: "general_question",
           response_mode: "normal",
+          raw_input: "Нужен ли письменный договор?",
+          normalized_input: "Нужен ли письменный договор?",
           input_trace: expect.objectContaining({
             input_kind: "assistant_question",
           }),
@@ -735,6 +774,9 @@ describe("answer pipeline", () => {
             ],
           }),
         ),
+        normalizeInputText: vi
+          .fn()
+          .mockResolvedValue(createNormalizationResult("Нужен ли письменный договор?")),
         requestAssistantProxyCompletion: vi.fn().mockResolvedValue({
           status: "success",
           content:

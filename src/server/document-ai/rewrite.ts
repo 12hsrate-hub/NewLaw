@@ -46,6 +46,7 @@ import {
   extractProxyUsageMetrics,
 } from "@/server/legal-core/observability";
 import { buildDocumentRewriteFutureReviewMarker } from "@/server/legal-core/review-routing";
+import { normalizeLegalInputText } from "@/server/legal-core/input-normalization";
 
 const DOCUMENT_FIELD_REWRITE_FEATURE_KEY = "document_field_rewrite";
 const MAX_TARGET_TEXT_LENGTH = 6_000;
@@ -61,6 +62,7 @@ type DocumentFieldRewriteDependencies = {
   getDocumentByIdForAccount: typeof getDocumentByIdForAccount;
   searchAssistantCorpus: typeof searchAssistantCorpus;
   requestProxyCompletion: typeof requestAssistantProxyCompletion;
+  normalizeInputText?: typeof normalizeLegalInputText;
   createAIRequest: typeof createAIRequest;
   now: () => Date;
 };
@@ -610,14 +612,17 @@ function extractFinishReason(payload: Record<string, unknown> | null | undefined
 }
 
 function buildRewriteInputTrace(input: {
-  sourceText: string;
+  rawInput: string;
+  normalizedInput: string;
   contextText: string;
   contextFieldKeys: string[];
 }) {
   return {
     input_kind: "document_section_rewrite",
-    source_text_preview: clampText(input.sourceText, MAX_INPUT_PREVIEW_LENGTH),
-    source_text_length: input.sourceText.trim().length,
+    raw_input_preview: clampText(input.rawInput, MAX_INPUT_PREVIEW_LENGTH),
+    raw_input_length: input.rawInput.trim().length,
+    normalized_input_preview: clampText(input.normalizedInput, MAX_INPUT_PREVIEW_LENGTH),
+    normalized_input_length: input.normalizedInput.trim().length,
     context_text_preview: clampText(input.contextText, MAX_INPUT_PREVIEW_LENGTH),
     context_text_length: input.contextText.trim().length,
     context_field_keys: input.contextFieldKeys,
@@ -678,16 +683,11 @@ export async function rewriteOwnedDocumentField(
   }
 
   const authorSnapshot = readDocumentAuthorSnapshot(document.authorSnapshotJson);
+  const normalizeInputText = dependencies.normalizeInputText ?? normalizeLegalInputText;
   const promptContext = buildRewritePromptContext({
     documentType: document.documentType,
     payload: document.formPayloadJson,
     sectionKey: input.sectionKey,
-  });
-  const factLedger = buildDocumentRewriteFactLedger({
-    documentType: document.documentType,
-    payload: document.formPayloadJson,
-    sectionKey: input.sectionKey,
-    sourceText: promptContext.sourceText,
   });
   const sourceText = clampText(promptContext.sourceText, MAX_TARGET_TEXT_LENGTH);
 
@@ -695,17 +695,29 @@ export async function rewriteOwnedDocumentField(
     throw new DocumentFieldRewriteBlockedError(["source_text_empty"]);
   }
 
+  const normalizedInput = await normalizeInputText({
+    rawInput: sourceText,
+    featureKey: "document_field_rewrite",
+  });
+  const normalizedSourceText = normalizedInput.normalized_input;
+  const factLedger = buildDocumentRewriteFactLedger({
+    documentType: document.documentType,
+    payload: document.formPayloadJson,
+    sectionKey: input.sectionKey,
+    sourceText: normalizedSourceText,
+  });
+
   const startedAt = dependencies.now();
   const actorContext = deriveActorContextFromFilingMode(promptContext.filingMode);
   const selfAssessment = buildDocumentRewriteSelfAssessment({
     missingDataCount: factLedger.missing_data.length,
-    sourceLength: sourceText.length,
+    sourceLength: normalizedSourceText.length,
   });
   const guardrailRetrieval = await dependencies.searchAssistantCorpus({
     serverId: document.serverId,
     query: buildSearchQuery({
       sectionLabel: promptContext.sectionLabel,
-      sourceText: promptContext.sourceText,
+      sourceText: normalizedSourceText,
       contextText: promptContext.contextText,
     }),
     lawLimit: MAX_GUARDRAIL_LAW_BLOCKS,
@@ -724,7 +736,8 @@ export async function rewriteOwnedDocumentField(
   });
   const guardrailContext = buildRewriteGuardrailContext(guardrailRetrieval);
   const inputTrace = buildRewriteInputTrace({
-    sourceText,
+    rawInput: normalizedInput.raw_input,
+    normalizedInput: normalizedInput.normalized_input,
     contextText: promptContext.contextText,
     contextFieldKeys: promptContext.contextFieldKeys,
   });
@@ -748,7 +761,10 @@ export async function rewriteOwnedDocumentField(
       serverName: document.server.name,
       documentTitle: document.title,
       authorFullName: authorSnapshot.fullName,
-      context: promptContext,
+      context: {
+        ...promptContext,
+        sourceText: normalizedSourceText,
+      },
       factLedger,
       lawVersionIds: guardrailRetrieval.combinedRetrievalRevision.lawCurrentVersionIds,
       guardrailContext,
@@ -762,6 +778,11 @@ export async function rewriteOwnedDocumentField(
       actor_context: actorContext,
       response_mode: "document_ready",
       prompt_version: DOCUMENT_FIELD_REWRITE_PROMPT_VERSION,
+      raw_input: normalizedInput.raw_input,
+      normalized_input: normalizedInput.normalized_input,
+      normalization_model: normalizedInput.normalization_model,
+      normalization_prompt_version: normalizedInput.normalization_prompt_version,
+      normalization_changed: normalizedInput.normalization_changed,
       law_version_ids: guardrailRetrieval.combinedRetrievalRevision.lawCurrentVersionIds,
       law_version_contract: lawVersionContract,
       lawResultsCount: guardrailRetrieval.lawRetrieval.resultCount,
@@ -792,9 +813,14 @@ export async function rewriteOwnedDocumentField(
         intent: "document_text_improvement",
         response_mode: "document_ready",
         prompt_version: DOCUMENT_FIELD_REWRITE_PROMPT_VERSION,
+        raw_input: normalizedInput.raw_input,
+        normalized_input: normalizedInput.normalized_input,
+        normalization_model: normalizedInput.normalization_model,
+        normalization_prompt_version: normalizedInput.normalization_prompt_version,
+        normalization_changed: normalizedInput.normalization_changed,
         hasTrustor: promptContext.hasTrustor,
         evidenceGroupCount: promptContext.evidenceSummary.groupCount,
-        sourceLength: sourceText.length,
+        sourceLength: normalizedSourceText.length,
         contextFieldKeys: promptContext.contextFieldKeys,
         contextLength: promptContext.contextText.length,
         input_trace: inputTrace,
@@ -860,9 +886,14 @@ export async function rewriteOwnedDocumentField(
       intent: "document_text_improvement",
       response_mode: "document_ready",
       prompt_version: DOCUMENT_FIELD_REWRITE_PROMPT_VERSION,
+      raw_input: normalizedInput.raw_input,
+      normalized_input: normalizedInput.normalized_input,
+      normalization_model: normalizedInput.normalization_model,
+      normalization_prompt_version: normalizedInput.normalization_prompt_version,
+      normalization_changed: normalizedInput.normalization_changed,
       hasTrustor: promptContext.hasTrustor,
       evidenceGroupCount: promptContext.evidenceSummary.groupCount,
-      sourceLength: sourceText.length,
+      sourceLength: normalizedSourceText.length,
       contextFieldKeys: promptContext.contextFieldKeys,
       contextLength: promptContext.contextText.length,
       input_trace: inputTrace,

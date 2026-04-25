@@ -36,6 +36,7 @@ import {
   GROUNDED_DOCUMENT_FIELD_REWRITE_PROMPT_VERSION,
 } from "@/server/legal-core/observability";
 import { buildGroundedDocumentRewriteFutureReviewMarker } from "@/server/legal-core/review-routing";
+import { normalizeLegalInputText } from "@/server/legal-core/input-normalization";
 import {
   groundedDocumentFieldRewriteUsageMetaSchema,
   type GroundedDocumentFieldRewriteUsageMeta,
@@ -60,6 +61,7 @@ type GroundedDocumentFieldRewriteDependencies = {
   getDocumentByIdForAccount: typeof getDocumentByIdForAccount;
   searchAssistantCorpus: typeof searchAssistantCorpus;
   requestProxyCompletion: typeof requestAssistantProxyCompletion;
+  normalizeInputText?: typeof normalizeLegalInputText;
   createAIRequest: typeof createAIRequest;
   now: () => Date;
 };
@@ -545,15 +547,18 @@ function buildInsufficientCorpusMessage(retrieval: AssistantRetrievalResult) {
 }
 
 function buildGroundedRewriteInputTrace(input: {
-  sourceText: string;
+  rawInput: string;
+  normalizedInput: string;
   contextText: string;
   contextFieldKeys: string[];
   groundingMode: GroundedDocumentRewriteMode | null;
 }) {
   return {
     input_kind: "grounded_document_section_rewrite",
-    source_text_preview: clampText(input.sourceText, MAX_INPUT_PREVIEW_LENGTH),
-    source_text_length: input.sourceText.trim().length,
+    raw_input_preview: clampText(input.rawInput, MAX_INPUT_PREVIEW_LENGTH),
+    raw_input_length: input.rawInput.trim().length,
+    normalized_input_preview: clampText(input.normalizedInput, MAX_INPUT_PREVIEW_LENGTH),
+    normalized_input_length: input.normalizedInput.trim().length,
     context_text_preview: clampText(input.contextText, MAX_INPUT_PREVIEW_LENGTH),
     context_text_length: input.contextText.trim().length,
     context_field_keys: input.contextFieldKeys,
@@ -618,6 +623,7 @@ export async function rewriteOwnedGroundedDocumentField(
     throw new DocumentAccessDeniedError();
   }
 
+  const normalizeInputText = dependencies.normalizeInputText ?? normalizeLegalInputText;
   const promptContext = buildGroundedPromptContext({
     documentType: document.documentType,
     payload: document.formPayloadJson,
@@ -629,9 +635,19 @@ export async function rewriteOwnedGroundedDocumentField(
     throw new GroundedDocumentFieldRewriteBlockedError(["source_text_empty"]);
   }
 
+  const normalizedInput = await normalizeInputText({
+    rawInput: sourceText,
+    featureKey: "document_field_rewrite_grounded",
+  });
+  const normalizedSourceText = normalizedInput.normalized_input;
+
   const retrieval = await dependencies.searchAssistantCorpus({
     serverId: document.serverId,
-    query: promptContext.searchQuery,
+    query: buildSearchQuery({
+      sectionLabel: promptContext.sectionLabel,
+      sourceText: normalizedSourceText,
+      contextText: promptContext.contextText,
+    }),
     lawLimit: MAX_LAW_PROMPT_BLOCKS,
     precedentLimit: MAX_PRECEDENT_PROMPT_BLOCKS,
   });
@@ -642,7 +658,7 @@ export async function rewriteOwnedGroundedDocumentField(
     documentType: document.documentType,
     payload: document.formPayloadJson,
     sectionKey: input.sectionKey,
-    sourceText: promptContext.sourceText,
+    sourceText: normalizedSourceText,
   });
   const usedSources = buildGroundedUsedSources(retrieval, groundingMode);
   const sourceLedger = buildDocumentSourceLedger({
@@ -656,14 +672,15 @@ export async function rewriteOwnedGroundedDocumentField(
     usedSources: sourceLedger.used_sources,
   });
   const inputTrace = buildGroundedRewriteInputTrace({
-    sourceText,
+    rawInput: normalizedInput.raw_input,
+    normalizedInput: normalizedInput.normalized_input,
     contextText: promptContext.contextText,
     contextFieldKeys: promptContext.contextFieldKeys,
     groundingMode,
   });
   const selfAssessment = buildGroundedDocumentRewriteSelfAssessment({
     missingDataCount: factLedger.missing_data.length,
-    sourceLength: sourceText.length,
+    sourceLength: normalizedSourceText.length,
     groundingMode,
     lawResultCount: retrieval.lawRetrieval.resultCount,
     precedentResultCount: retrieval.precedentRetrieval.resultCount,
@@ -700,6 +717,11 @@ export async function rewriteOwnedGroundedDocumentField(
     intent: "document_text_improvement",
     response_mode: "document_ready",
     prompt_version: GROUNDED_DOCUMENT_FIELD_REWRITE_PROMPT_VERSION,
+    raw_input: normalizedInput.raw_input,
+    normalized_input: normalizedInput.normalized_input,
+    normalization_model: normalizedInput.normalization_model,
+    normalization_prompt_version: normalizedInput.normalization_prompt_version,
+    normalization_changed: normalizedInput.normalization_changed,
     groundingMode: groundingMode ?? "insufficient_corpus",
     lawResultCount: retrieval.lawRetrieval.resultCount,
     precedentResultCount: retrieval.precedentRetrieval.resultCount,
@@ -713,7 +735,7 @@ export async function rewriteOwnedGroundedDocumentField(
     fact_ledger: factLedger,
     hasTrustor: promptContext.hasTrustor,
     contextFieldKeys: promptContext.contextFieldKeys,
-    sourceLength: sourceText.length,
+    sourceLength: normalizedSourceText.length,
     retrievalPromptBlockCount: references.length,
     input_trace: inputTrace,
   };
@@ -753,7 +775,10 @@ export async function rewriteOwnedGroundedDocumentField(
     userPrompt: buildGroundedUserPrompt({
       serverName: document.server.name,
       documentTitle: document.title,
-      context: promptContext,
+      context: {
+        ...promptContext,
+        sourceText: normalizedSourceText,
+      },
       retrieval,
       groundingMode,
       factLedger,
@@ -767,6 +792,11 @@ export async function rewriteOwnedGroundedDocumentField(
       actor_context: actorContext,
       response_mode: "document_ready",
       prompt_version: GROUNDED_DOCUMENT_FIELD_REWRITE_PROMPT_VERSION,
+      raw_input: normalizedInput.raw_input,
+      normalized_input: normalizedInput.normalized_input,
+      normalization_model: normalizedInput.normalization_model,
+      normalization_prompt_version: normalizedInput.normalization_prompt_version,
+      normalization_changed: normalizedInput.normalization_changed,
       groundingMode,
       law_version_ids: retrieval.combinedRetrievalRevision.lawCurrentVersionIds,
       law_version_contract: lawVersionContract,
