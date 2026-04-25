@@ -203,7 +203,7 @@
 
 ### `16-ai-legal-core`
 
-Статус: `post-MVP / active / partial`
+Статус: `post-MVP / active / стабилизация`
 
 Это следующий именованный шаг после `15`, но по product-смыслу он конкретизирует AI-направление именно после `08`.
 
@@ -221,18 +221,29 @@
 Что уже реализовано в repo:
 
 - legal-core metadata и internal logging для assistant и document rewrite flows
+- слой нормализации входного текста с `raw_input` / `normalized_input`
+- полноценный `actor_context` contract для assistant и rewrite flows
+- `law_version_contract` для assistant, обычного rewrite и grounded rewrite
 - `source ledger` / `used_sources` для assistant
 - `fact ledger` для AI-доработки описательной части
 - retrieval-aware legal guardrails для обычного rewrite
 - grounded rewrite с теми же legal-core принципами
+- `input_trace` / `output_trace` для основных AI-flow
 - скрытые future-review markers как мост к шагу `17`, но без включения самого review-слоя
+- усиленная атрибуция источников в assistant, которая уже достаточно отделяет найденные, переданные и реально использованные источники для прикладных нужд legal core
 
-Что ещё остаётся до formal done:
+Что ещё остаётся до практического закрытия:
 
-- полноценный `actor_context` contract beyond `general_question` для assistant
-- более жёсткий `law_version` / retrieval contract без смешения версий
-- более строгий `used_norms` слой внутри `source ledger`
-- финальная унификация `input` / `output` trace и operational split между cheap и expensive AI operations
+- короткий этап стабилизации без открытия новых AI-подпроектов внутри `16`
+- финальная проверка assistant / rewrite / grounded rewrite после следующей фиксации этого слоя
+
+Что специально не нужно превращать в шаг `16`:
+
+- внутренний review UI
+- полное семантическое доказательство для каждой фразы ответа
+- hard enforcement `ровно 3–7 норм`
+- отдельный фреймворк оркестрации для дешёвых и дорогих операций
+- всё, что по смыслу уже относится к `17-ai-quality-review`
 
 После этого шага отдельной follow-up линией должен идти `17-ai-quality-review`, который не входит в сам шаг `16`.
 

@@ -188,6 +188,8 @@ describe("answer pipeline", () => {
         "",
         "## Использованные нормы / источники",
         "Гражданский кодекс — статья 1. О письменной форме договора.",
+        "",
+        '<!-- used_sources_json: {"laws":[{"law_id":"law-1","law_version":"law-version-1","law_block_id":"law-block-1"}],"precedents":[{"precedent_id":"precedent-1","precedent_version":"precedent-version-1","precedent_block_id":"precedent-block-1"}]} -->',
       ].join("\n"),
       proxyKey: "primary",
       providerKey: "openai_compatible",
@@ -306,6 +308,7 @@ describe("answer pipeline", () => {
         is_current_snapshot_consistent: true,
       });
       expect(result.metadata.used_sources).toHaveLength(2);
+      expect(result.answerMarkdown).not.toContain("used_sources_json");
       expect(result.metadata.source_ledger).toMatchObject({
         server_id: "server-1",
         law_version_ids: ["law-version-1"],
@@ -392,6 +395,18 @@ describe("answer pipeline", () => {
             summary: expect.stringContaining("письменная форма"),
             normativeAnalysis: expect.stringContaining("Статья 1"),
           }),
+          used_sources_manifest: expect.objectContaining({
+            laws: [
+              expect.objectContaining({
+                law_id: "law-1",
+              }),
+            ],
+            precedents: [
+              expect.objectContaining({
+                precedent_id: "precedent-1",
+              }),
+            ],
+          }),
           queue_for_future_ai_quality_review: false,
           future_review_priority: "low",
           future_review_flags: [],
@@ -420,6 +435,8 @@ describe("answer pipeline", () => {
         "",
         "## Вывод / интерпретация",
         "Ответ опирается на precedent-corpus, а не на прямую норму закона.",
+        "",
+        '<!-- used_sources_json: {"laws":[],"precedents":[{"precedent_id":"precedent-1","precedent_version":"precedent-version-1","precedent_block_id":"precedent-block-1"}]} -->',
       ].join("\n"),
       proxyKey: "primary",
       providerKey: "openai_compatible",
@@ -482,6 +499,12 @@ describe("answer pipeline", () => {
     if (result.status === "answered") {
       expect(result.metadata.lawsUsed).toEqual([]);
       expect(result.metadata.precedentsUsed).toHaveLength(1);
+      expect(result.metadata.used_sources).toEqual([
+        expect.objectContaining({
+          source_kind: "precedent",
+          precedent_id: "precedent-1",
+        }),
+      ]);
       expect(result.metadata.self_assessment).toMatchObject({
         answer_confidence: "medium",
         insufficient_data: true,
@@ -563,6 +586,8 @@ describe("answer pipeline", () => {
             "",
             "## Использованные нормы / источники",
             "Старый кодекс — статья 7.",
+            "",
+            '<!-- used_sources_json: {"laws":[{"law_id":"law-legacy","law_version":"law-version-2","law_block_id":"law-block-legacy"}],"precedents":[]} -->',
           ].join("\n"),
           proxyKey: "primary",
           providerKey: "openai_compatible",

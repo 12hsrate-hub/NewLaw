@@ -42,6 +42,21 @@ export type AssistantAnswerSections = {
   sources?: string;
 };
 
+type AssistantUsedSourceManifest = {
+  laws?: Array<{
+    law_id: string;
+    law_version: string;
+    law_block_id?: string;
+  }>;
+  precedents?: Array<{
+    precedent_id: string;
+    precedent_version: string;
+    precedent_block_id?: string;
+  }>;
+};
+
+const USED_SOURCES_MANIFEST_PATTERN = /<!--\s*used_sources_json:\s*([\s\S]*?)\s*-->/i;
+
 function normalizeSectionText(input: string) {
   return input.trim().replace(/\n{3,}/g, "\n\n");
 }
@@ -69,7 +84,7 @@ export function composeAssistantAnswerMarkdown(sections: AssistantAnswerSections
 }
 
 export function parseAssistantAnswerSections(content: string): AssistantAnswerSections {
-  const normalizedContent = content.trim();
+  const normalizedContent = stripAssistantUsedSourcesManifest(content).trim();
   const sectionPattern =
     /##\s*(Краткий вывод|Что прямо следует из норм закона|Что прямо следует из норм|Что подтверждается судебными прецедентами|Вывод \/ интерпретация|Использованные нормы \/ источники)\s*([\s\S]*?)(?=##\s*(?:Краткий вывод|Что прямо следует из норм закона|Что прямо следует из норм|Что подтверждается судебными прецедентами|Вывод \/ интерпретация|Использованные нормы \/ источники)|$)/g;
   const sectionMap = new Map<string, string>();
@@ -107,6 +122,10 @@ export function parseAssistantAnswerSections(content: string): AssistantAnswerSe
       sectionMap.get("Использованные нормы / источники") ??
       "Использованные нормы и источники нужно брать только из grounded metadata ответа.",
   };
+}
+
+function stripAssistantUsedSourcesManifest(content: string) {
+  return content.replace(USED_SOURCES_MANIFEST_PATTERN, "").trim();
 }
 
 const MAX_PROMPT_LAW_BLOCKS = 4;
@@ -207,6 +226,25 @@ type AssistantUsedSource =
       validity_status: string;
       source_topic_url: string;
     };
+
+function parseAssistantUsedSourcesManifest(content: string): AssistantUsedSourceManifest | null {
+  const match = content.match(USED_SOURCES_MANIFEST_PATTERN);
+
+  if (!match?.[1]) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(match[1]) as AssistantUsedSourceManifest;
+
+    return {
+      laws: Array.isArray(parsed.laws) ? parsed.laws : [],
+      precedents: Array.isArray(parsed.precedents) ? parsed.precedents : [],
+    };
+  } catch {
+    return null;
+  }
+}
 
 function buildSourceLedgerEntry(
   result:
@@ -325,10 +363,120 @@ function isNormMentionedInAssistantSourcesSection(
 function inferAssistantUsedNorms(input: {
   sourceLedger: AssistantSourceLedger;
   sections: AssistantAnswerSections;
+  manifest?: AssistantUsedSourceManifest | null;
 }) {
+  const manifestLaws = new Set(
+    (input.manifest?.laws ?? []).map((entry) => `${entry.law_id}:${entry.law_version}`),
+  );
+
   return input.sourceLedger.context_norms.filter((entry) =>
+    manifestLaws.has(`${entry.law_id}:${entry.law_version}`) ||
     isNormMentionedInAssistantSourcesSection(entry, input.sections.sources ?? ""),
   );
+}
+
+function normalizeAssistantComparableText(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function isAssistantLawUsedInSections(
+  result: RetrievalResult["lawRetrieval"]["results"][number],
+  sections: AssistantAnswerSections,
+) {
+  const searchableText = normalizeAssistantComparableText(
+    [sections.normativeAnalysis, sections.interpretation, sections.sources ?? ""].join("\n"),
+  );
+
+  if (searchableText.length === 0) {
+    return false;
+  }
+
+  const titleMatch =
+    normalizeAssistantComparableText(result.lawTitle).length > 0 &&
+    searchableText.includes(normalizeAssistantComparableText(result.lawTitle));
+  const articleMatch =
+    typeof result.articleNumberNormalized === "string" &&
+    result.articleNumberNormalized.trim().length > 0 &&
+    new RegExp(`(?:статья|статьи|ст)\\s*\\.?\\s*${escapeRegExp(result.articleNumberNormalized)}`, "i").test(
+      [sections.normativeAnalysis, sections.interpretation, sections.sources ?? ""].join("\n"),
+    );
+
+  return titleMatch || articleMatch;
+}
+
+function isAssistantPrecedentUsedInSections(
+  result: RetrievalResult["precedentRetrieval"]["results"][number],
+  sections: AssistantAnswerSections,
+) {
+  const searchableText = normalizeAssistantComparableText(
+    [sections.precedentAnalysis, sections.interpretation, sections.sources ?? ""].join("\n"),
+  );
+
+  if (searchableText.length === 0) {
+    return false;
+  }
+
+  const title = normalizeAssistantComparableText(result.precedentTitle);
+
+  if (title.length > 0 && searchableText.includes(title)) {
+    return true;
+  }
+
+  const snippetWords = normalizeAssistantComparableText(result.snippet)
+    .split(" ")
+    .filter((word) => word.length >= 6)
+    .slice(0, 4);
+
+  return snippetWords.some((word) => searchableText.includes(word));
+}
+
+function inferAssistantUsedSources(input: {
+  retrieval: RetrievalResult;
+  sections: AssistantAnswerSections;
+  manifest?: AssistantUsedSourceManifest | null;
+}) {
+  const manifestLawIds = new Set(
+    (input.manifest?.laws ?? []).map((entry) => `${entry.law_id}:${entry.law_version}`),
+  );
+  const manifestPrecedentIds = new Set(
+    (input.manifest?.precedents ?? []).map(
+      (entry) => `${entry.precedent_id}:${entry.precedent_version}`,
+    ),
+  );
+  const contextSources = buildAssistantUsedSources(input.retrieval);
+
+  return contextSources.filter((source) => {
+    if (source.source_kind === "law") {
+      if (manifestLawIds.has(`${source.law_id}:${source.law_version}`)) {
+        return true;
+      }
+
+      const retrievalResult = input.retrieval.lawRetrieval.results.find(
+        (result) =>
+          result.lawId === source.law_id && result.lawVersionId === source.law_version,
+      );
+
+      return retrievalResult ? isAssistantLawUsedInSections(retrievalResult, input.sections) : false;
+    }
+
+    if (manifestPrecedentIds.has(`${source.precedent_id}:${source.precedent_version}`)) {
+      return true;
+    }
+
+    const retrievalResult = input.retrieval.precedentRetrieval.results.find(
+      (result) =>
+        result.precedentId === source.precedent_id &&
+        result.precedentVersionId === source.precedent_version,
+    );
+
+    return retrievalResult
+      ? isAssistantPrecedentUsedInSections(retrievalResult, input.sections)
+      : false;
+  });
 }
 
 function collectOutsideSnapshotLawVersionIds(input: {
@@ -552,6 +700,11 @@ function buildAssistantSystemPrompt() {
     "Не используй для пользователя формулировки: 'недостаточно данных', 'невозможно определить', 'я не нашёл норму', 'нельзя сделать вывод'.",
     "Если опоры недостаточно, используй аккуратные условные формулировки: 'оценка зависит от...', 'при наличии оснований...', 'при соблюдении порядка...', 'может свидетельствовать...', 'допустимо при условии...'.",
     "В секции 'Использованные нормы / источники' перечисли только те нормы и прецеденты, на которые ты реально опирался в ответе.",
+    "После всех markdown-секций добавь одну HTML-комментарий-строку формата <!-- used_sources_json: {\"laws\":[...],\"precedents\":[...]} -->.",
+    "В этом JSON перечисли только реально использованные источники.",
+    "Для laws используй объекты вида {\"law_id\":\"...\",\"law_version\":\"...\",\"law_block_id\":\"...\"}.",
+    "Для precedents используй объекты вида {\"precedent_id\":\"...\",\"precedent_version\":\"...\",\"precedent_block_id\":\"...\"}.",
+    "HTML-комментарий не должен содержать ничего, кроме JSON по этому формату.",
     "Верни ответ строго на русском языке и строго с markdown-секциями второго уровня:",
     "## Краткий вывод",
     "## Что прямо следует из норм закона",
@@ -575,6 +728,7 @@ function buildAssistantUserPrompt(input: {
 
       return [
         `Law source ${index + 1}`,
+        `- law_id: ${result.lawId}`,
         `- law_key: ${result.lawKey}`,
         `- title: ${result.lawTitle}`,
         `- version_id: ${result.lawVersionId}`,
@@ -600,6 +754,7 @@ function buildAssistantUserPrompt(input: {
 
       return [
         `Precedent source ${index + 1}`,
+        `- precedent_id: ${result.precedentId}`,
         `- precedent_key: ${result.precedentKey}`,
         `- title: ${result.precedentTitle}`,
         `- version_id: ${result.precedentVersionId}`,
@@ -1028,6 +1183,7 @@ export async function generateServerLegalAssistantAnswer(
   }
 
   const parsedSections = parseAssistantAnswerSections(proxyResponse.content);
+  const usedSourcesManifest = parseAssistantUsedSourcesManifest(proxyResponse.content);
   const sections = {
     ...parsedSections,
     sources: proxyResponse.content.includes("## Использованные нормы / источники")
@@ -1035,9 +1191,15 @@ export async function generateServerLegalAssistantAnswer(
       : buildSourcesSectionText(retrieval),
   };
   const answerMarkdown = composeAssistantAnswerMarkdown(sections);
+  const answeredUsedSources = inferAssistantUsedSources({
+    retrieval,
+    sections,
+    manifest: usedSourcesManifest,
+  });
   const usedNorms = inferAssistantUsedNorms({
     sourceLedger,
     sections,
+    manifest: usedSourcesManifest,
   });
   const answeredSourceLedger = buildAssistantSourceLedgerWithUsedNorms(sourceLedgerBase, usedNorms);
   const answeredLawVersionContract = buildAssistantLawVersionContract({
@@ -1066,13 +1228,14 @@ export async function generateServerLegalAssistantAnswer(
       total_tokens: usageMetrics.total_tokens,
       cost_usd: usageMetrics.cost_usd,
       confidence: answeredSelfAssessment.answer_confidence,
-      used_sources: usedSources,
       output_trace: buildAssistantOutputTrace({
         answerMarkdown,
         sections,
       }),
       answer_markdown_preview: buildAnswerPreview(answerMarkdown),
       answer_sections: sections,
+      used_sources_manifest: usedSourcesManifest,
+      used_sources: answeredUsedSources,
       ...answeredFutureReviewMarker,
       self_assessment: answeredSelfAssessment,
     },
@@ -1087,6 +1250,7 @@ export async function generateServerLegalAssistantAnswer(
     metadata: {
       ...metadataBase,
       law_version_contract: answeredLawVersionContract,
+      used_sources: answeredUsedSources,
       source_ledger: answeredSourceLedger,
       self_assessment: answeredSelfAssessment,
     },
