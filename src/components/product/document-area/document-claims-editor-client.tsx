@@ -8,6 +8,23 @@ import {
   isGroundedRewriteSectionSupportedForDocumentType,
 } from "@/document-ai/sections";
 import { DocumentFieldRewritePanel } from "@/components/product/document-area/document-field-rewrite-panel";
+import {
+  areStatesEqual,
+  buildEmptyEvidenceGroup,
+  buildEmptyEvidenceRow,
+  buildEmptyTrustorSnapshot,
+  createEditorState,
+  createGenerationState,
+  filingModeLabel,
+  formatGroundedSupportSummary,
+  formatSubtypeLabel,
+  type ClaimsDraftCreateClientProps,
+  type ClaimsDraftEditorClientProps,
+  type ClaimsEditorState,
+  type ClaimsGroundedRewriteSuggestionState,
+  type ClaimsPreviewState,
+  type ClaimsRewriteSuggestionState,
+} from "@/components/product/document-area/document-claims-editor-shared";
 import { DocumentTrustorRegistryPrefill } from "@/components/product/document-area/document-trustor-registry-prefill";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -29,200 +46,12 @@ import {
 import type {
   ClaimDocumentType,
   ClaimsDraftPayload,
-  ClaimsRenderedOutput,
   OgpComplaintEvidenceGroup,
-  OgpComplaintEvidenceRow,
-  OgpComplaintTrustorSnapshot,
 } from "@/schemas/document";
 import type {
   ClaimsDocumentRewriteSectionKey,
-  DocumentFieldRewriteUsageMeta,
   GroundedClaimsDocumentRewriteSectionKey,
-  GroundedDocumentFieldRewriteUsageMeta,
-  GroundedDocumentRewriteMode,
-  GroundedDocumentReference,
 } from "@/schemas/document-ai";
-
-type SharedCharacterContext = {
-  fullName: string;
-  passportNumber: string;
-  position?: string;
-  phone?: string;
-  icEmail?: string;
-  passportImageUrl?: string;
-  isProfileComplete: boolean;
-  canUseRepresentative: boolean;
-};
-
-type CreateCharacterOption = SharedCharacterContext & {
-  id: string;
-};
-
-type ClaimsDraftCreateClientProps = {
-  server: {
-    code: string;
-    name: string;
-  };
-  documentType: ClaimDocumentType;
-  characters: CreateCharacterOption[];
-  selectedCharacter: CreateCharacterOption & {
-    source: "last_used" | "first_available";
-  };
-  initialTitle: string;
-  initialPayload: ClaimsDraftPayload;
-  trustorRegistry: TrustorRegistryPrefillOption[];
-};
-
-type ClaimsDraftEditorClientProps = {
-  documentId: string;
-  documentType: ClaimDocumentType;
-  server: {
-    code: string;
-    name: string;
-  };
-  authorSnapshot: SharedCharacterContext;
-  initialTitle: string;
-  initialPayload: ClaimsDraftPayload;
-  status: "draft" | "generated" | "published";
-  updatedAt: string;
-  generatedAt: string | null;
-  generatedFormSchemaVersion: string | null;
-  generatedOutputFormat: string | null;
-  generatedRendererVersion: string | null;
-  generatedArtifact: ClaimsRenderedOutput | null;
-  isModifiedAfterGeneration: boolean;
-  trustorRegistry: TrustorRegistryPrefillOption[];
-};
-
-type ClaimsPreviewState = ClaimsRenderedOutput | null;
-
-type ClaimsGenerationState = {
-  status: "draft" | "generated" | "published";
-  generatedAt: string | null;
-  generatedFormSchemaVersion: string | null;
-  generatedOutputFormat: string | null;
-  generatedRendererVersion: string | null;
-  isModifiedAfterGeneration: boolean;
-};
-
-type ClaimsEditorState = {
-  title: string;
-  payload: ClaimsDraftPayload;
-};
-
-type ClaimsRewriteSuggestionState = {
-  sectionKey: ClaimsDocumentRewriteSectionKey;
-  sectionLabel: string;
-  sourceText: string;
-  suggestionText: string;
-  basedOnUpdatedAt: string;
-  usageMeta: DocumentFieldRewriteUsageMeta;
-};
-
-type ClaimsGroundedRewriteSuggestionState = {
-  sectionKey: GroundedClaimsDocumentRewriteSectionKey;
-  sectionLabel: string;
-  sourceText: string;
-  suggestionText: string;
-  basedOnUpdatedAt: string;
-  groundingMode: GroundedDocumentRewriteMode;
-  references: GroundedDocumentReference[];
-  usageMeta: GroundedDocumentFieldRewriteUsageMeta;
-};
-
-function createLocalId(prefix: string) {
-  return `${prefix}_${Math.random().toString(36).slice(2, 10)}`;
-}
-
-function buildEmptyEvidenceGroup(): OgpComplaintEvidenceGroup {
-  return {
-    id: createLocalId("claim_evidence_group"),
-    title: "",
-    rows: [],
-  };
-}
-
-function buildEmptyEvidenceRow(): OgpComplaintEvidenceRow {
-  return {
-    id: createLocalId("claim_evidence_row"),
-    mode: "link",
-    templateKey: "custom",
-    labelSnapshot: "",
-    label: "",
-    url: "",
-    note: "",
-  };
-}
-
-function buildEmptyTrustorSnapshot(): OgpComplaintTrustorSnapshot {
-  return {
-    sourceType: "inline_manual",
-    fullName: "",
-    passportNumber: "",
-    address: "",
-    phone: "",
-    icEmail: "",
-    passportImageUrl: "",
-    note: "",
-  };
-}
-
-function createEditorState(input: {
-  title: string;
-  payload: ClaimsDraftPayload;
-}): ClaimsEditorState {
-  return {
-    title: input.title,
-    payload: {
-      ...input.payload,
-      trustorSnapshot:
-        input.payload.filingMode === "representative"
-          ? (input.payload.trustorSnapshot ?? buildEmptyTrustorSnapshot())
-          : null,
-    },
-  };
-}
-
-function areStatesEqual(left: ClaimsEditorState, right: ClaimsEditorState) {
-  return JSON.stringify(left) === JSON.stringify(right);
-}
-
-function createGenerationState(input: {
-  status: "draft" | "generated" | "published";
-  generatedAt: string | null;
-  generatedFormSchemaVersion: string | null;
-  generatedOutputFormat: string | null;
-  generatedRendererVersion: string | null;
-  isModifiedAfterGeneration: boolean;
-}): ClaimsGenerationState {
-  return {
-    status: input.status,
-    generatedAt: input.generatedAt,
-    generatedFormSchemaVersion: input.generatedFormSchemaVersion,
-    generatedOutputFormat: input.generatedOutputFormat,
-    generatedRendererVersion: input.generatedRendererVersion,
-    isModifiedAfterGeneration: input.isModifiedAfterGeneration,
-  };
-}
-
-function formatSubtypeLabel(documentType: ClaimDocumentType) {
-  return documentType === "rehabilitation" ? "Rehabilitation" : "Lawsuit";
-}
-
-function filingModeLabel(mode: ClaimsDraftPayload["filingMode"]) {
-  return mode === "representative" ? "Representative" : "Self";
-}
-
-function formatGroundedSupportSummary(
-  groundingMode: GroundedDocumentRewriteMode,
-  references: GroundedDocumentReference[],
-) {
-  if (groundingMode === "law_grounded") {
-    return `Опора: подтверждённые нормы закона (${references.length}). Suggestion остаётся локальным и не сохраняется автоматически.`;
-  }
-
-  return `Опора: подтверждённые судебные прецеденты (${references.length}). Норма закона по retrieval не найдена, поэтому suggestion остаётся precedent-grounded.`;
-}
 
 function ClaimsFieldHint(props: { children: string }) {
   return <p className="text-xs leading-5 text-[var(--muted)]">{props.children}</p>;
