@@ -37,3 +37,32 @@ export async function createAIRequest(input: CreateAIRequestInput) {
     },
   });
 }
+
+export async function listRecentAIRequests(input?: { take?: number }) {
+  return prisma.aIRequest.findMany({
+    orderBy: { createdAt: "desc" },
+    take: input?.take ?? 50,
+    select: {
+      id: true,
+      featureKey: true,
+      model: true,
+      status: true,
+      createdAt: true,
+      responsePayloadJson: true,
+      account: {
+        select: {
+          id: true,
+          login: true,
+          email: true,
+        },
+      },
+      server: {
+        select: {
+          id: true,
+          code: true,
+          name: true,
+        },
+      },
+    },
+  });
+}

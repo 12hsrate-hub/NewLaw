@@ -27,6 +27,10 @@ const validEnv = {
   FORUM_SESSION_ENCRYPTION_KEY: "abcdefghijklmnopqrstuvwxyz123456",
   OGP_FORUM_THREAD_FORM_URL: "https://forum.gta5rp.com/forums/ogp-section.123/post-thread",
   AI_PROXY_ACTIVE_KEY: "primary",
+  AI_REVIEW_ENABLED: "true",
+  AI_REVIEW_MODE: "full",
+  AI_REVIEW_DAILY_REQUEST_LIMIT: "500",
+  AI_REVIEW_DAILY_COST_LIMIT_USD: "25",
 } satisfies Record<string, string>;
 
 describe("evaluateReleaseEnv", () => {
@@ -35,7 +39,11 @@ describe("evaluateReleaseEnv", () => {
 
     expect(result.blockingFailure).toBe(false);
     expect(result.classification).toBe("ok");
-    expect(result.checks.every((check) => check.status === "valid")).toBe(true);
+    expect(
+      result.checks.every(
+        (check) => check.status === "valid" || check.status === "optional_missing",
+      ),
+    ).toBe(true);
   });
 
   it("marks missing required env as blocking", () => {
@@ -57,6 +65,10 @@ describe("evaluateReleaseEnv", () => {
       FORUM_SESSION_ENCRYPTION_KEY: undefined,
       OGP_FORUM_THREAD_FORM_URL: undefined,
       AI_PROXY_ACTIVE_KEY: undefined,
+      AI_REVIEW_ENABLED: undefined,
+      AI_REVIEW_MODE: undefined,
+      AI_REVIEW_DAILY_REQUEST_LIMIT: undefined,
+      AI_REVIEW_DAILY_COST_LIMIT_USD: undefined,
     });
 
     expect(result.blockingFailure).toBe(false);
@@ -89,6 +101,18 @@ describe("evaluateReleaseEnv", () => {
     expect(result.blockingFailure).toBe(false);
     expect(result.checks.find((check) => check.key === "DATABASE_URL")?.status).toBe("valid");
     expect(result.checks.find((check) => check.key === "DIRECT_URL")?.status).toBe("valid");
+  });
+
+  it("marks invalid AI review controls as optional non-live without blocking whole release", () => {
+    const result = evaluateReleaseEnv({
+      ...validEnv,
+      AI_REVIEW_MODE: "chaos",
+    });
+
+    expect(result.blockingFailure).toBe(false);
+    expect(result.checks.find((check) => check.key === "AI_REVIEW_MODE")?.status).toBe(
+      "placeholder_non_live",
+    );
   });
 });
 

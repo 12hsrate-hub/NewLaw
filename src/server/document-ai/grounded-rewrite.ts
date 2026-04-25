@@ -35,6 +35,7 @@ import {
   extractProxyUsageMetrics,
   GROUNDED_DOCUMENT_FIELD_REWRITE_PROMPT_VERSION,
 } from "@/server/legal-core/observability";
+import { attachDeterministicAIQualityReview } from "@/server/legal-core/quality-review";
 import { buildGroundedDocumentRewriteFutureReviewMarker } from "@/server/legal-core/review-routing";
 import { normalizeLegalInputText } from "@/server/legal-core/input-normalization";
 import {
@@ -742,26 +743,31 @@ export async function rewriteOwnedGroundedDocumentField(
 
   if (!groundingMode || references.length === 0) {
     const message = buildInsufficientCorpusMessage(retrieval);
+    const insufficientCorpusResponsePayload = {
+      statusBranch: "insufficient_corpus",
+      latencyMs: 0,
+      prompt_tokens: null,
+      completion_tokens: null,
+      total_tokens: null,
+      cost_usd: null,
+      confidence: selfAssessment.answer_confidence,
+      references,
+      used_sources: usedSources,
+      output_trace: null,
+      ...insufficientCorpusFutureReviewMarker,
+      self_assessment: selfAssessment,
+    };
 
     await dependencies.createAIRequest({
       accountId: input.accountId,
       serverId: document.serverId,
       featureKey: GROUNDED_DOCUMENT_FIELD_REWRITE_FEATURE_KEY,
       requestPayloadJson: requestPayloadBase,
-      responsePayloadJson: {
-        statusBranch: "insufficient_corpus",
-        latencyMs: 0,
-        prompt_tokens: null,
-        completion_tokens: null,
-        total_tokens: null,
-        cost_usd: null,
-        confidence: selfAssessment.answer_confidence,
-        references,
-        used_sources: usedSources,
-        output_trace: null,
-        ...insufficientCorpusFutureReviewMarker,
-        self_assessment: selfAssessment,
-      },
+      responsePayloadJson: await attachDeterministicAIQualityReview({
+        featureKey: GROUNDED_DOCUMENT_FIELD_REWRITE_FEATURE_KEY,
+        requestPayloadJson: requestPayloadBase,
+        responsePayloadJson: insufficientCorpusResponsePayload,
+      }),
       status: "unavailable",
       errorMessage: message,
     });
@@ -812,6 +818,22 @@ export async function rewriteOwnedGroundedDocumentField(
   );
 
   if (proxyResponse.status !== "success") {
+    const unavailableResponsePayload = {
+      statusBranch: "unavailable",
+      latencyMs,
+      references,
+      attemptedProxyKeys: proxyResponse.attemptedProxyKeys,
+      prompt_tokens: usageMetrics.prompt_tokens,
+      completion_tokens: usageMetrics.completion_tokens,
+      total_tokens: usageMetrics.total_tokens,
+      cost_usd: usageMetrics.cost_usd,
+      confidence: selfAssessment.answer_confidence,
+      used_sources: usedSources,
+      output_trace: null,
+      ...unavailableFutureReviewMarker,
+      self_assessment: selfAssessment,
+    };
+
     await dependencies.createAIRequest({
       accountId: input.accountId,
       serverId: document.serverId,
@@ -820,21 +842,11 @@ export async function rewriteOwnedGroundedDocumentField(
       proxyKey: "proxyKey" in proxyResponse ? proxyResponse.proxyKey ?? null : null,
       model: "model" in proxyResponse ? proxyResponse.model ?? null : null,
       requestPayloadJson: requestPayloadBase,
-      responsePayloadJson: {
-        statusBranch: "unavailable",
-        latencyMs,
-        references,
-        attemptedProxyKeys: proxyResponse.attemptedProxyKeys,
-        prompt_tokens: usageMetrics.prompt_tokens,
-        completion_tokens: usageMetrics.completion_tokens,
-        total_tokens: usageMetrics.total_tokens,
-        cost_usd: usageMetrics.cost_usd,
-        confidence: selfAssessment.answer_confidence,
-        used_sources: usedSources,
-        output_trace: null,
-        ...unavailableFutureReviewMarker,
-        self_assessment: selfAssessment,
-      },
+      responsePayloadJson: await attachDeterministicAIQualityReview({
+        featureKey: GROUNDED_DOCUMENT_FIELD_REWRITE_FEATURE_KEY,
+        requestPayloadJson: requestPayloadBase,
+        responsePayloadJson: unavailableResponsePayload,
+      }),
       status: proxyResponse.status,
       errorMessage: proxyResponse.message,
     });
@@ -865,6 +877,24 @@ export async function rewriteOwnedGroundedDocumentField(
     precedentResultCount: retrieval.precedentRetrieval.resultCount,
     retrievalPromptBlockCount: references.length,
   });
+  const successResponsePayload = {
+    statusBranch: groundingMode,
+    suggestionLength: usageMeta.suggestionLength,
+    latencyMs: usageMeta.latencyMs,
+    finishReason: usageMeta.finishReason,
+    references,
+    attemptedProxyKeys: usageMeta.attemptedProxyKeys,
+    suggestionPreview: suggestionText.slice(0, MAX_SUGGESTION_PREVIEW_LENGTH),
+    output_trace: outputTrace,
+    prompt_tokens: usageMetrics.prompt_tokens,
+    completion_tokens: usageMetrics.completion_tokens,
+    total_tokens: usageMetrics.total_tokens,
+    cost_usd: usageMetrics.cost_usd,
+    confidence: selfAssessment.answer_confidence,
+    used_sources: usedSources,
+    ...successFutureReviewMarker,
+    self_assessment: selfAssessment,
+  };
 
   await dependencies.createAIRequest({
     accountId: input.accountId,
@@ -874,24 +904,11 @@ export async function rewriteOwnedGroundedDocumentField(
     proxyKey: usageMeta.proxyKey,
     model: usageMeta.model,
     requestPayloadJson: requestPayloadBase,
-    responsePayloadJson: {
-      statusBranch: groundingMode,
-      suggestionLength: usageMeta.suggestionLength,
-      latencyMs: usageMeta.latencyMs,
-      finishReason: usageMeta.finishReason,
-      references,
-      attemptedProxyKeys: usageMeta.attemptedProxyKeys,
-      suggestionPreview: suggestionText.slice(0, MAX_SUGGESTION_PREVIEW_LENGTH),
-      output_trace: outputTrace,
-      prompt_tokens: usageMetrics.prompt_tokens,
-      completion_tokens: usageMetrics.completion_tokens,
-      total_tokens: usageMetrics.total_tokens,
-      cost_usd: usageMetrics.cost_usd,
-      confidence: selfAssessment.answer_confidence,
-      used_sources: usedSources,
-      ...successFutureReviewMarker,
-      self_assessment: selfAssessment,
-    },
+    responsePayloadJson: await attachDeterministicAIQualityReview({
+      featureKey: GROUNDED_DOCUMENT_FIELD_REWRITE_FEATURE_KEY,
+      requestPayloadJson: requestPayloadBase,
+      responsePayloadJson: successResponsePayload,
+    }),
     status: "success",
     errorMessage: null,
   });

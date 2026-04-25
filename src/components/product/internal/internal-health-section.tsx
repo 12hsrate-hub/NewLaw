@@ -55,6 +55,113 @@ export function InternalHealthSection({
 
       <Card className="space-y-4 border-[#d7c4b6] bg-white/80">
         <div className="space-y-1">
+          <p className="text-xs uppercase tracking-[0.24em] text-[#8c5a36]">AI quality review</p>
+          <h3 className="text-2xl font-semibold">Review Runtime Controls</h3>
+        </div>
+
+        <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-4">
+          <div className="rounded-2xl border border-[var(--border)] bg-white/70 px-4 py-3">
+            <p className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">Enabled</p>
+            <p className="mt-2 text-lg font-medium">
+              {context.aiQualityReview.enabled ? "yes" : "no"}
+            </p>
+          </div>
+          <div className="rounded-2xl border border-[var(--border)] bg-white/70 px-4 py-3">
+            <p className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">Mode</p>
+            <p className="mt-2 text-lg font-medium">{context.aiQualityReview.mode}</p>
+          </div>
+          <div className="rounded-2xl border border-[var(--border)] bg-white/70 px-4 py-3">
+            <p className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
+              Daily request limit
+            </p>
+            <p className="mt-2 text-lg font-medium">
+              {context.aiQualityReview.dailyRequestLimit ?? "not set"}
+            </p>
+          </div>
+          <div className="rounded-2xl border border-[var(--border)] bg-white/70 px-4 py-3">
+            <p className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
+              Daily cost limit
+            </p>
+            <p className="mt-2 text-lg font-medium">
+              {context.aiQualityReview.dailyCostLimitUsd ?? "not set"}
+            </p>
+          </div>
+        </div>
+      </Card>
+
+      <Card className="space-y-4 border-[#d7c4b6] bg-white/80">
+        <div className="space-y-1">
+          <p className="text-xs uppercase tracking-[0.24em] text-[#8c5a36]">Review queue</p>
+          <h3 className="text-2xl font-semibold">Queued AI Cases Preview</h3>
+          <p className="max-w-3xl text-sm leading-6 text-[#6f6258]">
+            Это compact preview спорных AI-кейсов для `super_admin` без отдельного review UI.
+            Он нужен как operational bridge до полноценной очереди шага 17.
+          </p>
+        </div>
+
+        <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-4">
+          <div className="rounded-2xl border border-[var(--border)] bg-white/70 px-4 py-3">
+            <p className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">Queued cases</p>
+            <p className="mt-2 text-lg font-medium">{context.aiQualityReviewPreview.queuedCount}</p>
+          </div>
+          <div className="rounded-2xl border border-[var(--border)] bg-white/70 px-4 py-3">
+            <p className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">High priority</p>
+            <p className="mt-2 text-lg font-medium">{context.aiQualityReviewPreview.byPriority.high}</p>
+          </div>
+          <div className="rounded-2xl border border-[var(--border)] bg-white/70 px-4 py-3">
+            <p className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
+              Medium priority
+            </p>
+            <p className="mt-2 text-lg font-medium">
+              {context.aiQualityReviewPreview.byPriority.medium}
+            </p>
+          </div>
+          <div className="rounded-2xl border border-[var(--border)] bg-white/70 px-4 py-3">
+            <p className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">Low priority</p>
+            <p className="mt-2 text-lg font-medium">{context.aiQualityReviewPreview.byPriority.low}</p>
+          </div>
+        </div>
+
+        {context.aiQualityReviewPreview.recentQueuedItems.length > 0 ? (
+          <div className="space-y-3">
+            {context.aiQualityReviewPreview.recentQueuedItems.map((item) => (
+              <div
+                className="rounded-2xl border border-[var(--border)] bg-white/70 px-4 py-3"
+                key={item.id}
+              >
+                <div className="flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.18em] text-[#8c5a36]">
+                  <span>{item.featureKey}</span>
+                  <span>·</span>
+                  <span>{item.priority}</span>
+                  <span>·</span>
+                  <span>{item.rootCause}</span>
+                  {item.server ? (
+                    <>
+                      <span>·</span>
+                      <span>{item.server.code}</span>
+                    </>
+                  ) : null}
+                </div>
+                <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
+                  {item.outputPreview ?? "Preview пока отсутствует."}
+                </p>
+                {item.flags.length > 0 ? (
+                  <p className="mt-2 text-xs leading-5 text-[#8c5a36]">
+                    Flags: {item.flags.join(", ")}
+                  </p>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="rounded-2xl border border-[var(--border)] bg-white/70 px-4 py-3 text-sm leading-6 text-[var(--muted)]">
+            Сейчас в bootstrap queue нет спорных кейсов, помеченных для `super_admin`.
+          </div>
+        )}
+      </Card>
+
+      <Card className="space-y-4 border-[#d7c4b6] bg-white/80">
+        <div className="space-y-1">
           <p className="text-xs uppercase tracking-[0.24em] text-[#8c5a36]">Warnings</p>
           <h3 className="text-2xl font-semibold">Concise Attention Points</h3>
         </div>

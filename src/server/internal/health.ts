@@ -1,7 +1,9 @@
 import { listLawSourceIndexes } from "@/db/repositories/law-source-index.repository";
 import { listPrecedentSourceTopicsForAdminReview } from "@/db/repositories/precedent-source-topic.repository";
 import { listServerDirectoryServers } from "@/db/repositories/server.repository";
+import { getAIQualityReviewRuntimeEnv } from "@/schemas/env";
 import { getHealthPayload } from "@/server/http/health";
+import { getInternalAIQualityReviewPreview } from "@/server/internal/ai-quality-review";
 import {
   resolveAssistantStatus,
   type ServerAssistantStatus,
@@ -13,6 +15,13 @@ type InternalHealthWarning = {
 };
 
 export type InternalHealthRuntimeSummary = ReturnType<typeof getHealthPayload>;
+
+export type InternalHealthAIQualityReviewSummary = {
+  enabled: boolean;
+  mode: "off" | "log_only" | "full";
+  dailyRequestLimit: number | null;
+  dailyCostLimitUsd: number | null;
+};
 
 export type InternalHealthServerSummary = {
   id: string;
@@ -30,6 +39,8 @@ export type InternalHealthServerSummary = {
 
 export type InternalHealthContext = {
   runtime: InternalHealthRuntimeSummary;
+  aiQualityReview: InternalHealthAIQualityReviewSummary;
+  aiQualityReviewPreview: Awaited<ReturnType<typeof getInternalAIQualityReviewPreview>>;
   serverSummaries: InternalHealthServerSummary[];
   warnings: InternalHealthWarning[];
 };
@@ -102,12 +113,42 @@ function buildServerWarnings(input: {
 }
 
 export async function getInternalHealthContext(): Promise<InternalHealthContext> {
-  const [runtime, servers, sourceIndexes, precedentSourceTopics] = await Promise.all([
+  const [runtime, servers, sourceIndexes, precedentSourceTopics, aiQualityReviewPreview] =
+    await Promise.all([
     getHealthPayload(),
     listServerDirectoryServers(),
     listLawSourceIndexes(),
     listPrecedentSourceTopicsForAdminReview(),
+    getInternalAIQualityReviewPreview(),
   ]);
+  const aiQualityReviewRuntime = getAIQualityReviewRuntimeEnv();
+  const aiQualityReview = {
+    enabled:
+      aiQualityReviewRuntime.AI_REVIEW_ENABLED && aiQualityReviewRuntime.AI_REVIEW_MODE !== "off",
+    mode: aiQualityReviewRuntime.AI_REVIEW_MODE,
+    dailyRequestLimit: aiQualityReviewRuntime.AI_REVIEW_DAILY_REQUEST_LIMIT ?? null,
+    dailyCostLimitUsd: aiQualityReviewRuntime.AI_REVIEW_DAILY_COST_LIMIT_USD ?? null,
+  } satisfies InternalHealthAIQualityReviewSummary;
+  const globalWarnings: InternalHealthWarning[] = [];
+
+  if (!aiQualityReview.enabled || aiQualityReview.mode === "off") {
+    globalWarnings.push({
+      level: "warning",
+      message: "AI Quality Review bootstrap сейчас выключен.",
+    });
+  } else if (aiQualityReview.mode === "log_only") {
+    globalWarnings.push({
+      level: "warning",
+      message: "AI Quality Review работает только в log_only режиме без полной очереди для super_admin.",
+    });
+  }
+
+  if (aiQualityReview.dailyRequestLimit === null && aiQualityReview.dailyCostLimitUsd === null) {
+    globalWarnings.push({
+      level: "warning",
+      message: "AI Quality Review bootstrap запущен без configured daily limits.",
+    });
+  }
 
   const serverSummaries = servers.map((server) => {
     const assistantStatus = resolveAssistantStatus(server);
@@ -172,7 +213,12 @@ export async function getInternalHealthContext(): Promise<InternalHealthContext>
 
   return {
     runtime,
+    aiQualityReview,
+    aiQualityReviewPreview,
     serverSummaries,
-    warnings: serverSummaries.flatMap((serverSummary) => serverSummary.warnings),
+    warnings: [
+      ...globalWarnings,
+      ...serverSummaries.flatMap((serverSummary) => serverSummary.warnings),
+    ],
   };
 }

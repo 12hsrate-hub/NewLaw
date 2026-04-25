@@ -45,6 +45,7 @@ import {
   DOCUMENT_FIELD_REWRITE_PROMPT_VERSION,
   extractProxyUsageMetrics,
 } from "@/server/legal-core/observability";
+import { attachDeterministicAIQualityReview } from "@/server/legal-core/quality-review";
 import { buildDocumentRewriteFutureReviewMarker } from "@/server/legal-core/review-routing";
 import { normalizeLegalInputText } from "@/server/legal-core/input-normalization";
 
@@ -796,87 +797,7 @@ export async function rewriteOwnedDocumentField(
   );
 
   if (proxyResponse.status !== "success") {
-    await dependencies.createAIRequest({
-      accountId: input.accountId,
-      serverId: document.serverId,
-      featureKey: DOCUMENT_FIELD_REWRITE_FEATURE_KEY,
-      providerKey: "providerKey" in proxyResponse ? proxyResponse.providerKey ?? null : null,
-      proxyKey: "proxyKey" in proxyResponse ? proxyResponse.proxyKey ?? null : null,
-      model: "model" in proxyResponse ? proxyResponse.model ?? null : null,
-      requestPayloadJson: {
-        documentId: document.id,
-        documentType: document.documentType,
-        sectionKey: input.sectionKey,
-        updatedAt: document.updatedAt.toISOString(),
-        filingMode: promptContext.filingMode,
-        actor_context: actorContext,
-        intent: "document_text_improvement",
-        response_mode: "document_ready",
-        prompt_version: DOCUMENT_FIELD_REWRITE_PROMPT_VERSION,
-        raw_input: normalizedInput.raw_input,
-        normalized_input: normalizedInput.normalized_input,
-        normalization_model: normalizedInput.normalization_model,
-        normalization_prompt_version: normalizedInput.normalization_prompt_version,
-        normalization_changed: normalizedInput.normalization_changed,
-        hasTrustor: promptContext.hasTrustor,
-        evidenceGroupCount: promptContext.evidenceSummary.groupCount,
-        sourceLength: normalizedSourceText.length,
-        contextFieldKeys: promptContext.contextFieldKeys,
-        contextLength: promptContext.contextText.length,
-        input_trace: inputTrace,
-        combinedRetrievalRevision: guardrailRetrieval.combinedRetrievalRevision,
-        law_version_ids: guardrailRetrieval.combinedRetrievalRevision.lawCurrentVersionIds,
-        law_version_contract: lawVersionContract,
-        source_ledger: sourceLedger,
-        used_sources: guardrailUsedSources,
-        fact_ledger: factLedger,
-      },
-      responsePayloadJson: {
-        latencyMs,
-        attemptedProxyKeys: proxyResponse.attemptedProxyKeys,
-        prompt_tokens: usageMetrics.prompt_tokens,
-        completion_tokens: usageMetrics.completion_tokens,
-        total_tokens: usageMetrics.total_tokens,
-        cost_usd: usageMetrics.cost_usd,
-        confidence: selfAssessment.answer_confidence,
-        output_trace: null,
-        ...unavailableFutureReviewMarker,
-        self_assessment: selfAssessment,
-      },
-      status: proxyResponse.status,
-      errorMessage: proxyResponse.message,
-    });
-
-    throw new DocumentFieldRewriteUnavailableError(
-      "AI rewrite сейчас недоступен. Попробуйте ещё раз позже.",
-    );
-  }
-
-  const suggestionText = proxyResponse.content.trim();
-  const finishReason = extractFinishReason(proxyResponse.responsePayloadJson ?? null);
-  const outputTrace = buildRewriteOutputTrace({
-    suggestionText,
-    finishReason,
-  });
-  const usageMeta = documentFieldRewriteUsageMetaSchema.parse({
-    featureKey: DOCUMENT_FIELD_REWRITE_FEATURE_KEY,
-    providerKey: proxyResponse.providerKey ?? null,
-    proxyKey: proxyResponse.proxyKey ?? null,
-    model: proxyResponse.model ?? null,
-    latencyMs,
-    suggestionLength: suggestionText.length,
-    finishReason,
-    attemptedProxyKeys: proxyResponse.attemptedProxyKeys,
-  });
-
-  await dependencies.createAIRequest({
-    accountId: input.accountId,
-    serverId: document.serverId,
-    featureKey: DOCUMENT_FIELD_REWRITE_FEATURE_KEY,
-    providerKey: usageMeta.providerKey,
-    proxyKey: usageMeta.proxyKey,
-    model: usageMeta.model,
-    requestPayloadJson: {
+    const unavailableRequestPayload = {
       documentId: document.id,
       documentType: document.documentType,
       sectionKey: input.sectionKey,
@@ -903,22 +824,114 @@ export async function rewriteOwnedDocumentField(
       source_ledger: sourceLedger,
       used_sources: guardrailUsedSources,
       fact_ledger: factLedger,
-    },
-    responsePayloadJson: {
-      suggestionLength: usageMeta.suggestionLength,
-      latencyMs: usageMeta.latencyMs,
-      finishReason: usageMeta.finishReason,
-      attemptedProxyKeys: usageMeta.attemptedProxyKeys,
-      suggestionPreview: suggestionText.slice(0, MAX_SUGGESTION_PREVIEW_LENGTH),
-      output_trace: outputTrace,
+    };
+    const unavailableResponsePayload = {
+      latencyMs,
+      attemptedProxyKeys: proxyResponse.attemptedProxyKeys,
       prompt_tokens: usageMetrics.prompt_tokens,
       completion_tokens: usageMetrics.completion_tokens,
       total_tokens: usageMetrics.total_tokens,
       cost_usd: usageMetrics.cost_usd,
       confidence: selfAssessment.answer_confidence,
-      ...successFutureReviewMarker,
+      output_trace: null,
+      ...unavailableFutureReviewMarker,
       self_assessment: selfAssessment,
-    },
+    };
+    await dependencies.createAIRequest({
+      accountId: input.accountId,
+      serverId: document.serverId,
+      featureKey: DOCUMENT_FIELD_REWRITE_FEATURE_KEY,
+      providerKey: "providerKey" in proxyResponse ? proxyResponse.providerKey ?? null : null,
+      proxyKey: "proxyKey" in proxyResponse ? proxyResponse.proxyKey ?? null : null,
+      model: "model" in proxyResponse ? proxyResponse.model ?? null : null,
+      requestPayloadJson: unavailableRequestPayload,
+      responsePayloadJson: await attachDeterministicAIQualityReview({
+        featureKey: DOCUMENT_FIELD_REWRITE_FEATURE_KEY,
+        requestPayloadJson: unavailableRequestPayload,
+        responsePayloadJson: unavailableResponsePayload,
+      }),
+      status: proxyResponse.status,
+      errorMessage: proxyResponse.message,
+    });
+
+    throw new DocumentFieldRewriteUnavailableError(
+      "AI rewrite сейчас недоступен. Попробуйте ещё раз позже.",
+    );
+  }
+
+  const suggestionText = proxyResponse.content.trim();
+  const finishReason = extractFinishReason(proxyResponse.responsePayloadJson ?? null);
+  const outputTrace = buildRewriteOutputTrace({
+    suggestionText,
+    finishReason,
+  });
+  const usageMeta = documentFieldRewriteUsageMetaSchema.parse({
+    featureKey: DOCUMENT_FIELD_REWRITE_FEATURE_KEY,
+    providerKey: proxyResponse.providerKey ?? null,
+    proxyKey: proxyResponse.proxyKey ?? null,
+    model: proxyResponse.model ?? null,
+    latencyMs,
+    suggestionLength: suggestionText.length,
+    finishReason,
+    attemptedProxyKeys: proxyResponse.attemptedProxyKeys,
+  });
+  const successRequestPayload = {
+    documentId: document.id,
+    documentType: document.documentType,
+    sectionKey: input.sectionKey,
+    updatedAt: document.updatedAt.toISOString(),
+    filingMode: promptContext.filingMode,
+    actor_context: actorContext,
+    intent: "document_text_improvement",
+    response_mode: "document_ready",
+    prompt_version: DOCUMENT_FIELD_REWRITE_PROMPT_VERSION,
+    raw_input: normalizedInput.raw_input,
+    normalized_input: normalizedInput.normalized_input,
+    normalization_model: normalizedInput.normalization_model,
+    normalization_prompt_version: normalizedInput.normalization_prompt_version,
+    normalization_changed: normalizedInput.normalization_changed,
+    hasTrustor: promptContext.hasTrustor,
+    evidenceGroupCount: promptContext.evidenceSummary.groupCount,
+    sourceLength: normalizedSourceText.length,
+    contextFieldKeys: promptContext.contextFieldKeys,
+    contextLength: promptContext.contextText.length,
+    input_trace: inputTrace,
+    combinedRetrievalRevision: guardrailRetrieval.combinedRetrievalRevision,
+    law_version_ids: guardrailRetrieval.combinedRetrievalRevision.lawCurrentVersionIds,
+    law_version_contract: lawVersionContract,
+    source_ledger: sourceLedger,
+    used_sources: guardrailUsedSources,
+    fact_ledger: factLedger,
+  };
+  const successResponsePayload = {
+    suggestionLength: usageMeta.suggestionLength,
+    latencyMs: usageMeta.latencyMs,
+    finishReason: usageMeta.finishReason,
+    attemptedProxyKeys: usageMeta.attemptedProxyKeys,
+    suggestionPreview: suggestionText.slice(0, MAX_SUGGESTION_PREVIEW_LENGTH),
+    output_trace: outputTrace,
+    prompt_tokens: usageMetrics.prompt_tokens,
+    completion_tokens: usageMetrics.completion_tokens,
+    total_tokens: usageMetrics.total_tokens,
+    cost_usd: usageMetrics.cost_usd,
+    confidence: selfAssessment.answer_confidence,
+    ...successFutureReviewMarker,
+    self_assessment: selfAssessment,
+  };
+
+  await dependencies.createAIRequest({
+    accountId: input.accountId,
+    serverId: document.serverId,
+    featureKey: DOCUMENT_FIELD_REWRITE_FEATURE_KEY,
+    providerKey: usageMeta.providerKey,
+    proxyKey: usageMeta.proxyKey,
+    model: usageMeta.model,
+    requestPayloadJson: successRequestPayload,
+    responsePayloadJson: await attachDeterministicAIQualityReview({
+      featureKey: DOCUMENT_FIELD_REWRITE_FEATURE_KEY,
+      requestPayloadJson: successRequestPayload,
+      responsePayloadJson: successResponsePayload,
+    }),
     status: "success",
     errorMessage: null,
   });

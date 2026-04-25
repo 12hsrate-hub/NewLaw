@@ -255,7 +255,7 @@
 
 ### `17-ai-quality-review`
 
-Статус: `post-MVP`
+Статус: `post-MVP / active / partial`
 
 Это следующий именованный шаг после `16`, и он явно зависит от уже стабилизированного legal core из шага `16`.
 
@@ -269,6 +269,31 @@
 - проверять и `server legal assistant`, и AI-доработку описательной части
 - собирать спорные кейсы, flags, сигналы риска, fix instructions и ожидания для regression в управляемый внутренний контур проверки
 - не выпускать автоматические изменения в production-логику без человека, `PR` / `commit` и проверки
+
+Что уже реализовано в repo:
+
+- deterministic quality-review snapshot внутри `AIRequest`
+- bridge между future-review markers шага `16` и review snapshot шага `17`
+- bootstrap controls для `AI_REVIEW_ENABLED` и `AI_REVIEW_MODE`
+- visibility этих bootstrap controls в release/preflight checks
+- internal runtime visibility этих controls в `/internal/health`
+- compact preview очереди спорных кейсов в `/internal/health`
+- базовый `AI reviewer` second pass в `full` режиме через AI proxy
+- сохранение normalization review chain и case chain `raw_input -> normalized_input -> retrieved sources -> final output`
+- сохранение `risk_level`, `confidence`, `flags`, `root_cause`, `input_quality`, `issue_fingerprint`, `issue_cluster_key`
+
+Что ещё остаётся до основного useful scope:
+
+- internal workflow для `fix_instruction` и `AI Behavior Rules`
+- `regression gate` как process layer
+- отдельный UI для `super_admin`
+- реально enforced review limits
+
+Что ещё остаётся именно внутри reviewer-подслоя:
+
+- более зрелая reviewer policy beyond compact JSON bootstrap
+- решение по окончательному reviewer model tier
+- reviewer-specific regression dataset
 
 Границы этой линии:
 

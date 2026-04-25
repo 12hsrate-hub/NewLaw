@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/db/repositories/server.repository", () => ({
   listServerDirectoryServers: vi.fn(),
@@ -16,15 +16,60 @@ vi.mock("@/server/http/health", () => ({
   getHealthPayload: vi.fn(),
 }));
 
+vi.mock("@/server/internal/ai-quality-review", () => ({
+  getInternalAIQualityReviewPreview: vi.fn(),
+}));
+
 import { listLawSourceIndexes } from "@/db/repositories/law-source-index.repository";
 import { listPrecedentSourceTopicsForAdminReview } from "@/db/repositories/precedent-source-topic.repository";
 import { listServerDirectoryServers } from "@/db/repositories/server.repository";
 import { getHealthPayload } from "@/server/http/health";
+import { getInternalAIQualityReviewPreview } from "@/server/internal/ai-quality-review";
 import { getInternalHealthContext } from "@/server/internal/health";
 
 describe("internal health context", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    process.env.AI_REVIEW_ENABLED = "true";
+    process.env.AI_REVIEW_MODE = "full";
+    process.env.AI_REVIEW_DAILY_REQUEST_LIMIT = "500";
+    process.env.AI_REVIEW_DAILY_COST_LIMIT_USD = "25";
+    vi.mocked(getInternalAIQualityReviewPreview).mockResolvedValue({
+      queuedCount: 2,
+      byPriority: {
+        high: 1,
+        medium: 1,
+        low: 0,
+      },
+      recentQueuedItems: [
+        {
+          id: "ai-request-1",
+          createdAt: "2026-04-25T16:00:00.000Z",
+          featureKey: "server_legal_assistant",
+          model: "gpt-5.4",
+          status: "success",
+          queueForSuperAdmin: true,
+          priority: "high",
+          rootCause: "normalization_issue",
+          flags: ["normalization_changed_meaning"],
+          issueClusterKey: "cluster-1",
+          account: null,
+          server: {
+            id: "server-1",
+            code: "blackberry",
+            name: "Blackberry",
+          },
+          outputPreview: "Preview",
+        },
+      ],
+    });
+  });
+
+  afterEach(() => {
+    delete process.env.AI_REVIEW_ENABLED;
+    delete process.env.AI_REVIEW_MODE;
+    delete process.env.AI_REVIEW_DAILY_REQUEST_LIMIT;
+    delete process.env.AI_REVIEW_DAILY_COST_LIMIT_USD;
   });
 
   it("собирает compact runtime summary, server health statuses и concise warnings", async () => {
@@ -119,6 +164,13 @@ describe("internal health context", () => {
     const result = await getInternalHealthContext();
 
     expect(result.runtime.environment).toBe("production");
+    expect(result.aiQualityReview).toMatchObject({
+      enabled: true,
+      mode: "full",
+      dailyRequestLimit: 500,
+      dailyCostLimitUsd: 25,
+    });
+    expect(result.aiQualityReviewPreview.queuedCount).toBe(2);
     expect(result.serverSummaries).toHaveLength(3);
     expect(result.serverSummaries[0]).toMatchObject({
       code: "blackberry",

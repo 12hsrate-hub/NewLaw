@@ -2,6 +2,7 @@ import { promises as fs } from "node:fs";
 
 import {
   getAIProxyRuntimeEnv,
+  getAIQualityReviewRuntimeEnv,
   getAppRuntimeEnv,
   getAssistantInternalProxyEnv,
   getForumIntegrationRuntimeEnv,
@@ -95,6 +96,10 @@ const OPTIONAL_ENV_KEYS = [
   "FORUM_SESSION_ENCRYPTION_KEY",
   "OGP_FORUM_THREAD_FORM_URL",
   "AI_PROXY_ACTIVE_KEY",
+  "AI_REVIEW_ENABLED",
+  "AI_REVIEW_MODE",
+  "AI_REVIEW_DAILY_REQUEST_LIMIT",
+  "AI_REVIEW_DAILY_COST_LIMIT_USD",
 ] as const;
 
 type EnvKey = (typeof REQUIRED_ENV_KEYS)[number] | (typeof OPTIONAL_ENV_KEYS)[number];
@@ -462,6 +467,53 @@ function classifyOptionalAiProxyActiveKey(env: EnvMap): EnvCheck {
   return makeCheck("AI_PROXY_ACTIVE_KEY", "optional", "valid", "optional env looks live");
 }
 
+function classifyOptionalAiQualityReviewKey(
+  env: EnvMap,
+  key:
+    | "AI_REVIEW_ENABLED"
+    | "AI_REVIEW_MODE"
+    | "AI_REVIEW_DAILY_REQUEST_LIMIT"
+    | "AI_REVIEW_DAILY_COST_LIMIT_USD",
+): EnvCheck {
+  const value = normalizeEnvValue(env[key]);
+
+  if (!value) {
+    const defaultNote =
+      key === "AI_REVIEW_ENABLED"
+        ? "AI Quality Review bootstrap stays enabled by default"
+        : key === "AI_REVIEW_MODE"
+          ? "AI Quality Review stays in default log_only mode"
+          : "AI Quality Review limit stays unset in bootstrap mode";
+
+    return makeCheck(key, "optional", "optional_missing", defaultNote);
+  }
+
+  const parsed = withTemporaryEnv(env, () => {
+    try {
+      getAIQualityReviewRuntimeEnv();
+      return true;
+    } catch {
+      return false;
+    }
+  });
+
+  if (!parsed) {
+    return makeCheck(
+      key,
+      "optional",
+      "placeholder_non_live",
+      "AI Quality Review runtime env is present but invalid for bootstrap controls",
+    );
+  }
+
+  return makeCheck(
+    key,
+    "optional",
+    "valid",
+    "AI Quality Review bootstrap control is configured",
+  );
+}
+
 export async function loadEnvFile(filePath: string): Promise<Record<string, string>> {
   const raw = await fs.readFile(filePath, "utf8");
   const env: Record<string, string> = {};
@@ -511,6 +563,10 @@ export function evaluateReleaseEnv(env: EnvMap): EnvPreflightResult {
     classifyOptionalForumIntegrationKey(env),
     classifyOptionalForumAutomationKey(env),
     classifyOptionalAiProxyActiveKey(env),
+    classifyOptionalAiQualityReviewKey(env, "AI_REVIEW_ENABLED"),
+    classifyOptionalAiQualityReviewKey(env, "AI_REVIEW_MODE"),
+    classifyOptionalAiQualityReviewKey(env, "AI_REVIEW_DAILY_REQUEST_LIMIT"),
+    classifyOptionalAiQualityReviewKey(env, "AI_REVIEW_DAILY_COST_LIMIT_USD"),
   ];
 
   return {

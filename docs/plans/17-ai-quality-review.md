@@ -4,6 +4,14 @@
 
 Post-MVP. Не входит в MVP.
 
+Текущий repo-state для этого шага:
+
+- стартовый deterministic bootstrap уже реализован в коде
+- спорные AI-кейсы уже могут сохраняться в `AIRequest` с внутренним quality-review snapshot
+- kill switch и review modes `off / log_only / full` уже частично реализованы для bootstrap-слоя
+- отдельный `AI reviewer` model layer уже запущен в базовом виде для `full` режима
+- отдельный UI и human fix workflow пока ещё не реализованы
+
 ## Зависимость от шага 16
 
 Шаг `17` должен идти после [16-ai-legal-core.md](./16-ai-legal-core.md) и зависеть от него.
@@ -71,6 +79,13 @@ AI Quality Review работает как скрытый внутренний с
 - `deterministic checks` ловят предсказуемые структурные ошибки и нарушения поведенческих правил
 - `AI reviewer` даёт более гибкую смысловую оценку спорных ответов
 - сигналы из шага `16` передают внутрь контура проверки внутреннюю оценку риска и нехватки опоры
+
+Текущий practical bootstrap этого шага:
+
+- deterministic review snapshot уже сохраняется
+- self-risk сигналы из шага `16` уже протягиваются в review snapshot
+- `AI reviewer` уже может запускаться как отдельный model layer в `full` режиме
+- reviewer пока ещё остаётся compact bootstrap layer, а не финальной production-grade review orchestration
 
 ## Обязательные поля модели проверки
 
@@ -270,6 +285,51 @@ UI для `super_admin` должен быть отдельной будущей 
 - не отменяет зонтичную роль шага `08`
 - не считается частью закрытия MVP
 - не даёт автоматическое исправление production prompts без человека
+
+## Что уже реализовано в repo
+
+На текущем этапе в репозитории уже реализованы такие части `AI Quality Review`:
+
+- deterministic review snapshot внутри `AIRequest`
+- bootstrap controls для `AI_REVIEW_ENABLED` и `AI_REVIEW_MODE`
+- release/preflight visibility для `AI_REVIEW_ENABLED`, `AI_REVIEW_MODE` и bootstrap limits
+- internal visibility runtime controls в `/internal/health`
+- compact preview очереди спорных AI-кейсов в `/internal/health`
+- базовый `AI reviewer` second pass через AI proxy в `full` режиме
+- сохранение `risk_level`, `confidence`, `flags`, `root_cause`, `input_quality`, `issue_fingerprint`, `issue_cluster_key`
+- сохранение normalization review chain:
+  - `raw_input`
+  - `normalized_input`
+  - `normalization_model`
+  - `normalization_prompt_version`
+  - `normalization_changed`
+  - результат сравнения `raw_input` и `normalized_input`
+- сохранение case chain:
+  - `raw_input`
+  - `normalized_input`
+  - `retrieved sources`
+  - `final output`
+- deterministic обработка normalization-related проблем с `root_cause = normalization_issue`
+- deterministic bridge между future-review markers из шага `16` и скрытым review snapshot шага `17`
+
+Это означает, что шаг `17` уже начат как внутренний review bootstrap, даже если его основной scope ещё не закрыт.
+
+## Что ещё остаётся до полезного закрытия шага
+
+После текущего bootstrap в шаге `17` ещё остаются такие полезные части:
+
+- человеко-ориентированный internal workflow для confirmed issue, `fix_instruction` и `AI Behavior Rules`
+- `regression gate` как оформленный operational process
+- отдельный internal UI для `super_admin`
+- дневные лимиты как реально enforced production controls
+
+Что по `AI reviewer` ещё остаётся:
+
+- выделить более зрелую policy для reviewer beyond compact JSON bootstrap
+- решить, нужен ли отдельный reviewer model tier или достаточно текущего cheap second pass
+- отделить reviewer regression dataset от просто queued cases
+
+При этом не нужно считать шаг `17` незапущенным: deterministic review foundation уже существует.
 
 ## Критерии приёмки
 

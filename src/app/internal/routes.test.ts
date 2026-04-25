@@ -89,6 +89,41 @@ describe("internal target route skeletons", () => {
           database: "not-configured-yet",
         },
       },
+      aiQualityReview: {
+        enabled: true,
+        mode: "full",
+        dailyRequestLimit: 500,
+        dailyCostLimitUsd: 25,
+      },
+      aiQualityReviewPreview: {
+        queuedCount: 2,
+        byPriority: {
+          high: 1,
+          medium: 1,
+          low: 0,
+        },
+        recentQueuedItems: [
+          {
+            id: "ai-request-1",
+            createdAt: "2026-04-25T16:00:00.000Z",
+            featureKey: "server_legal_assistant",
+            model: "gpt-5.4",
+            status: "success",
+            queueForSuperAdmin: true,
+            priority: "high",
+            rootCause: "normalization_issue",
+            flags: ["normalization_changed_meaning"],
+            issueClusterKey: "cluster-1",
+            account: null,
+            server: {
+              id: "server-1",
+              code: "blackberry",
+              name: "Blackberry",
+            },
+            outputPreview: "Preview",
+          },
+        ],
+      },
       serverSummaries: [
         {
           id: "server-1",
@@ -217,6 +252,10 @@ describe("internal target route skeletons", () => {
     const html = renderToStaticMarkup(await InternalHealthPage());
 
     expect(html).toContain("Application Health");
+    expect(html).toContain("Review Runtime Controls");
+    expect(html).toContain("Queued AI Cases Preview");
+    expect(html).toContain("normalization_issue");
+    expect(html).toContain("full");
     expect(html).toContain("Corpus, Assistant and Runtime Summary");
     expect(html).toContain("Blackberry");
   });

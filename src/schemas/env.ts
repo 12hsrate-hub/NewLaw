@@ -31,6 +31,13 @@ const assistantInternalProxyEnvSchema = z.object({
   AI_PROXY_INTERNAL_TOKEN: z.string().trim().min(1),
 });
 
+const aiQualityReviewRuntimeEnvSchema = z.object({
+  AI_REVIEW_ENABLED: z.boolean().default(true),
+  AI_REVIEW_MODE: z.enum(["off", "log_only", "full"]).default("log_only"),
+  AI_REVIEW_DAILY_REQUEST_LIMIT: z.number().int().positive().optional(),
+  AI_REVIEW_DAILY_COST_LIMIT_USD: z.number().nonnegative().optional(),
+});
+
 const forumIntegrationRuntimeEnvSchema = z.object({
   FORUM_SESSION_ENCRYPTION_KEY: z.string().trim().min(32),
 });
@@ -85,6 +92,61 @@ export function getAssistantInternalProxyEnv() {
   return assistantInternalProxyEnvSchema.parse({
     OPENAI_API_KEY: process.env.OPENAI_API_KEY,
     AI_PROXY_INTERNAL_TOKEN: process.env.AI_PROXY_INTERNAL_TOKEN,
+  });
+}
+
+function parseBooleanEnv(value: string | undefined, fallback: boolean) {
+  const normalized = value?.trim().toLowerCase();
+
+  if (!normalized) {
+    return fallback;
+  }
+
+  if (["1", "true", "yes", "on"].includes(normalized)) {
+    return true;
+  }
+
+  if (["0", "false", "no", "off"].includes(normalized)) {
+    return false;
+  }
+
+  return fallback;
+}
+
+function parseOptionalPositiveIntEnv(value: string | undefined) {
+  const normalized = value?.trim() ?? "";
+
+  if (!normalized) {
+    return undefined;
+  }
+
+  const parsed = Number(normalized);
+
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : undefined;
+}
+
+function parseOptionalNonNegativeNumberEnv(value: string | undefined) {
+  const normalized = value?.trim() ?? "";
+
+  if (!normalized) {
+    return undefined;
+  }
+
+  const parsed = Number(normalized);
+
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : undefined;
+}
+
+export function getAIQualityReviewRuntimeEnv() {
+  return aiQualityReviewRuntimeEnvSchema.parse({
+    AI_REVIEW_ENABLED: parseBooleanEnv(process.env.AI_REVIEW_ENABLED, true),
+    AI_REVIEW_MODE: process.env.AI_REVIEW_MODE?.trim() || "log_only",
+    AI_REVIEW_DAILY_REQUEST_LIMIT: parseOptionalPositiveIntEnv(
+      process.env.AI_REVIEW_DAILY_REQUEST_LIMIT,
+    ),
+    AI_REVIEW_DAILY_COST_LIMIT_USD: parseOptionalNonNegativeNumberEnv(
+      process.env.AI_REVIEW_DAILY_COST_LIMIT_USD,
+    ),
   });
 }
 
