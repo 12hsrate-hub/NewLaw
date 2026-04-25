@@ -2,9 +2,9 @@ import { AccountZoneFoundationIntro } from "@/components/product/document-area/d
 import { requireProtectedAccountContext } from "@/server/auth/protected";
 
 export default async function AccountLandingPage() {
-  await requireProtectedAccountContext("/account", undefined, {
+  const { account } = await requireProtectedAccountContext("/account", undefined, {
     allowMustChangePassword: true,
   });
 
-  return <AccountZoneFoundationIntro />;
+  return <AccountZoneFoundationIntro isSuperAdmin={account.isSuperAdmin} />;
 }

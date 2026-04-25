@@ -29,7 +29,9 @@ function FoundationLink({
   );
 }
 
-export function AccountZoneFoundationIntro() {
+export function AccountZoneFoundationIntro(props: {
+  isSuperAdmin?: boolean;
+}) {
   return (
     <Card className="space-y-3">
       <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">Личный кабинет</p>
@@ -43,6 +45,11 @@ export function AccountZoneFoundationIntro() {
         <FoundationLink className="text-[var(--muted)]" href="/assistant">
           Открыть юридического помощника
         </FoundationLink>
+        {props.isSuperAdmin ? (
+          <FoundationLink className="text-[var(--muted)]" href="/internal/access-requests">
+            Открыть access requests
+          </FoundationLink>
+        ) : null}
       </div>
     </Card>
   );

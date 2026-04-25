@@ -4,12 +4,17 @@ import Link from "next/link";
 
 import { Card } from "@/components/ui/card";
 import { PageContainer } from "@/components/ui/page-container";
+import { requireProtectedAccountContext } from "@/server/auth/protected";
 
 type AccountLayoutProps = Readonly<{
   children: ReactNode;
 }>;
 
-export default function AccountLayout({ children }: AccountLayoutProps) {
+export default async function AccountLayout({ children }: AccountLayoutProps) {
+  const { account } = await requireProtectedAccountContext("/account", undefined, {
+    allowMustChangePassword: true,
+  });
+
   return (
     <PageContainer>
       <main className="min-h-screen px-6 py-10">
@@ -55,6 +60,14 @@ export default function AccountLayout({ children }: AccountLayoutProps) {
               >
                 Доверители
               </Link>
+              {account.isSuperAdmin ? (
+                <Link
+                  className="rounded-2xl border border-[var(--border)] bg-white/70 px-4 py-2 text-sm font-medium transition hover:bg-white"
+                  href="/internal/access-requests"
+                >
+                  Access Requests
+                </Link>
+              ) : null}
             </nav>
           </Card>
           {children}
