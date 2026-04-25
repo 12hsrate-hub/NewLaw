@@ -20,14 +20,42 @@ describe("internal ai quality review preview", () => {
         model: "gpt-5.4",
         status: "success",
         createdAt: new Date("2026-04-25T16:00:00.000Z"),
+        requestPayloadJson: {
+          prompt_version: "server_legal_assistant_legal_core_v1",
+          law_version_ids: ["law-version-1"],
+        },
         responsePayloadJson: {
+          total_tokens: 500,
+          cost_usd: 0.021,
           ai_quality_review: {
             queue_for_super_admin: true,
             risk_level: "high",
+            quality_score: 0.28,
+            confidence: "low",
             root_cause: "normalization_issue",
+            input_quality: "medium",
             flags: ["normalization_changed_meaning"],
+            review_items: ["Нормализация изменила смысл исходного ввода."],
             issue_cluster_key: "cluster-1",
+            fix_target: "normalization_prompt",
+            layers: {
+              ai_reviewer: {
+                status: "completed",
+              },
+            },
             case_chain: {
+              raw_input: "я хачу абжаловать отказ",
+              normalized_input: "Я хочу обжаловать отказ.",
+              normalization_model: "gpt-5.4-nano",
+              normalization_prompt_version: "input_normalization_v1",
+              normalization_changed: true,
+              normalization_comparison_result: "orthography_fixed",
+              retrieved_sources: [
+                {
+                  lawId: "law-1",
+                  articleNumber: "1",
+                },
+              ],
               final_output_preview: "Preview 1",
             },
           },
@@ -49,7 +77,13 @@ describe("internal ai quality review preview", () => {
         model: "gpt-5.4",
         status: "success",
         createdAt: new Date("2026-04-25T15:00:00.000Z"),
+        requestPayloadJson: {
+          prompt_version: "document_field_rewrite_legal_core_v1",
+          law_version_ids: ["law-version-2"],
+        },
         responsePayloadJson: {
+          total_tokens: 360,
+          cost_usd: 0.012,
           ai_quality_review: {
             queue_for_super_admin: false,
             risk_level: "medium",
@@ -70,6 +104,7 @@ describe("internal ai quality review preview", () => {
         model: "gpt-5.4",
         status: "failure",
         createdAt: new Date("2026-04-25T14:00:00.000Z"),
+        requestPayloadJson: null,
         responsePayloadJson: {
           unrelated: true,
         },
@@ -86,13 +121,69 @@ describe("internal ai quality review preview", () => {
       medium: 0,
       low: 0,
     });
+    expect(result.analytics).toEqual({
+      reviewedCount: 2,
+      queuedCount: 1,
+      totalTokens: 500,
+      totalCostUsd: 0.021,
+      byRootCause: [
+        {
+          key: "normalization_issue",
+          count: 1,
+        },
+      ],
+      byFlag: [
+        {
+          key: "normalization_changed_meaning",
+          count: 1,
+        },
+      ],
+      byPromptVersion: [
+        {
+          key: "server_legal_assistant_legal_core_v1",
+          count: 1,
+        },
+      ],
+      byLawVersion: [
+        {
+          key: "law-version-1",
+          count: 1,
+        },
+      ],
+      byFixTarget: [
+        {
+          key: "normalization_prompt",
+          count: 1,
+        },
+      ],
+    });
     expect(result.recentQueuedItems).toEqual([
       expect.objectContaining({
         id: "ai-request-1",
         featureKey: "server_legal_assistant",
         priority: "high",
+        qualityScore: 0.28,
+        confidence: "low",
         rootCause: "normalization_issue",
+        inputQuality: "medium",
+        fixTarget: "normalization_prompt",
+        aiReviewerStatus: "completed",
+        reviewItems: ["Нормализация изменила смысл исходного ввода."],
         outputPreview: "Preview 1",
+        caseChain: expect.objectContaining({
+          rawInput: "я хачу абжаловать отказ",
+          normalizedInput: "Я хочу обжаловать отказ.",
+          normalizationModel: "gpt-5.4-nano",
+          normalizationPromptVersion: "input_normalization_v1",
+          normalizationChanged: true,
+          normalizationComparisonResult: "orthography_fixed",
+          retrievedSources: [
+            expect.objectContaining({
+              lawId: "law-1",
+            }),
+          ],
+          finalOutputPreview: "Preview 1",
+        }),
       }),
     ]);
   });

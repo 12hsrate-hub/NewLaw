@@ -87,6 +87,41 @@ export function InternalHealthSection({
             </p>
           </div>
         </div>
+
+        <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-4">
+          <div className="rounded-2xl border border-[var(--border)] bg-white/70 px-4 py-3">
+            <p className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
+              Today reviewer runs
+            </p>
+            <p className="mt-2 text-lg font-medium">
+              {context.aiQualityReview.todayReviewerAttemptCount}
+            </p>
+          </div>
+          <div className="rounded-2xl border border-[var(--border)] bg-white/70 px-4 py-3">
+            <p className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
+              Today reviewer cost
+            </p>
+            <p className="mt-2 text-lg font-medium">
+              {context.aiQualityReview.todayReviewerCostUsd}
+            </p>
+          </div>
+          <div className="rounded-2xl border border-[var(--border)] bg-white/70 px-4 py-3">
+            <p className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
+              Request limit reached
+            </p>
+            <p className="mt-2 text-lg font-medium">
+              {context.aiQualityReview.requestLimitReached ? "yes" : "no"}
+            </p>
+          </div>
+          <div className="rounded-2xl border border-[var(--border)] bg-white/70 px-4 py-3">
+            <p className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
+              Cost limit reached
+            </p>
+            <p className="mt-2 text-lg font-medium">
+              {context.aiQualityReview.costLimitReached ? "yes" : "no"}
+            </p>
+          </div>
+        </div>
       </Card>
 
       <Card className="space-y-4 border-[#d7c4b6] bg-white/80">

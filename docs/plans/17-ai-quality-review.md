@@ -11,6 +11,7 @@ Post-MVP. Не входит в MVP.
 - kill switch и review modes `off / log_only / full` уже частично реализованы для bootstrap-слоя
 - отдельный `AI reviewer` model layer уже запущен в базовом виде для `full` режима
 - отдельный UI и human fix workflow пока ещё не реализованы
+- базовый internal human workflow уже есть, но ещё не доведён до full operational maturity
 
 ## Зависимость от шага 16
 
@@ -296,6 +297,42 @@ UI для `super_admin` должен быть отдельной будущей 
 - internal visibility runtime controls в `/internal/health`
 - compact preview очереди спорных AI-кейсов в `/internal/health`
 - базовый `AI reviewer` second pass через AI proxy в `full` режиме
+- отдельный internal route `/internal/ai-review` как process surface для review queue, `AI Behavior Rules` и `fix_instruction`
+- richer review-карточка в `/internal/ai-review` с цепочкой:
+  - `raw_input`
+  - `normalized_input`
+  - `retrieved sources`
+  - `final output`
+- analytics summary в `/internal/ai-review` по:
+  - `root_cause`
+  - `flags`
+  - `prompt_version`
+  - `law_version`
+  - `fix_target`
+  - `tokens`
+  - `cost`
+- access-scoped view models в `/internal/ai-review`:
+  - `super_admin` видит `full_raw`
+  - `server_admin` получает `anonymized_statistics`
+  - `tester` получает `sanitized_test_examples`
+- repo-managed `Confirmed Issue Registry` как baseline для persisted annotations:
+  - linked `AI Behavior Rules`
+  - `fix_instruction` snapshot
+  - regression follow-up status
+  - example `issue_fingerprint`
+  - example `issue_cluster_key`
+- показ в review-карточке дополнительных полей:
+  - `quality_score`
+  - `confidence`
+  - `input_quality`
+  - `fix_target`
+  - `review_items`
+  - `ai_reviewer status`
+- repo-managed bootstrap реестра `AI Behavior Rules`
+- repo-managed шаблон `fix_instruction` для confirmed issues
+- repo-managed bootstrap checklist для `regression gate`
+- реально работающие daily request/cost limits для reviewer second pass
+- daily usage visibility этих limits в `/internal/health`
 - сохранение `risk_level`, `confidence`, `flags`, `root_cause`, `input_quality`, `issue_fingerprint`, `issue_cluster_key`
 - сохранение normalization review chain:
   - `raw_input`
@@ -318,16 +355,24 @@ UI для `super_admin` должен быть отдельной будущей 
 
 После текущего bootstrap в шаге `17` ещё остаются такие полезные части:
 
-- человеко-ориентированный internal workflow для confirmed issue, `fix_instruction` и `AI Behavior Rules`
-- `regression gate` как оформленный operational process
-- отдельный internal UI для `super_admin`
-- дневные лимиты как реально enforced production controls
+- более зрелый `regression gate` как complete operational process beyond current checklist
+- richer internal UI для `super_admin` beyond current richer case card baseline
+- более зрелая analytics surface beyond current aggregate queue summary
+- более зрелая policy лимитов beyond current bootstrap enforcement
+- реальное разделение route access и data access beyond current super-admin-only surface
+- возможный переход от repo-managed confirmed issues к отдельному persisted storage, если этого потребует operational scale
 
 Что по `AI reviewer` ещё остаётся:
 
 - выделить более зрелую policy для reviewer beyond compact JSON bootstrap
 - решить, нужен ли отдельный reviewer model tier или достаточно текущего cheap second pass
 - отделить reviewer regression dataset от просто queued cases
+
+Что ещё остаётся именно внутри human workflow:
+
+- оформить переход от текущего repo-managed confirmed issue registry к полному confirmed-issue workflow с отдельными annotations и closure transitions
+- расширить bootstrap checklist до полного process step после `fix_instruction`
+- решить, нужен ли отдельный persisted слой для reviewer annotations beyond current repo-managed registry
 
 При этом не нужно считать шаг `17` незапущенным: deterministic review foundation уже существует.
 

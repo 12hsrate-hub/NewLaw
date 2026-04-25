@@ -12,6 +12,10 @@ vi.mock("@/db/repositories/precedent-source-topic.repository", () => ({
   listPrecedentSourceTopicsForAdminReview: vi.fn(),
 }));
 
+vi.mock("@/db/repositories/ai-request.repository", () => ({
+  getAIQualityReviewUsageSince: vi.fn(),
+}));
+
 vi.mock("@/server/http/health", () => ({
   getHealthPayload: vi.fn(),
 }));
@@ -23,6 +27,7 @@ vi.mock("@/server/internal/ai-quality-review", () => ({
 import { listLawSourceIndexes } from "@/db/repositories/law-source-index.repository";
 import { listPrecedentSourceTopicsForAdminReview } from "@/db/repositories/precedent-source-topic.repository";
 import { listServerDirectoryServers } from "@/db/repositories/server.repository";
+import { getAIQualityReviewUsageSince } from "@/db/repositories/ai-request.repository";
 import { getHealthPayload } from "@/server/http/health";
 import { getInternalAIQualityReviewPreview } from "@/server/internal/ai-quality-review";
 import { getInternalHealthContext } from "@/server/internal/health";
@@ -41,6 +46,42 @@ describe("internal health context", () => {
         medium: 1,
         low: 0,
       },
+      analytics: {
+        reviewedCount: 3,
+        queuedCount: 2,
+        totalTokens: 860,
+        totalCostUsd: 0.033,
+        byRootCause: [
+          {
+            key: "normalization_issue",
+            count: 1,
+          },
+        ],
+        byFlag: [
+          {
+            key: "normalization_changed_meaning",
+            count: 1,
+          },
+        ],
+        byPromptVersion: [
+          {
+            key: "server_legal_assistant_legal_core_v1",
+            count: 1,
+          },
+        ],
+        byLawVersion: [
+          {
+            key: "law-version-1",
+            count: 1,
+          },
+        ],
+        byFixTarget: [
+          {
+            key: "normalization_prompt",
+            count: 1,
+          },
+        ],
+      },
       recentQueuedItems: [
         {
           id: "ai-request-1",
@@ -50,18 +91,42 @@ describe("internal health context", () => {
           status: "success",
           queueForSuperAdmin: true,
           priority: "high",
+          qualityScore: 0.28,
+          confidence: "low",
           rootCause: "normalization_issue",
+          inputQuality: "medium",
           flags: ["normalization_changed_meaning"],
+          reviewItems: ["Нормализация изменила смысл исходного ввода."],
           issueClusterKey: "cluster-1",
+          fixTarget: "normalization_prompt",
           account: null,
           server: {
             id: "server-1",
             code: "blackberry",
             name: "Blackberry",
           },
+          caseChain: {
+            rawInput: "я хачу абжаловать отказ",
+            normalizedInput: "Я хочу обжаловать отказ.",
+            normalizationModel: "gpt-5.4-nano",
+            normalizationPromptVersion: "input_normalization_v1",
+            normalizationChanged: true,
+            normalizationComparisonResult: "orthography_fixed",
+            retrievedSources: [
+              {
+                lawId: "law-1",
+              },
+            ],
+            finalOutputPreview: "Preview",
+          },
+          aiReviewerStatus: "completed",
           outputPreview: "Preview",
         },
       ],
+    });
+    vi.mocked(getAIQualityReviewUsageSince).mockResolvedValue({
+      reviewerAttemptCount: 12,
+      reviewerCostUsd: 1.75,
     });
   });
 
@@ -169,6 +234,10 @@ describe("internal health context", () => {
       mode: "full",
       dailyRequestLimit: 500,
       dailyCostLimitUsd: 25,
+      todayReviewerAttemptCount: 12,
+      todayReviewerCostUsd: 1.75,
+      requestLimitReached: false,
+      costLimitReached: false,
     });
     expect(result.aiQualityReviewPreview.queuedCount).toBe(2);
     expect(result.serverSummaries).toHaveLength(3);

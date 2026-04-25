@@ -2,6 +2,14 @@ import { Prisma } from "@prisma/client";
 
 import { prisma } from "@/db/prisma";
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function readNumber(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
 type CreateAIRequestInput = {
   accountId?: string | null;
   serverId?: string | null;
@@ -48,6 +56,7 @@ export async function listRecentAIRequests(input?: { take?: number }) {
       model: true,
       status: true,
       createdAt: true,
+      requestPayloadJson: true,
       responsePayloadJson: true,
       account: {
         select: {
@@ -65,4 +74,50 @@ export async function listRecentAIRequests(input?: { take?: number }) {
       },
     },
   });
+}
+
+export async function getAIQualityReviewUsageSince(input: { since: Date }) {
+  const requests = await prisma.aIRequest.findMany({
+    where: {
+      createdAt: {
+        gte: input.since,
+      },
+    },
+    select: {
+      responsePayloadJson: true,
+    },
+  });
+
+  let reviewerAttemptCount = 0;
+  let reviewerCostUsd = 0;
+
+  for (const request of requests) {
+    const responsePayloadJson = isRecord(request.responsePayloadJson)
+      ? request.responsePayloadJson
+      : null;
+    const aiQualityReview =
+      responsePayloadJson && isRecord(responsePayloadJson.ai_quality_review)
+        ? responsePayloadJson.ai_quality_review
+        : null;
+    const layers = aiQualityReview && isRecord(aiQualityReview.layers) ? aiQualityReview.layers : null;
+    const aiReviewer = layers && isRecord(layers.ai_reviewer) ? layers.ai_reviewer : null;
+    const status = aiReviewer?.status;
+
+    if (
+      status === "completed" ||
+      status === "unavailable" ||
+      status === "invalid_output"
+    ) {
+      reviewerAttemptCount += 1;
+    }
+
+    if (status === "completed" && aiReviewer) {
+      reviewerCostUsd += readNumber(aiReviewer.cost_usd) ?? 0;
+    }
+  }
+
+  return {
+    reviewerAttemptCount,
+    reviewerCostUsd: Number(reviewerCostUsd.toFixed(6)),
+  };
 }

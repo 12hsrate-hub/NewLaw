@@ -27,6 +27,10 @@ const internalNavItems = [
     label: "Access Requests",
   },
   {
+    href: "/internal/ai-review",
+    label: "AI Review",
+  },
+  {
     href: "/internal/health",
     label: "Health",
   },

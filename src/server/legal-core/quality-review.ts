@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { z } from "zod";
 
+import { getAIQualityReviewUsageSince } from "@/db/repositories/ai-request.repository";
 import { getAIQualityReviewRuntimeEnv } from "@/schemas/env";
 import { requestAssistantProxyCompletion } from "@/server/legal-assistant/ai-proxy";
 import type {
@@ -13,6 +14,24 @@ export const AI_QUALITY_REVIEW_VERSION = "ai_quality_review_v1";
 export const AI_QUALITY_REVIEWER_PROMPT_VERSION = "ai_quality_reviewer_v1";
 export const AI_QUALITY_REVIEWER_MODEL = "gpt-5.4-nano";
 export type AIQualityReviewMode = "off" | "log_only" | "full";
+
+async function getAIQualityReviewUsageSinceSafe(input: { since: Date }) {
+  if (!(process.env.DATABASE_URL?.trim() && process.env.DIRECT_URL?.trim())) {
+    return {
+      reviewerAttemptCount: 0,
+      reviewerCostUsd: 0,
+    };
+  }
+
+  try {
+    return await getAIQualityReviewUsageSince(input);
+  } catch {
+    return {
+      reviewerAttemptCount: 0,
+      reviewerCostUsd: 0,
+    };
+  }
+}
 
 type ReviewRootCause =
   | "normalization_issue"
@@ -63,6 +82,11 @@ const aiReviewerOutputSchema = z.object({
 
 type AIReviewerOutput = z.infer<typeof aiReviewerOutputSchema>;
 
+type AIQualityReviewUsageSnapshot = {
+  reviewer_attempt_count: number;
+  reviewer_cost_usd: number;
+};
+
 type DeterministicAIQualityReviewSnapshot = {
   review_version: string;
   review_mode: "deterministic_bootstrap";
@@ -71,7 +95,13 @@ type DeterministicAIQualityReviewSnapshot = {
     mode: AIQualityReviewMode;
     daily_request_limit: number | null;
     daily_cost_limit_usd: number | null;
-    limits_status: "configured_not_enforced_in_bootstrap";
+    usage_today: AIQualityReviewUsageSnapshot;
+    request_limit_reached: boolean;
+    cost_limit_reached: boolean;
+    limits_status:
+      | "no_limits_configured"
+      | "enforced_available"
+      | "daily_limit_reached";
   };
   queue_for_super_admin: boolean;
   quality_score: number;
@@ -95,7 +125,8 @@ type DeterministicAIQualityReviewSnapshot = {
           status: "not_run";
           reason:
             | "ai_review_mode_not_full"
-            | "no_review_signal";
+            | "no_review_signal"
+            | "daily_limit_reached";
         }
       | {
           status: "unavailable";
@@ -460,6 +491,33 @@ function getAIQualityReviewControls(
   };
 }
 
+function getStartOfUtcDay(date: Date) {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+}
+
+function evaluateAIReviewLimits(input: {
+  controls: ReturnType<typeof getAIQualityReviewControls>;
+  usageToday: AIQualityReviewUsageSnapshot;
+}) {
+  const requestLimitReached =
+    input.controls.daily_request_limit !== null &&
+    input.usageToday.reviewer_attempt_count >= input.controls.daily_request_limit;
+  const costLimitReached =
+    input.controls.daily_cost_limit_usd !== null &&
+    input.usageToday.reviewer_cost_usd >= input.controls.daily_cost_limit_usd;
+
+  return {
+    request_limit_reached: requestLimitReached,
+    cost_limit_reached: costLimitReached,
+    limits_status:
+      input.controls.daily_request_limit === null && input.controls.daily_cost_limit_usd === null
+        ? ("no_limits_configured" as const)
+        : requestLimitReached || costLimitReached
+          ? ("daily_limit_reached" as const)
+          : ("enforced_available" as const),
+  };
+}
+
 function rankRiskLevel(value: LegalCoreRiskLevel) {
   return value === "high" ? 3 : value === "medium" ? 2 : 1;
 }
@@ -569,8 +627,13 @@ function buildAIReviewerUserPrompt(input: {
 function shouldRunAIReviewer(input: {
   controls: ReturnType<typeof getAIQualityReviewControls>;
   deterministicSnapshot: DeterministicAIQualityReviewSnapshot;
+  limits: ReturnType<typeof evaluateAIReviewLimits>;
 }) {
   if (!input.controls.enabled || input.controls.mode !== "full") {
+    return false;
+  }
+
+  if (input.limits.request_limit_reached || input.limits.cost_limit_reached) {
     return false;
   }
 
@@ -660,6 +723,7 @@ export function buildDeterministicAIQualityReviewSnapshot(input: {
   featureKey: string;
   requestPayloadJson?: Record<string, unknown> | null;
   responsePayloadJson?: Record<string, unknown> | null;
+  usageToday?: AIQualityReviewUsageSnapshot;
 }, dependencies: {
   getRuntimeEnv: typeof getAIQualityReviewRuntimeEnv;
 } = {
@@ -668,6 +732,14 @@ export function buildDeterministicAIQualityReviewSnapshot(input: {
   const requestPayloadJson = input.requestPayloadJson ?? {};
   const responsePayloadJson = input.responsePayloadJson ?? {};
   const controls = getAIQualityReviewControls(dependencies);
+  const usageToday = input.usageToday ?? {
+    reviewer_attempt_count: 0,
+    reviewer_cost_usd: 0,
+  };
+  const limits = evaluateAIReviewLimits({
+    controls,
+    usageToday,
+  });
   const selfRiskSignals: SelfRiskSignals = {
     queue_for_future_ai_quality_review:
       responsePayloadJson.queue_for_future_ai_quality_review === true,
@@ -737,7 +809,8 @@ export function buildDeterministicAIQualityReviewSnapshot(input: {
     review_mode: "deterministic_bootstrap",
     controls: {
       ...controls,
-      limits_status: "configured_not_enforced_in_bootstrap",
+      usage_today: usageToday,
+      ...limits,
     },
     queue_for_super_admin: queueForSuperAdmin,
     quality_score: deriveQualityScore({
@@ -762,7 +835,12 @@ export function buildDeterministicAIQualityReviewSnapshot(input: {
       },
       ai_reviewer: {
         status: "not_run",
-        reason: controls.mode !== "full" ? "ai_review_mode_not_full" : "no_review_signal",
+        reason:
+          controls.mode !== "full"
+            ? "ai_review_mode_not_full"
+            : limits.request_limit_reached || limits.cost_limit_reached
+              ? "daily_limit_reached"
+              : "no_review_signal",
       },
       self_risk_signals: selfRiskSignals,
     },
@@ -789,9 +867,13 @@ export async function attachDeterministicAIQualityReview(input: {
 }, dependencies: {
   getRuntimeEnv: typeof getAIQualityReviewRuntimeEnv;
   requestProxyCompletion: typeof requestAssistantProxyCompletion;
+  getUsageSince: typeof getAIQualityReviewUsageSince;
+  now: () => Date;
 } = {
   getRuntimeEnv: getAIQualityReviewRuntimeEnv,
   requestProxyCompletion: requestAssistantProxyCompletion,
+  getUsageSince: getAIQualityReviewUsageSinceSafe,
+  now: () => new Date(),
 }) {
   const responsePayloadJson = input.responsePayloadJson ?? {};
   const controls = getAIQualityReviewControls(dependencies);
@@ -800,9 +882,27 @@ export async function attachDeterministicAIQualityReview(input: {
     return responsePayloadJson;
   }
 
-  const deterministicSnapshot = buildDeterministicAIQualityReviewSnapshot(input, dependencies);
+  const usageSince = await dependencies.getUsageSince({
+    since: getStartOfUtcDay(dependencies.now()),
+  });
+  const usageToday = {
+    reviewer_attempt_count: usageSince.reviewerAttemptCount,
+    reviewer_cost_usd: usageSince.reviewerCostUsd,
+  } satisfies AIQualityReviewUsageSnapshot;
 
-  if (!shouldRunAIReviewer({ controls, deterministicSnapshot })) {
+  const deterministicSnapshot = buildDeterministicAIQualityReviewSnapshot(
+    {
+      ...input,
+      usageToday,
+    },
+    dependencies,
+  );
+  const limits = evaluateAIReviewLimits({
+    controls,
+    usageToday,
+  });
+
+  if (!shouldRunAIReviewer({ controls, deterministicSnapshot, limits })) {
     return {
       ...responsePayloadJson,
       ai_quality_review: deterministicSnapshot,

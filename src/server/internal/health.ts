@@ -1,3 +1,4 @@
+import { getAIQualityReviewUsageSince } from "@/db/repositories/ai-request.repository";
 import { listLawSourceIndexes } from "@/db/repositories/law-source-index.repository";
 import { listPrecedentSourceTopicsForAdminReview } from "@/db/repositories/precedent-source-topic.repository";
 import { listServerDirectoryServers } from "@/db/repositories/server.repository";
@@ -21,6 +22,10 @@ export type InternalHealthAIQualityReviewSummary = {
   mode: "off" | "log_only" | "full";
   dailyRequestLimit: number | null;
   dailyCostLimitUsd: number | null;
+  todayReviewerAttemptCount: number;
+  todayReviewerCostUsd: number;
+  requestLimitReached: boolean;
+  costLimitReached: boolean;
 };
 
 export type InternalHealthServerSummary = {
@@ -113,21 +118,34 @@ function buildServerWarnings(input: {
 }
 
 export async function getInternalHealthContext(): Promise<InternalHealthContext> {
-  const [runtime, servers, sourceIndexes, precedentSourceTopics, aiQualityReviewPreview] =
+  const [runtime, servers, sourceIndexes, precedentSourceTopics, aiQualityReviewPreview, aiQualityReviewUsage] =
     await Promise.all([
     getHealthPayload(),
     listServerDirectoryServers(),
     listLawSourceIndexes(),
     listPrecedentSourceTopicsForAdminReview(),
     getInternalAIQualityReviewPreview(),
+    getAIQualityReviewUsageSince({
+      since: new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate())),
+    }),
   ]);
   const aiQualityReviewRuntime = getAIQualityReviewRuntimeEnv();
+  const requestLimitReached =
+    aiQualityReviewRuntime.AI_REVIEW_DAILY_REQUEST_LIMIT !== undefined &&
+    aiQualityReviewUsage.reviewerAttemptCount >= aiQualityReviewRuntime.AI_REVIEW_DAILY_REQUEST_LIMIT;
+  const costLimitReached =
+    aiQualityReviewRuntime.AI_REVIEW_DAILY_COST_LIMIT_USD !== undefined &&
+    aiQualityReviewUsage.reviewerCostUsd >= aiQualityReviewRuntime.AI_REVIEW_DAILY_COST_LIMIT_USD;
   const aiQualityReview = {
     enabled:
       aiQualityReviewRuntime.AI_REVIEW_ENABLED && aiQualityReviewRuntime.AI_REVIEW_MODE !== "off",
     mode: aiQualityReviewRuntime.AI_REVIEW_MODE,
     dailyRequestLimit: aiQualityReviewRuntime.AI_REVIEW_DAILY_REQUEST_LIMIT ?? null,
     dailyCostLimitUsd: aiQualityReviewRuntime.AI_REVIEW_DAILY_COST_LIMIT_USD ?? null,
+    todayReviewerAttemptCount: aiQualityReviewUsage.reviewerAttemptCount,
+    todayReviewerCostUsd: aiQualityReviewUsage.reviewerCostUsd,
+    requestLimitReached,
+    costLimitReached,
   } satisfies InternalHealthAIQualityReviewSummary;
   const globalWarnings: InternalHealthWarning[] = [];
 
@@ -147,6 +165,13 @@ export async function getInternalHealthContext(): Promise<InternalHealthContext>
     globalWarnings.push({
       level: "warning",
       message: "AI Quality Review bootstrap запущен без configured daily limits.",
+    });
+  }
+
+  if (requestLimitReached || costLimitReached) {
+    globalWarnings.push({
+      level: "warning",
+      message: "AI Quality Review достиг configured daily limits и может пропускать reviewer second pass до следующего дня.",
     });
   }
 

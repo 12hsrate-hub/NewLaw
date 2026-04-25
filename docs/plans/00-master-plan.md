@@ -279,21 +279,38 @@
 - internal runtime visibility этих controls в `/internal/health`
 - compact preview очереди спорных кейсов в `/internal/health`
 - базовый `AI reviewer` second pass в `full` режиме через AI proxy
+- отдельный compact route `/internal/ai-review` для human review workflow
+- richer case card в `/internal/ai-review` с цепочкой `raw_input -> normalized_input -> retrieved sources -> final output`
+- aggregate analytics в `/internal/ai-review` по `root_cause`, `flags`, `prompt_version`, `law_version`, `tokens` и `cost`
+- access-scoped review views для `super_admin`, `server_admin` и `tester`
+- repo-managed `Confirmed Issue Registry` как baseline persisted annotation layer
+- repo-managed bootstrap реестра `AI Behavior Rules` и шаблона `fix_instruction`
+- repo-managed bootstrap checklist для `regression gate`
+- реально enforced daily request/cost limits для reviewer second pass
+- daily usage visibility этих limits в `/internal/health`
 - сохранение normalization review chain и case chain `raw_input -> normalized_input -> retrieved sources -> final output`
 - сохранение `risk_level`, `confidence`, `flags`, `root_cause`, `input_quality`, `issue_fingerprint`, `issue_cluster_key`
 
 Что ещё остаётся до основного useful scope:
 
-- internal workflow для `fix_instruction` и `AI Behavior Rules`
-- `regression gate` как process layer
-- отдельный UI для `super_admin`
-- реально enforced review limits
+- более зрелый `regression gate` beyond current bootstrap checklist
+- richer UI для `super_admin` beyond current richer case card baseline
+- более зрелая analytics surface beyond current aggregate queue summary
+- реальное разделение route access и data access beyond current super-admin-only surface
+- возможный переход от repo-managed confirmed issues к отдельному persisted storage при росте operational нагрузки
+- более зрелая operational policy limits beyond current bootstrap enforcement
 
 Что ещё остаётся именно внутри reviewer-подслоя:
 
 - более зрелая reviewer policy beyond compact JSON bootstrap
 - решение по окончательному reviewer model tier
 - reviewer-specific regression dataset
+
+Что ещё остаётся именно внутри human workflow:
+
+- переход от repo-managed confirmed issue registry к полному confirmed-issue workflow с closure transitions и richer annotations
+- расширение regression gate от bootstrap checklist до полного process step
+- решение по persisted reviewer annotations beyond repo-managed registry
 
 Границы этой линии:
 

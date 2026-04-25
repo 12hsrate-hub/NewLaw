@@ -30,6 +30,7 @@ describe("/internal page", () => {
     expect(html).toContain("Precedents");
     expect(html).toContain("Security");
     expect(html).toContain("Access Requests");
+    expect(html).toContain("AI Review");
     expect(html).toContain("Health");
   });
 

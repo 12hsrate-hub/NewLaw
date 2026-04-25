@@ -27,6 +27,10 @@ describe("ai quality review snapshot", () => {
         queue_for_future_ai_quality_review: true,
         answer_markdown_preview: "Ответ preview",
       },
+      usageToday: {
+        reviewer_attempt_count: 0,
+        reviewer_cost_usd: 0,
+      },
     }, {
       getRuntimeEnv: () => ({
         AI_REVIEW_ENABLED: true,
@@ -87,6 +91,11 @@ describe("ai quality review snapshot", () => {
       requestProxyCompletion: async () => {
         throw new Error("reviewer should not run in log_only mode");
       },
+      getUsageSince: async () => ({
+        reviewerAttemptCount: 3,
+        reviewerCostUsd: 0.4,
+      }),
+      now: () => new Date("2026-04-25T12:00:00.000Z"),
     });
 
     const snapshot = augmented.ai_quality_review as ReturnType<
@@ -99,7 +108,11 @@ describe("ai quality review snapshot", () => {
       mode: "log_only",
       daily_request_limit: 100,
       daily_cost_limit_usd: 25,
-      limits_status: "configured_not_enforced_in_bootstrap",
+      usage_today: {
+        reviewer_attempt_count: 3,
+        reviewer_cost_usd: 0.4,
+      },
+      limits_status: "enforced_available",
     });
     expect(snapshot.queue_for_super_admin).toBe(false);
     expect(snapshot.issue_fingerprint).toMatch(/^[a-f0-9]{64}$/);
@@ -144,6 +157,11 @@ describe("ai quality review snapshot", () => {
           AI_REVIEW_DAILY_REQUEST_LIMIT: undefined,
           AI_REVIEW_DAILY_COST_LIMIT_USD: undefined,
         }),
+        getUsageSince: async () => ({
+          reviewerAttemptCount: 0,
+          reviewerCostUsd: 0,
+        }),
+        now: () => new Date("2026-04-25T12:00:00.000Z"),
         requestProxyCompletion: async () => ({
           status: "success" as const,
           content: JSON.stringify({
@@ -209,11 +227,62 @@ describe("ai quality review snapshot", () => {
         requestProxyCompletion: async () => {
           throw new Error("reviewer should not run when disabled");
         },
+        getUsageSince: async () => ({
+          reviewerAttemptCount: 0,
+          reviewerCostUsd: 0,
+        }),
+        now: () => new Date("2026-04-25T12:00:00.000Z"),
       },
     );
 
     expect(responsePayload).toEqual({
       answer_markdown_preview: "Ответ",
+    });
+  });
+
+  it("не запускает ai reviewer, когда дневной request limit уже достигнут", async () => {
+    const responsePayload = await attachDeterministicAIQualityReview(
+      {
+        featureKey: "server_legal_assistant",
+        requestPayloadJson: {
+          raw_input: "тестовый ввод",
+          normalized_input: "Тестовый ввод.",
+        },
+        responsePayloadJson: {
+          queue_for_future_ai_quality_review: true,
+          future_review_priority: "high",
+          future_review_flags: ["elevated_answer_risk"],
+          future_review_reason_codes: [],
+          answer_markdown_preview: "Ответ",
+        },
+      },
+      {
+        getRuntimeEnv: () => ({
+          AI_REVIEW_ENABLED: true,
+          AI_REVIEW_MODE: "full",
+          AI_REVIEW_DAILY_REQUEST_LIMIT: 2,
+          AI_REVIEW_DAILY_COST_LIMIT_USD: undefined,
+        }),
+        getUsageSince: async () => ({
+          reviewerAttemptCount: 2,
+          reviewerCostUsd: 0.2,
+        }),
+        now: () => new Date("2026-04-25T12:00:00.000Z"),
+        requestProxyCompletion: async () => {
+          throw new Error("reviewer should not run after limit reached");
+        },
+      },
+    );
+
+    const snapshot = responsePayload.ai_quality_review as ReturnType<
+      typeof buildDeterministicAIQualityReviewSnapshot
+    >;
+
+    expect(snapshot.controls.request_limit_reached).toBe(true);
+    expect(snapshot.controls.limits_status).toBe("daily_limit_reached");
+    expect(snapshot.layers.ai_reviewer).toMatchObject({
+      status: "not_run",
+      reason: "daily_limit_reached",
     });
   });
 });
