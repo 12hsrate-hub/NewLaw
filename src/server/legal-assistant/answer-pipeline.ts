@@ -84,6 +84,7 @@ type AssistantTestRunContext = {
 };
 
 type AssistantInternalExecutionMode = "full_generation" | "core_only" | "compact_generation";
+type AssistantAIPayloadProfile = "runtime_compact" | "internal_full";
 
 const USED_SOURCES_MANIFEST_PATTERN = /<!--\s*used_sources_json:\s*([\s\S]*?)\s*-->/i;
 
@@ -308,6 +309,32 @@ type AssistantStageUsage = {
   generation?: ReturnType<typeof buildAIStageUsageEntry>;
   review?: ReturnType<typeof buildAIStageUsageEntry>;
   retry?: ReturnType<typeof buildAIStageUsageEntry>;
+};
+
+type AssistantCompactCandidatePoolEntry = {
+  law_title: string;
+  article_number: string | null;
+  law_family: string;
+  norm_role: string | null;
+  primary_basis_eligibility: string | null;
+  retrieval_score: number | null;
+  status: "preview";
+  label: string;
+};
+
+type AssistantCompactSelectedCandidateDiagnostic = {
+  law_id: string;
+  law_title: string;
+  law_version: string;
+  law_block_id: string;
+  article_number: string | null;
+  law_family: string;
+  norm_role: string;
+  applicability_score: number;
+  primary_basis_eligibility: string;
+  primary_basis_eligibility_reason: string | null;
+  ineligible_primary_basis_reasons: string[];
+  weak_primary_basis_reasons: string[];
 };
 
 function parseAssistantUsedSourcesManifest(content: string): AssistantUsedSourceManifest | null {
@@ -1204,6 +1231,462 @@ function buildAssistantOutputTrace(input: {
   };
 }
 
+function getAssistantAIPayloadProfile(input: {
+  testRunContext?: AssistantTestRunContext;
+  internalExecutionMode: AssistantInternalExecutionMode;
+}): AssistantAIPayloadProfile {
+  if (input.testRunContext || input.internalExecutionMode !== "full_generation") {
+    return "internal_full";
+  }
+
+  return "runtime_compact";
+}
+
+function buildCompactCandidateLabel(input: {
+  lawTitle: string;
+  articleNumber: string | null;
+  lawFamily: string;
+}) {
+  const articleLabel = input.articleNumber ? `ст. ${input.articleNumber}` : "без статьи";
+
+  return `${input.lawTitle} (${articleLabel}, ${input.lawFamily})`;
+}
+
+function buildAssistantCompactCandidatePoolPreview(
+  entries: Array<{
+    law_name: string;
+    article_number: string | null;
+    law_family_guess: string;
+    retrieval_score?: number | null;
+  }>,
+  selectedDiagnostics: AssistantCompactSelectedCandidateDiagnostic[],
+) {
+  const selectedDiagnosticMap = new Map(
+    selectedDiagnostics.map((entry) => [entry.law_block_id, entry]),
+  );
+
+  return entries.slice(0, 3).map((entry) => {
+    const selectedDiagnostic =
+      "law_block_id" in entry && typeof entry.law_block_id === "string"
+        ? selectedDiagnosticMap.get(entry.law_block_id)
+        : null;
+
+    return {
+      law_title: entry.law_name,
+      article_number: entry.article_number ?? null,
+      law_family: entry.law_family_guess,
+      norm_role: selectedDiagnostic?.norm_role ?? null,
+      primary_basis_eligibility: selectedDiagnostic?.primary_basis_eligibility ?? null,
+      retrieval_score:
+        typeof entry.retrieval_score === "number" ? Math.round(entry.retrieval_score * 1000) / 1000 : null,
+      status: "preview",
+      label: buildCompactCandidateLabel({
+        lawTitle: entry.law_name,
+        articleNumber: entry.article_number ?? null,
+        lawFamily: entry.law_family_guess,
+      }),
+    } satisfies AssistantCompactCandidatePoolEntry;
+  });
+}
+
+function buildCountMap(values: string[]) {
+  return Object.fromEntries(
+    Array.from(
+      values.reduce((map, value) => {
+        map.set(value, (map.get(value) ?? 0) + 1);
+        return map;
+      }, new Map<string, number>()),
+    ).sort(([leftKey, leftCount], [rightKey, rightCount]) => {
+      if (rightCount !== leftCount) {
+        return rightCount - leftCount;
+      }
+
+      return leftKey.localeCompare(rightKey, "ru");
+    }),
+  );
+}
+
+function buildAssistantSelectedCandidateDiagnostics(input: {
+  applicabilityDiagnostics: Array<Record<string, unknown>>;
+  selectedNormRoles: Array<Record<string, unknown>>;
+}) {
+  const selectedIds = new Set(
+    input.selectedNormRoles.map((entry) => {
+      const lawId = typeof entry.law_id === "string" ? entry.law_id : "";
+      const lawVersion = typeof entry.law_version === "string" ? entry.law_version : "";
+      const lawBlockId = typeof entry.law_block_id === "string" ? entry.law_block_id : "";
+
+      return `${lawId}:${lawVersion}:${lawBlockId}`;
+    }),
+  );
+
+  return input.applicabilityDiagnostics
+    .filter((entry) => {
+      const lawId = typeof entry.law_id === "string" ? entry.law_id : "";
+      const lawVersion = typeof entry.law_version === "string" ? entry.law_version : "";
+      const lawBlockId = typeof entry.law_block_id === "string" ? entry.law_block_id : "";
+
+      return selectedIds.has(`${lawId}:${lawVersion}:${lawBlockId}`);
+    })
+    .map((entry) => ({
+      law_id: typeof entry.law_id === "string" ? entry.law_id : "",
+      law_title: typeof entry.law_name === "string" ? entry.law_name : "",
+      law_version: typeof entry.law_version === "string" ? entry.law_version : "",
+      law_block_id: typeof entry.law_block_id === "string" ? entry.law_block_id : "",
+      article_number:
+        typeof entry.article_number === "string" || entry.article_number === null
+          ? entry.article_number
+          : null,
+      law_family: typeof entry.law_family === "string" ? entry.law_family : "other",
+      norm_role: typeof entry.norm_role === "string" ? entry.norm_role : "background_only",
+      applicability_score:
+        typeof entry.applicability_score === "number" ? entry.applicability_score : 0,
+      primary_basis_eligibility:
+        typeof entry.primary_basis_eligibility === "string"
+          ? entry.primary_basis_eligibility
+          : "ineligible",
+      primary_basis_eligibility_reason:
+        typeof entry.primary_basis_eligibility_reason === "string"
+          ? entry.primary_basis_eligibility_reason
+          : null,
+      ineligible_primary_basis_reasons: Array.isArray(entry.ineligible_primary_basis_reasons)
+        ? entry.ineligible_primary_basis_reasons.filter((value): value is string => typeof value === "string")
+        : [],
+      weak_primary_basis_reasons: Array.isArray(entry.weak_primary_basis_reasons)
+        ? entry.weak_primary_basis_reasons.filter((value): value is string => typeof value === "string")
+        : [],
+    })) satisfies AssistantCompactSelectedCandidateDiagnostic[];
+}
+
+function buildAssistantCompactDiagnostics(input: {
+  applicabilityDiagnostics: Array<Record<string, unknown>>;
+  groundingDiagnostics: Record<string, unknown> | null;
+  selectedNormRoles: Array<Record<string, unknown>>;
+}) {
+  const selectedCandidateDiagnostics = buildAssistantSelectedCandidateDiagnostics({
+    applicabilityDiagnostics: input.applicabilityDiagnostics,
+    selectedNormRoles: input.selectedNormRoles,
+  });
+  const eligibilityCounts = buildCountMap(
+    input.applicabilityDiagnostics
+      .map((entry) =>
+        typeof entry.primary_basis_eligibility === "string"
+          ? entry.primary_basis_eligibility
+          : "ineligible",
+      )
+      .filter((value) => value.length > 0),
+  );
+  const selectedEligibilityCounts = buildCountMap(
+    selectedCandidateDiagnostics.map((entry) => entry.primary_basis_eligibility),
+  );
+  const flags =
+    input.groundingDiagnostics && Array.isArray(input.groundingDiagnostics.flags)
+      ? input.groundingDiagnostics.flags.filter((value): value is string => typeof value === "string")
+      : [];
+
+  return {
+    selected_candidate_diagnostics: selectedCandidateDiagnostics,
+    diagnostics_summary: {
+      missing_primary_basis_norm: flags.includes("missing_primary_basis_norm"),
+      law_family_mismatch: flags.includes("law_family_mismatch"),
+      weak_direct_basis: flags.includes("weak_direct_basis"),
+      off_topic_context_norm: flags.includes("off_topic_context_norm"),
+      counts_by_primary_basis_eligibility: eligibilityCounts,
+    },
+    grounding_diagnostics: {
+      direct_basis_status:
+        input.groundingDiagnostics && typeof input.groundingDiagnostics.direct_basis_status === "string"
+          ? input.groundingDiagnostics.direct_basis_status
+          : "no_direct_basis",
+      selected_norm_count:
+        input.groundingDiagnostics && typeof input.groundingDiagnostics.selected_norm_count === "number"
+          ? input.groundingDiagnostics.selected_norm_count
+          : 0,
+      primary_basis_norm_count:
+        input.groundingDiagnostics &&
+        typeof input.groundingDiagnostics.primary_basis_norm_count === "number"
+          ? input.groundingDiagnostics.primary_basis_norm_count
+          : 0,
+      selected_law_families:
+        input.groundingDiagnostics && Array.isArray(input.groundingDiagnostics.selected_law_families)
+          ? input.groundingDiagnostics.selected_law_families.filter(
+              (value): value is string => typeof value === "string",
+            )
+          : [],
+      selected_primary_basis_eligibility_summary: selectedEligibilityCounts,
+    },
+  };
+}
+
+function buildAssistantCompactFilterReasons(
+  filterReasons: Array<{ law_block_id?: string; reasons?: string[] }>,
+) {
+  const reasonCounts = buildCountMap(
+    filterReasons.flatMap((entry) =>
+      Array.isArray(entry.reasons) ? entry.reasons.filter((value): value is string => typeof value === "string") : [],
+    ),
+  );
+  const topFilterReasons = Object.entries(reasonCounts)
+    .slice(0, 5)
+    .map(([reason, count]) => ({ reason, count }));
+
+  return {
+    filter_reason_counts: reasonCounts,
+    top_filter_reasons: topFilterReasons,
+  };
+}
+
+function buildAssistantCompactSourceLedger(input: {
+  sourceLedger: AssistantSourceLedger;
+  usedSources: AssistantUsedSource[];
+  strategy: string;
+}) {
+  return {
+    server_id: input.sourceLedger.server_id,
+    law_version_ids: input.sourceLedger.law_version_ids,
+    strategy: input.strategy,
+    found_norms_count: input.sourceLedger.found_norms.length,
+    context_norms_count: input.sourceLedger.context_norms.length,
+    used_norms_count: input.sourceLedger.used_norms.length,
+    used_sources_projection: input.usedSources.slice(0, 5).map((source) => {
+      if (source.source_kind === "law") {
+        return {
+          source_kind: source.source_kind,
+          law_name: source.law_name,
+          article_number: source.article_number,
+          law_version: source.law_version,
+        };
+      }
+
+      return {
+        source_kind: source.source_kind,
+        precedent_name: source.precedent_name,
+        precedent_version: source.precedent_version,
+        validity_status: source.validity_status,
+      };
+    }),
+  };
+}
+
+function buildAssistantCompactOutputTrace(input: {
+  outputTrace: Record<string, unknown> | null;
+  answerSections?: AssistantAnswerSections;
+}) {
+  if (!input.outputTrace) {
+    return null;
+  }
+
+  return {
+    output_preview:
+      typeof input.outputTrace.output_preview === "string" ? input.outputTrace.output_preview : null,
+    finish_reason:
+      typeof input.outputTrace.finish_reason === "string" ? input.outputTrace.finish_reason : null,
+    answer_length:
+      typeof input.outputTrace.output_length === "number" ? input.outputTrace.output_length : null,
+    answer_section_count: input.answerSections
+      ? Object.values(input.answerSections).filter(
+          (value) => typeof value === "string" && value.trim().length > 0,
+        ).length
+      : typeof input.outputTrace.answer_section_count === "number"
+        ? input.outputTrace.answer_section_count
+        : null,
+    answer_section_titles: input.answerSections
+      ? Object.entries(input.answerSections)
+          .filter(([, value]) => typeof value === "string" && value.trim().length > 0)
+          .map(([key]) => key)
+      : Array.isArray(input.outputTrace.answer_section_titles)
+        ? input.outputTrace.answer_section_titles.filter((value): value is string => typeof value === "string")
+        : [],
+  };
+}
+
+function buildAssistantCompactRequestPayload(input: {
+  payload: Record<string, unknown>;
+  usedSources: AssistantUsedSource[];
+}) {
+  const applicabilityDiagnostics = Array.isArray(input.payload.applicability_diagnostics)
+    ? input.payload.applicability_diagnostics.filter(
+        (entry): entry is Record<string, unknown> =>
+          Boolean(entry) && typeof entry === "object" && !Array.isArray(entry),
+      )
+    : [];
+  const selectedNormRoles = Array.isArray(input.payload.selected_norm_roles)
+    ? input.payload.selected_norm_roles.filter(
+        (entry): entry is Record<string, unknown> =>
+          Boolean(entry) && typeof entry === "object" && !Array.isArray(entry),
+      )
+    : [];
+  const compactDiagnostics = buildAssistantCompactDiagnostics({
+    applicabilityDiagnostics,
+    groundingDiagnostics:
+      input.payload.grounding_diagnostics &&
+      typeof input.payload.grounding_diagnostics === "object" &&
+      !Array.isArray(input.payload.grounding_diagnostics)
+        ? (input.payload.grounding_diagnostics as Record<string, unknown>)
+        : null,
+    selectedNormRoles,
+  });
+  const candidatePoolBeforeFilters = Array.isArray(input.payload.candidate_pool_before_filters)
+    ? input.payload.candidate_pool_before_filters.filter(
+        (entry): entry is {
+          law_block_id?: string;
+          law_name: string;
+          article_number: string | null;
+          law_family_guess: string;
+          retrieval_score?: number | null;
+        } =>
+          Boolean(entry) &&
+          typeof entry === "object" &&
+          !Array.isArray(entry) &&
+          typeof (entry as { law_name?: unknown }).law_name === "string" &&
+          typeof (entry as { law_family_guess?: unknown }).law_family_guess === "string",
+      )
+    : [];
+  const candidatePoolAfterFilters = Array.isArray(input.payload.candidate_pool_after_filters)
+    ? input.payload.candidate_pool_after_filters.filter(
+        (entry): entry is {
+          law_block_id?: string;
+          law_name: string;
+          article_number: string | null;
+          law_family_guess: string;
+          retrieval_score?: number | null;
+        } =>
+          Boolean(entry) &&
+          typeof entry === "object" &&
+          !Array.isArray(entry) &&
+          typeof (entry as { law_name?: unknown }).law_name === "string" &&
+          typeof (entry as { law_family_guess?: unknown }).law_family_guess === "string",
+      )
+    : [];
+  const familyCountsSource =
+    candidatePoolAfterFilters.length > 0 ? candidatePoolAfterFilters : candidatePoolBeforeFilters;
+  const filterReasons = Array.isArray(input.payload.filter_reasons)
+    ? input.payload.filter_reasons.filter(
+        (entry): entry is { law_block_id?: string; reasons?: string[] } =>
+          Boolean(entry) && typeof entry === "object" && !Array.isArray(entry),
+      )
+    : [];
+  const sourceLedger =
+    input.payload.source_ledger &&
+    typeof input.payload.source_ledger === "object" &&
+    !Array.isArray(input.payload.source_ledger)
+      ? (input.payload.source_ledger as AssistantSourceLedger)
+      : null;
+
+  const rest = { ...input.payload };
+  delete rest.candidate_pool_before_filters;
+  delete rest.candidate_pool_after_filters;
+  delete rest.filter_reasons;
+  delete rest.applicability_diagnostics;
+  delete rest.grounding_diagnostics;
+  delete rest.retrievalResults;
+  delete rest.source_ledger;
+
+  return {
+    ...rest,
+    payload_profile: "runtime_compact",
+    candidate_pool_before_filters_count: candidatePoolBeforeFilters.length,
+    candidate_pool_after_filters_count: candidatePoolAfterFilters.length,
+    candidate_pool_before_filters_preview: buildAssistantCompactCandidatePoolPreview(
+      candidatePoolBeforeFilters,
+      compactDiagnostics.selected_candidate_diagnostics,
+    ),
+    candidate_pool_after_filters_preview: buildAssistantCompactCandidatePoolPreview(
+      candidatePoolAfterFilters,
+      compactDiagnostics.selected_candidate_diagnostics,
+    ),
+    candidate_pool_family_counts: buildCountMap(
+      familyCountsSource.map((entry) => entry.law_family_guess).filter((value) => value.length > 0),
+    ),
+    candidate_pool_role_counts: buildCountMap(
+      applicabilityDiagnostics
+        .map((entry) => (typeof entry.norm_role === "string" ? entry.norm_role : "background_only"))
+        .filter((value) => value.length > 0),
+    ),
+    ...buildAssistantCompactFilterReasons(filterReasons),
+    ...compactDiagnostics,
+    primary_basis_eligibility: compactDiagnostics.selected_candidate_diagnostics.map((entry) => ({
+      law_id: entry.law_id,
+      law_version: entry.law_version,
+      law_block_id: entry.law_block_id,
+      primary_basis_eligibility: entry.primary_basis_eligibility,
+      primary_basis_eligibility_reason: entry.primary_basis_eligibility_reason,
+      ineligible_primary_basis_reasons: entry.ineligible_primary_basis_reasons,
+      weak_primary_basis_reasons: entry.weak_primary_basis_reasons,
+    })),
+    source_ledger: sourceLedger
+      ? buildAssistantCompactSourceLedger({
+          sourceLedger,
+          usedSources: input.usedSources,
+          strategy:
+            typeof input.payload.branch === "string" && input.payload.branch === "answered"
+              ? "assistant_inferred_used_sources"
+              : "assistant_structured_context_default",
+        })
+      : null,
+  };
+}
+
+function buildAssistantCompactResponsePayload(input: {
+  payload: Record<string, unknown>;
+  answerSections?: AssistantAnswerSections;
+}) {
+  const outputTrace =
+    input.payload.output_trace &&
+    typeof input.payload.output_trace === "object" &&
+    !Array.isArray(input.payload.output_trace)
+      ? (input.payload.output_trace as Record<string, unknown>)
+      : null;
+  const rest = { ...input.payload };
+  delete rest.answer_sections;
+  delete rest.output_trace;
+
+  return {
+    ...rest,
+    payload_profile: "runtime_compact",
+    output_trace: buildAssistantCompactOutputTrace({
+      outputTrace,
+      answerSections: input.answerSections,
+    }),
+  };
+}
+
+function buildAssistantStorageRequestPayload(input: {
+  payloadProfile: AssistantAIPayloadProfile;
+  payload: Record<string, unknown>;
+  usedSources: AssistantUsedSource[];
+}) {
+  if (input.payloadProfile === "internal_full") {
+    return {
+      ...input.payload,
+      payload_profile: "internal_full",
+    };
+  }
+
+  return buildAssistantCompactRequestPayload({
+    payload: input.payload,
+    usedSources: input.usedSources,
+  });
+}
+
+function buildAssistantStorageResponsePayload(input: {
+  payloadProfile: AssistantAIPayloadProfile;
+  payload: Record<string, unknown>;
+  answerSections?: AssistantAnswerSections;
+}) {
+  if (input.payloadProfile === "internal_full") {
+    return {
+      ...input.payload,
+      payload_profile: "internal_full",
+    };
+  }
+
+  return buildAssistantCompactResponsePayload({
+    payload: input.payload,
+    answerSections: input.answerSections,
+  });
+}
+
 export async function generateServerLegalAssistantAnswer(
   input: {
     serverId: string;
@@ -1308,6 +1791,10 @@ export async function generateServerLegalAssistantAnswer(
     applied_biases: retrieval.retrievalDebug?.applied_biases ?? retrievalQueryBreakdown.applied_biases,
     filter_reasons: retrieval.retrievalDebug?.filter_reasons ?? [],
   };
+  const payloadProfile = getAssistantAIPayloadProfile({
+    testRunContext: input.testRunContext,
+    internalExecutionMode,
+  });
   const metadataBase = {
     serverId: input.serverId,
     serverCode: input.serverCode,
@@ -1413,10 +1900,19 @@ export async function generateServerLegalAssistantAnswer(
       ...futureReviewMarker,
       self_assessment: selfAssessment,
     };
+    const storedNoCorpusRequestPayload = buildAssistantStorageRequestPayload({
+      payloadProfile,
+      payload: noCorpusRequestPayload,
+      usedSources,
+    });
+    const storedNoCorpusResponsePayload = buildAssistantStorageResponsePayload({
+      payloadProfile,
+      payload: noCorpusResponsePayload,
+    });
     const reviewedNoCorpusResponsePayload = await attachDeterministicAIQualityReview({
       featureKey: "server_legal_assistant",
-      requestPayloadJson: noCorpusRequestPayload,
-      responsePayloadJson: noCorpusResponsePayload,
+      requestPayloadJson: storedNoCorpusRequestPayload,
+      responsePayloadJson: storedNoCorpusResponsePayload,
     });
     await dependencies.createAIRequest({
       accountId: input.accountId ?? null,
@@ -1424,7 +1920,7 @@ export async function generateServerLegalAssistantAnswer(
       serverId: input.serverId,
       featureKey: "server_legal_assistant",
       status: "unavailable",
-      requestPayloadJson: noCorpusRequestPayload,
+      requestPayloadJson: storedNoCorpusRequestPayload,
       responsePayloadJson: {
         ...reviewedNoCorpusResponsePayload,
         stage_usage: buildAssistantStageUsage({
@@ -1533,10 +2029,20 @@ export async function generateServerLegalAssistantAnswer(
       ...futureReviewMarker,
       self_assessment: selfAssessment,
     };
+    const storedNoNormsRequestPayload = buildAssistantStorageRequestPayload({
+      payloadProfile,
+      payload: noNormsRequestPayload,
+      usedSources,
+    });
+    const storedNoNormsResponsePayload = buildAssistantStorageResponsePayload({
+      payloadProfile,
+      payload: noNormsResponsePayload,
+      answerSections: fallbackSections,
+    });
     const reviewedNoNormsResponsePayload = await attachDeterministicAIQualityReview({
       featureKey: "server_legal_assistant",
-      requestPayloadJson: noNormsRequestPayload,
-      responsePayloadJson: noNormsResponsePayload,
+      requestPayloadJson: storedNoNormsRequestPayload,
+      responsePayloadJson: storedNoNormsResponsePayload,
     });
 
     await dependencies.createAIRequest({
@@ -1545,7 +2051,7 @@ export async function generateServerLegalAssistantAnswer(
       serverId: input.serverId,
       featureKey: "server_legal_assistant",
       status: "success",
-      requestPayloadJson: noNormsRequestPayload,
+      requestPayloadJson: storedNoNormsRequestPayload,
       responsePayloadJson: {
         ...reviewedNoNormsResponsePayload,
         stage_usage: buildAssistantStageUsage({
@@ -1674,19 +2180,28 @@ export async function generateServerLegalAssistantAnswer(
       ...answeredFutureReviewMarker,
       self_assessment: answeredSelfAssessment,
     };
+    const storedCoreOnlyRequestPayload = buildAssistantStorageRequestPayload({
+      payloadProfile,
+      payload: coreOnlyRequestPayload,
+      usedSources,
+    });
+    const storedCoreOnlyResponsePayload = buildAssistantStorageResponsePayload({
+      payloadProfile,
+      payload: coreOnlyResponsePayload,
+    });
 
     await dependencies.createAIRequest({
       accountId: input.accountId ?? null,
       guestSessionId: input.guestSessionId ?? null,
       serverId: input.serverId,
       featureKey: "server_legal_assistant",
-      requestPayloadJson: coreOnlyRequestPayload,
+      requestPayloadJson: storedCoreOnlyRequestPayload,
       responsePayloadJson: {
-        ...coreOnlyResponsePayload,
+        ...storedCoreOnlyResponsePayload,
         stage_usage: buildAssistantStageUsage({
           normalizationStageUsage,
           normalizationRetryStageUsage,
-          responsePayloadJson: coreOnlyResponsePayload,
+          responsePayloadJson: storedCoreOnlyResponsePayload,
         }),
       },
       status: "success",
@@ -1779,10 +2294,19 @@ export async function generateServerLegalAssistantAnswer(
             ...answeredFutureReviewMarker,
             self_assessment: answeredSelfAssessment,
           };
+    const storedProxyRequestPayload = buildAssistantStorageRequestPayload({
+      payloadProfile,
+      payload: proxyRequestPayload,
+      usedSources,
+    });
+    const storedUnavailableResponsePayload = buildAssistantStorageResponsePayload({
+      payloadProfile,
+      payload: unavailableResponsePayload,
+    });
     const reviewedUnavailableResponsePayload = await attachDeterministicAIQualityReview({
       featureKey: "server_legal_assistant",
-      requestPayloadJson: proxyRequestPayload,
-      responsePayloadJson: unavailableResponsePayload,
+      requestPayloadJson: storedProxyRequestPayload,
+      responsePayloadJson: storedUnavailableResponsePayload,
     });
     await dependencies.createAIRequest({
       accountId: input.accountId ?? null,
@@ -1792,7 +2316,7 @@ export async function generateServerLegalAssistantAnswer(
       providerKey: "providerKey" in proxyResponse ? proxyResponse.providerKey ?? null : null,
       proxyKey: "proxyKey" in proxyResponse ? proxyResponse.proxyKey ?? null : null,
       model: "model" in proxyResponse ? proxyResponse.model ?? null : null,
-      requestPayloadJson: proxyRequestPayload,
+      requestPayloadJson: storedProxyRequestPayload,
       responsePayloadJson: {
         ...reviewedUnavailableResponsePayload,
         stage_usage: buildAssistantStageUsage({
@@ -1878,10 +2402,20 @@ export async function generateServerLegalAssistantAnswer(
     ...answeredFutureReviewMarker,
     self_assessment: answeredSelfAssessment,
   };
+  const storedAnsweredRequestPayload = buildAssistantStorageRequestPayload({
+    payloadProfile,
+    payload: answeredRequestPayload,
+    usedSources: answeredUsedSources,
+  });
+  const storedAnsweredResponsePayload = buildAssistantStorageResponsePayload({
+    payloadProfile,
+    payload: answeredResponsePayload,
+    answerSections: sections,
+  });
   const reviewedAnsweredResponsePayload = await attachDeterministicAIQualityReview({
     featureKey: "server_legal_assistant",
-    requestPayloadJson: answeredRequestPayload,
-    responsePayloadJson: answeredResponsePayload,
+    requestPayloadJson: storedAnsweredRequestPayload,
+    responsePayloadJson: storedAnsweredResponsePayload,
   });
 
   await dependencies.createAIRequest({
@@ -1892,7 +2426,7 @@ export async function generateServerLegalAssistantAnswer(
     providerKey: proxyResponse.providerKey ?? null,
     proxyKey: proxyResponse.proxyKey ?? null,
     model: proxyResponse.model ?? null,
-    requestPayloadJson: answeredRequestPayload,
+    requestPayloadJson: storedAnsweredRequestPayload,
     responsePayloadJson: {
       ...reviewedAnsweredResponsePayload,
       stage_usage: buildAssistantStageUsage({

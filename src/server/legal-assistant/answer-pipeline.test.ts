@@ -185,7 +185,8 @@ describe("answer pipeline", () => {
     expect(createAIRequest).toHaveBeenCalledWith(
       expect.objectContaining({
         status: "success",
-      requestPayloadJson: expect.objectContaining({
+        requestPayloadJson: expect.objectContaining({
+          payload_profile: "runtime_compact",
           branch: "no_norms",
           raw_input: "Есть ли норма про неизвестный институт?",
           normalized_input: "Есть ли норма про неизвестный институт?",
@@ -196,6 +197,7 @@ describe("answer pipeline", () => {
           }),
         }),
         responsePayloadJson: expect.objectContaining({
+          payload_profile: "runtime_compact",
           stage_usage: expect.objectContaining({
             normalization: expect.objectContaining({
               model: "gpt-5.4-nano",
@@ -203,23 +205,17 @@ describe("answer pipeline", () => {
             }),
           }),
           output_trace: expect.objectContaining({
-            output_kind: "assistant_markdown",
-            section_keys: expect.arrayContaining([
+            output_preview: expect.any(String),
+            answer_section_titles: expect.arrayContaining([
               "summary",
               "normativeAnalysis",
               "precedentAnalysis",
               "interpretation",
               "sources",
             ]),
+            answer_section_count: 5,
           }),
           answer_markdown_preview: expect.stringContaining("Краткий вывод"),
-          answer_sections: expect.objectContaining({
-            summary: expect.any(String),
-            normativeAnalysis: expect.any(String),
-            precedentAnalysis: expect.any(String),
-            interpretation: expect.any(String),
-            sources: expect.any(String),
-          }),
         }),
       }),
     );
@@ -447,6 +443,7 @@ describe("answer pipeline", () => {
     expect(aiRequestPayload.accountId).toBe("account-1");
     expect(aiRequestPayload.status).toBe("success");
     expect(aiRequestPayload.requestPayloadJson).toMatchObject({
+      payload_profile: "runtime_compact",
       intent: "situation_analysis",
       actor_context: "self",
       response_mode: "normal",
@@ -463,9 +460,13 @@ describe("answer pipeline", () => {
       }),
       source_ledger: expect.objectContaining({
         law_version_ids: ["law-version-1"],
-        used_norms: [
+        found_norms_count: expect.any(Number),
+        context_norms_count: expect.any(Number),
+        used_norms_count: expect.any(Number),
+        used_sources_projection: [
           expect.objectContaining({
-            law_id: "law-1",
+            source_kind: "law",
+            law_name: "Гражданский кодекс",
           }),
         ],
       }),
@@ -478,25 +479,40 @@ describe("answer pipeline", () => {
         response_mode: "normal",
         max_total_sources: 4,
       }),
-    });
-    expect(aiRequestPayload.requestPayloadJson.retrievalResults).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ sourceKind: "law" }),
-        expect.objectContaining({ sourceKind: "precedent" }),
-      ]),
-    );
-    expect(aiRequestPayload.requestPayloadJson.applicability_diagnostics).toEqual(
-      expect.arrayContaining([
+      candidate_pool_before_filters_count: expect.any(Number),
+      candidate_pool_after_filters_count: expect.any(Number),
+      candidate_pool_before_filters_preview: expect.any(Array),
+      candidate_pool_after_filters_preview: expect.any(Array),
+      candidate_pool_family_counts: expect.any(Object),
+      candidate_pool_role_counts: expect.any(Object),
+      filter_reason_counts: expect.any(Object),
+      top_filter_reasons: expect.any(Array),
+      selected_candidate_diagnostics: expect.arrayContaining([
         expect.objectContaining({
           primary_basis_eligibility: expect.any(String),
         }),
       ]),
-    );
-    expect(aiRequestPayload.requestPayloadJson.candidate_pool_before_filters).toEqual(expect.any(Array));
-    expect(aiRequestPayload.requestPayloadJson.candidate_pool_after_filters).toEqual(expect.any(Array));
+      primary_basis_eligibility: expect.arrayContaining([
+        expect.objectContaining({
+          primary_basis_eligibility: expect.any(String),
+        }),
+      ]),
+      diagnostics_summary: expect.objectContaining({
+        counts_by_primary_basis_eligibility: expect.any(Object),
+      }),
+      grounding_diagnostics: expect.objectContaining({
+        direct_basis_status: expect.any(String),
+        selected_primary_basis_eligibility_summary: expect.any(Object),
+      }),
+    });
     expect(aiRequestPayload.requestPayloadJson.applied_biases).toEqual(expect.any(Array));
-    expect(aiRequestPayload.requestPayloadJson.filter_reasons).toEqual(expect.any(Array));
+    expect(aiRequestPayload.requestPayloadJson).not.toHaveProperty("retrievalResults");
+    expect(aiRequestPayload.requestPayloadJson).not.toHaveProperty("applicability_diagnostics");
+    expect(aiRequestPayload.requestPayloadJson).not.toHaveProperty("candidate_pool_before_filters");
+    expect(aiRequestPayload.requestPayloadJson).not.toHaveProperty("candidate_pool_after_filters");
+    expect(aiRequestPayload.requestPayloadJson).not.toHaveProperty("filter_reasons");
     expect(aiRequestPayload.responsePayloadJson).toMatchObject({
+      payload_profile: "runtime_compact",
       latencyMs: 0,
       prompt_tokens: 320,
       completion_tokens: 180,
@@ -522,20 +538,17 @@ describe("answer pipeline", () => {
       },
       confidence: "high",
       output_trace: expect.objectContaining({
-        output_kind: "assistant_markdown",
-        section_keys: expect.arrayContaining([
+        output_preview: expect.any(String),
+        answer_section_titles: expect.arrayContaining([
           "summary",
           "normativeAnalysis",
           "precedentAnalysis",
           "interpretation",
           "sources",
         ]),
+        answer_section_count: 5,
       }),
       answer_markdown_preview: expect.stringContaining("Краткий вывод"),
-      answer_sections: expect.objectContaining({
-        summary: expect.stringContaining("письменная форма"),
-        normativeAnalysis: expect.stringContaining("Статья 1"),
-      }),
       used_sources_manifest: expect.objectContaining({
         laws: [
           expect.objectContaining({
@@ -553,6 +566,109 @@ describe("answer pipeline", () => {
       future_review_flags: [],
       future_review_reason_codes: [],
       used_sources: [expect.objectContaining({ source_kind: "law" })],
+    });
+    expect(aiRequestPayload.responsePayloadJson).not.toHaveProperty("answer_sections");
+  });
+
+  it("сохраняет internal_full payload для test runs даже в full_generation", async () => {
+    const createAIRequest = vi.fn();
+
+    await generateServerLegalAssistantAnswer(
+      {
+        serverId: "server-1",
+        serverCode: "blackberry",
+        serverName: "Blackberry",
+        question: "Можно ли задержать человека за маску?",
+        testRunContext: {
+          run_kind: "internal_ai_legal_core_test",
+          server_id: "server-1",
+          server_code: "blackberry",
+          test_run_id: "test-run-1",
+          test_scenario_id: "scenario-1",
+          test_scenario_group: "general_legal_questions",
+          test_scenario_title: "Mask",
+          law_version_selection: "current_snapshot_only",
+        },
+      },
+      {
+        searchAssistantCorpus: vi.fn().mockResolvedValue(
+          createAssistantRetrieval({
+            lawResults: [
+              {
+                serverId: "server-1",
+                lawId: "law-1",
+                lawKey: "administrative_code",
+                lawTitle: "Административный кодекс",
+                lawVersionId: "law-version-1",
+                lawVersionStatus: "current",
+                lawBlockId: "law-block-1",
+                blockType: "article",
+                blockOrder: 1,
+                articleNumberNormalized: "18",
+                snippet: "Статья 18. Использование маски запрещено.",
+                blockText: "Статья 18. Использование маски запрещено.",
+                sourceTopicUrl: "https://forum.gta5rp.com/threads/100001/",
+                sourcePosts: [],
+                metadata: {
+                  sourceSnapshotHash: "source-hash",
+                  normalizedTextHash: "normalized-hash",
+                  corpusSnapshotHash: "snapshot-hash",
+                },
+              },
+            ],
+          }),
+        ),
+        normalizeInputText: vi
+          .fn()
+          .mockResolvedValue(createNormalizationResult("Можно ли задержать человека за маску?")),
+        requestAssistantProxyCompletion: vi.fn().mockResolvedValue({
+          status: "success",
+          content: [
+            "## Краткий вывод",
+            "Да, может применяться при наличии состава.",
+            "",
+            "## Что прямо следует из норм закона",
+            "Статья 18 регулирует маски.",
+            "",
+            "## Что подтверждается судебными прецедентами",
+            "Подтверждённые прецеденты не использовались.",
+            "",
+            "## Вывод / интерпретация",
+            "Оценка зависит от обстоятельств.",
+            "",
+            "## Использованные нормы / источники",
+            "Административный кодекс, ст. 18.",
+            "",
+            '<!-- used_sources_json: {"laws":[{"law_id":"law-1","law_version":"law-version-1","law_block_id":"law-block-1"}],"precedents":[]} -->',
+          ].join("\n"),
+          proxyKey: "primary",
+          providerKey: "openai_compatible",
+          model: "gpt-5.4-mini",
+          responsePayloadJson: {
+            choices: [],
+          },
+        }),
+        createAIRequest,
+        now: () => new Date("2026-04-26T08:00:00.000Z"),
+      },
+    );
+
+    const aiRequestPayload = createAIRequest.mock.calls[0]?.[0];
+    expect(aiRequestPayload.requestPayloadJson).toMatchObject({
+      payload_profile: "internal_full",
+      test_run_context: expect.objectContaining({
+        test_run_id: "test-run-1",
+      }),
+      applicability_diagnostics: expect.any(Array),
+      candidate_pool_before_filters: expect.any(Array),
+      candidate_pool_after_filters: expect.any(Array),
+      filter_reasons: expect.any(Array),
+    });
+    expect(aiRequestPayload.responsePayloadJson).toMatchObject({
+      payload_profile: "internal_full",
+      answer_sections: expect.objectContaining({
+        summary: expect.any(String),
+      }),
     });
   });
 
@@ -654,7 +770,7 @@ describe("answer pipeline", () => {
       expect.objectContaining({
         responsePayloadJson: expect.objectContaining({
           output_trace: expect.objectContaining({
-            output_kind: "assistant_markdown",
+            output_preview: expect.any(String),
           }),
           queue_for_future_ai_quality_review: true,
           future_review_priority: "high",
@@ -752,7 +868,7 @@ describe("answer pipeline", () => {
       expect.objectContaining({
         responsePayloadJson: expect.objectContaining({
           output_trace: expect.objectContaining({
-            output_kind: "assistant_markdown",
+            output_preview: expect.any(String),
           }),
           queue_for_future_ai_quality_review: true,
           future_review_priority: "high",
@@ -1042,6 +1158,7 @@ describe("answer pipeline", () => {
       expect.objectContaining({
         status: "success",
         requestPayloadJson: expect.objectContaining({
+          payload_profile: "internal_full",
           branch: expect.anything(),
           legal_query_plan: expect.any(Object),
           selected_norm_roles: expect.any(Array),
@@ -1050,6 +1167,7 @@ describe("answer pipeline", () => {
           grounding_diagnostics: expect.any(Object),
         }),
         responsePayloadJson: expect.objectContaining({
+          payload_profile: "internal_full",
           branch: "core_only",
           output_trace: null,
           stage_usage: expect.objectContaining({
@@ -1442,7 +1560,9 @@ describe("answer pipeline", () => {
     expect(createAIRequest).toHaveBeenCalledWith(
       expect.objectContaining({
         requestPayloadJson: expect.objectContaining({
-          applicability_diagnostics: expect.any(Array),
+          payload_profile: "runtime_compact",
+          selected_candidate_diagnostics: expect.any(Array),
+          diagnostics_summary: expect.any(Object),
           grounding_diagnostics: expect.any(Object),
           source_ledger: expect.any(Object),
           generation_context_trimmed: true,
