@@ -1,7 +1,19 @@
 export type AIConfirmedIssueStatus =
   | "confirmed_followup_required"
   | "fix_in_progress"
-  | "regression_ready";
+  | "regression_ready"
+  | "closed";
+
+export type AIConfirmedIssueLifecycleEntry = {
+  status: AIConfirmedIssueStatus;
+  rationale: string;
+};
+
+export type AIConfirmedIssueTransition = {
+  toStatus: AIConfirmedIssueStatus;
+  label: string;
+  blockedBy: string[];
+};
 
 export type AIConfirmedIssue = {
   issueId: string;
@@ -15,6 +27,17 @@ export type AIConfirmedIssue = {
   issueClusterKeyExample: string;
   sourceOfTruth: string;
   summary: string;
+  lifecycle: {
+    statusHistory: AIConfirmedIssueLifecycleEntry[];
+    allowedTransitions: AIConfirmedIssueTransition[];
+    closureGuards: string[];
+  };
+  closureDecision: {
+    state: "not_ready" | "ready_for_manual_close" | "closed";
+    summary: string;
+    requiredArtifacts: string[];
+    reopenPolicy: string;
+  };
   fixInstructionSnapshot: {
     whatAIDidWrong: string;
     correctFutureBehavior: string;
@@ -45,6 +68,44 @@ const AI_CONFIRMED_ISSUES_REGISTRY: AIConfirmedIssue[] = [
     sourceOfTruth: "step_17_ai_quality_review",
     summary:
       "Подтверждён класс ошибок, где normalization превращает бытовую или неуверенную формулировку в более сильное правовое утверждение.",
+    lifecycle: {
+      statusHistory: [
+        {
+          status: "confirmed_followup_required",
+          rationale: "Кейс подтверждён review-контуром и требует инженерного follow-up.",
+        },
+        {
+          status: "fix_in_progress",
+          rationale: "Для класса ошибок уже зафиксирован fix_instruction, но regression gate ещё не закрыт.",
+        },
+      ],
+      allowedTransitions: [
+        {
+          toStatus: "regression_ready",
+          label: "Перевести в regression_ready",
+          blockedBy: [
+            "Нужен regression test или явное обоснование, почему тест не требуется.",
+            "Нужна привязка к rule и готовый инженерный follow-up.",
+          ],
+        },
+      ],
+      closureGuards: [
+        "Кейс не может перейти в closed напрямую из fix_in_progress.",
+        "Нужен пройденный regression gate.",
+      ],
+    },
+    closureDecision: {
+      state: "not_ready",
+      summary:
+        "До закрытия кейс должен пройти через regression_ready и получить явное review decision после обновления guardrails и tests.",
+      requiredArtifacts: [
+        "fix_instruction",
+        "linked behavior rule",
+        "regression test или обоснование отсутствия теста",
+      ],
+      reopenPolicy:
+        "Если normalization снова меняет смысл, issue не редактируется задним числом, а переводится в новый review cycle отдельным коммитом и review update.",
+    },
     fixInstructionSnapshot: {
       whatAIDidWrong:
         "Нормализация добавляет правовой оттенок или смысловой сдвиг, которого не было в raw_input.",
@@ -83,6 +144,47 @@ const AI_CONFIRMED_ISSUES_REGISTRY: AIConfirmedIssue[] = [
     sourceOfTruth: "step_16_ai_legal_core + step_17_ai_quality_review",
     summary:
       "Подтверждён класс проблем, где retrieval или final answer пытается опереться на law_version вне current snapshot выбранного сервера.",
+    lifecycle: {
+      statusHistory: [
+        {
+          status: "confirmed_followup_required",
+          rationale: "Класс проблемы подтверждён как отдельный review issue.",
+        },
+        {
+          status: "fix_in_progress",
+          rationale: "Legal core усилен и кейс переведён в инженерную доработку.",
+        },
+        {
+          status: "regression_ready",
+          rationale: "Regression tests уже покрывают класс нарушения, остаётся только ручное closure decision.",
+        },
+      ],
+      allowedTransitions: [
+        {
+          toStatus: "closed",
+          label: "Перевести в closed",
+          blockedBy: [
+            "Нужно убедиться, что regression coverage остаётся актуальным после следующих prompt/code changes.",
+          ],
+        },
+      ],
+      closureGuards: [
+        "Закрытие допустимо только после regression-ready состояния.",
+        "Rule linkage и regression artifact должны оставаться актуальными.",
+      ],
+    },
+    closureDecision: {
+      state: "ready_for_manual_close",
+      summary:
+        "Кейс может быть закрыт вручную, потому что regression coverage уже есть и rule linkage подтверждён.",
+      requiredArtifacts: [
+        "актуальный regression artifact",
+        "подтверждённый rule linkage",
+        "manual closure decision в review workflow",
+      ],
+      reopenPolicy:
+        "Если появится новый mixed-version случай, issue должен быть reopened новым review решением и новым engineering follow-up.",
+    },
     fixInstructionSnapshot: {
       whatAIDidWrong:
         "AI использует или ссылается на источник вне current snapshot, даже если legal core зафиксировал ограничение по server_id + law_version.",
@@ -101,6 +203,75 @@ const AI_CONFIRMED_ISSUES_REGISTRY: AIConfirmedIssue[] = [
       status: "test_implemented",
       artifact:
         "src/server/legal-assistant/answer-pipeline.test.ts + src/server/document-ai/*.test.ts",
+      justification: null,
+    },
+  },
+  {
+    issueId: "confirmed-descriptive-rewrite-fact-drift-v1",
+    title: "AI-доработка описательной части не должна смещать фактологический каркас",
+    status: "closed",
+    featureScope: ["document_text_improvement", "grounded_document_rewrite"],
+    rootCause: "generation_issue",
+    fixTarget: null,
+    linkedRuleIds: ["descriptive_rewrite_never_adds_facts_v1"],
+    issueFingerprintExample:
+      "35b7db7f0cd4afdadad3d56253eabce3db7f53258d09d5fa4c2914c85816e449",
+    issueClusterKeyExample: "4e0fc7f619a0af8bf6c0",
+    sourceOfTruth: "step_16_fact_ledger + step_17_ai_quality_review",
+    summary:
+      "Класс проблем с фактическим дрейфом в descriptive rewrite уже закреплён в правилах и regression coverage, поэтому может считаться закрытым на текущем repo-state.",
+    lifecycle: {
+      statusHistory: [
+        {
+          status: "confirmed_followup_required",
+          rationale: "Фактологический дрейф был выделен как отдельный confirmed issue.",
+        },
+        {
+          status: "fix_in_progress",
+          rationale: "В rewrite flows введены fact ledger и запреты на добавление фактов.",
+        },
+        {
+          status: "regression_ready",
+          rationale: "Regression coverage и prompt guardrails подтверждены.",
+        },
+        {
+          status: "closed",
+          rationale: "Кейс закрыт как baseline rule и остаётся под наблюдением через review queue.",
+        },
+      ],
+      allowedTransitions: [],
+      closureGuards: [
+        "При новой регрессии issue должен быть reopened новым коммитом и review update, а не правкой истории.",
+      ],
+    },
+    closureDecision: {
+      state: "closed",
+      summary:
+        "Кейс закрыт как baseline protected behavior и не требует отдельного follow-up, пока не появится новая регрессия.",
+      requiredArtifacts: [
+        "исторический fix_instruction snapshot",
+        "актуальный regression artifact",
+      ],
+      reopenPolicy:
+        "Любая новая регрессия по fact drift открывает новый review cycle и не должна стирать историю закрытого baseline issue.",
+    },
+    fixInstructionSnapshot: {
+      whatAIDidWrong:
+        "Rewrite менял хронологию и формулировки так, что появлялся новый фактический оттенок, которого не было в исходных данных.",
+      correctFutureBehavior:
+        "Rewrite улучшает стиль и структуру, но не меняет участников, даты, организации, доказательства и выводы.",
+      badExample:
+        "AI переписывает нейтральное описание как более уверенное утверждение о виновности или наличии доказательства.",
+      goodExample:
+        "AI сохраняет тот же фактологический каркас и только делает текст яснее и спокойнее по стилю.",
+      codexInstruction:
+        "Не ослаблять fact_ledger guardrails и regression checks при дальнейшем развитии rewrite flows.",
+      regressionExpectation:
+        "Regression tests должны продолжать ловить добавление фактов, доказательств и категоричных выводов.",
+    },
+    regressionFollowUp: {
+      status: "test_implemented",
+      artifact: "src/server/document-ai/rewrite.test.ts + src/server/document-ai/grounded-rewrite.test.ts",
       justification: null,
     },
   },

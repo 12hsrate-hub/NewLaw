@@ -46,6 +46,13 @@ type InternalAIReviewTesterView = {
   examples: InternalAIReviewTesterExample[];
 };
 
+type InternalAIConfirmedIssueLifecycleSummary = {
+  total: number;
+  byStatus: Record<AIConfirmedIssue["status"], number>;
+  closableCount: number;
+  closedCount: number;
+};
+
 export type InternalAIReviewPageContext = {
   reviewPreview: Awaited<ReturnType<typeof getInternalAIQualityReviewPreview>>;
   accessViews: {
@@ -58,6 +65,7 @@ export type InternalAIReviewPageContext = {
   };
   behaviorRules: ReturnType<typeof getAIBehaviorRulesRegistry>;
   confirmedIssues: AIConfirmedIssue[];
+  confirmedIssueLifecycle: InternalAIConfirmedIssueLifecycleSummary;
   fixInstructionTemplate: ReturnType<typeof getAIFixInstructionTemplate>;
   regressionGateItems: ReturnType<typeof getAIRegressionGateItems>;
   regressionGateRules: ReturnType<typeof getAIRegressionGateRules>;
@@ -100,8 +108,29 @@ function buildTesterView(
   };
 }
 
+function buildConfirmedIssueLifecycleSummary(
+  confirmedIssues: AIConfirmedIssue[],
+): InternalAIConfirmedIssueLifecycleSummary {
+  return {
+    total: confirmedIssues.length,
+    byStatus: {
+      confirmed_followup_required: confirmedIssues.filter(
+        (issue) => issue.status === "confirmed_followup_required",
+      ).length,
+      fix_in_progress: confirmedIssues.filter((issue) => issue.status === "fix_in_progress").length,
+      regression_ready: confirmedIssues.filter((issue) => issue.status === "regression_ready").length,
+      closed: confirmedIssues.filter((issue) => issue.status === "closed").length,
+    },
+    closableCount: confirmedIssues.filter((issue) =>
+      issue.lifecycle.allowedTransitions.some((transition) => transition.toStatus === "closed"),
+    ).length,
+    closedCount: confirmedIssues.filter((issue) => issue.status === "closed").length,
+  };
+}
+
 export async function getInternalAIReviewPageContext(): Promise<InternalAIReviewPageContext> {
   const reviewPreview = await getInternalAIQualityReviewPreview();
+  const confirmedIssues = getAIConfirmedIssuesRegistry();
 
   return {
     reviewPreview,
@@ -114,7 +143,8 @@ export async function getInternalAIReviewPageContext(): Promise<InternalAIReview
       tester: buildTesterView(reviewPreview),
     },
     behaviorRules: getAIBehaviorRulesRegistry(),
-    confirmedIssues: getAIConfirmedIssuesRegistry(),
+    confirmedIssues,
+    confirmedIssueLifecycle: buildConfirmedIssueLifecycleSummary(confirmedIssues),
     fixInstructionTemplate: getAIFixInstructionTemplate(),
     regressionGateItems: getAIRegressionGateItems(),
     regressionGateRules: getAIRegressionGateRules(),

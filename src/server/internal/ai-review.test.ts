@@ -107,6 +107,17 @@ describe("internal ai review page context", () => {
         }),
       ]),
     );
+    expect(result.confirmedIssueLifecycle).toEqual({
+      total: 3,
+      byStatus: {
+        confirmed_followup_required: 0,
+        fix_in_progress: 1,
+        regression_ready: 1,
+        closed: 1,
+      },
+      closableCount: 1,
+      closedCount: 1,
+    });
     expect(result.fixInstructionTemplate).toEqual(
       expect.arrayContaining([
         expect.objectContaining({

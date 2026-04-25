@@ -12,6 +12,7 @@ Post-MVP. Не входит в MVP.
 - отдельный `AI reviewer` model layer уже запущен в базовом виде для `full` режима
 - отдельный UI и human fix workflow пока ещё не реализованы
 - базовый internal human workflow уже есть, но ещё не доведён до full operational maturity
+- минимально полезный workflow closure теперь уже собран: lifecycle, closure decision и reopen policy зафиксированы
 
 ## Зависимость от шага 16
 
@@ -321,6 +322,13 @@ UI для `super_admin` должен быть отдельной будущей 
   - regression follow-up status
   - example `issue_fingerprint`
   - example `issue_cluster_key`
+- lifecycle confirmed issue внутри `/internal/ai-review`:
+  - `confirmed_followup_required`
+  - `fix_in_progress`
+  - `regression_ready`
+  - `closed`
+- явные allowed transitions и closure guards для confirmed issues
+- `closure decision` и `reopen policy` для confirmed issues
 - показ в review-карточке дополнительных полей:
   - `quality_score`
   - `confidence`
@@ -353,28 +361,23 @@ UI для `super_admin` должен быть отдельной будущей 
 
 ## Что ещё остаётся до полезного закрытия шага
 
-После текущего bootstrap в шаге `17` ещё остаются такие полезные части:
+После текущего среза обязательный полезный baseline шага `17` можно считать функционально закрытым.
 
-- более зрелый `regression gate` как complete operational process beyond current checklist
-- richer internal UI для `super_admin` beyond current richer case card baseline
-- более зрелая analytics surface beyond current aggregate queue summary
-- более зрелая policy лимитов beyond current bootstrap enforcement
-- реальное разделение route access и data access beyond current super-admin-only surface
-- возможный переход от repo-managed confirmed issues к отдельному persisted storage, если этого потребует operational scale
+Что может оставаться только как optional operational maturity, а не как обязательный следующий scope:
 
-Что по `AI reviewer` ещё остаётся:
+- более зрелый `regression gate` beyond current checklist
+- richer internal UI beyond current review workflow surface
+- deeper analytics beyond current aggregate summary
+- более зрелая policy limits beyond current bootstrap enforcement
+- отдельный persisted storage вместо repo-managed registries, если этого потребует operational scale
+- reviewer-specific dataset или отдельный reviewer model tier, если bootstrap reviewer перестанет хватать
 
-- выделить более зрелую policy для reviewer beyond compact JSON bootstrap
-- решить, нужен ли отдельный reviewer model tier или достаточно текущего cheap second pass
-- отделить reviewer regression dataset от просто queued cases
+Что специально не нужно дальше искусственно раздувать внутри шага `17`:
 
-Что ещё остаётся именно внутри human workflow:
-
-- оформить переход от текущего repo-managed confirmed issue registry к полному confirmed-issue workflow с отдельными annotations и closure transitions
-- расширить bootstrap checklist до полного process step после `fix_instruction`
-- решить, нужен ли отдельный persisted слой для reviewer annotations beyond current repo-managed registry
-
-При этом не нужно считать шаг `17` незапущенным: deterministic review foundation уже существует.
+- новый большой subsystem ради reviewer orchestration
+- отдельную БД только ради review annotations без реальной operational необходимости
+- дополнительные route surfaces без новой access-policy задачи
+- усложнение UI без нового confirmed workflow gap
 
 ## Критерии приёмки
 

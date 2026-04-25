@@ -392,6 +392,32 @@ describe("internal target route skeletons", () => {
           issueClusterKeyExample: "3e0f8d6f6acfe1bc5c87",
           sourceOfTruth: "step_17_ai_quality_review",
           summary: "Summary",
+          lifecycle: {
+            statusHistory: [
+              {
+                status: "confirmed_followup_required",
+                rationale: "Rationale 1",
+              },
+              {
+                status: "fix_in_progress",
+                rationale: "Rationale 2",
+              },
+            ],
+            allowedTransitions: [
+              {
+                toStatus: "regression_ready",
+                label: "Перевести в regression_ready",
+                blockedBy: ["Blocked by 1"],
+              },
+            ],
+            closureGuards: ["Guard 1"],
+          },
+          closureDecision: {
+            state: "not_ready",
+            summary: "Closure summary",
+            requiredArtifacts: ["Artifact 1", "Artifact 2"],
+            reopenPolicy: "Reopen policy",
+          },
           fixInstructionSnapshot: {
             whatAIDidWrong: "Wrong",
             correctFutureBehavior: "Future",
@@ -407,6 +433,17 @@ describe("internal target route skeletons", () => {
           },
         },
       ],
+      confirmedIssueLifecycle: {
+        total: 1,
+        byStatus: {
+          confirmed_followup_required: 0,
+          fix_in_progress: 1,
+          regression_ready: 0,
+          closed: 0,
+        },
+        closableCount: 0,
+        closedCount: 0,
+      },
       fixInstructionTemplate: [
         {
           fieldKey: "what_ai_did_wrong",
@@ -565,6 +602,14 @@ describe("internal target route skeletons", () => {
     expect(html).toContain("Queued Case Analytics");
     expect(html).toContain("AI Behavior Rules Registry");
     expect(html).toContain("Confirmed Issue Registry");
+    expect(html).toContain("Lifecycle and transitions");
+    expect(html).toContain("Allowed next transitions");
+    expect(html).toContain("Closure guards");
+    expect(html).toContain("Closure decision");
+    expect(html).toContain("Closure summary");
+    expect(html).toContain("Reopen policy");
+    expect(html).toContain("Перевести в regression_ready");
+    expect(html).toContain("Guard 1");
     expect(html).toContain("confirmed-normalization-meaning-shift-v1");
     expect(html).toContain("Fix instruction snapshot");
     expect(html).toContain("Regression follow-up");

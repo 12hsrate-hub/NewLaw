@@ -427,6 +427,44 @@ export function InternalAIReviewSection({
           </p>
         </div>
 
+        <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-5">
+          <div className="rounded-2xl border border-[var(--border)] bg-white/70 px-4 py-3">
+            <p className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">Total issues</p>
+            <p className="mt-2 text-lg font-medium">{context.confirmedIssueLifecycle.total}</p>
+          </div>
+          <div className="rounded-2xl border border-[var(--border)] bg-white/70 px-4 py-3">
+            <p className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">Follow-up</p>
+            <p className="mt-2 text-lg font-medium">
+              {context.confirmedIssueLifecycle.byStatus.confirmed_followup_required}
+            </p>
+          </div>
+          <div className="rounded-2xl border border-[var(--border)] bg-white/70 px-4 py-3">
+            <p className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">In progress</p>
+            <p className="mt-2 text-lg font-medium">
+              {context.confirmedIssueLifecycle.byStatus.fix_in_progress}
+            </p>
+          </div>
+          <div className="rounded-2xl border border-[var(--border)] bg-white/70 px-4 py-3">
+            <p className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">Regression ready</p>
+            <p className="mt-2 text-lg font-medium">
+              {context.confirmedIssueLifecycle.byStatus.regression_ready}
+            </p>
+          </div>
+          <div className="rounded-2xl border border-[var(--border)] bg-white/70 px-4 py-3">
+            <p className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">Closed</p>
+            <p className="mt-2 text-lg font-medium">
+              {context.confirmedIssueLifecycle.byStatus.closed}
+            </p>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-[#e6d6ca] bg-[#fff8f2] px-4 py-3 text-sm leading-6 text-[#6f6258]">
+          Closable issues now: {context.confirmedIssueLifecycle.closableCount}. Closed baseline:
+          {" "}
+          {context.confirmedIssueLifecycle.closedCount}. Lifecycle движется только вперёд через
+          review decision, regression gate и инженерный follow-up.
+        </div>
+
         <div className="space-y-4">
           {context.confirmedIssues.map((issue) => (
             <div
@@ -466,6 +504,104 @@ export function InternalAIReviewSection({
               <p className="text-sm leading-6 text-[#6f6258]">
                 fix_target: <span className="font-medium text-[#1e1916]">{issue.fixTarget ?? "n/a"}</span>
               </p>
+
+              <div className="space-y-3 rounded-2xl border border-[#e6d6ca] bg-[#fff8f2] px-4 py-4">
+                <p className="text-xs uppercase tracking-[0.18em] text-[#8c5a36]">
+                  Lifecycle and transitions
+                </p>
+                <div className="flex flex-wrap items-center gap-2 text-sm leading-6 text-[#6f6258]">
+                  {(["confirmed_followup_required", "fix_in_progress", "regression_ready", "closed"] as const).map(
+                    (status, index) => (
+                      <span
+                        className={`rounded-full border px-3 py-1 ${
+                          issue.status === status
+                            ? "border-[#8c5a36] bg-white text-[#1e1916]"
+                            : "border-[#d7c4b6] bg-white/70 text-[#6f6258]"
+                        }`}
+                        key={`${issue.issueId}-${status}`}
+                      >
+                        {status}
+                        {index < 3 ? " ->" : ""}
+                      </span>
+                    ),
+                  )}
+                </div>
+
+                <div className="grid gap-4 xl:grid-cols-2">
+                  <div className="space-y-2">
+                    <p className="text-xs uppercase tracking-[0.18em] text-[#8c5a36]">
+                      Status history
+                    </p>
+                    {issue.lifecycle.statusHistory.map((entry, index) => (
+                      <div
+                        className="rounded-2xl border border-[#e6d6ca] bg-white/80 px-4 py-3 text-sm leading-6 text-[#6f6258]"
+                        key={`${issue.issueId}-history-${index}-${entry.status}`}
+                      >
+                        <span className="font-medium text-[#1e1916]">{entry.status}</span>:{" "}
+                        {entry.rationale}
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="text-xs uppercase tracking-[0.18em] text-[#8c5a36]">
+                      Allowed next transitions
+                    </p>
+                    {issue.lifecycle.allowedTransitions.length > 0 ? (
+                      issue.lifecycle.allowedTransitions.map((transition, index) => (
+                        <div
+                          className="rounded-2xl border border-[#e6d6ca] bg-white/80 px-4 py-3 text-sm leading-6 text-[#6f6258]"
+                          key={`${issue.issueId}-transition-${index}-${transition.toStatus}`}
+                        >
+                          <p>
+                            <span className="font-medium text-[#1e1916]">{transition.label}</span>
+                            {" "}({transition.toStatus})
+                          </p>
+                          {transition.blockedBy.length > 0 ? (
+                            <p className="mt-1">
+                              blocked by: {transition.blockedBy.join(" | ")}
+                            </p>
+                          ) : null}
+                        </div>
+                      ))
+                    ) : (
+                      <div className="rounded-2xl border border-[#e6d6ca] bg-white/80 px-4 py-3 text-sm leading-6 text-[#6f6258]">
+                        Для этого issue новых transitions сейчас не предусмотрено.
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <p className="text-xs uppercase tracking-[0.18em] text-[#8c5a36]">
+                    Closure guards
+                  </p>
+                  {issue.lifecycle.closureGuards.map((guard, index) => (
+                    <div
+                      className="rounded-2xl border border-[#e6d6ca] bg-white/80 px-4 py-3 text-sm leading-6 text-[#6f6258]"
+                      key={`${issue.issueId}-guard-${index}`}
+                    >
+                      {guard}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-3 rounded-2xl border border-[#e6d6ca] bg-[#fff8f2] px-4 py-4">
+                <p className="text-xs uppercase tracking-[0.18em] text-[#8c5a36]">
+                  Closure decision
+                </p>
+                <p className="text-sm leading-6 text-[#6f6258]">
+                  state: <span className="font-medium text-[#1e1916]">{issue.closureDecision.state}</span>
+                </p>
+                <p className="text-sm leading-6 text-[#6f6258]">{issue.closureDecision.summary}</p>
+                <p className="text-sm leading-6 text-[#6f6258]">
+                  required artifacts: {issue.closureDecision.requiredArtifacts.join(" | ")}
+                </p>
+                <p className="text-sm leading-6 text-[#6f6258]">
+                  reopen policy: {issue.closureDecision.reopenPolicy}
+                </p>
+              </div>
 
               <div className="grid gap-4 xl:grid-cols-2">
                 <div className="space-y-2 rounded-2xl border border-[#e6d6ca] bg-white/80 px-4 py-3">

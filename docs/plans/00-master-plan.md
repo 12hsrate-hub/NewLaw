@@ -255,7 +255,7 @@
 
 ### `17-ai-quality-review`
 
-Статус: `post-MVP / active / partial`
+Статус: `post-MVP / функционально закрыт`
 
 Это следующий именованный шаг после `16`, и он явно зависит от уже стабилизированного legal core из шага `16`.
 
@@ -284,6 +284,8 @@
 - aggregate analytics в `/internal/ai-review` по `root_cause`, `flags`, `prompt_version`, `law_version`, `tokens` и `cost`
 - access-scoped review views для `super_admin`, `server_admin` и `tester`
 - repo-managed `Confirmed Issue Registry` как baseline persisted annotation layer
+- lifecycle confirmed issues с status transitions и closure guards
+- closure decisions и reopen policy для confirmed issues
 - repo-managed bootstrap реестра `AI Behavior Rules` и шаблона `fix_instruction`
 - repo-managed bootstrap checklist для `regression gate`
 - реально enforced daily request/cost limits для reviewer second pass
@@ -291,26 +293,13 @@
 - сохранение normalization review chain и case chain `raw_input -> normalized_input -> retrieved sources -> final output`
 - сохранение `risk_level`, `confidence`, `flags`, `root_cause`, `input_quality`, `issue_fingerprint`, `issue_cluster_key`
 
-Что ещё остаётся до основного useful scope:
+Что ещё может оставаться только как optional maturity, а не как обязательный хвост:
 
-- более зрелый `regression gate` beyond current bootstrap checklist
-- richer UI для `super_admin` beyond current richer case card baseline
-- более зрелая analytics surface beyond current aggregate queue summary
-- реальное разделение route access и data access beyond current super-admin-only surface
-- возможный переход от repo-managed confirmed issues к отдельному persisted storage при росте operational нагрузки
-- более зрелая operational policy limits beyond current bootstrap enforcement
-
-Что ещё остаётся именно внутри reviewer-подслоя:
-
-- более зрелая reviewer policy beyond compact JSON bootstrap
-- решение по окончательному reviewer model tier
-- reviewer-specific regression dataset
-
-Что ещё остаётся именно внутри human workflow:
-
-- переход от repo-managed confirmed issue registry к полному confirmed-issue workflow с closure transitions и richer annotations
-- расширение regression gate от bootstrap checklist до полного process step
-- решение по persisted reviewer annotations beyond repo-managed registry
+- более зрелый `regression gate` beyond current checklist
+- richer UI beyond current review workflow surface
+- deeper analytics beyond current aggregate summary
+- persisted storage для review annotations при реальной operational необходимости
+- более зрелая reviewer policy или reviewer-specific dataset, если bootstrap reviewer перестанет хватать
 
 Границы этой линии:
 
