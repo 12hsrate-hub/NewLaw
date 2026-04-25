@@ -1,12 +1,16 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-import { redirect, RedirectType } from "next/navigation";
 import { isRedirectError } from "next/dist/client/components/redirect-error";
 import { ZodError } from "zod";
 
-import { buildDocumentEditorHref, buildDocumentFamilyHref } from "@/lib/documents/family-registry";
+import { buildDocumentEditorHref } from "@/lib/documents/family-registry";
 import { requireProtectedAccountContext } from "@/server/auth/protected";
+import {
+  parsePayloadJson,
+  replaceRedirectWithStatus,
+  revalidateDocumentPaths,
+  revalidateOgpDocumentPaths,
+} from "@/server/actions/documents-shared";
 import {
   createInitialClaimDraft,
   createInitialAttorneyRequestDraft,
@@ -64,65 +68,6 @@ import {
   rewriteDocumentFieldActionInputSchema,
   rewriteGroundedDocumentFieldActionInputSchema,
 } from "@/schemas/document-ai";
-
-function buildStatusRedirect(path: string, status: string) {
-  const [pathname, queryString] = path.split("?");
-  const params = new URLSearchParams(queryString ?? "");
-
-  params.set("status", status);
-
-  const nextQuery = params.toString();
-
-  return nextQuery ? `${pathname}?${nextQuery}` : pathname;
-}
-
-function replaceRedirectWithStatus(path: string, status: string): never {
-  redirect(buildStatusRedirect(path, status), RedirectType.replace);
-}
-
-function parsePayloadJson(payloadJson: FormDataEntryValue | null) {
-  const payloadText = String(payloadJson ?? "").trim();
-
-  if (payloadText.length === 0) {
-    return {};
-  }
-
-  return JSON.parse(payloadText) as unknown;
-}
-
-function revalidateDocumentPaths(input: {
-  documentId: string;
-  serverCode: string;
-  documentType:
-    | "ogp_complaint"
-    | "rehabilitation"
-    | "lawsuit"
-    | "attorney_request"
-    | "legal_services_agreement";
-}) {
-  revalidatePath("/account/documents");
-  revalidatePath(`/servers/${input.serverCode}/documents`);
-  revalidatePath(
-    buildDocumentFamilyHref({
-      serverCode: input.serverCode,
-      documentType: input.documentType,
-    }),
-  );
-  revalidatePath(
-    buildDocumentEditorHref({
-      serverCode: input.serverCode,
-      documentId: input.documentId,
-      documentType: input.documentType,
-    }),
-  );
-
-  if (
-    input.documentType === "attorney_request" ||
-    input.documentType === "legal_services_agreement"
-  ) {
-    revalidatePath("/account/trustors");
-  }
-}
 
 export async function createOgpComplaintDraftAction(formData: FormData) {
   const serverSlug = String(formData.get("serverSlug") ?? "");
@@ -424,10 +369,10 @@ export async function generateOgpComplaintBbcodeAction(input: {
       documentId: input.documentId,
     });
 
-    revalidatePath("/account/documents");
-    revalidatePath(`/servers/${document.server.code}/documents`);
-    revalidatePath(`/servers/${document.server.code}/documents/ogp-complaints`);
-    revalidatePath(`/servers/${document.server.code}/documents/ogp-complaints/${document.id}`);
+    revalidateOgpDocumentPaths({
+      documentId: document.id,
+      serverCode: document.server.code,
+    });
 
     return {
       ok: true as const,
@@ -730,10 +675,10 @@ export async function updateDocumentPublicationMetadataAction(input: {
       isSiteForumSynced: input.isSiteForumSynced,
     });
 
-    revalidatePath("/account/documents");
-    revalidatePath(`/servers/${document.server.code}/documents`);
-    revalidatePath(`/servers/${document.server.code}/documents/ogp-complaints`);
-    revalidatePath(`/servers/${document.server.code}/documents/ogp-complaints/${document.id}`);
+    revalidateOgpDocumentPaths({
+      documentId: document.id,
+      serverCode: document.server.code,
+    });
 
     return {
       ok: true as const,
@@ -781,10 +726,10 @@ export async function publishOgpComplaintCreateAction(input: {
       documentId: input.documentId,
     });
 
-    revalidatePath("/account/documents");
-    revalidatePath(`/servers/${document.server.code}/documents`);
-    revalidatePath(`/servers/${document.server.code}/documents/ogp-complaints`);
-    revalidatePath(`/servers/${document.server.code}/documents/ogp-complaints/${document.id}`);
+    revalidateOgpDocumentPaths({
+      documentId: document.id,
+      serverCode: document.server.code,
+    });
 
     return {
       ok: true as const,
@@ -841,10 +786,10 @@ export async function publishOgpComplaintUpdateAction(input: {
       documentId: input.documentId,
     });
 
-    revalidatePath("/account/documents");
-    revalidatePath(`/servers/${document.server.code}/documents`);
-    revalidatePath(`/servers/${document.server.code}/documents/ogp-complaints`);
-    revalidatePath(`/servers/${document.server.code}/documents/ogp-complaints/${document.id}`);
+    revalidateOgpDocumentPaths({
+      documentId: document.id,
+      serverCode: document.server.code,
+    });
 
     return {
       ok: true as const,
