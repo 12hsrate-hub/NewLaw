@@ -73,6 +73,7 @@ describe("submit assistant question action", () => {
           normalization_model: "gpt-5.4-nano",
           normalization_prompt_version: "legal_input_normalization_v1",
           normalization_changed: false,
+          retrieval_query: "Что с договором?",
           law_version_ids: ["version-1"],
           law_version_contract: {
             server_id: "server-1",

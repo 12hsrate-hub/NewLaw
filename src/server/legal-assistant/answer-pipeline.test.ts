@@ -88,6 +88,44 @@ function createAssistantRetrieval(overrides?: Partial<{
 }
 
 describe("answer pipeline", () => {
+  it("обогащает retrieval query для маски и задержания до вызова corpus search", async () => {
+    const searchAssistantCorpus = vi.fn().mockResolvedValue(
+      createAssistantRetrieval({
+        hasCurrentLawCorpus: true,
+        hasUsablePrecedentCorpus: true,
+      }),
+    );
+
+    await generateServerLegalAssistantAnswer(
+      {
+        serverId: "server-1",
+        serverCode: "blackberry",
+        serverName: "Blackberry",
+        question: "Можно ли задержать человека за ношение маски?",
+      },
+      {
+        searchAssistantCorpus,
+        normalizeInputText: vi
+          .fn()
+          .mockResolvedValue(createNormalizationResult("Можно ли задержать человека за ношение маски?")),
+        requestAssistantProxyCompletion: vi.fn(),
+        createAIRequest: vi.fn(),
+        now: () => new Date("2026-04-21T08:00:00.000Z"),
+      },
+    );
+
+    expect(searchAssistantCorpus).toHaveBeenCalledWith(
+      expect.objectContaining({
+        query: expect.stringContaining("административный кодекс"),
+      }),
+    );
+    expect(searchAssistantCorpus).toHaveBeenCalledWith(
+      expect.objectContaining({
+        query: expect.stringContaining("процессуальный кодекс"),
+      }),
+    );
+  });
+
   it("честно возвращает fallback, если не найдены ни нормы, ни подтверждённые precedents", async () => {
     const createAIRequest = vi.fn();
     const requestAssistantProxyCompletion = vi.fn();

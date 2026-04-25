@@ -4,6 +4,7 @@ import {
   searchAssistantCorpus,
 } from "@/server/legal-assistant/retrieval";
 import { requestAssistantProxyCompletion } from "@/server/legal-assistant/ai-proxy";
+import { buildAssistantRetrievalQuery } from "@/server/legal-core/assistant-retrieval-query";
 import { normalizeLegalInputText } from "@/server/legal-core/input-normalization";
 import {
   type LegalCoreActorContext,
@@ -924,13 +925,17 @@ export async function generateServerLegalAssistantAnswer(
     rawInput: input.question,
     featureKey: "server_legal_assistant",
   });
+  const intent = classifyAssistantIntent(normalizedInput.normalized_input);
+  const retrievalQuery = buildAssistantRetrievalQuery({
+    normalizedQuestion: normalizedInput.normalized_input,
+    intent,
+  });
   const retrieval = await dependencies.searchAssistantCorpus({
     serverId: input.serverId,
-    query: normalizedInput.normalized_input,
+    query: retrievalQuery,
     lawLimit: 6,
     precedentLimit: 4,
   });
-  const intent = classifyAssistantIntent(normalizedInput.normalized_input);
   const responseMode =
     input.responseModeOverride ?? detectQuestionResponseMode(normalizedInput.normalized_input);
   const actorContext = input.actorContext ?? "general_question";
@@ -964,6 +969,7 @@ export async function generateServerLegalAssistantAnswer(
     normalization_model: normalizedInput.normalization_model,
     normalization_prompt_version: normalizedInput.normalization_prompt_version,
     normalization_changed: normalizedInput.normalization_changed,
+    retrieval_query: retrievalQuery,
     used_sources: usedSources,
     source_ledger: sourceLedger,
     test_run_context: input.testRunContext ?? null,
@@ -998,6 +1004,7 @@ export async function generateServerLegalAssistantAnswer(
       normalization_model: normalizedInput.normalization_model,
       normalization_prompt_version: normalizedInput.normalization_prompt_version,
       normalization_changed: normalizedInput.normalization_changed,
+      retrieval_query: retrievalQuery,
       input_trace: inputTrace,
       used_sources: usedSources,
       source_ledger: sourceLedger,
@@ -1089,6 +1096,7 @@ export async function generateServerLegalAssistantAnswer(
       normalization_model: normalizedInput.normalization_model,
       normalization_prompt_version: normalizedInput.normalization_prompt_version,
       normalization_changed: normalizedInput.normalization_changed,
+      retrieval_query: retrievalQuery,
       input_trace: inputTrace,
       used_sources: usedSources,
       source_ledger: sourceLedger,
@@ -1181,6 +1189,7 @@ export async function generateServerLegalAssistantAnswer(
     normalization_model: normalizedInput.normalization_model,
     normalization_prompt_version: normalizedInput.normalization_prompt_version,
     normalization_changed: normalizedInput.normalization_changed,
+    retrieval_query: retrievalQuery,
     input_trace: inputTrace,
     used_sources: usedSources,
     lawCorpusSnapshot: retrieval.lawCorpusSnapshot,
