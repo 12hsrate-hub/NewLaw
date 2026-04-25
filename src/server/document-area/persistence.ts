@@ -37,6 +37,7 @@ import {
   normalizeSafeUrl,
   readCharacterProfileData,
 } from "@/lib/ogp/generation-contract";
+import { getDocumentDefaultTitle } from "@/lib/documents/family-registry";
 import { setActiveCharacterSelection, setActiveServerSelection } from "@/server/app-shell/selection";
 import {
   claimDocumentTypeSchema,
@@ -597,23 +598,7 @@ export function getDocumentTitleForType(
     | "attorney_request"
     | "legal_services_agreement",
 ) {
-  if (documentType === "ogp_complaint") {
-    return "Жалоба в ОГП";
-  }
-
-  if (documentType === "rehabilitation") {
-    return "Документ по реабилитации";
-  }
-
-  if (documentType === "attorney_request") {
-    return "Адвокатский запрос";
-  }
-
-  if (documentType === "legal_services_agreement") {
-    return "Договор на оказание юридических услуг";
-  }
-
-  return "Исковое заявление";
+  return getDocumentDefaultTitle(documentType);
 }
 
 function getDocumentFormSchemaVersion(

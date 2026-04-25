@@ -5,6 +5,7 @@ import { redirect, RedirectType } from "next/navigation";
 import { isRedirectError } from "next/dist/client/components/redirect-error";
 import { ZodError } from "zod";
 
+import { buildDocumentEditorHref, buildDocumentFamilyHref } from "@/lib/documents/family-registry";
 import { requireProtectedAccountContext } from "@/server/auth/protected";
 import {
   createInitialClaimDraft,
@@ -101,34 +102,26 @@ function revalidateDocumentPaths(input: {
 }) {
   revalidatePath("/account/documents");
   revalidatePath(`/servers/${input.serverCode}/documents`);
+  revalidatePath(
+    buildDocumentFamilyHref({
+      serverCode: input.serverCode,
+      documentType: input.documentType,
+    }),
+  );
+  revalidatePath(
+    buildDocumentEditorHref({
+      serverCode: input.serverCode,
+      documentId: input.documentId,
+      documentType: input.documentType,
+    }),
+  );
 
-  if (input.documentType === "ogp_complaint") {
-    revalidatePath(`/servers/${input.serverCode}/documents/ogp-complaints`);
-    revalidatePath(`/servers/${input.serverCode}/documents/ogp-complaints/${input.documentId}`);
-
-    return;
-  }
-
-  if (input.documentType === "attorney_request") {
+  if (
+    input.documentType === "attorney_request" ||
+    input.documentType === "legal_services_agreement"
+  ) {
     revalidatePath("/account/trustors");
-    revalidatePath(`/servers/${input.serverCode}/documents/attorney-requests`);
-    revalidatePath(`/servers/${input.serverCode}/documents/attorney-requests/${input.documentId}`);
-
-    return;
   }
-
-  if (input.documentType === "legal_services_agreement") {
-    revalidatePath("/account/trustors");
-    revalidatePath(`/servers/${input.serverCode}/documents/legal-services-agreements`);
-    revalidatePath(
-      `/servers/${input.serverCode}/documents/legal-services-agreements/${input.documentId}`,
-    );
-
-    return;
-  }
-
-  revalidatePath(`/servers/${input.serverCode}/documents/claims`);
-  revalidatePath(`/servers/${input.serverCode}/documents/claims/${input.documentId}`);
 }
 
 export async function createOgpComplaintDraftAction(formData: FormData) {
@@ -156,7 +149,11 @@ export async function createOgpComplaintDraftAction(formData: FormData) {
     });
 
     replaceRedirectWithStatus(
-      `/servers/${document.server.code}/documents/ogp-complaints/${document.id}`,
+      buildDocumentEditorHref({
+        serverCode: document.server.code,
+        documentId: document.id,
+        documentType: "ogp_complaint",
+      }),
       "draft-created",
     );
   } catch (error) {
@@ -213,7 +210,11 @@ export async function createClaimDraftAction(formData: FormData) {
     });
 
     replaceRedirectWithStatus(
-      `/servers/${document.server.code}/documents/claims/${document.id}`,
+      buildDocumentEditorHref({
+        serverCode: document.server.code,
+        documentId: document.id,
+        documentType: document.documentType,
+      }),
       "draft-created",
     );
   } catch (error) {
@@ -268,7 +269,11 @@ export async function createAttorneyRequestDraftAction(formData: FormData) {
     });
 
     replaceRedirectWithStatus(
-      `/servers/${document.server.code}/documents/attorney-requests/${document.id}`,
+      buildDocumentEditorHref({
+        serverCode: document.server.code,
+        documentId: document.id,
+        documentType: "attorney_request",
+      }),
       "draft-created",
     );
   } catch (error) {
@@ -323,7 +328,11 @@ export async function createLegalServicesAgreementDraftAction(formData: FormData
     });
 
     replaceRedirectWithStatus(
-      `/servers/${document.server.code}/documents/legal-services-agreements/${document.id}`,
+      buildDocumentEditorHref({
+        serverCode: document.server.code,
+        documentId: document.id,
+        documentType: "legal_services_agreement",
+      }),
       "draft-created",
     );
   } catch (error) {

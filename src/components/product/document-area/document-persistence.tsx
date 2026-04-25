@@ -33,6 +33,13 @@ import type {
   DocumentAreaServerSummary,
   DocumentTrustorRegistrySummary,
 } from "@/server/document-area/context";
+import {
+  buildDocumentEditorHref,
+  getDocumentFamilyLabel,
+  getDocumentOpenActionLabel,
+  getDocumentSubtypeLabel,
+  getDocumentTypeLabel,
+} from "@/lib/documents/family-registry";
 import { getDocumentTitleForType } from "@/server/document-area/persistence";
 import type {
   ClaimDocumentType,
@@ -60,52 +67,8 @@ function DocumentLink({
   );
 }
 
-function formatDocumentType(documentType: DocumentAreaPersistedListItem["documentType"]) {
-  if (documentType === "ogp_complaint") {
-    return "Жалоба в ОГП";
-  }
-
-  if (documentType === "attorney_request") {
-    return "Адвокатский запрос";
-  }
-
-  if (documentType === "legal_services_agreement") {
-    return "Договор на оказание юридических услуг";
-  }
-
-  if (documentType === "rehabilitation") {
-    return "Rehabilitation";
-  }
-
-  return "Lawsuit";
-}
-
-function formatDocumentFamily(documentType: DocumentAreaPersistedListItem["documentType"]) {
-  if (documentType === "ogp_complaint") {
-    return "Жалобы в ОГП";
-  }
-
-  if (documentType === "attorney_request") {
-    return "Адвокатские запросы";
-  }
-
-  if (documentType === "legal_services_agreement") {
-    return "Договоры";
-  }
-
-  return "Иски";
-}
-
 function formatDocumentSubtype(documentType: DocumentAreaPersistedListItem["documentType"]) {
-  if (documentType === "rehabilitation") {
-    return "Rehabilitation";
-  }
-
-  if (documentType === "lawsuit") {
-    return "Lawsuit";
-  }
-
-  return null;
+  return getDocumentSubtypeLabel(documentType);
 }
 
 function formatClaimSubtype(documentType: ClaimDocumentType) {
@@ -176,22 +139,6 @@ function formatFilingMode(mode: DocumentAreaPersistedListItem["filingMode"]) {
   return mode === "representative" ? "как представитель" : "от своего имени";
 }
 
-function buildDocumentEditorHref(document: DocumentAreaPersistedListItem) {
-  if (document.documentType === "ogp_complaint") {
-    return `/servers/${document.server.code}/documents/ogp-complaints/${document.id}`;
-  }
-
-  if (document.documentType === "attorney_request") {
-    return `/servers/${document.server.code}/documents/attorney-requests/${document.id}`;
-  }
-
-  if (document.documentType === "legal_services_agreement") {
-    return `/servers/${document.server.code}/documents/legal-services-agreements/${document.id}`;
-  }
-
-  return `/servers/${document.server.code}/documents/claims/${document.id}`;
-}
-
 function PersistedDocumentList(props: {
   documents: DocumentAreaPersistedListItem[];
 }) {
@@ -212,11 +159,11 @@ function PersistedDocumentList(props: {
         <Card className="space-y-4" key={document.id}>
           <div className="space-y-2">
             <div className="flex flex-wrap items-center gap-2">
-              <Badge>{formatDocumentFamily(document.documentType)}</Badge>
+              <Badge>{getDocumentFamilyLabel(document.documentType)}</Badge>
               {formatDocumentSubtype(document.documentType) ? (
                 <Badge>{formatDocumentSubtype(document.documentType)}</Badge>
               ) : (
-                <Badge>{formatDocumentType(document.documentType)}</Badge>
+                <Badge>{getDocumentTypeLabel(document.documentType)}</Badge>
               )}
               <Badge>{formatDocumentStatus(document.status)}</Badge>
               {document.dataHealth === "invalid_payload" ? (
@@ -298,14 +245,14 @@ function PersistedDocumentList(props: {
             ) : null}
           </div>
           <div className="flex flex-wrap gap-3">
-            <DocumentLink href={buildDocumentEditorHref(document)}>
-              {document.documentType === "ogp_complaint"
-                ? "Открыть жалобу в ОГП"
-                : document.documentType === "attorney_request"
-                  ? "Открыть адвокатский запрос"
-                  : document.documentType === "legal_services_agreement"
-                    ? "Открыть договор"
-                    : "Открыть документ"}
+            <DocumentLink
+              href={buildDocumentEditorHref({
+                serverCode: document.server.code,
+                documentId: document.id,
+                documentType: document.documentType,
+              })}
+            >
+              {getDocumentOpenActionLabel(document.documentType)}
             </DocumentLink>
           </div>
         </Card>
