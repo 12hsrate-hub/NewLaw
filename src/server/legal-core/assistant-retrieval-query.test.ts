@@ -3,37 +3,72 @@ import { describe, expect, it } from "vitest";
 import { buildAssistantRetrievalQuery } from "@/server/legal-core/assistant-retrieval-query";
 
 describe("assistant retrieval query", () => {
-  it("добавляет правовые якоря для вопроса про маску и задержание", () => {
+  it("строит structured breakdown для вопроса про маску и задержание", () => {
     const query = buildAssistantRetrievalQuery({
-      normalizedQuestion: "Можно ли задержать человека за ношение маски?",
+      normalized_input: "Можно ли задержать человека за ношение маски?",
       intent: "situation_analysis",
+      required_law_families: ["administrative_code", "procedural_code"],
+      preferred_norm_roles: ["primary_basis", "procedure", "sanction"],
+      legal_anchors: ["administrative_offense", "detention_procedure", "sanction"],
+      question_scope: "general_question",
+      forbidden_scope_markers: ["публичное мероприятие", "митинг"],
     });
 
-    expect(query).toContain("административный кодекс");
-    expect(query).toContain("процессуальный кодекс");
-    expect(query).toContain("скрытие личности");
-    expect(query).toContain("тикет");
+    expect(query.expanded_query).toContain("административный кодекс");
+    expect(query.expanded_query).toContain("процессуальный кодекс");
+    expect(query.anchor_terms).toEqual(
+      expect.arrayContaining(["административный кодекс", "маскировка", "задержание"]),
+    );
+    expect(query.family_terms).toEqual(
+      expect.arrayContaining(["административное правонарушение", "процедура задержания"]),
+    );
+    expect(query.runtime_tags).toEqual(
+      expect.arrayContaining(["material_offense", "detention"]),
+    );
+    expect(query.applied_biases).toEqual(
+      expect.arrayContaining([
+        "prefer_family:administrative_code",
+        "prefer_family:procedural_code_secondary",
+      ]),
+    );
   });
 
-  it("добавляет видеозапись и процессуальные якоря для body-cam вопроса", () => {
+  it("добавляет bodycam/evidence runtime tags и procedural hints для общего вопроса", () => {
     const query = buildAssistantRetrievalQuery({
-      normalizedQuestion: "если сотрудник не вел бодикам это нарушение",
+      normalized_input: "если сотрудник не вел бодикам это нарушение",
       intent: "evidence_check",
+      required_law_families: ["procedural_code"],
+      preferred_norm_roles: ["procedure", "right_or_guarantee"],
+      legal_anchors: ["video_recording", "official_duty", "evidence"],
+      question_scope: "general_question",
+      forbidden_scope_markers: ["национальная гвардия"],
     });
 
-    expect(query).toContain("процессуальный кодекс");
-    expect(query).toContain("видеозапись задержания");
-    expect(query).toContain("body-cam");
+    expect(query.anchor_terms).toEqual(
+      expect.arrayContaining(["видеофиксация", "видеозапись", "служебные обязанности"]),
+    );
+    expect(query.runtime_tags).toEqual(
+      expect.arrayContaining(["bodycam", "evidence", "official_duty"]),
+    );
+    expect(query.applied_biases).toContain("demote_department_specific_for_general_question");
   });
 
-  it("добавляет адвокатский запрос и уголовно-правовой якорь", () => {
+  it("усиливает advocacy_law и attorney_request для вопроса про адвокатский запрос", () => {
     const query = buildAssistantRetrievalQuery({
-      normalizedQuestion: "если руководство не ответило на адвокатский запрос",
+      normalized_input: "если руководство не ответило на адвокатский запрос",
       intent: "law_explanation",
+      required_law_families: ["advocacy_law", "government_code", "department_specific"],
+      preferred_norm_roles: ["primary_basis", "sanction", "remedy"],
+      legal_anchors: ["attorney_request", "official_duty", "sanction"],
+      question_scope: "general_question",
+      forbidden_scope_markers: [],
     });
 
-    expect(query).toContain("официальный адвокатский запрос");
-    expect(query).toContain("уголовный кодекс");
-    expect(query).toContain("неисполнение правовых актов");
+    expect(query.expanded_query).toContain("официальный адвокатский запрос");
+    expect(query.family_terms).toContain("закон об адвокатуре");
+    expect(query.runtime_tags).toEqual(
+      expect.arrayContaining(["attorney", "attorney_request", "official_duty"]),
+    );
+    expect(query.applied_biases).toContain("prefer_family:advocacy_law");
   });
 });

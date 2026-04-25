@@ -18,6 +18,7 @@ function createAssistantRetrieval(overrides?: Partial<{
   lawCurrentVersionIds: string[];
   lawResults: Array<Record<string, unknown>>;
   precedentResults: Array<Record<string, unknown>>;
+  retrievalDebug: Record<string, unknown> | null;
 }>) {
   const lawResults = (overrides?.lawResults ?? []) as Array<Record<string, unknown>>;
   const precedentResults = (overrides?.precedentResults ?? []) as Array<Record<string, unknown>>;
@@ -45,6 +46,7 @@ function createAssistantRetrieval(overrides?: Partial<{
         corpusSnapshotHash: "law-snapshot-hash",
       },
       results: lawResults,
+      retrievalDebug: overrides?.retrievalDebug ?? null,
     },
     precedentRetrieval: {
       query: "Что с договором?",
@@ -84,6 +86,7 @@ function createAssistantRetrieval(overrides?: Partial<{
       lawCurrentVersionIds,
       precedentCurrentVersionIds: hasUsablePrecedentCorpus ? ["precedent-version-1"] : [],
     },
+    retrievalDebug: overrides?.retrievalDebug ?? null,
   };
 }
 
@@ -173,7 +176,7 @@ describe("answer pipeline", () => {
     expect(createAIRequest).toHaveBeenCalledWith(
       expect.objectContaining({
         status: "success",
-        requestPayloadJson: expect.objectContaining({
+      requestPayloadJson: expect.objectContaining({
           branch: "no_norms",
           raw_input: "Есть ли норма про неизвестный институт?",
           normalized_input: "Есть ли норма про неизвестный институт?",
@@ -431,6 +434,14 @@ describe("answer pipeline", () => {
               }),
             ],
           }),
+          retrieval_query_base_terms: expect.any(Array),
+          retrieval_query_anchor_terms: expect.any(Array),
+          retrieval_query_family_terms: expect.any(Array),
+          retrieval_runtime_tags: expect.any(Array),
+          candidate_pool_before_filters: expect.any(Array),
+          candidate_pool_after_filters: expect.any(Array),
+          applied_biases: expect.any(Array),
+          filter_reasons: expect.any(Array),
         }),
         responsePayloadJson: expect.objectContaining({
           latencyMs: 0,

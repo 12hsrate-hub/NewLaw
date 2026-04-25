@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { buildLegalQueryPlan } from "@/server/legal-core/legal-query-plan";
 import { searchAssistantCorpus } from "@/server/legal-assistant/retrieval";
 
 describe("assistant retrieval envelope", () => {
@@ -44,6 +45,7 @@ describe("assistant retrieval envelope", () => {
             },
           ],
         }),
+        searchCurrentLawCorpusWithContext: vi.fn(),
         searchCurrentPrecedentCorpus: vi.fn().mockResolvedValue({
           query: "договор",
           serverId: "server-1",
@@ -111,6 +113,7 @@ describe("assistant retrieval envelope", () => {
           },
           results: [],
         }),
+        searchCurrentLawCorpusWithContext: vi.fn(),
         searchCurrentPrecedentCorpus: vi.fn().mockResolvedValue({
           query: "договор",
           serverId: "server-1",
@@ -155,5 +158,97 @@ describe("assistant retrieval envelope", () => {
     expect(result.hasAnyUsableCorpus).toBe(true);
     expect(result.resultCount).toBe(1);
     expect(result.results[0].sourceKind).toBe("precedent");
+  });
+
+  it("пробрасывает legalQueryPlan в context-aware law retrieval только для assistant path", async () => {
+    const legalQueryPlan = buildLegalQueryPlan({
+      normalizedInput: "Можно ли задержать человека за ношение маски?",
+      intent: "situation_analysis",
+      actorContext: "general_question",
+      responseMode: "normal",
+      serverId: "server-1",
+    });
+    const searchCurrentLawCorpusWithContext = vi.fn().mockResolvedValue({
+      query: legalQueryPlan.expanded_query,
+      serverId: "server-1",
+      resultCount: 1,
+      corpusSnapshot: {
+        serverId: "server-1",
+        generatedAt: "2026-04-21T08:00:00.000Z",
+        currentVersionIds: ["law-version-1"],
+        corpusSnapshotHash: "law-snapshot-hash",
+      },
+      results: [
+        {
+          serverId: "server-1",
+          lawId: "law-1",
+          lawKey: "administrative_code",
+          lawTitle: "Административный кодекс",
+          lawVersionId: "law-version-1",
+          lawVersionStatus: "current",
+          lawBlockId: "law-block-1",
+          blockType: "article",
+          blockOrder: 1,
+          articleNumberNormalized: "18",
+          snippet: "Статья 18.",
+          blockText: "Статья 18.",
+          sourceTopicUrl: "https://forum.gta5rp.com/threads/100001/",
+          sourcePosts: [],
+          metadata: {
+            sourceSnapshotHash: "source-hash",
+            normalizedTextHash: "normalized-hash",
+            corpusSnapshotHash: "law-snapshot-hash",
+          },
+        },
+      ],
+      retrievalDebug: {
+        retrieval_query_base_terms: ["можно", "ли", "задержать", "человека", "за", "ношение", "маски"],
+        retrieval_query_anchor_terms: ["административный кодекс"],
+        retrieval_query_family_terms: ["административное правонарушение"],
+        retrieval_runtime_tags: ["material_offense", "detention"],
+        candidate_pool_before_filters: [],
+        candidate_pool_after_filters: [],
+        applied_biases: ["prefer_family:administrative_code"],
+        filter_reasons: [],
+      },
+    });
+
+    const result = await searchAssistantCorpus(
+      {
+        serverId: "server-1",
+        query: legalQueryPlan.expanded_query,
+        legalQueryPlan,
+      },
+      {
+        searchCurrentLawCorpus: vi.fn(),
+        searchCurrentLawCorpusWithContext,
+        searchCurrentPrecedentCorpus: vi.fn().mockResolvedValue({
+          query: legalQueryPlan.expanded_query,
+          serverId: "server-1",
+          resultCount: 0,
+          corpusSnapshot: {
+            serverId: "server-1",
+            generatedAt: "2026-04-21T08:00:00.000Z",
+            currentVersionIds: [],
+            corpusSnapshotHash: "precedent-snapshot-hash",
+          },
+          results: [],
+        }),
+        now: () => new Date("2026-04-21T08:00:00.000Z"),
+      },
+    );
+
+    expect(searchCurrentLawCorpusWithContext).toHaveBeenCalledWith(
+      expect.objectContaining({
+        retrievalContext: expect.objectContaining({
+          legalQueryPlan: expect.objectContaining({
+            normalized_input: "Можно ли задержать человека за ношение маски?",
+          }),
+        }),
+      }),
+    );
+    expect(result.retrievalDebug).toMatchObject({
+      applied_biases: ["prefer_family:administrative_code"],
+    });
   });
 });

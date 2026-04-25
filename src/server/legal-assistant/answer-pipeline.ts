@@ -4,6 +4,7 @@ import {
   searchAssistantCorpus,
 } from "@/server/legal-assistant/retrieval";
 import { requestAssistantProxyCompletion } from "@/server/legal-assistant/ai-proxy";
+import { buildAssistantRetrievalQuery } from "@/server/legal-core/assistant-retrieval-query";
 import { buildLegalGroundingDiagnostics } from "@/server/legal-core/legal-diagnostics";
 import { normalizeLegalInputText } from "@/server/legal-core/input-normalization";
 import { buildLegalQueryPlan } from "@/server/legal-core/legal-query-plan";
@@ -960,12 +961,22 @@ export async function generateServerLegalAssistantAnswer(
     responseMode,
     serverId: input.serverId,
   });
-  const retrievalQuery = legalQueryPlan.expanded_query;
+  const retrievalQueryBreakdown = buildAssistantRetrievalQuery({
+    normalized_input: legalQueryPlan.normalized_input,
+    intent: legalQueryPlan.intent,
+    required_law_families: legalQueryPlan.required_law_families,
+    preferred_norm_roles: legalQueryPlan.preferred_norm_roles,
+    legal_anchors: [...legalQueryPlan.legal_anchors],
+    question_scope: legalQueryPlan.question_scope,
+    forbidden_scope_markers: legalQueryPlan.forbidden_scope_markers,
+  });
+  const retrievalQuery = retrievalQueryBreakdown.expanded_query;
   const retrieval = await dependencies.searchAssistantCorpus({
     serverId: input.serverId,
     query: retrievalQuery,
-    lawLimit: 6,
+    lawLimit: 12,
     precedentLimit: 4,
+    legalQueryPlan,
   });
   const lawSelection = selectStructuredLegalContext({
     candidates: retrieval.lawRetrieval.results,
@@ -983,6 +994,20 @@ export async function generateServerLegalAssistantAnswer(
   });
   const usedSources = buildAssistantContextUsedSources(lawSelection.selected_norms, retrieval);
   const inputTrace = buildAssistantInputTrace(normalizedInput.normalized_input);
+  const retrievalDebugPayload = {
+    retrieval_query_base_terms:
+      retrieval.retrievalDebug?.retrieval_query_base_terms ?? retrievalQueryBreakdown.base_terms,
+    retrieval_query_anchor_terms:
+      retrieval.retrievalDebug?.retrieval_query_anchor_terms ?? retrievalQueryBreakdown.anchor_terms,
+    retrieval_query_family_terms:
+      retrieval.retrievalDebug?.retrieval_query_family_terms ?? retrievalQueryBreakdown.family_terms,
+    retrieval_runtime_tags:
+      retrieval.retrievalDebug?.retrieval_runtime_tags ?? retrievalQueryBreakdown.runtime_tags,
+    candidate_pool_before_filters: retrieval.retrievalDebug?.candidate_pool_before_filters ?? [],
+    candidate_pool_after_filters: retrieval.retrievalDebug?.candidate_pool_after_filters ?? [],
+    applied_biases: retrieval.retrievalDebug?.applied_biases ?? retrievalQueryBreakdown.applied_biases,
+    filter_reasons: retrieval.retrievalDebug?.filter_reasons ?? [],
+  };
   const metadataBase = {
     serverId: input.serverId,
     serverCode: input.serverCode,
@@ -1052,6 +1077,7 @@ export async function generateServerLegalAssistantAnswer(
       applicability_diagnostics: groundingDiagnostics.candidate_diagnostics,
       grounding_diagnostics: groundingDiagnostics.grounding_diagnostics,
       retrieval_query: retrievalQuery,
+      ...retrievalDebugPayload,
       input_trace: inputTrace,
       used_sources: usedSources,
       source_ledger: sourceLedger,
@@ -1150,6 +1176,7 @@ export async function generateServerLegalAssistantAnswer(
       applicability_diagnostics: groundingDiagnostics.candidate_diagnostics,
       grounding_diagnostics: groundingDiagnostics.grounding_diagnostics,
       retrieval_query: retrievalQuery,
+      ...retrievalDebugPayload,
       input_trace: inputTrace,
       used_sources: usedSources,
       source_ledger: sourceLedger,
@@ -1249,6 +1276,7 @@ export async function generateServerLegalAssistantAnswer(
     applicability_diagnostics: groundingDiagnostics.candidate_diagnostics,
     grounding_diagnostics: groundingDiagnostics.grounding_diagnostics,
     retrieval_query: retrievalQuery,
+    ...retrievalDebugPayload,
     input_trace: inputTrace,
     used_sources: usedSources,
     lawCorpusSnapshot: retrieval.lawCorpusSnapshot,

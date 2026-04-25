@@ -1,21 +1,29 @@
 import { createHash } from "node:crypto";
 
-import { searchCurrentLawCorpus } from "@/server/law-corpus/retrieval";
+import { buildAssistantRetrievalQuery } from "@/server/legal-core/assistant-retrieval-query";
+import type { LegalQueryPlan } from "@/server/legal-core/legal-query-plan";
+import {
+  type LawRetrievalResult as CurrentLawRetrievalResult,
+  searchCurrentLawCorpus,
+  searchCurrentLawCorpusWithContext,
+} from "@/server/law-corpus/retrieval";
 import { searchCurrentPrecedentCorpus } from "@/server/precedent-corpus/retrieval";
 
 type AssistantRetrievalDependencies = {
   searchCurrentLawCorpus: typeof searchCurrentLawCorpus;
+  searchCurrentLawCorpusWithContext: typeof searchCurrentLawCorpusWithContext;
   searchCurrentPrecedentCorpus: typeof searchCurrentPrecedentCorpus;
   now: () => Date;
 };
 
 const defaultDependencies: AssistantRetrievalDependencies = {
   searchCurrentLawCorpus,
+  searchCurrentLawCorpusWithContext,
   searchCurrentPrecedentCorpus,
   now: () => new Date(),
 };
 
-export type LawRetrievalResult = Awaited<ReturnType<typeof searchCurrentLawCorpus>>;
+export type LawRetrievalResult = CurrentLawRetrievalResult;
 export type PrecedentRetrievalResult = Awaited<ReturnType<typeof searchCurrentPrecedentCorpus>>;
 
 export type AssistantLawReference = LawRetrievalResult["results"][number] & {
@@ -27,6 +35,23 @@ export type AssistantPrecedentReference = PrecedentRetrievalResult["results"][nu
 };
 
 export type AssistantTypedRetrievalReference = AssistantLawReference | AssistantPrecedentReference;
+
+export type AssistantCorpusRetrievalResult = {
+  serverId: string;
+  query: string;
+  generatedAt: string;
+  hasCurrentLawCorpus: boolean;
+  hasUsablePrecedentCorpus: boolean;
+  hasAnyUsableCorpus: boolean;
+  lawRetrieval: LawRetrievalResult;
+  precedentRetrieval: PrecedentRetrievalResult;
+  retrievalDebug?: LawRetrievalResult["retrievalDebug"] | null;
+  resultCount: number;
+  results: AssistantTypedRetrievalReference[];
+  lawCorpusSnapshot: LawRetrievalResult["corpusSnapshot"];
+  precedentCorpusSnapshot: PrecedentRetrievalResult["corpusSnapshot"];
+  combinedRetrievalRevision: ReturnType<typeof buildCombinedRetrievalRevision>;
+};
 
 function buildCombinedRetrievalRevision(input: {
   serverId: string;
@@ -59,15 +84,42 @@ export async function searchAssistantCorpus(
     query: string;
     lawLimit?: number;
     precedentLimit?: number;
+    legalQueryPlan?: LegalQueryPlan | null;
   },
   dependencies: AssistantRetrievalDependencies = defaultDependencies,
-) {
+): Promise<AssistantCorpusRetrievalResult> {
+  const queryBreakdown = input.legalQueryPlan
+    ? buildAssistantRetrievalQuery({
+        normalized_input: input.legalQueryPlan.normalized_input,
+        intent: input.legalQueryPlan.intent,
+        required_law_families: input.legalQueryPlan.required_law_families,
+        preferred_norm_roles: input.legalQueryPlan.preferred_norm_roles,
+        legal_anchors: [...input.legalQueryPlan.legal_anchors],
+        question_scope: input.legalQueryPlan.question_scope,
+        forbidden_scope_markers: input.legalQueryPlan.forbidden_scope_markers,
+      })
+    : null;
+  const lawRetrievalPromise: Promise<LawRetrievalResult> =
+    input.legalQueryPlan && queryBreakdown
+      ? dependencies.searchCurrentLawCorpusWithContext({
+          serverId: input.serverId,
+          query: input.query,
+          limit: input.lawLimit ?? 6,
+          retrievalContext: {
+            legalQueryPlan: input.legalQueryPlan,
+            queryBreakdown,
+          },
+        })
+      : dependencies.searchCurrentLawCorpus({
+          serverId: input.serverId,
+          query: input.query,
+          limit: input.lawLimit ?? 6,
+        }).then((result) => ({
+          ...result,
+          retrievalDebug: null,
+        }));
   const [lawRetrieval, precedentRetrieval] = await Promise.all([
-    dependencies.searchCurrentLawCorpus({
-      serverId: input.serverId,
-      query: input.query,
-      limit: input.lawLimit ?? 6,
-    }),
+    lawRetrievalPromise,
     dependencies.searchCurrentPrecedentCorpus({
       serverId: input.serverId,
       query: input.query,
@@ -94,6 +146,7 @@ export async function searchAssistantCorpus(
       precedentRetrieval.corpusSnapshot.currentVersionIds.length > 0,
     lawRetrieval,
     precedentRetrieval,
+    retrievalDebug: lawRetrieval.retrievalDebug,
     resultCount: lawRetrieval.resultCount + precedentRetrieval.resultCount,
     results: [
       ...lawRetrieval.results.map(

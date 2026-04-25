@@ -242,6 +242,20 @@ export function buildLegalQueryPlan(input: {
   });
   const requiredLawFamilies = deriveRequiredLawFamilies(legalAnchors);
   const preferredNormRoles = derivePreferredNormRoles(legalAnchors, input.intent);
+  const questionScope = deriveQuestionScope(input.actorContext);
+  const forbiddenScopeMarkers = deriveForbiddenScopeMarkers({
+    actorContext: input.actorContext,
+    anchors: legalAnchors,
+  });
+  const retrievalQuery = buildAssistantRetrievalQuery({
+    normalized_input: input.normalizedInput,
+    intent: input.intent,
+    required_law_families: requiredLawFamilies,
+    preferred_norm_roles: preferredNormRoles,
+    legal_anchors: [...legalAnchors],
+    question_scope: questionScope,
+    forbidden_scope_markers: forbiddenScopeMarkers,
+  });
 
   return {
     normalized_input: input.normalizedInput,
@@ -250,17 +264,11 @@ export function buildLegalQueryPlan(input: {
     response_mode: input.responseMode,
     server_id: input.serverId,
     law_version: "current_snapshot_only",
-    question_scope: deriveQuestionScope(input.actorContext),
+    question_scope: questionScope,
     legal_anchors: legalAnchors,
     required_law_families: requiredLawFamilies,
     preferred_norm_roles: preferredNormRoles,
-    forbidden_scope_markers: deriveForbiddenScopeMarkers({
-      actorContext: input.actorContext,
-      anchors: legalAnchors,
-    }),
-    expanded_query: buildAssistantRetrievalQuery({
-      normalizedQuestion: input.normalizedInput,
-      intent: input.intent,
-    }),
+    forbidden_scope_markers: forbiddenScopeMarkers,
+    expanded_query: retrievalQuery.expanded_query,
   } satisfies LegalQueryPlan;
 }
