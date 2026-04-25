@@ -77,14 +77,62 @@ Legal Core поддерживает следующие `response_mode`:
 
 `response_mode` регулирует глубину и формат ответа, но не отменяет обязательный legal grounding.
 
+## Нормализация входного текста
+
+Перед `intent detection`, `law retrieval`, `fact ledger` и генерацией ответа система всегда выполняет нормализацию пользовательского текста.
+
+Нормализация применяется для:
+
+- юридического помощника
+- AI-доработки описательной части
+
+Цель нормализации:
+
+- исправить орфографию
+- исправить пунктуацию
+- привести разговорные и кривые фразы к понятной нейтральной форме
+- сохранить исходный смысл без добавления новых фактов
+
+Обязательные ограничения:
+
+- нормализация не должна менять юридический смысл
+- не должна добавлять обстоятельства
+- не должна добавлять доказательства
+- не должна делать правовые выводы
+- не должна усиливать позицию
+- не должна удалять важные факты
+
+Используемая модель:
+
+- `OpenAI API 5.4 nano`
+- как самый дешёвый слой предобработки текста
+
+Система должна сохранять:
+
+- `raw_input`
+- `normalized_input`
+- `normalization_model`
+- `normalization_prompt_version`
+- `normalization_changed:boolean`
+
+Дальше в Legal Core именно `normalized_input` используется как рабочий текст для:
+
+- `intent detection`
+- `actor_context detection`
+- `law retrieval`
+- `fact ledger`
+- генерации ответа
+
 ## Pipeline
 
 Единый pipeline шага `16`:
 
-- вопрос пользователя
-- определение `server_id` и `law_version`
+- `raw input`
+- `input normalization` через `OpenAI API 5.4 nano`
+- `normalized input`
 - определение `intent`
 - определение `actor_context`
+- определение `server_id` и `law_version`
 - `law retrieval`
 - формирование `law context` из `3–7` релевантных норм
 - `fact ledger`, если применимо
@@ -230,11 +278,16 @@ Legal Core должен придерживаться такой пользова
 
 - `input`
 - `output`
+- `raw_input`
+- `normalized_input`
 - `server_id`
 - `law_version`
 - `used_sources`
 - `prompt_version`
 - `model`
+- `normalization_model`
+- `normalization_prompt_version`
+- `normalization_changed`
 - `tokens`
 - `cost`
 - `latency`
@@ -294,6 +347,8 @@ Legal Core должен придерживаться такой пользова
 - модель получает только ограниченный `law context`, а не весь закон
 - для юридического помощника сохраняется `source ledger`
 - для AI-доработки описательной части сохраняется `fact ledger`
+- Legal Core сохраняет `raw_input` и `normalized_input`
+- все основные AI-flow используют `normalized_input` как рабочий текст
 - AI не меняет факты из `fact ledger`
 - внутренний `self-assessment` сохраняется даже тогда, когда пользователю отдаётся аккуратный условный ответ
 - спорные кейсы могут быть скрыто помечены для будущего `AI Quality Review`, но сам review-слой и пользовательские предупреждения ещё не входят в этот шаг
