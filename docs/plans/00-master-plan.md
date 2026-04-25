@@ -138,6 +138,27 @@ Current MVP-level AI scope уже покрыт:
 
 ## Что остаётся активными линиями
 
+### `15-vps-postgres-cutover-from-supabase-db`
+
+Статус: `active / infrastructure DB migration`
+
+Это не MVP blocker и не product expansion.
+
+Это отдельная infrastructure line после production DB stability hotfix и после выявленного egress / pooler pressure, направленная на:
+
+- controlled DB hosting cutover
+- перевод runtime/migration DB с `Supabase Postgres` на local Postgres на VPS
+- снижение зависимости от `Supabase shared pooler egress`
+- явный rollback-aware migration path без изменения продуктового поведения
+
+Отдельные правила этой линии:
+
+- `Supabase Auth` при этом не выносится из текущего контура
+- DB source of truth остаётся `docs/architecture/database.md` + `prisma/schema.prisma`
+- release source of truth остаётся `docs/ops/release-runbook.md`
+- план `15` описывает hosting / cutover / rollback, а не product behavior
+- план `15` не подменяет и не расширяет plan `14`
+
 ### `14-codebase-maintainability-db-stability-and-safe-refactor`
 
 Статус: `active / technical maintainability + DB stability follow-up`
@@ -158,6 +179,7 @@ Current MVP-level AI scope уже покрыт:
 - release source of truth остаётся `docs/ops/release-runbook.md`
 - план `14` не должен менять Prisma schema без отдельного DB-safe шага
 - план `14` не должен добавлять migrations в обычных refactor PR
+- переход на другой runtime DB hosting вынесен в отдельный план `15`
 
 ### `13-character-access-requests-and-role-approval`
 

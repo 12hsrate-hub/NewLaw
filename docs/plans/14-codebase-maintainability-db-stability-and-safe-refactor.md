@@ -12,6 +12,7 @@
 - не замена плана `13-character-access-requests-and-role-approval`
 - не замена [../architecture/database.md](../architecture/database.md)
 - не замена [../ops/release-runbook.md](../ops/release-runbook.md)
+- не включает переход на другой runtime DB hosting; этот вопрос вынесен в [15-vps-postgres-cutover-from-supabase-db.md](./15-vps-postgres-cutover-from-supabase-db.md)
 
 Это отдельная техническая линия после production DB stability hotfix, которая должна снизить риск дальнейших регрессий и сделать safe refactor decision-complete без изменения agreed product scope.
 
