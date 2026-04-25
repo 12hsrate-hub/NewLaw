@@ -183,6 +183,18 @@ enum AssistantGuestAnswerStatus {
   no_norms
 }
 
+enum AITestRunStatus {
+  running
+  success
+  failure
+}
+
+enum AITestRunResultStatus {
+  success
+  failure
+  unavailable
+}
+
 model Account {
   id                      String                 @id @db.Uuid
   email                   String                 @unique
@@ -200,6 +212,7 @@ model Account {
   actorAuditLogs          AuditLog[]             @relation("AuditActor")
   targetAuditLogs         AuditLog[]             @relation("AuditTarget")
   aiRequests              AIRequest[]
+  aiTestRuns              AITestRun[]
   documents               Document[]
   trustors                Trustor[]
   characterAccessRequests CharacterAccessRequest[] @relation("CharacterAccessRequestOwner")
@@ -226,6 +239,7 @@ model Server {
   precedentImportRuns PrecedentImportRun[]
   assistantGuestSessions AssistantGuestSession[]
   aiRequests      AIRequest[]
+  aiTestRuns      AITestRun[]
   documents       Document[]
   trustors        Trustor[]
   characterAccessRequests CharacterAccessRequest[]
@@ -754,10 +768,69 @@ model AIRequest {
   account             Account?        @relation(fields: [accountId], references: [id], onDelete: SetNull)
   server              Server?         @relation(fields: [serverId], references: [id], onDelete: SetNull)
   guestSession        AssistantGuestSession? @relation(fields: [guestSessionId], references: [id], onDelete: SetNull)
+  aiTestRunResult     AITestRunResult?
   createdAt           DateTime        @default(now())
 
   @@index([featureKey, createdAt])
   @@index([accountId, createdAt])
   @@index([serverId, createdAt])
   @@index([guestSessionId, createdAt])
+}
+
+model AITestScenario {
+  id               String            @id
+  title            String
+  inputText        String
+  expectedBehavior String
+  scenarioGroup    String
+  intent           String
+  actorContext     String
+  answerMode       String
+  targetFlow       String
+  isActive         Boolean           @default(true)
+  results          AITestRunResult[]
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  @@index([scenarioGroup, isActive])
+  @@index([targetFlow, isActive])
+}
+
+model AITestRun {
+  id                 String             @id
+  startedByAccountId String             @db.Uuid
+  serverId           String
+  lawVersion         String
+  status             AITestRunStatus    @default(running)
+  startedAt          DateTime           @default(now())
+  completedAt        DateTime?
+  startedByAccount   Account            @relation(fields: [startedByAccountId], references: [id], onDelete: Cascade)
+  server             Server             @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  results            AITestRunResult[]
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  @@index([startedByAccountId, startedAt])
+  @@index([serverId, startedAt])
+  @@index([status, startedAt])
+}
+
+model AITestRunResult {
+  id               String                @id @default(cuid())
+  testRunId        String
+  testScenarioId   String
+  aiGenerationId   String?               @unique
+  status           AITestRunResultStatus
+  riskLevel        String?
+  passedBasicChecks Boolean
+  sentToReview     Boolean               @default(false)
+  testRun          AITestRun             @relation(fields: [testRunId], references: [id], onDelete: Cascade)
+  testScenario     AITestScenario        @relation(fields: [testScenarioId], references: [id], onDelete: Cascade)
+  aiGeneration     AIRequest?            @relation(fields: [aiGenerationId], references: [id], onDelete: SetNull)
+  createdAt        DateTime              @default(now())
+
+  @@unique([testRunId, testScenarioId])
+  @@index([status, createdAt])
+  @@index([riskLevel, createdAt])
+  @@index([sentToReview, createdAt])
 }

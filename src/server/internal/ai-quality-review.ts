@@ -12,6 +12,8 @@ type ReviewRootCause =
 type ReviewRunSource = "user_flow" | "test_run";
 
 type ReviewTestRunContext = {
+  serverId: string | null;
+  serverCode: string | null;
   testRunId: string;
   testScenarioId: string;
   testScenarioGroup: string;
@@ -137,6 +139,8 @@ function readTestRunContext(
   }
 
   return {
+    serverId: readString(raw.server_id),
+    serverCode: readString(raw.server_code),
     testRunId,
     testScenarioId,
     testScenarioGroup,

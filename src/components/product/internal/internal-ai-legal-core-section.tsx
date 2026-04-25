@@ -441,6 +441,11 @@ export function InternalAILegalCoreSection({
                         ? ` · previous run: ${result.comparison.previous.testRunId}`
                         : " · previous run: none"}
                     </p>
+                    <p className="text-sm leading-6 text-[#6f6258]">
+                      Scope: {result.comparison.current.serverCode ?? result.comparison.current.serverId ?? "n/a"}
+                      {" · "}
+                      {result.comparison.current.lawVersionSelection ?? "n/a"}
+                    </p>
                   </div>
 
                   <div className="grid gap-4 xl:grid-cols-2">

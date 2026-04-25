@@ -5,6 +5,10 @@ type ScenarioRunStatus = "success" | "failure" | "unavailable";
 export type AILegalCoreScenarioRunSnapshot = {
   scenarioId: string;
   testRunId: string;
+  serverId: string | null;
+  serverCode: string | null;
+  lawVersionSelection: string | null;
+  lawVersionIds: string[];
   createdAt: string;
   featureKey: string;
   status: ScenarioRunStatus;
@@ -95,6 +99,12 @@ function readScenarioSnapshot(
   return {
     scenarioId,
     testRunId,
+    serverId: readString(testRunContext.server_id) ?? readString(requestPayloadJson?.serverId),
+    serverCode: readString(testRunContext.server_code) ?? readString(requestPayloadJson?.serverCode),
+    lawVersionSelection: readString(testRunContext.law_version_selection),
+    lawVersionIds: readUnknownArray(requestPayloadJson?.law_version_ids).filter(
+      (value): value is string => typeof value === "string" && value.trim().length > 0,
+    ),
     createdAt: entry.createdAt.toISOString(),
     featureKey: entry.featureKey,
     status: entry.status,
@@ -131,6 +141,8 @@ function buildDelta(current: number | null, previous: number | null) {
 
 export async function getAILegalCoreScenarioComparisons(input: {
   scenarioIds: string[];
+  serverId?: string | null;
+  lawVersionSelection?: string | null;
   take?: number;
 }) {
   const scenarioIds = Array.from(new Set(input.scenarioIds.filter((value) => value.trim().length > 0)));
@@ -148,6 +160,14 @@ export async function getAILegalCoreScenarioComparisons(input: {
     const snapshot = readScenarioSnapshot(entry);
 
     if (!snapshot || !scenarioIds.includes(snapshot.scenarioId)) {
+      continue;
+    }
+
+    if (input.serverId && snapshot.serverId !== input.serverId) {
+      continue;
+    }
+
+    if (input.lawVersionSelection && snapshot.lawVersionSelection !== input.lawVersionSelection) {
       continue;
     }
 

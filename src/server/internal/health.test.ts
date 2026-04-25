@@ -119,6 +119,8 @@ describe("internal health context", () => {
           },
           runSource: "test_run",
           testRunContext: {
+            serverId: "server-1",
+            serverCode: "blackberry",
             testRunId: "test-run-1",
             testScenarioId: "scenario-1",
             testScenarioGroup: "hallucination_probes",

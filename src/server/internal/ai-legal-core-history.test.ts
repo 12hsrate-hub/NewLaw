@@ -22,9 +22,12 @@ describe("ai legal core history", () => {
           used_sources: [{ source_kind: "law", law_id: "law-1" }],
           test_run_context: {
             run_kind: "internal_ai_legal_core_test",
+            server_id: "server-1",
+            server_code: "blackberry",
             test_run_id: "run-2",
             test_scenario_id: "scenario-1",
             test_scenario_group: "self_questions",
+            law_version_selection: "current_snapshot_only",
           },
         },
         responsePayloadJson: {
@@ -58,9 +61,12 @@ describe("ai legal core history", () => {
           used_sources: [{ source_kind: "law", law_id: "law-1" }],
           test_run_context: {
             run_kind: "internal_ai_legal_core_test",
+            server_id: "server-1",
+            server_code: "blackberry",
             test_run_id: "run-1",
             test_scenario_id: "scenario-1",
             test_scenario_group: "self_questions",
+            law_version_selection: "current_snapshot_only",
           },
         },
         responsePayloadJson: {
@@ -86,6 +92,8 @@ describe("ai legal core history", () => {
 
     const result = await getAILegalCoreScenarioComparisons({
       scenarioIds: ["scenario-1"],
+      serverId: "server-1",
+      lawVersionSelection: "current_snapshot_only",
     });
 
     expect(result.get("scenario-1")).toEqual(
@@ -93,6 +101,9 @@ describe("ai legal core history", () => {
         scenarioId: "scenario-1",
         current: expect.objectContaining({
           testRunId: "run-2",
+          serverId: "server-1",
+          serverCode: "blackberry",
+          lawVersionSelection: "current_snapshot_only",
           confidence: "high",
           sentToReview: false,
         }),

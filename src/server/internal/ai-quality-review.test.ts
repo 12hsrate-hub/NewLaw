@@ -24,6 +24,8 @@ describe("internal ai quality review preview", () => {
           prompt_version: "server_legal_assistant_legal_core_v1",
           law_version_ids: ["law-version-1"],
           test_run_context: {
+            server_id: "server-1",
+            server_code: "blackberry",
             test_run_id: "test-run-1",
             test_scenario_id: "scenario-1",
             test_scenario_group: "hallucination_probes",
@@ -191,6 +193,8 @@ describe("internal ai quality review preview", () => {
         reviewItems: ["Нормализация изменила смысл исходного ввода."],
         outputPreview: "Preview 1",
         testRunContext: {
+          serverId: "server-1",
+          serverCode: "blackberry",
           testRunId: "test-run-1",
           testScenarioId: "scenario-1",
           testScenarioGroup: "hallucination_probes",

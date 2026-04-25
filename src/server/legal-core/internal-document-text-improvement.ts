@@ -32,6 +32,8 @@ const MAX_PREVIEW_LENGTH = 220;
 
 type InternalDocumentTextImprovementTestRunContext = {
   run_kind: "internal_ai_legal_core_test";
+  server_id: string;
+  server_code: string;
   test_run_id: string;
   test_scenario_id: string;
   test_scenario_group: string;

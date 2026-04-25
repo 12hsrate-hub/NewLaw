@@ -61,6 +61,13 @@ describe("internal ai legal core action", () => {
           },
         }),
         runInternalDocumentTextImprovementScenario: vi.fn(),
+        syncAITestScenarios: vi.fn().mockResolvedValue(undefined),
+        createAITestRun: vi.fn().mockResolvedValue(undefined),
+        completeAITestRun: vi.fn().mockResolvedValue(undefined),
+        createAITestRunResult: vi.fn().mockResolvedValue(undefined),
+        findLatestAIRequestByTestRunContext: vi.fn().mockResolvedValue({
+          id: "ai-request-1",
+        }),
         getAILegalCoreScenarioComparisons: vi.fn().mockResolvedValue(
           new Map([
             [
@@ -70,6 +77,10 @@ describe("internal ai legal core action", () => {
                 current: {
                   scenarioId: "general-mask-detention",
                   testRunId: "test-run-1",
+                  serverId: "server-1",
+                  serverCode: "blackberry",
+                  lawVersionSelection: "current_snapshot_only",
+                  lawVersionIds: [],
                   createdAt: "2026-04-25T18:00:00.000Z",
                   featureKey: "server_legal_assistant",
                   status: "success",
@@ -163,6 +174,11 @@ describe("internal ai legal core action", () => {
         }),
         generateServerLegalAssistantAnswer: vi.fn(),
         runInternalDocumentTextImprovementScenario: vi.fn(),
+        syncAITestScenarios: vi.fn().mockResolvedValue(undefined),
+        createAITestRun: vi.fn().mockResolvedValue(undefined),
+        completeAITestRun: vi.fn().mockResolvedValue(undefined),
+        createAITestRunResult: vi.fn().mockResolvedValue(undefined),
+        findLatestAIRequestByTestRunContext: vi.fn().mockResolvedValue(null),
         getAILegalCoreScenarioComparisons: vi.fn().mockResolvedValue(new Map()),
         now: () => new Date("2026-04-25T18:00:00.000Z"),
         createId: () => "test-run-2",
@@ -229,6 +245,13 @@ describe("internal ai legal core action", () => {
             },
           },
         }),
+        syncAITestScenarios: vi.fn().mockResolvedValue(undefined),
+        createAITestRun: vi.fn().mockResolvedValue(undefined),
+        completeAITestRun: vi.fn().mockResolvedValue(undefined),
+        createAITestRunResult: vi.fn().mockResolvedValue(undefined),
+        findLatestAIRequestByTestRunContext: vi.fn().mockResolvedValue({
+          id: "ai-request-3",
+        }),
         getAILegalCoreScenarioComparisons: vi.fn().mockResolvedValue(
           new Map([
             [
@@ -238,6 +261,10 @@ describe("internal ai legal core action", () => {
                 current: {
                   scenarioId: "rewrite-self-detained-mask",
                   testRunId: "test-run-3",
+                  serverId: "server-1",
+                  serverCode: "blackberry",
+                  lawVersionSelection: "current_snapshot_only",
+                  lawVersionIds: [],
                   createdAt: "2026-04-25T18:05:00.000Z",
                   featureKey: "document_field_rewrite",
                   status: "success",
@@ -257,6 +284,10 @@ describe("internal ai legal core action", () => {
                 previous: {
                   scenarioId: "rewrite-self-detained-mask",
                   testRunId: "test-run-0",
+                  serverId: "server-1",
+                  serverCode: "blackberry",
+                  lawVersionSelection: "current_snapshot_only",
+                  lawVersionIds: [],
                   createdAt: "2026-04-24T10:00:00.000Z",
                   featureKey: "document_field_rewrite",
                   status: "success",

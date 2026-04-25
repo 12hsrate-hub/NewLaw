@@ -121,3 +121,50 @@ export async function getAIQualityReviewUsageSince(input: { since: Date }) {
     reviewerCostUsd: Number(reviewerCostUsd.toFixed(6)),
   };
 }
+
+function readString(value: unknown) {
+  return typeof value === "string" && value.trim().length > 0 ? value : null;
+}
+
+export async function findLatestAIRequestByTestRunContext(input: {
+  testRunId: string;
+  testScenarioId: string;
+  accountId?: string | null;
+  serverId?: string | null;
+  take?: number;
+}) {
+  const requests = await prisma.aIRequest.findMany({
+    where: {
+      ...(input.accountId ? { accountId: input.accountId } : {}),
+      ...(input.serverId ? { serverId: input.serverId } : {}),
+    },
+    orderBy: { createdAt: "desc" },
+    take: input.take ?? 30,
+    select: {
+      id: true,
+      createdAt: true,
+      requestPayloadJson: true,
+    },
+  });
+
+  for (const request of requests) {
+    const requestPayloadJson = isRecord(request.requestPayloadJson) ? request.requestPayloadJson : null;
+    const testRunContext =
+      requestPayloadJson && isRecord(requestPayloadJson.test_run_context)
+        ? requestPayloadJson.test_run_context
+        : null;
+
+    if (!testRunContext) {
+      continue;
+    }
+
+    if (
+      readString(testRunContext.test_run_id) === input.testRunId &&
+      readString(testRunContext.test_scenario_id) === input.testScenarioId
+    ) {
+      return request;
+    }
+  }
+
+  return null;
+}

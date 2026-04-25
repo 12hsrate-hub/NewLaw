@@ -50,6 +50,8 @@ describe("internal ai review page context", () => {
           server: null,
           runSource: "test_run",
           testRunContext: {
+            serverId: "server-1",
+            serverCode: "blackberry",
             testRunId: "test-run-1",
             testScenarioId: "scenario-1",
             testScenarioGroup: "hallucination_probes",

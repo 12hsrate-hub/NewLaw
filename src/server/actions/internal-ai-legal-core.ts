@@ -3,6 +3,13 @@
 import { ZodError, z } from "zod";
 
 import { getServerByCode } from "@/db/repositories/server.repository";
+import {
+  completeAITestRun,
+  createAITestRun,
+  createAITestRunResult,
+  syncAITestScenarios,
+} from "@/db/repositories/ai-test.repository";
+import { findLatestAIRequestByTestRunContext } from "@/db/repositories/ai-request.repository";
 import { requireSuperAdminAccountContext } from "@/server/auth/protected";
 import {
   legalCoreActorContexts,
@@ -11,6 +18,7 @@ import {
 import {
   aiLegalCoreScenarioGroupKeys,
   getAILegalCoreTestScenarioById,
+  listActiveAILegalCoreTestScenarios,
   listActiveAILegalCoreTestScenariosByGroup,
   type AILegalCoreScenarioGroupKey,
   type AILegalCoreScenarioTargetFlow,
@@ -103,6 +111,11 @@ type InternalAILegalCoreActionDependencies = {
   generateServerLegalAssistantAnswer: typeof generateServerLegalAssistantAnswer;
   runInternalDocumentTextImprovementScenario: typeof runInternalDocumentTextImprovementScenario;
   getAILegalCoreScenarioComparisons: typeof getAILegalCoreScenarioComparisons;
+  syncAITestScenarios: typeof syncAITestScenarios;
+  createAITestRun: typeof createAITestRun;
+  completeAITestRun: typeof completeAITestRun;
+  createAITestRunResult: typeof createAITestRunResult;
+  findLatestAIRequestByTestRunContext: typeof findLatestAIRequestByTestRunContext;
   now: () => Date;
   createId: () => string;
 };
@@ -113,6 +126,11 @@ const defaultDependencies: InternalAILegalCoreActionDependencies = {
   generateServerLegalAssistantAnswer,
   runInternalDocumentTextImprovementScenario,
   getAILegalCoreScenarioComparisons,
+  syncAITestScenarios,
+  createAITestRun,
+  completeAITestRun,
+  createAITestRunResult,
+  findLatestAIRequestByTestRunContext,
   now: () => new Date(),
   createId: () => crypto.randomUUID(),
 };
@@ -294,6 +312,20 @@ function selectScenariosForRun(input: {
   );
 }
 
+function mapResultStatusToRunResultStatus(
+  result: InternalAILegalCoreTestRunResult,
+): "success" | "failure" | "unavailable" {
+  if (result.status === "answered" || result.status === "no_norms") {
+    return "success";
+  }
+
+  if (result.status === "no_corpus" || result.status === "unavailable") {
+    return "unavailable";
+  }
+
+  return "failure";
+}
+
 export async function runInternalAILegalCoreScenariosAction(
   _previousState: InternalAILegalCoreActionState,
   formData: FormData,
@@ -354,6 +386,18 @@ export async function runInternalAILegalCoreScenariosAction(
     const testRunId = dependencies.createId();
     const results: InternalAILegalCoreTestRunResult[] = [];
 
+    await dependencies.syncAITestScenarios({
+      scenarios: listActiveAILegalCoreTestScenarios(),
+    });
+    await dependencies.createAITestRun({
+      id: testRunId,
+      startedByAccountId: protectedContext.account.id,
+      serverId: server.id,
+      lawVersion: parsed.lawVersionSelection,
+      status: "running",
+      startedAt: dependencies.now(),
+    });
+
     for (const scenario of scenarios) {
       try {
         if (scenario.targetFlow === "server_legal_assistant") {
@@ -368,6 +412,8 @@ export async function runInternalAILegalCoreScenariosAction(
             guestSessionId: null,
             testRunContext: {
               run_kind: "internal_ai_legal_core_test",
+              server_id: server.id,
+              server_code: server.code,
               test_run_id: testRunId,
               test_scenario_id: scenario.id,
               test_scenario_group: scenario.scenarioGroup,
@@ -376,12 +422,29 @@ export async function runInternalAILegalCoreScenariosAction(
             },
           });
 
-          results.push(
-            buildActionResultFromScenario({
-              scenario,
-              result,
-            }),
-          );
+          const actionResult = buildActionResultFromScenario({
+            scenario,
+            result,
+          });
+          const aiRequest = await dependencies.findLatestAIRequestByTestRunContext({
+            testRunId,
+            testScenarioId: scenario.id,
+            accountId: protectedContext.account.id,
+            serverId: server.id,
+          });
+
+          await dependencies.createAITestRunResult({
+            testRunId,
+            testScenarioId: scenario.id,
+            aiGenerationId: aiRequest?.id ?? null,
+            status: mapResultStatusToRunResultStatus(actionResult),
+            riskLevel: actionResult.technical.reviewPriority,
+            passedBasicChecks:
+              !actionResult.technical.sentToReview &&
+              (actionResult.status === "answered" || actionResult.status === "no_norms"),
+            sentToReview: actionResult.technical.sentToReview,
+          });
+          results.push(actionResult);
         } else {
           const result = await dependencies.runInternalDocumentTextImprovementScenario({
             serverId: server.id,
@@ -393,6 +456,8 @@ export async function runInternalAILegalCoreScenariosAction(
             accountId: protectedContext.account.id,
             testRunContext: {
               run_kind: "internal_ai_legal_core_test",
+              server_id: server.id,
+              server_code: server.code,
               test_run_id: testRunId,
               test_scenario_id: scenario.id,
               test_scenario_group: scenario.scenarioGroup,
@@ -401,30 +466,62 @@ export async function runInternalAILegalCoreScenariosAction(
             },
           });
 
-          results.push(
-            buildRewriteResultFromScenario({
-              scenario,
-              result,
-            }),
-          );
+          const actionResult = buildRewriteResultFromScenario({
+            scenario,
+            result,
+          });
+          const aiRequest = await dependencies.findLatestAIRequestByTestRunContext({
+            testRunId,
+            testScenarioId: scenario.id,
+            accountId: protectedContext.account.id,
+            serverId: server.id,
+          });
+
+          await dependencies.createAITestRunResult({
+            testRunId,
+            testScenarioId: scenario.id,
+            aiGenerationId: aiRequest?.id ?? null,
+            status: mapResultStatusToRunResultStatus(actionResult),
+            riskLevel: actionResult.technical.reviewPriority,
+            passedBasicChecks:
+              !actionResult.technical.sentToReview && actionResult.status === "answered",
+            sentToReview: actionResult.technical.sentToReview,
+          });
+          results.push(actionResult);
         }
       } catch {
-        results.push(
-          buildErrorResultFromScenario(
-            scenario,
-            "Во время прогона этого сценария произошла внутренняя ошибка.",
-          ),
+        const errorResult = buildErrorResultFromScenario(
+          scenario,
+          "Во время прогона этого сценария произошла внутренняя ошибка.",
         );
+
+        await dependencies.createAITestRunResult({
+          testRunId,
+          testScenarioId: scenario.id,
+          aiGenerationId: null,
+          status: "failure",
+          riskLevel: null,
+          passedBasicChecks: false,
+          sentToReview: false,
+        });
+        results.push(errorResult);
       }
     }
 
     const comparisons = await dependencies.getAILegalCoreScenarioComparisons({
       scenarioIds: results.map((result) => result.scenarioId),
+      serverId: server.id,
+      lawVersionSelection: parsed.lawVersionSelection,
     });
     const resultsWithComparisons = results.map((result) => ({
       ...result,
       comparison: comparisons.get(result.scenarioId) ?? null,
     }));
+    await dependencies.completeAITestRun({
+      id: testRunId,
+      status: resultsWithComparisons.some((result) => result.status === "error") ? "failure" : "success",
+      completedAt: dependencies.now(),
+    });
 
     return {
       status: "success",

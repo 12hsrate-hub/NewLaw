@@ -13,6 +13,7 @@ Post-MVP. Не входит в MVP.
 - risky результаты из internal test scenarios шага `16` уже попадают в тот же review bridge через `AIRequest` и `test_run_context`
 - internal review preview уже различает `test_run` и обычный user flow, показывает `test_run_id`, `test_scenario_id`, `test_scenario_group` и умеет считать базовую аналитику по test scenario groups
 - повторный запуск test scenario уже можно сравнивать в `до/после`-режиме по сохранённым `AIRequest`, без отдельного временного storage слоя
+- минимальный persistence-layer для `ai_test_scenarios`, `ai_test_runs`, `ai_test_run_results` уже реализован
 - базовый internal UI и human fix workflow уже реализованы, но ещё не доведены до full operational maturity
 - минимально полезный workflow closure теперь уже собран: lifecycle, closure decision и reopen policy зафиксированы
 
@@ -25,6 +26,11 @@ Post-MVP. Не входит в MVP.
 - `17` не запускается как самостоятельная AI-линия раньше стабилизации шага `16`
 - `17` проверяет уже сформированную базовую AI-логику, а не подменяет её
 - `17` использует `self-assessment`, `source ledger`, `fact ledger` и другие сигналы, которые вводятся в шаге `16`
+- `17` должен учитывать, что `AI Legal Core` является мультисерверным слоем, а не логикой под один сервер
+
+`AI Quality Review` должен оценивать AI-выдачу только в контексте конкретного `server_id` и `law_version`.
+
+Нельзя сравнивать ответы между серверами без учёта различий в законодательстве.
 
 ## Назначение
 
@@ -197,7 +203,7 @@ AI Quality Review работает как скрытый внутренний с
 
 ## Плановые сущности
 
-Для этой линии нужно предусмотреть такие сущности:
+Для этой линии нужны такие сущности:
 
 - `ai_test_scenarios`
 - `ai_test_runs`
@@ -235,6 +241,12 @@ AI Quality Review работает как скрытый внутренний с
 - `risk_level`
 - `passed_basic_checks`
 - `sent_to_review`
+
+Текущий practical repo-state:
+
+- эти сущности уже реализованы как минимальный storage-layer
+- `AIRequest + test_run_context` остаются rich trace-слоем для `raw_input`, `normalized_input`, `retrieved_sources`, `final_output`, `self_assessment`, `review_status`
+- `ai_test_*` слой сейчас используется как структурированный индекс сценариев, прогонов и результатов, а не как замена detailed AI trace
 
 ## Fix Instruction
 
@@ -408,6 +420,7 @@ UI для `super_admin` должен быть отдельной будущей 
 - baseline compare-loop для test scenarios:
   - повторный запуск того же сценария
   - comparison `до/после` по последним сохранённым `AIRequest`
+- минимальный storage-layer `ai_test_scenarios / ai_test_runs / ai_test_run_results`
 - показ в review-карточке дополнительных полей:
   - `quality_score`
   - `confidence`
@@ -444,8 +457,7 @@ UI для `super_admin` должен быть отдельной будущей 
 
 Что ещё остаётся как прямой scope этой линии:
 
-- сущности `ai_test_scenarios`, `ai_test_runs`, `ai_test_run_results`
-- более формализованная persistence-модель для test-run contour, если current `AIRequest + test_run_context` bridge перестанет хватать operationally
+- при необходимости расширить текущий storage-layer до более зрелой persistence-модели, если current `AIRequest + ai_test_*` bridge перестанет хватать operationally
 
 Что может оставаться только как optional operational maturity, а не как обязательный следующий scope:
 

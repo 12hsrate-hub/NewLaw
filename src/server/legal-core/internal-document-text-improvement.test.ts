@@ -118,6 +118,8 @@ describe("internal document text improvement runner", () => {
         accountId: "account-1",
         testRunContext: {
           run_kind: "internal_ai_legal_core_test",
+          server_id: "server-1",
+          server_code: "blackberry",
           test_run_id: "test-run-1",
           test_scenario_id: "rewrite-1",
           test_scenario_group: "document_text_improvement",

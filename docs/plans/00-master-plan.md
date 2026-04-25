@@ -238,6 +238,7 @@
 - test-run metadata, которая уже протягивается в assistant pipeline и позволяет risky test-run кейсам попадать в шаг `17` тем же review bridge
 - compact internal runner для `document_text_improvement`, который не требует реального document draft, но использует те же legal-core guardrails, `self-assessment` и hidden review routing
 - comparison `до/после` для повторного запуска того же test scenario на базе уже сохранённых `AIRequest`
+- минимальный storage-layer `ai_test_scenarios / ai_test_runs / ai_test_run_results`
 
 Что ещё остаётся как прямой scope:
 
@@ -258,6 +259,16 @@
 Статус: `post-MVP / active / partial`
 
 Это следующий именованный шаг после `16`, и он явно зависит от уже стабилизированного legal core из шага `16`.
+
+Что уже реализовано в repo:
+
+- hidden review snapshot в `AIRequest`
+- internal route `/internal/ai-review`
+- bootstrap `AI reviewer`
+- review analytics и lifecycle
+- bridge для risky test-run результатов из шага `16`
+- comparison `до/после` для test scenarios
+- минимальный storage-layer `ai_test_scenarios / ai_test_runs / ai_test_run_results`
 
 Источник правды для этой линии:
 

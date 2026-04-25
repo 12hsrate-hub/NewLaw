@@ -275,6 +275,20 @@ export function InternalAIReviewSection({
 
                 {item.testRunContext ? (
                   <div className="rounded-2xl border border-[#e6d6ca] bg-[#fff8f2] px-4 py-3 text-sm leading-6 text-[#6f6258]">
+                    {item.testRunContext.serverId ? (
+                      <p>
+                        server_id:{" "}
+                        <span className="font-medium text-[#1e1916]">{item.testRunContext.serverId}</span>
+                      </p>
+                    ) : null}
+                    {item.testRunContext.serverCode ? (
+                      <p>
+                        server_code:{" "}
+                        <span className="font-medium text-[#1e1916]">
+                          {item.testRunContext.serverCode}
+                        </span>
+                      </p>
+                    ) : null}
                     <p>
                       test_run_id:{" "}
                       <span className="font-medium text-[#1e1916]">{item.testRunContext.testRunId}</span>
