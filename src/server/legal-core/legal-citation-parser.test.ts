@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildCitationConstraints,
   buildCitationDiagnostics,
+  mergeExplicitLegalCitations,
   parseExplicitLegalCitations,
 } from "@/server/legal-core/legal-citation-parser";
 
@@ -137,6 +138,15 @@ describe("legal citation parser", () => {
         partNumber: null,
       }),
     ]);
+
+    expect(parseExplicitLegalCitations("по статье 23.1 ПК")).toEqual([
+      expect.objectContaining({
+        lawCode: "ПК",
+        lawFamily: "procedural_code",
+        articleNumber: "23.1",
+        partNumber: null,
+      }),
+    ]);
   });
 
   it("сохраняет partNumber для long-title forms закона об адвокатуре", () => {
@@ -164,6 +174,35 @@ describe("legal citation parser", () => {
         lawFamily: "advocacy_law",
         articleNumber: "5",
         partNumber: "4",
+      }),
+    ]);
+
+    expect(parseExplicitLegalCitations("статья 5, часть 4, закона об адвокатуре")).toEqual([
+      expect.objectContaining({
+        lawCode: "ЗоА",
+        lawFamily: "advocacy_law",
+        articleNumber: "5",
+        partNumber: "4",
+      }),
+    ]);
+  });
+
+  it("поддерживает normalized-style формы статьи и подпункта после normalizer drift", () => {
+    expect(parseExplicitLegalCitations("статьи 22 части 1 АК")).toEqual([
+      expect.objectContaining({
+        lawCode: "АК",
+        lawFamily: "administrative_code",
+        articleNumber: "22",
+        partNumber: "1",
+      }),
+    ]);
+
+    expect(parseExplicitLegalCitations("пункт 1 статьи 22 АК")).toEqual([
+      expect.objectContaining({
+        lawCode: "АК",
+        lawFamily: "administrative_code",
+        articleNumber: "22",
+        partNumber: "1",
       }),
     ]);
   });
@@ -206,6 +245,10 @@ describe("legal citation parser", () => {
 
   it("строит diagnostics-only constraints без resolver claims", () => {
     const citations = parseExplicitLegalCitations("что значит 84 УК");
+    const merged = mergeExplicitLegalCitations({
+      rawCitations: citations,
+      normalizedCitations: citations,
+    });
 
     expect(buildCitationConstraints(citations)).toEqual({
       restrictToExplicitLawFamily: true,
@@ -215,11 +258,17 @@ describe("legal citation parser", () => {
       semanticRetrievalAllowedAsCompanionOnly: false,
     });
 
-    expect(buildCitationDiagnostics(citations)).toEqual({
+    expect(buildCitationDiagnostics(merged)).toEqual({
       citation_resolved: false,
       citation_unresolved: false,
       citation_ambiguous: false,
       semantic_retrieval_overrode_explicit_citation: false,
+      raw_citation_count: 1,
+      normalized_citation_count: 1,
+      merged_citation_count: 1,
+      normalized_citations_discarded_count: 0,
+      citation_merge_strategy: "raw_preferred",
+      citation_normalization_drift_detected: false,
     });
   });
 });

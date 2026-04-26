@@ -42,6 +42,12 @@ export type CitationDiagnostics = {
   citation_unresolved: boolean;
   citation_ambiguous: boolean;
   semantic_retrieval_overrode_explicit_citation: boolean;
+  raw_citation_count?: number;
+  normalized_citation_count?: number;
+  merged_citation_count?: number;
+  normalized_citations_discarded_count?: number;
+  citation_merge_strategy?: "raw_preferred";
+  citation_normalization_drift_detected?: boolean;
 };
 
 type CitationAliasDefinition = {
@@ -59,6 +65,15 @@ type CitationPatternMatch = {
   articleNumber: string;
   partNumber: string | null;
   pointNumber: string | null;
+};
+
+export type ExplicitLegalCitationMergeResult = {
+  mergedCitations: ExplicitLegalCitation[];
+  rawCitationCount: number;
+  normalizedCitationCount: number;
+  mergedCitationCount: number;
+  normalizedCitationsDiscardedCount: number;
+  citationNormalizationDriftDetected: boolean;
 };
 
 const citationAliasDefinitions: CitationAliasDefinition[] = [
@@ -129,10 +144,13 @@ const citationAliasDefinitions: CitationAliasDefinition[] = [
 ];
 
 const articleNumberPattern = String.raw`(?<article>\d+(?:\.\d+)?)`;
-const partPattern = String.raw`(?:\s*(?:ч\.?|част(?:ь|и))\s*(?<part>\d+))?`;
+const citationSeparatorPattern = String.raw`(?:\s*,?\s*)`;
+const articleLabelPattern = String.raw`(?:ст\.?|стать(?:я|и|е))`;
+const partPattern =
+  String.raw`(?:${citationSeparatorPattern}(?:ч\.?|част(?:ь|и))\s*(?<part>\d+))?`;
 const pointPattern =
-  String.raw`(?:\s*(?:п\.?|пункт)\s*[«"']?(?<point>[а-яa-z0-9]+)[»"']?)?`;
-const citationLeadInPattern = String.raw`(?:по\s+)?`;
+  String.raw`(?:${citationSeparatorPattern}(?:п\.?|пункт)\s*[«"']?(?<point>[а-яa-z0-9]+)[»"']?)?`;
+const citationLeadInPattern = String.raw`(?:по${citationSeparatorPattern})?`;
 
 function normalizeInput(input: string) {
   return input.trim().toLowerCase().replace(/\s+/g, " ");
@@ -148,14 +166,21 @@ function buildAliasMatcher(aliasPatterns: string[]) {
 
 function createAliasLastPattern(aliasPatterns: string[]) {
   return new RegExp(
-    String.raw`${citationLeadInPattern}(?:ст\.?\s*)?${articleNumberPattern}${partPattern}${pointPattern}\s*(?<law>${buildAliasMatcher(aliasPatterns)})(?![\p{L}\p{N}_])`,
+    String.raw`${citationLeadInPattern}(?:${articleLabelPattern}${citationSeparatorPattern})?${articleNumberPattern}${partPattern}${pointPattern}${citationSeparatorPattern}(?<law>${buildAliasMatcher(aliasPatterns)})(?![\p{L}\p{N}_])`,
     "giu",
   );
 }
 
 function createAliasFirstPattern(aliasPatterns: string[]) {
   return new RegExp(
-    String.raw`(?<![\p{L}\p{N}_])(?<law>${buildAliasMatcher(aliasPatterns)})\s*(?:ст\.?\s*)?${articleNumberPattern}${partPattern}${pointPattern}`,
+    String.raw`(?<![\p{L}\p{N}_])(?<law>${buildAliasMatcher(aliasPatterns)})${citationSeparatorPattern}(?:${articleLabelPattern}${citationSeparatorPattern})?${articleNumberPattern}${partPattern}${pointPattern}`,
+    "giu",
+  );
+}
+
+function createSubunitBeforeArticlePattern(aliasPatterns: string[]) {
+  return new RegExp(
+    String.raw`${citationLeadInPattern}(?:пункт)\s*[«"']?(?<preSubunit>[а-яa-z0-9]+)[»"']?${citationSeparatorPattern}(?:${articleLabelPattern})${citationSeparatorPattern}${articleNumberPattern}${citationSeparatorPattern}(?<law>${buildAliasMatcher(aliasPatterns)})(?![\p{L}\p{N}_])`,
     "giu",
   );
 }
@@ -177,8 +202,16 @@ function collectPatternMatches(input: string, pattern: RegExp): CitationPatternM
       start: match.index ?? 0,
       end: (match.index ?? 0) + raw.length,
       articleNumber,
-      partNumber: groups.part?.trim() ?? null,
-      pointNumber: groups.point?.trim().toLowerCase() ?? null,
+      partNumber:
+        groups.part?.trim() ??
+        (groups.preSubunit?.trim() && /^\d+$/.test(groups.preSubunit.trim())
+          ? groups.preSubunit.trim()
+          : null),
+      pointNumber:
+        groups.point?.trim().toLowerCase() ??
+        (groups.preSubunit?.trim() && !/^\d+$/.test(groups.preSubunit.trim())
+          ? groups.preSubunit.trim().toLowerCase()
+          : null),
     });
   }
 
@@ -202,7 +235,41 @@ function dedupeMatches(matches: ExplicitLegalCitation[]) {
     }
   }
 
-  return Array.from(deduped.values());
+  const exactDeduped = Array.from(deduped.values());
+
+  return exactDeduped.filter(
+    (citation) =>
+      !exactDeduped.some(
+        (otherCitation) =>
+          otherCitation !== citation &&
+          buildCitationBaseKey(otherCitation) === buildCitationBaseKey(citation) &&
+          buildCitationSpecificityScore(otherCitation) > buildCitationSpecificityScore(citation),
+      ),
+  );
+}
+
+function buildCitationIdentityKey(citation: ExplicitLegalCitation) {
+  return [
+    citation.lawCode,
+    citation.lawFamily ?? "",
+    citation.lawFamilyDiagnosticHint ?? "",
+    citation.articleNumber,
+    citation.partNumber ?? "",
+    citation.pointNumber ?? "",
+  ].join("|");
+}
+
+function buildCitationBaseKey(citation: ExplicitLegalCitation) {
+  return [
+    citation.articleNumber,
+    citation.lawCode,
+    citation.lawFamily ?? "",
+    citation.lawFamilyDiagnosticHint ?? "",
+  ].join("|");
+}
+
+function buildCitationSpecificityScore(citation: ExplicitLegalCitation) {
+  return Number(citation.partNumber !== null) + Number(citation.pointNumber !== null);
 }
 
 function buildCitationConfidence(citation: {
@@ -240,6 +307,10 @@ export function parseExplicitLegalCitations(input: string): ExplicitLegalCitatio
         normalizedInput,
         createAliasFirstPattern(aliasDefinition.aliasPatterns),
       ),
+      ...collectPatternMatches(
+        normalizedInput,
+        createSubunitBeforeArticlePattern(aliasDefinition.aliasPatterns),
+      ),
     ];
 
     for (const match of matches) {
@@ -267,6 +338,59 @@ export function parseExplicitLegalCitations(input: string): ExplicitLegalCitatio
   return dedupeMatches(citations);
 }
 
+export function mergeExplicitLegalCitations(input: {
+  rawCitations: ExplicitLegalCitation[];
+  normalizedCitations: ExplicitLegalCitation[];
+}): ExplicitLegalCitationMergeResult {
+  const rawCitations = dedupeMatches(input.rawCitations);
+  const normalizedCitations = dedupeMatches(input.normalizedCitations);
+
+  if (rawCitations.length === 0) {
+    return {
+      mergedCitations: normalizedCitations,
+      rawCitationCount: 0,
+      normalizedCitationCount: normalizedCitations.length,
+      mergedCitationCount: normalizedCitations.length,
+      normalizedCitationsDiscardedCount: 0,
+      citationNormalizationDriftDetected: false,
+    };
+  }
+
+  const mergedCitations = [...rawCitations];
+  const rawIdentityKeys = new Set(rawCitations.map(buildCitationIdentityKey));
+  const rawBaseKeys = new Set(rawCitations.map(buildCitationBaseKey));
+  let normalizedCitationsDiscardedCount = 0;
+
+  for (const normalizedCitation of normalizedCitations) {
+    const normalizedIdentityKey = buildCitationIdentityKey(normalizedCitation);
+
+    if (rawIdentityKeys.has(normalizedIdentityKey)) {
+      continue;
+    }
+
+    if (rawBaseKeys.has(buildCitationBaseKey(normalizedCitation))) {
+      normalizedCitationsDiscardedCount += 1;
+      continue;
+    }
+
+    mergedCitations.push(normalizedCitation);
+  }
+
+  const normalizedIdentityKeys = new Set(normalizedCitations.map(buildCitationIdentityKey));
+  const citationNormalizationDriftDetected =
+    rawCitations.some((citation) => !normalizedIdentityKeys.has(buildCitationIdentityKey(citation))) ||
+    normalizedCitationsDiscardedCount > 0;
+
+  return {
+    mergedCitations: dedupeMatches(mergedCitations),
+    rawCitationCount: rawCitations.length,
+    normalizedCitationCount: normalizedCitations.length,
+    mergedCitationCount: dedupeMatches(mergedCitations).length,
+    normalizedCitationsDiscardedCount,
+    citationNormalizationDriftDetected,
+  };
+}
+
 export function buildCitationConstraints(
   citations: ExplicitLegalCitation[],
 ): CitationConstraints {
@@ -281,14 +405,17 @@ export function buildCitationConstraints(
   };
 }
 
-export function buildCitationDiagnostics(
-  citations: ExplicitLegalCitation[],
-): CitationDiagnostics {
-  void citations;
+export function buildCitationDiagnostics(input: ExplicitLegalCitationMergeResult): CitationDiagnostics {
   return {
     citation_resolved: false,
     citation_unresolved: false,
     citation_ambiguous: false,
     semantic_retrieval_overrode_explicit_citation: false,
+    raw_citation_count: input.rawCitationCount,
+    normalized_citation_count: input.normalizedCitationCount,
+    merged_citation_count: input.mergedCitationCount,
+    normalized_citations_discarded_count: input.normalizedCitationsDiscardedCount,
+    citation_merge_strategy: "raw_preferred",
+    citation_normalization_drift_detected: input.citationNormalizationDriftDetected,
   };
 }

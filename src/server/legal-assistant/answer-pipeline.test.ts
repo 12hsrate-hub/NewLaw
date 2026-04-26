@@ -221,6 +221,65 @@ describe("answer pipeline", () => {
     );
   });
 
+  it("предпочитает raw explicit citation над normalization drift в legal query plan payload", async () => {
+    const createAIRequest = vi.fn();
+
+    await generateServerLegalAssistantAnswer(
+      {
+        serverId: "server-1",
+        serverCode: "blackberry",
+        serverName: "Blackberry",
+        question: "можно ли по 23.1 ПК",
+      },
+      {
+        searchAssistantCorpus: vi.fn().mockResolvedValue(
+          createAssistantRetrieval({
+            hasCurrentLawCorpus: true,
+            hasUsablePrecedentCorpus: false,
+            retrievalDebug: {
+              candidate_pool_before_filters_count: 0,
+              candidate_pool_after_filters_count: 0,
+              citation_resolution: [],
+              citation_target_count: 0,
+              citation_companion_count: 0,
+              citation_unresolved_count: 0,
+              citation_partially_supported_count: 0,
+              semantic_retrieval_allowed_as_companion_only: false,
+            },
+          }),
+        ),
+        normalizeInputText: vi.fn().mockResolvedValue(
+          createNormalizationResult("можно ли по 23.1 ПК", "Можно ли по статье 23.1 НК РФ?"),
+        ),
+        requestAssistantProxyCompletion: vi.fn(),
+        createAIRequest,
+        now: () => new Date("2026-04-26T10:00:00.000Z"),
+      },
+    );
+
+    const aiRequestPayload = createAIRequest.mock.calls[0]?.[0];
+    expect(aiRequestPayload.requestPayloadJson.legal_query_plan).toMatchObject({
+      normalized_input: "Можно ли по статье 23.1 НК РФ?",
+      explicitLegalCitations: [
+        expect.objectContaining({
+          lawCode: "ПК",
+          lawFamily: "procedural_code",
+          articleNumber: "23.1",
+          partNumber: null,
+          resolutionStatus: "not_attempted",
+        }),
+      ],
+      citationDiagnostics: expect.objectContaining({
+        raw_citation_count: 1,
+        normalized_citation_count: 0,
+        merged_citation_count: 1,
+        normalized_citations_discarded_count: 0,
+        citation_merge_strategy: "raw_preferred",
+        citation_normalization_drift_detected: true,
+      }),
+    });
+  });
+
   it("строит laws-first ответ и grounded metadata для законов и precedents", async () => {
     const createAIRequest = vi.fn();
     const requestAssistantProxyCompletion = vi.fn().mockResolvedValue({

@@ -1744,6 +1744,7 @@ export async function generateServerLegalAssistantAnswer(
   const actorContext = input.actorContext ?? "general_question";
   const legalQueryPlan = buildLegalQueryPlan({
     normalizedInput: normalizedInput.normalized_input,
+    originalInput: normalizedInput.raw_input,
     intent,
     actorContext,
     responseMode,

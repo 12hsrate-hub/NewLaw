@@ -2,6 +2,7 @@ import { buildAssistantRetrievalQuery } from "@/server/legal-core/assistant-retr
 import {
   buildCitationConstraints,
   buildCitationDiagnostics,
+  mergeExplicitLegalCitations,
   parseExplicitLegalCitations,
   type CitationConstraints,
   type CitationDiagnostics,
@@ -843,6 +844,7 @@ function deriveQuestionScope(actorContext: LegalCoreActorContext): LegalQueryPla
 
 export function buildLegalQueryPlan(input: {
   normalizedInput: string;
+  originalInput?: string;
   intent: LegalCoreIntent;
   actorContext: LegalCoreActorContext;
   responseMode: LegalCoreResponseMode;
@@ -865,9 +867,17 @@ export function buildLegalQueryPlan(input: {
     actorContext: input.actorContext,
     legalAnchors,
   });
-  const explicitLegalCitations = parseExplicitLegalCitations(input.normalizedInput);
+  const rawCitations = input.originalInput
+    ? parseExplicitLegalCitations(input.originalInput)
+    : [];
+  const normalizedCitations = parseExplicitLegalCitations(input.normalizedInput);
+  const citationMergeResult = mergeExplicitLegalCitations({
+    rawCitations,
+    normalizedCitations,
+  });
+  const explicitLegalCitations = citationMergeResult.mergedCitations;
   const citationConstraints = buildCitationConstraints(explicitLegalCitations);
-  const citationDiagnostics = buildCitationDiagnostics(explicitLegalCitations);
+  const citationDiagnostics = buildCitationDiagnostics(citationMergeResult);
   const retrievalQuery = buildAssistantRetrievalQuery({
     normalized_input: input.normalizedInput,
     intent: input.intent,

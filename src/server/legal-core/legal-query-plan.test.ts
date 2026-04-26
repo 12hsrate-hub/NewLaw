@@ -162,6 +162,12 @@ describe("legal query plan legal issue diagnostics", () => {
       citation_unresolved: false,
       citation_ambiguous: false,
       semantic_retrieval_overrode_explicit_citation: false,
+      raw_citation_count: 0,
+      normalized_citation_count: 1,
+      merged_citation_count: 1,
+      normalized_citations_discarded_count: 0,
+      citation_merge_strategy: "raw_preferred",
+      citation_normalization_drift_detected: false,
     });
     expect(plan.legalIssueDiagnostics.legal_issue_signals).toEqual(
       expect.arrayContaining([
@@ -260,5 +266,126 @@ describe("legal query plan legal issue diagnostics", () => {
         partNumber: "4",
       }),
     ]);
+  });
+
+  it("предпочитает raw explicit citations при normalization drift", () => {
+    const administrativePlan = buildLegalQueryPlan({
+      originalInput: "что значит 22 ч.1 АК",
+      normalizedInput: "Что означает пункт 1 статьи 22 АК?",
+      intent: "law_explanation",
+      actorContext: "general_question",
+      responseMode: "normal",
+      serverId: "server-1",
+    });
+    const proceduralPlan = buildLegalQueryPlan({
+      originalInput: "можно ли по 23.1 ПК",
+      normalizedInput: "Можно ли по статье 23.1 НК РФ?",
+      intent: "law_explanation",
+      actorContext: "general_question",
+      responseMode: "normal",
+      serverId: "server-1",
+    });
+    const advocacyPlan = buildLegalQueryPlan({
+      originalInput: "5 ч.4 Закона об адвокатуре",
+      normalizedInput: "Статья 5, часть 4, Закона об адвокатуре.",
+      intent: "law_explanation",
+      actorContext: "general_question",
+      responseMode: "normal",
+      serverId: "server-1",
+    });
+
+    expect(administrativePlan.explicitLegalCitations).toEqual([
+      expect.objectContaining({
+        lawCode: "АК",
+        lawFamily: "administrative_code",
+        articleNumber: "22",
+        partNumber: "1",
+      }),
+    ]);
+    expect(administrativePlan.citationDiagnostics).toMatchObject({
+      raw_citation_count: 1,
+      normalized_citation_count: 1,
+      merged_citation_count: 1,
+      normalized_citations_discarded_count: 0,
+      citation_merge_strategy: "raw_preferred",
+      citation_normalization_drift_detected: false,
+    });
+
+    expect(proceduralPlan.explicitLegalCitations).toEqual([
+      expect.objectContaining({
+        lawCode: "ПК",
+        lawFamily: "procedural_code",
+        articleNumber: "23.1",
+        partNumber: null,
+      }),
+    ]);
+    expect(proceduralPlan.citationDiagnostics).toMatchObject({
+      raw_citation_count: 1,
+      normalized_citation_count: 0,
+      merged_citation_count: 1,
+      normalized_citations_discarded_count: 0,
+      citation_merge_strategy: "raw_preferred",
+      citation_normalization_drift_detected: true,
+    });
+
+    expect(advocacyPlan.explicitLegalCitations).toEqual([
+      expect.objectContaining({
+        lawCode: "ЗоА",
+        lawFamily: "advocacy_law",
+        articleNumber: "5",
+        partNumber: "4",
+      }),
+    ]);
+    expect(advocacyPlan.citationDiagnostics).toMatchObject({
+      raw_citation_count: 1,
+      normalized_citation_count: 1,
+      merged_citation_count: 1,
+      normalized_citations_discarded_count: 0,
+      citation_merge_strategy: "raw_preferred",
+      citation_normalization_drift_detected: false,
+    });
+  });
+
+  it("использует normalized citation, если raw citation отсутствует, и не дублирует одинаковый match", () => {
+    const normalizedOnlyPlan = buildLegalQueryPlan({
+      originalInput: "что это значит?",
+      normalizedInput: "что значит 84 УК",
+      intent: "law_explanation",
+      actorContext: "general_question",
+      responseMode: "normal",
+      serverId: "server-1",
+    });
+    const sameCitationPlan = buildLegalQueryPlan({
+      originalInput: "что значит 84 УК",
+      normalizedInput: "что значит 84 УК",
+      intent: "law_explanation",
+      actorContext: "general_question",
+      responseMode: "normal",
+      serverId: "server-1",
+    });
+
+    expect(normalizedOnlyPlan.explicitLegalCitations).toEqual([
+      expect.objectContaining({
+        lawCode: "УК",
+        lawFamily: "criminal_code",
+        articleNumber: "84",
+      }),
+    ]);
+    expect(normalizedOnlyPlan.citationDiagnostics).toMatchObject({
+      raw_citation_count: 0,
+      normalized_citation_count: 1,
+      merged_citation_count: 1,
+      normalized_citations_discarded_count: 0,
+      citation_normalization_drift_detected: false,
+    });
+
+    expect(sameCitationPlan.explicitLegalCitations).toHaveLength(1);
+    expect(sameCitationPlan.citationDiagnostics).toMatchObject({
+      raw_citation_count: 1,
+      normalized_citation_count: 1,
+      merged_citation_count: 1,
+      normalized_citations_discarded_count: 0,
+      citation_normalization_drift_detected: false,
+    });
   });
 });
