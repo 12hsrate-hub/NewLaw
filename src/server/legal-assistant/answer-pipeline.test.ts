@@ -965,6 +965,137 @@ describe("answer pipeline", () => {
     );
   });
 
+  it("при malformed proxy config отдаёт наружу generic unavailable, но сохраняет operational причину и core diagnostics в AIRequest", async () => {
+    const createAIRequest = vi.fn();
+
+    const result = await generateServerLegalAssistantAnswer(
+      {
+        serverId: "server-1",
+        serverCode: "blackberry",
+        serverName: "Blackberry",
+        question: "Можно ли задержать человека за маску?",
+      },
+      {
+        searchAssistantCorpus: vi.fn().mockResolvedValue(
+          createAssistantRetrieval({
+            lawResults: [
+              {
+                serverId: "server-1",
+                lawId: "law-1",
+                lawKey: "administrative_code",
+                lawTitle: "Административный кодекс",
+                lawVersionId: "law-version-1",
+                lawVersionStatus: "current",
+                lawBlockId: "law-block-1",
+                blockType: "article",
+                blockOrder: 1,
+                articleNumberNormalized: "18",
+                snippet: "Статья 18. Использование маски и средств маскировки запрещено.",
+                blockText: "Статья 18. Использование маски и средств маскировки запрещено.",
+                sourceTopicUrl: "https://forum.gta5rp.com/threads/100001/",
+                sourcePosts: [],
+                metadata: {
+                  sourceSnapshotHash: "source-hash",
+                  normalizedTextHash: "normalized-hash",
+                  corpusSnapshotHash: "snapshot-hash",
+                },
+              },
+            ],
+          }),
+        ),
+        normalizeInputText: vi
+          .fn()
+          .mockResolvedValue(createNormalizationResult("Можно ли задержать человека за маску?")),
+        requestAssistantProxyCompletion: vi.fn().mockResolvedValue({
+          status: "unavailable",
+          message: "Конфигурация AI proxy повреждена или неполна.",
+          attemptedProxyKeys: [],
+          attempts: [],
+        }),
+        createAIRequest,
+        now: () => new Date("2026-04-21T08:00:00.000Z"),
+      },
+    );
+
+    expect(result.status).toBe("unavailable");
+    if (result.status === "unavailable") {
+      expect(result.message).toBe(
+        "Сервис юридического помощника сейчас недоступен. Попробуй задать вопрос позже.",
+      );
+      expect(result.metadata.selected_norm_roles).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            law_id: "law-1",
+            norm_role: expect.any(String),
+          }),
+        ]),
+      );
+      expect(result.metadata.applicability_diagnostics).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            law_id: "law-1",
+            primary_basis_eligibility: expect.any(String),
+          }),
+        ]),
+      );
+      expect(result.metadata.direct_basis_status).toEqual(expect.any(String));
+      expect(result.metadata.used_sources).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            source_kind: "law",
+            law_id: "law-1",
+          }),
+        ]),
+      );
+    }
+
+    expect(createAIRequest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: "unavailable",
+        errorMessage: "Конфигурация AI proxy повреждена или неполна.",
+        requestPayloadJson: expect.objectContaining({
+          payload_profile: "runtime_compact",
+          raw_input: "Можно ли задержать человека за маску?",
+          normalized_input: "Можно ли задержать человека за маску?",
+          selected_norm_roles: expect.arrayContaining([
+            expect.objectContaining({
+              law_id: "law-1",
+            }),
+          ]),
+          selected_candidate_diagnostics: expect.arrayContaining([
+            expect.objectContaining({
+              law_id: "law-1",
+              primary_basis_eligibility: expect.any(String),
+            }),
+          ]),
+          diagnostics_summary: expect.objectContaining({
+            counts_by_primary_basis_eligibility: expect.any(Object),
+          }),
+          grounding_diagnostics: expect.objectContaining({
+            direct_basis_status: expect.any(String),
+          }),
+          used_sources: expect.arrayContaining([
+            expect.objectContaining({
+              source_kind: "law",
+              law_id: "law-1",
+            }),
+          ]),
+        }),
+        responsePayloadJson: expect.objectContaining({
+          payload_profile: "runtime_compact",
+          output_trace: null,
+          stage_usage: expect.objectContaining({
+            generation: expect.objectContaining({
+              model: null,
+              prompt_tokens: null,
+              completion_tokens: null,
+            }),
+          }),
+        }),
+      }),
+    );
+  });
+
   it("логирует retry stage usage, если generation переключилась на резервный proxy", async () => {
     const createAIRequest = vi.fn();
 

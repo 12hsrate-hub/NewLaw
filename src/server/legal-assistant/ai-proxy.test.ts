@@ -178,6 +178,35 @@ describe("ai proxy", () => {
     }
   });
 
+  it("возвращает unavailable с конфигурационной причиной, если AI_PROXY_CONFIGS_JSON невалиден", async () => {
+    const fetchSpy = vi.fn();
+
+    const result = await requestAssistantProxyCompletion(
+      {
+        systemPrompt: "system",
+        userPrompt: "user",
+      },
+      {
+        fetch: fetchSpy as typeof fetch,
+        getRuntimeEnv: () => ({
+          AI_PROXY_ACTIVE_KEY: "primary",
+          AI_PROXY_CONFIGS_JSON: "[{proxyKey:primary}]",
+        }),
+        getProcessEnv: () => ({
+          AI_PROXY_SECRET_PRIMARY: "secret",
+        }),
+      },
+    );
+
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      status: "unavailable",
+      message: "Конфигурация AI proxy повреждена или неполна.",
+      attemptedProxyKeys: [],
+      attempts: [],
+    });
+  });
+
   it("возвращает unavailable, если secret env не найден", async () => {
     const result = await requestAssistantProxyCompletion(
       {

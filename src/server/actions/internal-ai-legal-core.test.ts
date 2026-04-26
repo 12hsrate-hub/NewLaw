@@ -694,6 +694,231 @@ describe("internal ai legal core action", () => {
     });
   });
 
+  it("в compact_generation режиме сохраняет coreSnapshot и expectation diagnostics при malformed proxy config unavailable", async () => {
+    const formData = new FormData();
+    formData.set("serverSlug", "blackberry");
+    formData.set("lawVersionSelection", "current_snapshot_only");
+    formData.set("actorContext", "general_question");
+    formData.set("answerMode", "normal");
+    formData.set("executionMode", "compact_generation");
+    formData.set("scenarioGroup", "general_legal_questions");
+    formData.set("scenarioId", "general-mask-detention");
+    formData.set("runTarget", "scenario");
+
+    const createAITestRunResult = vi.fn().mockResolvedValue(undefined);
+    const generateServerLegalAssistantAnswer = vi.fn().mockResolvedValue({
+      status: "unavailable",
+      message: "Сервис юридического помощника сейчас недоступен. Попробуй задать вопрос позже.",
+      metadata: {
+        used_sources: [{ source_kind: "law", law_id: "law-1" }],
+        total_tokens: null,
+        cost_usd: null,
+        latency_ms: 0,
+        self_assessment: {
+          answer_confidence: "low",
+          insufficient_data: true,
+        },
+        review_status: {
+          queue_for_future_ai_quality_review: true,
+          future_review_priority: "high",
+        },
+      },
+    });
+
+    const result = await runInternalAILegalCoreScenariosAction(
+      {
+        status: "idle",
+        errorMessage: null,
+        fieldErrors: {},
+        runSummary: null,
+        results: [],
+      },
+      formData,
+      {
+        requireSuperAdminAccountContext: vi.fn().mockResolvedValue({
+          account: {
+            id: "account-1",
+            isSuperAdmin: true,
+          },
+        }),
+        getServerByCode: vi.fn().mockResolvedValue({
+          id: "server-1",
+          code: "blackberry",
+          name: "Blackberry",
+        }),
+        generateServerLegalAssistantAnswer,
+        runInternalDocumentTextImprovementScenario: vi.fn(),
+        syncAITestScenarios: vi.fn().mockResolvedValue(undefined),
+        createAITestRun: vi.fn().mockResolvedValue(undefined),
+        completeAITestRun: vi.fn().mockResolvedValue(undefined),
+        createAITestRunResult,
+        findLatestAIRequestByTestRunContext: vi.fn().mockResolvedValue({
+          id: "ai-request-compact-unavailable-1",
+          requestPayloadJson: {
+            normalized_input: "Можно ли задержать человека за маску?",
+            legal_query_plan: {
+              normalized_input: "Можно ли задержать человека за маску?",
+            },
+            selected_norm_roles: [
+              {
+                law_id: "law-1",
+                law_version: "law-version-1",
+                law_block_id: "law-block-1",
+                law_family: "administrative_code",
+                norm_role: "primary_basis",
+                applicability_score: 10,
+              },
+            ],
+            applicability_diagnostics: [
+              {
+                law_id: "law-1",
+                law_version: "law-version-1",
+                law_block_id: "law-block-1",
+                primary_basis_eligibility: "eligible",
+                primary_basis_eligibility_reason: null,
+                ineligible_primary_basis_reasons: [],
+                weak_primary_basis_reasons: [],
+              },
+            ],
+            grounding_diagnostics: {
+              direct_basis_status: "direct_basis_present",
+            },
+            direct_basis_status: "direct_basis_present",
+          },
+          responsePayloadJson: {
+            used_sources: [{ source_kind: "law", law_id: "law-1" }],
+            stage_usage: {
+              normalization: {
+                model: "gpt-5.4-nano",
+                prompt_tokens: 10,
+                completion_tokens: 3,
+                total_tokens: 13,
+                estimated_cost_usd: 0.00001,
+                latency_ms: 120,
+              },
+              generation: {
+                model: null,
+                prompt_tokens: null,
+                completion_tokens: null,
+                total_tokens: null,
+                estimated_cost_usd: null,
+                latency_ms: 0,
+              },
+            },
+          },
+        }),
+        getAILegalCoreScenarioComparisons: vi.fn().mockResolvedValue(new Map()),
+        now: () => new Date("2026-04-26T12:10:00.000Z"),
+        createId: () => "test-run-compact-unavailable-1",
+      },
+    );
+
+    expect(result.status).toBe("success");
+    expect(generateServerLegalAssistantAnswer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        internalExecutionMode: "compact_generation",
+      }),
+    );
+    expect(createAITestRunResult).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: "unavailable",
+      }),
+    );
+    expect(result.results[0]).toMatchObject({
+      scenarioId: "general-mask-detention",
+      status: "unavailable",
+      executionMode: "compact_generation",
+      message: "Сервис юридического помощника сейчас недоступен. Попробуй задать вопрос позже.",
+      passed_expectations: expect.arrayContaining([
+        expect.objectContaining({
+          key: "requiredLawFamilies",
+          status: "passed",
+        }),
+      ]),
+      failed_expectations: [],
+      expectation_summary: {
+        passed: 6,
+        failed: 0,
+        not_evaluable: 1,
+        future_reserved: 1,
+      },
+      scenario_group_summary: {
+        scenario_group: "mask_and_identity",
+        scenario_variant: "general_short",
+        semantic_cluster: "mask_detention",
+      },
+      cost_summary: {
+        tokens: 13,
+        input_tokens: 10,
+        output_tokens: 3,
+        cost: 0.00001,
+        latency: 0,
+      },
+      direct_basis_summary: {
+        direct_basis_status: "direct_basis_present",
+        primary_basis_count: 1,
+        eligible_primary_basis_count: 1,
+        selected_law_families: ["administrative_code"],
+      },
+      coreSnapshot: {
+        normalized_input: "Можно ли задержать человека за маску?",
+        legal_query_plan: {
+          normalized_input: "Можно ли задержать человека за маску?",
+        },
+        selected_norm_roles: [
+          expect.objectContaining({
+            law_id: "law-1",
+          }),
+        ],
+        primary_basis_eligibility: [
+          expect.objectContaining({
+            primary_basis_eligibility: "eligible",
+          }),
+        ],
+        direct_basis_status: "direct_basis_present",
+        diagnostics: {
+          applicability_diagnostics: expect.any(Array),
+          grounding_diagnostics: expect.objectContaining({
+            direct_basis_status: "direct_basis_present",
+          }),
+        },
+        stage_usage: {
+          normalization: expect.objectContaining({
+            model: "gpt-5.4-nano",
+          }),
+          generation: expect.objectContaining({
+            model: null,
+          }),
+        },
+      },
+    });
+    expect(result.scenario_group_summary).toEqual({
+      total_scenarios: 1,
+      passed_scenarios: 0,
+      failed_scenarios: 0,
+      unresolved_scenarios: 1,
+      groups: [
+        {
+          scenario_group: "mask_and_identity",
+          total_scenarios: 1,
+          passed_scenarios: 0,
+          failed_scenarios: 0,
+          unresolved_scenarios: 1,
+        },
+      ],
+    });
+    expect(result.direct_basis_summary).toEqual({
+      counts_by_direct_basis_status: {
+        direct_basis_present: 1,
+        partial_basis_only: 0,
+        no_direct_basis: 0,
+        unknown: 0,
+      },
+      scenarios_with_missing_direct_basis: [],
+      scenarios_with_weak_only_basis: [],
+    });
+  });
+
   it("запускает document_text_improvement scenario через internal rewrite runner", async () => {
     const formData = new FormData();
     formData.set("serverSlug", "blackberry");
