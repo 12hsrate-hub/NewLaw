@@ -388,4 +388,101 @@ describe("legal query plan legal issue diagnostics", () => {
       citation_normalization_drift_detected: false,
     });
   });
+
+  it("классифицирует bare citation long-title input как citation_explanation", () => {
+    const plan = buildLegalQueryPlan({
+      originalInput: "5 ч.4 Закона об адвокатуре",
+      normalizedInput: "5 ч.4 Закона об адвокатуре",
+      intent: "law_explanation",
+      actorContext: "general_question",
+      responseMode: "normal",
+      serverId: "server-1",
+    });
+
+    expect(plan.explicitLegalCitations).toHaveLength(1);
+    expect(plan.primaryLegalIssueType).toBe("citation_explanation");
+  });
+
+  it("классифицирует bare citation short alias input как citation_explanation", () => {
+    const administrativePlan = buildLegalQueryPlan({
+      originalInput: "22 ч.1 АК",
+      normalizedInput: "22 ч.1 АК",
+      intent: "law_explanation",
+      actorContext: "general_question",
+      responseMode: "normal",
+      serverId: "server-1",
+    });
+    const criminalPlan = buildLegalQueryPlan({
+      originalInput: "84 УК",
+      normalizedInput: "84 УК",
+      intent: "law_explanation",
+      actorContext: "general_question",
+      responseMode: "normal",
+      serverId: "server-1",
+    });
+    const proceduralPlan = buildLegalQueryPlan({
+      originalInput: "ст. 23 ч.1 п. «в» ПК",
+      normalizedInput: "ст. 23 ч.1 п. «в» ПК",
+      intent: "law_explanation",
+      actorContext: "general_question",
+      responseMode: "normal",
+      serverId: "server-1",
+    });
+
+    expect(administrativePlan.primaryLegalIssueType).toBe("citation_explanation");
+    expect(criminalPlan.primaryLegalIssueType).toBe("citation_explanation");
+    expect(criminalPlan.secondaryLegalIssueTypes).toContain("sanction_question");
+    expect(proceduralPlan.primaryLegalIssueType).toBe("citation_explanation");
+  });
+
+  it("сохраняет application wording как citation_application", () => {
+    const proceduralPlan = buildLegalQueryPlan({
+      originalInput: "можно ли по 23.1 ПК",
+      normalizedInput: "можно ли по 23.1 ПК",
+      intent: "law_explanation",
+      actorContext: "general_question",
+      responseMode: "normal",
+      serverId: "server-1",
+    });
+    const criminalPlan = buildLegalQueryPlan({
+      originalInput: "привлечь по 84 УК",
+      normalizedInput: "привлечь по 84 УК",
+      intent: "law_explanation",
+      actorContext: "general_question",
+      responseMode: "normal",
+      serverId: "server-1",
+    });
+
+    expect(proceduralPlan.primaryLegalIssueType).toBe("citation_application");
+    expect(criminalPlan.primaryLegalIssueType).toBe("citation_application");
+    expect(criminalPlan.secondaryLegalIssueTypes).toContain("sanction_question");
+  });
+
+  it("не переопределяет substantive issue bare citation override при полном фактическом контексте", () => {
+    const plan = buildLegalQueryPlan({
+      originalInput: "если руководство не ответило на адвокатский запрос по ст. 5 Закона об адвокатуре",
+      normalizedInput: "если руководство не ответило на адвокатский запрос по ст. 5 Закона об адвокатуре",
+      intent: "law_explanation",
+      actorContext: "general_question",
+      responseMode: "normal",
+      serverId: "server-1",
+    });
+
+    expect(plan.primaryLegalIssueType).toBe("refusal_question");
+    expect(plan.primaryLegalIssueType).not.toBe("citation_explanation");
+  });
+
+  it("не меняет non-citation attorney_rights question", () => {
+    const plan = buildLegalQueryPlan({
+      originalInput: "обязаны ли допустить защитника при задержании",
+      normalizedInput: "обязаны ли допустить защитника при задержании",
+      intent: "law_explanation",
+      actorContext: "general_question",
+      responseMode: "normal",
+      serverId: "server-1",
+    });
+
+    expect(plan.explicitLegalCitations).toEqual([]);
+    expect(plan.primaryLegalIssueType).toBe("right_question");
+  });
 });

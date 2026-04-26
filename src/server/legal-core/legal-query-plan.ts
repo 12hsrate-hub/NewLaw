@@ -145,6 +145,29 @@ function hasCitationLikeHint(source: string) {
   return citationHintRegex.test(source);
 }
 
+function hasStrongSubstantiveIssueSignal(source: string) {
+  return hasKeyword(source, [
+    "обязаны ли",
+    "должен ли",
+    "не ответил",
+    "не ответило",
+    "не ответили",
+    "не предоставил",
+    "не предоставили",
+    "не дали",
+    "отказали",
+    "что делать",
+    "как оформить",
+    "как подать",
+    "как обжал",
+    "что писать в жалобе",
+    "как написать жалобу",
+    "куда жалоб",
+    "меня задержали",
+    "если руководство",
+  ]);
+}
+
 function isExplicitPhrase(signal: string) {
   return signal.includes(" ") || signal.includes(".");
 }
@@ -426,20 +449,37 @@ function addAnchorBoosts(input: {
 
 function addCitationBoosts(input: {
   normalizedInput: string;
+  originalInput?: string;
+  explicitCitationCount: number;
   scores: Map<Exclude<LegalIssueType, "unclear">, number>;
   signals: LegalIssueSignal[];
 }) {
-  if (!hasCitationLikeHint(input.normalizedInput)) {
+  const citationIssueSource = normalizeQuestion(
+    [input.originalInput ?? "", input.normalizedInput].filter((value) => value.trim().length > 0).join(" "),
+  );
+
+  if (input.explicitCitationCount === 0 && !hasCitationLikeHint(citationIssueSource)) {
     return;
   }
 
-  const explanationPhrasing = hasKeyword(input.normalizedInput, ["что значит", "что означает", "что написано в", "как понимать"]);
-  const applicationPhrasing = hasKeyword(input.normalizedInput, [
+  const explanationPhrasing = hasKeyword(citationIssueSource, [
+    "что значит",
+    "что означает",
+    "что написано в",
+    "как понимать",
+  ]);
+  const applicationPhrasing = hasKeyword(citationIssueSource, [
     "можно ли по",
     "применима ли",
     "подходит ли",
     "квалифицируется ли по",
+    "привлечь по",
   ]);
+  const bareCitationReference =
+    input.explicitCitationCount > 0 &&
+    !explanationPhrasing &&
+    !applicationPhrasing &&
+    !hasStrongSubstantiveIssueSignal(citationIssueSource);
 
   if (explanationPhrasing) {
     pushLegalIssueSignal(
@@ -467,16 +507,16 @@ function addCitationBoosts(input: {
     );
   }
 
-  if (!explanationPhrasing && !applicationPhrasing) {
+  if (bareCitationReference) {
     pushLegalIssueSignal(
       input.signals,
       {
-        issueType: "citation_application",
-        signal: "explicit_citation_present",
+        issueType: "citation_explanation",
+        signal: "explicit_citation_bare_reference",
         source: "citation_hint",
       },
       input.scores,
-      1,
+      3,
     );
   }
 }
@@ -559,9 +599,11 @@ function compareLegalIssuePriority(
 
 export function classifyLegalIssueTypes(input: {
   normalizedInput: string;
+  originalInput?: string;
   intent: LegalCoreIntent;
   actorContext: LegalCoreActorContext;
   legalAnchors: LegalAnchor[];
+  explicitCitations?: ExplicitLegalCitation[];
 }) {
   const normalizedInput = normalizeQuestion(input.normalizedInput);
   const scores = createLegalIssueScoreMap();
@@ -590,6 +632,8 @@ export function classifyLegalIssueTypes(input: {
   });
   addCitationBoosts({
     normalizedInput,
+    originalInput: input.originalInput,
+    explicitCitationCount: input.explicitCitations?.length ?? 0,
     scores,
     signals,
   });
@@ -861,12 +905,6 @@ export function buildLegalQueryPlan(input: {
     actorContext: input.actorContext,
     anchors: legalAnchors,
   });
-  const legalIssueClassification = classifyLegalIssueTypes({
-    normalizedInput: input.normalizedInput,
-    intent: input.intent,
-    actorContext: input.actorContext,
-    legalAnchors,
-  });
   const rawCitations = input.originalInput
     ? parseExplicitLegalCitations(input.originalInput)
     : [];
@@ -878,6 +916,14 @@ export function buildLegalQueryPlan(input: {
   const explicitLegalCitations = citationMergeResult.mergedCitations;
   const citationConstraints = buildCitationConstraints(explicitLegalCitations);
   const citationDiagnostics = buildCitationDiagnostics(citationMergeResult);
+  const legalIssueClassification = classifyLegalIssueTypes({
+    normalizedInput: input.normalizedInput,
+    originalInput: input.originalInput,
+    intent: input.intent,
+    actorContext: input.actorContext,
+    legalAnchors,
+    explicitCitations: explicitLegalCitations,
+  });
   const retrievalQuery = buildAssistantRetrievalQuery({
     normalized_input: input.normalizedInput,
     intent: input.intent,
