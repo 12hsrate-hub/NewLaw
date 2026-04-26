@@ -13,6 +13,9 @@ Post-MVP. Не входит в MVP.
 - `17` не подменяет `AI Legal Core`
 - `17` не проектирует retrieval-ядро заново
 - `17` оценивает результаты шага `16`, а не заменяет его
+- `16` собирает и применяет `NormBundle`, если этот слой добавлен в legal core
+- `17` не строит `NormBundle` заново
+- `17` проверяет ошибки bundle/grounding, а не подменяет bundle assembly
 
 ## Назначение
 
@@ -68,6 +71,14 @@ Post-MVP. Не входит в MVP.
 - `self_assessment`
 - final output
 
+После появления `NormBundle` в шаге `16` review-контур также должен получать:
+
+- `norm_bundle`
+- `norm_relations`
+- `companion_sources`
+- `missing_companion_warning`
+- `cross_reference_unresolved`
+
 ## Цепочка проверки
 
 `AI Quality Review` должен проверять полную цепочку:
@@ -75,6 +86,7 @@ Post-MVP. Не входит в MVP.
 - `raw_input`
 - `normalized_input`
 - `selected norms`
+- `norm bundle`
 - `final output`
 
 Эта цепочка нужна, чтобы отделять:
@@ -116,6 +128,21 @@ Post-MVP. Не входит в MVP.
 - `answer_claim_exceeds_selected_norms`
 - `weak_direct_basis`
 - `off_topic_context_norm`
+
+После появления `NormBundle` в шаге `16` должен быть предусмотрен future review expansion с дополнительными флагами:
+
+- `missing_required_companion`
+- `wrong_companion_relation`
+- `primary_norm_without_exception`
+- `cross_reference_unresolved`
+- `answer_ignores_article_note`
+- `answer_ignores_exception`
+- `answer_uses_companion_as_primary_basis`
+
+Важно:
+
+- эти флаги относятся к будущему расширению review-контура
+- они не должны описываться как уже включённая runtime review-логика
 
 Дополнительно должны поддерживаться общие поля review-контура:
 
@@ -219,6 +246,18 @@ Post-MVP. Не входит в MVP.
 - `self_assessment`
 - `review_status`
 
+В будущем review-контур должен учитывать не только сам test run результат, но и `expectation profile` сценария:
+
+- `required_law_families`
+- `forbidden_law_families`
+- `required_norm_roles`
+- `forbidden_norm_roles`
+- `expected_direct_basis_status`
+- `required_companion_relations`
+- `token_budget`
+- `latency_budget`
+- `review_notes`
+
 Плохая или спорная выдача из test runner должна попадать в очередь `super_admin` так же, как и проблемная реальная выдача.
 
 После доработки логики `super_admin` должен иметь возможность повторно запустить тот же тестовый сценарий и сравнить результат:
@@ -311,6 +350,7 @@ Post-MVP. Не входит в MVP.
 - определение `LawFamily`
 - определение `NormRole`
 - structured selection как retrieval-механизм
+- сборка `NormBundle` и определение `NormRelation`
 - UI шага `16`
 - API шага `16`
 - Prisma-изменения ради legal core
@@ -324,6 +364,7 @@ Post-MVP. Не входит в MVP.
 - он явно зависит от шага `16`
 - проверка распространяется и на юридического помощника, и на AI-доработку описательной части
 - review оценивает цепочку `raw_input -> normalized_input -> selected norms -> final output`
+- review может расширяться до проверки `norm bundle`, но не подменяет его построение
 - отдельно выделяется `law_basis_issue`
 - предусмотрены review flags и normalization flags
 - пользователь не видит внутренние поля review-контура

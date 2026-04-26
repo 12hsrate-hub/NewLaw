@@ -225,10 +225,16 @@
 - зафиксировать `NormRole`
 - зафиксировать `applicability scoring`
 - зафиксировать `structured selection`
+- зафиксировать retrieval quality hardening
+- зафиксировать `primary_basis_eligibility`
 - зафиксировать `direct_basis_status`
+- зафиксировать compact generation context
+- зафиксировать internal runner modes `core_only` / `compact_generation`
+- зафиксировать compact runtime payload + internal full payload
 - зафиксировать `source_ledger`, `fact_ledger` и `self-assessment`
 - зафиксировать multi-server grounding через `server_id + law_version`
-- зафиксировать сценарии тестового раннера как контур ручной проверки legal core
+- зафиксировать scenario groups и expectation-based test suites как контур ручной проверки legal core
+- зафиксировать future substep `16.3 AI Legal Core — NormBundle and Companion Context`
 
 Границы:
 
@@ -256,6 +262,7 @@
 - задавать `regression gate`
 - принимать в review queue и реальные кейсы, и результаты test runner из шага `16`
 - учитывать `server_id + law_version` как обязательный review-контекст
+- в future expansion проверять не только `selected norms`, но и ошибки `NormBundle / companion context`, не подменяя `AI Legal Core`
 
 Границы:
 
@@ -266,6 +273,12 @@
 Источник правды:
 
 - [17-ai-quality-review.md](./17-ai-quality-review.md)
+
+Дополнительный принцип для AI-линии:
+
+- дальнейшие AI-улучшения не должны затачиваться под `4` ручных вопроса
+- основной контроль качества должен идти через scenario groups и expectation-based test suites
+- `multi_server_variance` должен рассматриваться как обязательная future test dimension
 
 ### `12-post-mvp-template-documents`
 
