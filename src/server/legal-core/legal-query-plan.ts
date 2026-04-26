@@ -102,6 +102,41 @@ function hasKeyword(source: string, keywords: string[]) {
   return keywords.some((keyword) => source.includes(keyword));
 }
 
+function hasAttorneyRightsSignals(source: string) {
+  return hasKeyword(source, [
+    "задерж",
+    "арест",
+    "защитник",
+    "не дали адвоката",
+    "право на адвоката",
+    "право на защит",
+    "звонок",
+    "миранда",
+    "допуск защитника",
+    "допустить защитника",
+  ]);
+}
+
+function hasAttorneyRequestSignals(source: string) {
+  return hasKeyword(source, ["адвокатск"]) && hasKeyword(source, ["запрос"]);
+}
+
+function hasAttorneyRequestSanctionSignals(source: string) {
+  return hasKeyword(source, [
+    "что грозит",
+    "ответственност",
+    "наказан",
+    "привлеч",
+    "уголовк",
+    "ст. 84",
+    "84 ук",
+    "не исполнен",
+    "неисполн",
+    "ненадлежащ",
+    "воспрепятств",
+  ]);
+}
+
 function pushUniqueValue<T>(target: T[], value: T) {
   if (!target.includes(value)) {
     target.push(value);
@@ -719,6 +754,9 @@ function buildLegalAnchors(input: {
 }): LegalAnchor[] {
   const normalizedSource = normalizeQuestion(input.normalizedInput);
   const anchors: LegalAnchor[] = [];
+  const attorneyRequestActive = hasAttorneyRequestSignals(normalizedSource);
+  const attorneyRightsActive = hasAttorneyRightsSignals(normalizedSource);
+  const attorneyRequestSanctionActive = hasAttorneyRequestSanctionSignals(normalizedSource);
 
   if (hasKeyword(normalizedSource, ["маск"])) {
     pushUniqueValues(anchors, ["administrative_offense", "detention_procedure", "sanction"]);
@@ -728,12 +766,16 @@ function buildLegalAnchors(input: {
     pushUniqueValues(anchors, ["detention_procedure"]);
   }
 
-  if (hasKeyword(normalizedSource, ["адвокат", "защитник"])) {
+  if (attorneyRightsActive) {
     pushUniqueValues(anchors, ["attorney_rights"]);
   }
 
-  if (hasKeyword(normalizedSource, ["запрос"]) && hasKeyword(normalizedSource, ["адвокат"])) {
-    pushUniqueValues(anchors, ["attorney_request", "official_duty", "sanction"]);
+  if (attorneyRequestActive) {
+    pushUniqueValue(anchors, "attorney_request");
+  }
+
+  if (attorneyRequestActive && attorneyRequestSanctionActive) {
+    pushUniqueValue(anchors, "sanction");
   }
 
   if (
@@ -764,14 +806,24 @@ function buildLegalAnchors(input: {
   return anchors;
 }
 
-function deriveRequiredLawFamilies(anchors: LegalAnchor[]) {
+function deriveRequiredLawFamilies(input: {
+  anchors: LegalAnchor[];
+  normalizedInput: string;
+}) {
+  const normalizedSource = normalizeQuestion(input.normalizedInput);
   const families: LawFamily[] = [];
+  const attorneyRequestActive = input.anchors.includes("attorney_request");
+  const attorneyRequestSanctionActive = hasAttorneyRequestSanctionSignals(normalizedSource);
 
-  for (const anchor of anchors) {
+  for (const anchor of input.anchors) {
     switch (anchor) {
       case "administrative_offense":
       case "sanction":
-        pushUniqueValue(families, "administrative_code");
+        if (attorneyRequestActive && attorneyRequestSanctionActive) {
+          pushUniqueValue(families, "criminal_code");
+        } else {
+          pushUniqueValue(families, "administrative_code");
+        }
         break;
       case "detention_procedure":
       case "video_recording":
@@ -785,7 +837,9 @@ function deriveRequiredLawFamilies(anchors: LegalAnchor[]) {
         pushUniqueValue(families, "advocacy_law");
         break;
       case "official_duty":
-        pushUniqueValues(families, ["government_code", "department_specific"]);
+        if (!attorneyRequestActive) {
+          pushUniqueValues(families, ["government_code", "department_specific"]);
+        }
         break;
       case "remedy":
         pushUniqueValues(families, ["procedural_code", "advocacy_law"]);
@@ -799,10 +853,17 @@ function deriveRequiredLawFamilies(anchors: LegalAnchor[]) {
   return families;
 }
 
-function derivePreferredNormRoles(anchors: LegalAnchor[], intent: LegalCoreIntent) {
+function derivePreferredNormRoles(input: {
+  anchors: LegalAnchor[];
+  intent: LegalCoreIntent;
+  normalizedInput: string;
+}) {
+  const normalizedSource = normalizeQuestion(input.normalizedInput);
   const roles: NormRole[] = [];
+  const attorneyRequestActive = input.anchors.includes("attorney_request");
+  const attorneyRequestSanctionActive = hasAttorneyRequestSanctionSignals(normalizedSource);
 
-  for (const anchor of anchors) {
+  for (const anchor of input.anchors) {
     switch (anchor) {
       case "administrative_offense":
         pushUniqueValues(roles, ["primary_basis", "sanction"]);
@@ -814,7 +875,7 @@ function derivePreferredNormRoles(anchors: LegalAnchor[], intent: LegalCoreInten
         pushUniqueValues(roles, ["right_or_guarantee", "procedure"]);
         break;
       case "attorney_request":
-        pushUniqueValues(roles, ["primary_basis", "sanction", "remedy"]);
+        pushUniqueValues(roles, ["primary_basis", "remedy"]);
         break;
       case "video_recording":
         pushUniqueValues(roles, ["procedure", "right_or_guarantee"]);
@@ -823,7 +884,9 @@ function derivePreferredNormRoles(anchors: LegalAnchor[], intent: LegalCoreInten
         pushUniqueValues(roles, ["primary_basis", "procedure"]);
         break;
       case "sanction":
-        pushUniqueValue(roles, "sanction");
+        if (!attorneyRequestActive || attorneyRequestSanctionActive) {
+          pushUniqueValue(roles, "sanction");
+        }
         break;
       case "exception":
         pushUniqueValue(roles, "exception");
@@ -837,11 +900,11 @@ function derivePreferredNormRoles(anchors: LegalAnchor[], intent: LegalCoreInten
     }
   }
 
-  if (intent === "law_explanation") {
+  if (input.intent === "law_explanation") {
     pushUniqueValues(roles, ["primary_basis", "right_or_guarantee"]);
   }
 
-  if (intent === "qualification_check") {
+  if (input.intent === "qualification_check") {
     pushUniqueValues(roles, ["primary_basis", "sanction"]);
   }
 
@@ -898,8 +961,15 @@ export function buildLegalQueryPlan(input: {
     normalizedInput: input.normalizedInput,
     intent: input.intent,
   });
-  const requiredLawFamilies = deriveRequiredLawFamilies(legalAnchors);
-  const preferredNormRoles = derivePreferredNormRoles(legalAnchors, input.intent);
+  const requiredLawFamilies = deriveRequiredLawFamilies({
+    anchors: legalAnchors,
+    normalizedInput: input.normalizedInput,
+  });
+  const preferredNormRoles = derivePreferredNormRoles({
+    anchors: legalAnchors,
+    intent: input.intent,
+    normalizedInput: input.normalizedInput,
+  });
   const questionScope = deriveQuestionScope(input.actorContext);
   const forbiddenScopeMarkers = deriveForbiddenScopeMarkers({
     actorContext: input.actorContext,

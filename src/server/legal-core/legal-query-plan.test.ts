@@ -15,20 +15,11 @@ describe("legal query plan legal issue diagnostics", () => {
     expect(plan.primaryLegalIssueType).toBe("deadline_question");
     expect(plan.secondaryLegalIssueTypes).toContain("duty_question");
     expect(plan.legalIssueConfidence).toBe("high");
-    expect(plan.required_law_families).toEqual([
-      "procedural_code",
-      "advocacy_law",
-      "government_code",
-      "department_specific",
-      "administrative_code",
-    ]);
-    expect(plan.preferred_norm_roles).toEqual([
-      "right_or_guarantee",
-      "procedure",
-      "primary_basis",
-      "sanction",
-      "remedy",
-    ]);
+    expect(plan.legal_anchors).toContain("attorney_request");
+    expect(plan.legal_anchors).not.toContain("attorney_rights");
+    expect(plan.legal_anchors).not.toContain("sanction");
+    expect(plan.required_law_families).toEqual(["advocacy_law"]);
+    expect(plan.preferred_norm_roles).toEqual(["primary_basis", "remedy", "right_or_guarantee"]);
   });
 
   it("классифицирует неответ на адвокатский запрос как refusal question", () => {
@@ -41,11 +32,10 @@ describe("legal query plan legal issue diagnostics", () => {
     });
 
     expect(plan.primaryLegalIssueType).toBe("refusal_question");
-    expect(
-      plan.secondaryLegalIssueTypes.some((issueType) =>
-        ["deadline_question", "duty_question"].includes(issueType),
-      ),
-    ).toBe(true);
+    expect(plan.legal_anchors).toContain("attorney_request");
+    expect(plan.required_law_families).toContain("advocacy_law");
+    expect(plan.required_law_families).not.toContain("government_code");
+    expect(plan.required_law_families).not.toContain("department_specific");
     expect(plan.legalIssueDiagnostics.legal_issue_signals).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -266,6 +256,29 @@ describe("legal query plan legal issue diagnostics", () => {
         partNumber: "4",
       }),
     ]);
+  });
+
+  it("делает attorney_request primary и добавляет criminal companion family только при sanction wording", () => {
+    const plan = buildLegalQueryPlan({
+      normalizedInput: "официальный адвокатский запрос не исполнен",
+      intent: "law_explanation",
+      actorContext: "general_question",
+      responseMode: "normal",
+      serverId: "server-1",
+    });
+
+    expect(plan.primaryLegalIssueType).toBe("deadline_question");
+    expect(plan.legal_anchors).toContain("attorney_request");
+    expect(plan.legal_anchors).toContain("sanction");
+    expect(plan.secondaryLegalIssueTypes).toContain("sanction_question");
+    expect(plan.required_law_families).toEqual(
+      expect.arrayContaining(["advocacy_law", "criminal_code"]),
+    );
+    expect(plan.required_law_families).not.toContain("government_code");
+    expect(plan.required_law_families).not.toContain("department_specific");
+    expect(plan.preferred_norm_roles).toEqual(
+      expect.arrayContaining(["primary_basis", "sanction", "remedy"]),
+    );
   });
 
   it("предпочитает raw explicit citations при normalization drift", () => {

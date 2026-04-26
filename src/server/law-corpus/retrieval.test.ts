@@ -340,6 +340,124 @@ describe("law corpus retrieval", () => {
     expect(result.retrievalDebug?.candidate_pool_after_filters[0]?.law_key).toBe("advocacy_law");
   });
 
+  it("для срока ответа на адвокатский запрос поднимает advocacy_law выше government и ethics", async () => {
+    const context = createRetrievalContext({
+      normalizedInput: "какой срок ответа на адвокатский запрос",
+      intent: "law_explanation",
+    });
+
+    const result = await searchCurrentLawCorpusWithContext(
+      {
+        serverId: "server-1",
+        query: context.queryBreakdown.expanded_query,
+        limit: 12,
+        retrievalContext: context,
+      },
+      {
+        listCurrentLawBlocksByServer: vi.fn().mockResolvedValue([
+          createLawBlock({
+            id: "block-advocacy",
+            lawId: "law-advocacy",
+            lawKey: "advocacy_law",
+            lawTitle: "Закон об адвокатуре и адвокатской деятельности",
+            topicUrl: "https://forum.gta5rp.com/threads/advocacy/",
+            blockText:
+              "Адвокатский запрос подлежит рассмотрению. Органы и организации должны дать на него ответ в течение одного календарного дня. Неправомерный отказ и нарушение сроков влекут ответственность.",
+            articleNumberNormalized: "5",
+          }),
+          createLawBlock({
+            id: "block-ethics",
+            lawId: "law-ethics",
+            lawKey: "ethics_code",
+            lawTitle: "Этический кодекс",
+            topicUrl: "https://forum.gta5rp.com/threads/ethics/",
+            blockText: "Сотрудник обязан устранить нарушение в установленный срок.",
+            articleNumberNormalized: "28",
+          }),
+          createLawBlock({
+            id: "block-gov",
+            lawId: "law-gov",
+            lawKey: "government_code",
+            lawTitle: "Кодекс о деятельности Правительства",
+            topicUrl: "https://forum.gta5rp.com/threads/gov/",
+            blockText: "Должностные лица обязаны исполнять служебные обязанности и давать отчеты.",
+            articleNumberNormalized: "68",
+          }),
+        ]),
+        now: () => new Date("2026-04-20T12:00:00.000Z"),
+      },
+    );
+
+    expect(result.results[0]?.lawKey).toBe("advocacy_law");
+    expect(result.results.map((entry) => entry.lawKey)).toEqual(
+      expect.arrayContaining(["advocacy_law", "ethics_code"]),
+    );
+    const advocacyIndex = result.results.findIndex((entry) => entry.lawKey === "advocacy_law");
+    const ethicsIndex = result.results.findIndex((entry) => entry.lawKey === "ethics_code");
+    const governmentIndex = result.results.findIndex((entry) => entry.lawKey === "government_code");
+
+    expect(advocacyIndex).toBeGreaterThanOrEqual(0);
+    expect(ethicsIndex).toBeGreaterThanOrEqual(0);
+    if (governmentIndex >= 0) {
+      expect(advocacyIndex).toBeLessThan(governmentIndex);
+    }
+    expect(advocacyIndex).toBeLessThan(ethicsIndex);
+  });
+
+  it("для неисполненного адвокатского запроса держит advocacy_law выше criminal sanction companion", async () => {
+    const context = createRetrievalContext({
+      normalizedInput: "официальный адвокатский запрос не исполнен",
+      intent: "law_explanation",
+    });
+
+    const result = await searchCurrentLawCorpusWithContext(
+      {
+        serverId: "server-1",
+        query: context.queryBreakdown.expanded_query,
+        limit: 12,
+        retrievalContext: context,
+      },
+      {
+        listCurrentLawBlocksByServer: vi.fn().mockResolvedValue([
+          createLawBlock({
+            id: "block-advocacy",
+            lawId: "law-advocacy",
+            lawKey: "advocacy_law",
+            lawTitle: "Закон об адвокатуре и адвокатской деятельности",
+            topicUrl: "https://forum.gta5rp.com/threads/advocacy/",
+            blockText:
+              "Официальный адвокатский запрос подлежит обязательному рассмотрению. Неправомерный отказ и нарушение сроков предоставления сведений влекут ответственность.",
+            articleNumberNormalized: "5",
+          }),
+          createLawBlock({
+            id: "block-uk-84",
+            lawId: "law-uk",
+            lawKey: "criminal_code",
+            lawTitle: "Уголовный кодекс",
+            topicUrl: "https://forum.gta5rp.com/threads/uk/",
+            blockText: "Статья 84. Неисполнение обязательных правовых актов.",
+            articleNumberNormalized: "84",
+          }),
+          createLawBlock({
+            id: "block-gov",
+            lawId: "law-gov",
+            lawKey: "government_code",
+            lawTitle: "Кодекс о деятельности Правительства",
+            topicUrl: "https://forum.gta5rp.com/threads/gov/",
+            blockText: "Должностные лица обязаны исполнять служебные обязанности.",
+            articleNumberNormalized: "67",
+          }),
+        ]),
+        now: () => new Date("2026-04-20T12:00:00.000Z"),
+      },
+    );
+
+    expect(result.results[0]?.lawKey).toBe("advocacy_law");
+    expect(result.results.map((entry) => entry.lawKey)).toEqual(
+      expect.arrayContaining(["advocacy_law", "criminal_code"]),
+    );
+  });
+
   it("в fallback режиме не оставляет пустой pool и держит budget не больше 12 кандидатов", async () => {
     const context = createRetrievalContext({
       normalizedInput: "Если сотрудник не вёл бодикам, это нарушение?",
