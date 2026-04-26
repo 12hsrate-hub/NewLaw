@@ -129,6 +129,9 @@ export async function listCurrentLawBlocksByServer(
               lawKey: true,
               title: true,
               topicUrl: true,
+              lawKind: true,
+              relatedPrimaryLawId: true,
+              classificationOverride: true,
             },
           },
           sourcePosts: {
