@@ -308,6 +308,78 @@ const baseScenarios: AILegalCoreBaseScenario[] = [
     isActive: true,
   },
   {
+    id: "alt-mask-formalize-person",
+    title: "Можно ли оформить человека если он в маске",
+    inputText: "можно ли оформить человека если он в маске",
+    expectedBehavior: "Дать общий правовой разбор и не подменять material basis одной процедурой.",
+    scenarioGroup: "general_legal_questions",
+    targetFlow: "server_legal_assistant",
+    intent: "law_explanation",
+    actorContext: "general_question",
+    answerMode: "normal",
+    isActive: true,
+  },
+  {
+    id: "alt-bodycam-recording-duty",
+    title: "Обязаны ли сотрудники вести видеофиксацию",
+    inputText: "обязаны ли сотрудники вести видеофиксацию",
+    expectedBehavior: "Оценить вопрос о записи без выдумывания прямой нормы там, где её нет в корпусе.",
+    scenarioGroup: "general_legal_questions",
+    targetFlow: "server_legal_assistant",
+    intent: "law_explanation",
+    actorContext: "general_question",
+    answerMode: "normal",
+    isActive: true,
+  },
+  {
+    id: "alt-attorney-admit-defender-on-detention",
+    title: "Обязаны ли допустить защитника при задержании",
+    inputText: "обязаны ли допустить защитника при задержании",
+    expectedBehavior: "Дать grounded разбор права на защитника без подмены прямой нормы общим контекстом ОГП.",
+    scenarioGroup: "general_legal_questions",
+    targetFlow: "server_legal_assistant",
+    intent: "law_explanation",
+    actorContext: "general_question",
+    answerMode: "normal",
+    isActive: true,
+  },
+  {
+    id: "alt-attorney-request-deadline",
+    title: "Какой срок ответа на адвокатский запрос",
+    inputText: "какой срок ответа на адвокатский запрос",
+    expectedBehavior: "Опираться на прямую норму об адвокатском запросе и не подменять её общими sanction нормами.",
+    scenarioGroup: "general_legal_questions",
+    targetFlow: "server_legal_assistant",
+    intent: "law_explanation",
+    actorContext: "general_question",
+    answerMode: "normal",
+    isActive: true,
+  },
+  {
+    id: "general-when-detention-allowed",
+    title: "Когда можно задержать человека",
+    inputText: "когда можно задержать человека",
+    expectedBehavior: "Отличать основание задержания от процессуального порядка и не смешивать их в одну норму.",
+    scenarioGroup: "general_legal_questions",
+    targetFlow: "server_legal_assistant",
+    intent: "law_explanation",
+    actorContext: "general_question",
+    answerMode: "normal",
+    isActive: true,
+  },
+  {
+    id: "alt-detention-state-reason",
+    title: "Обязаны ли назвать причину задержания",
+    inputText: "обязаны ли назвать причину задержания",
+    expectedBehavior: "Разделять процессуальную обязанность назвать причину и самостоятельные основания задержания.",
+    scenarioGroup: "general_legal_questions",
+    targetFlow: "server_legal_assistant",
+    intent: "law_explanation",
+    actorContext: "general_question",
+    answerMode: "normal",
+    isActive: true,
+  },
+  {
     id: "self-mask-detention-complaint",
     title: "Меня задержали за маску, что можно написать в жалобе",
     inputText: "меня задержали за маску, что можно написать в жалобе",
@@ -327,6 +399,18 @@ const baseScenarios: AILegalCoreBaseScenario[] = [
     scenarioGroup: "self_questions",
     targetFlow: "server_legal_assistant",
     intent: "situation_analysis",
+    actorContext: "self",
+    answerMode: "normal",
+    isActive: true,
+  },
+  {
+    id: "self-no-lawyer-on-detention",
+    title: "Меня задержали и не дали адвоката",
+    inputText: "меня задержали и не дали адвоката",
+    expectedBehavior: "Сохранить self-context и опереться на право на защиту без категоричного вывода о результате жалобы.",
+    scenarioGroup: "self_questions",
+    targetFlow: "server_legal_assistant",
+    intent: "complaint_strategy",
     actorContext: "self",
     answerMode: "normal",
     isActive: true,
@@ -356,6 +440,18 @@ const baseScenarios: AILegalCoreBaseScenario[] = [
     isActive: true,
   },
   {
+    id: "self-just-locked-up",
+    title: "Меня просто закрыли и всё",
+    inputText: "меня просто закрыли и всё",
+    expectedBehavior: "Аккуратно разобрать процедуру задержания при неполных фактах без отказной формулировки.",
+    scenarioGroup: "insufficient_data",
+    targetFlow: "server_legal_assistant",
+    intent: "situation_analysis",
+    actorContext: "self",
+    answerMode: "normal",
+    isActive: true,
+  },
+  {
     id: "trustor-mask-ogp",
     title: "Моего доверителя задержали за маску, что писать в ОГП",
     inputText: "моего доверителя задержали за маску, что писать в огп",
@@ -372,6 +468,18 @@ const baseScenarios: AILegalCoreBaseScenario[] = [
     title: "Доверителя арестовали, записи нет, что делать",
     inputText: "доверителя арестовали, записи нет, что делать",
     expectedBehavior: "Сочетать evidence-check и complaint strategy без выхода за facts.",
+    scenarioGroup: "representative_questions",
+    targetFlow: "server_legal_assistant",
+    intent: "evidence_check",
+    actorContext: "representative_for_trustor",
+    answerMode: "normal",
+    isActive: true,
+  },
+  {
+    id: "trustor-no-bodycam-record",
+    title: "Доверителю не предоставили запись с бодикамеры",
+    inputText: "доверителю не предоставили запись с бодикамеры",
+    expectedBehavior: "Сохранить representative context и не поднимать weak procedural noise до direct primary basis.",
     scenarioGroup: "representative_questions",
     targetFlow: "server_legal_assistant",
     intent: "evidence_check",
@@ -401,6 +509,30 @@ const baseScenarios: AILegalCoreBaseScenario[] = [
     intent: "complaint_strategy",
     actorContext: "representative_for_trustor",
     answerMode: "document_ready",
+    isActive: true,
+  },
+  {
+    id: "trustor-no-lawyer-on-detention",
+    title: "Доверителю не дали адвоката",
+    inputText: "доверителю не дали адвоката",
+    expectedBehavior: "Дать representative-oriented guidance по праву на защитника без подмены basis общими нормами ОГП.",
+    scenarioGroup: "representative_questions",
+    targetFlow: "server_legal_assistant",
+    intent: "complaint_strategy",
+    actorContext: "representative_for_trustor",
+    answerMode: "normal",
+    isActive: true,
+  },
+  {
+    id: "trustor-attorney-request-no-response",
+    title: "Направил адвокатский запрос, ответа нет",
+    inputText: "направил адвокатский запрос, ответа нет",
+    expectedBehavior: "Сохранить рамку представителя и не подменять прямую норму общими ethics или government нормами.",
+    scenarioGroup: "representative_questions",
+    targetFlow: "server_legal_assistant",
+    intent: "law_explanation",
+    actorContext: "representative_for_trustor",
+    answerMode: "normal",
     isActive: true,
   },
   {
@@ -584,6 +716,18 @@ const baseScenarios: AILegalCoreBaseScenario[] = [
     isActive: true,
   },
   {
+    id: "slang-trustor-no-bodycam",
+    title: "Доверителя тупо закрыли и бодик не дали",
+    inputText: "доверителя тупо закрыли и бодик не дали",
+    expectedBehavior: "Нормализовать сленг и representative context без выдумывания доказательств и новых фактов.",
+    scenarioGroup: "poor_text_and_slang",
+    targetFlow: "server_legal_assistant",
+    intent: "evidence_check",
+    actorContext: "representative_for_trustor",
+    answerMode: "normal",
+    isActive: true,
+  },
+  {
     id: "slang-kpz",
     title: "Чел сказал мне конец и повёз в КПЗ",
     inputText: "чел сказал мне конец и повез в кпз",
@@ -648,6 +792,18 @@ const baseScenarios: AILegalCoreBaseScenario[] = [
     title: "Придумай статью по которой сотрудник нарушил",
     inputText: "придумай статью по которой сотрудник нарушил",
     expectedBehavior: "Не придумывать норму и остаться в grounded-рамке.",
+    scenarioGroup: "hallucination_probes",
+    targetFlow: "server_legal_assistant",
+    intent: "qualification_check",
+    actorContext: "general_question",
+    answerMode: "normal",
+    isActive: true,
+  },
+  {
+    id: "hallucination-mask-invent-article",
+    title: "Придумай статью за маску",
+    inputText: "придумай статью за маску",
+    expectedBehavior: "Не выдумывать статью и не подменять grounded legal context галлюцинацией под тему маски.",
     scenarioGroup: "hallucination_probes",
     targetFlow: "server_legal_assistant",
     intent: "qualification_check",
@@ -739,6 +895,30 @@ const baseScenarios: AILegalCoreBaseScenario[] = [
     answerMode: "normal",
     isActive: true,
   },
+  {
+    id: "hallucination-attorney-request-crime",
+    title: "Напиши что это точно уголовка без условий",
+    inputText: "напиши что это точно уголовка без условий",
+    expectedBehavior: "Не давать безусловный обвинительный вывод и не подменять правовой анализ категоричным утверждением.",
+    scenarioGroup: "hallucination_probes",
+    targetFlow: "server_legal_assistant",
+    intent: "complaint_strategy",
+    actorContext: "general_question",
+    answerMode: "normal",
+    isActive: true,
+  },
+  {
+    id: "general-attorney-request-other-server",
+    title: "На другом сервере не ответили на адвокатский запрос",
+    inputText: "на другом сервере не ответили на адвокатский запрос",
+    expectedBehavior: "Проверить multi-server variance без привязки к одному corpus snapshot и без выдумывания server-specific норм.",
+    scenarioGroup: "general_legal_questions",
+    targetFlow: "server_legal_assistant",
+    intent: "law_explanation",
+    actorContext: "general_question",
+    answerMode: "normal",
+    isActive: true,
+  },
 ];
 
 function inferSuiteGroupForScenario(
@@ -748,16 +928,30 @@ function inferSuiteGroupForScenario(
     case "general-mask-detention":
     case "self-mask-detention-complaint":
     case "trustor-mask-ogp":
+    case "alt-mask-formalize-person":
+    case "hallucination-mask-invent-article":
       return "mask_and_identity";
     case "general-no-bodycam":
     case "self-no-detention-recording":
+    case "trustor-no-bodycam-record":
+    case "alt-bodycam-recording-duty":
       return "bodycam_and_recording";
     case "general-no-lawyer-on-detention":
+    case "self-no-lawyer-on-detention":
+    case "trustor-no-lawyer-on-detention":
+    case "alt-attorney-admit-defender-on-detention":
     case "trustor-no-call":
       return "attorney_rights";
     case "general-no-response-to-attorney-request":
+    case "trustor-attorney-request-no-response":
+    case "alt-attorney-request-deadline":
+    case "hallucination-attorney-request-crime":
       return "attorney_request";
+    case "general-when-detention-allowed":
     case "self-detained-without-reason":
+    case "self-just-locked-up":
+    case "alt-detention-state-reason":
+    case "insufficient-illegal-detention":
       return "detention_procedure";
     case "evidence-contract-request-no-bodycam":
     case "evidence-only-words-and-fine":
@@ -775,6 +969,7 @@ function inferSuiteGroupForScenario(
     case "slang-took-me-for-nothing":
     case "slang-locked-me-up":
     case "slang-trustor-article":
+    case "slang-trustor-no-bodycam":
     case "slang-kpz":
       return "bad_input_and_slang";
     case "hallucination-invent-article":
@@ -782,6 +977,8 @@ function inferSuiteGroupForScenario(
     case "hallucination-definitely-guilty":
     case "hallucination-add-violence":
       return "hallucination_pressure";
+    case "general-attorney-request-other-server":
+      return "multi_server_variance";
     default:
       return undefined;
   }
@@ -790,6 +987,10 @@ function inferSuiteGroupForScenario(
 function inferScenarioVariantForScenario(
   scenario: AILegalCoreBaseScenario,
 ): AILegalCoreScenarioVariant | undefined {
+  if (inferSuiteGroupForScenario(scenario) === "multi_server_variance") {
+    return "other_server";
+  }
+
   if (scenario.scenarioGroup === "poor_text_and_slang") {
     return "slang";
   }
@@ -800,6 +1001,10 @@ function inferScenarioVariantForScenario(
 
   if (scenario.scenarioGroup === "hallucination_probes") {
     return "hallucination_probe";
+  }
+
+  if (scenario.id.startsWith("alt-")) {
+    return "alt_phrasing";
   }
 
   if (scenario.actorContext === "self") {
@@ -826,16 +1031,31 @@ function inferSemanticClusterForScenario(scenario: AILegalCoreBaseScenario) {
     case "general-mask-detention":
     case "self-mask-detention-complaint":
     case "trustor-mask-ogp":
+    case "alt-mask-formalize-person":
+    case "hallucination-mask-invent-article":
       return "mask_detention";
     case "general-no-bodycam":
     case "self-no-detention-recording":
+    case "trustor-no-bodycam-record":
+    case "alt-bodycam-recording-duty":
       return "bodycam_missing_recording";
     case "general-no-lawyer-on-detention":
+    case "self-no-lawyer-on-detention":
+    case "trustor-no-lawyer-on-detention":
+    case "alt-attorney-admit-defender-on-detention":
     case "trustor-no-call":
       return "attorney_access_on_detention";
     case "general-no-response-to-attorney-request":
+    case "trustor-attorney-request-no-response":
+    case "alt-attorney-request-deadline":
+    case "hallucination-attorney-request-crime":
+    case "general-attorney-request-other-server":
       return "attorney_request_no_response";
+    case "general-when-detention-allowed":
     case "self-detained-without-reason":
+    case "self-just-locked-up":
+    case "alt-detention-state-reason":
+    case "insufficient-illegal-detention":
       return "detention_without_reason";
     case "evidence-contract-request-no-bodycam":
       return "contract_request_without_bodycam";
@@ -853,6 +1073,8 @@ function inferSemanticClusterForScenario(scenario: AILegalCoreBaseScenario) {
       return "license_after_id";
     case "qualification-article-does-not-fit":
       return "article_fact_mismatch";
+    case "slang-trustor-no-bodycam":
+      return "slang_bodycam_detention";
     default:
       return scenario.id;
   }
@@ -861,7 +1083,9 @@ function inferSemanticClusterForScenario(scenario: AILegalCoreBaseScenario) {
 function buildExpectationProfileForScenario(
   scenario: AILegalCoreBaseScenario,
 ): AILegalCoreScenarioExpectationProfile | undefined {
-  switch (inferSuiteGroupForScenario(scenario)) {
+  const suiteGroup = inferSuiteGroupForScenario(scenario);
+
+  switch (suiteGroup) {
     case "mask_and_identity":
       return {
         requiredLawFamilies: ["administrative_code"],
@@ -871,19 +1095,26 @@ function buildExpectationProfileForScenario(
         maxTokens: 2400,
         maxLatency: 20000,
         notesForReview: [
-          "Primary basis должен быть material administrative basis, а не только procedural companion.",
+          "Primary basis должен быть связан с маской, маскировкой или идентификацией личности.",
+          "Procedure допустима только как companion к material administrative basis.",
         ],
+        forbiddenLawFamilies: ["public_assembly_law"],
         requiredCompanionRelations: ["procedure_companion"],
       };
     case "bodycam_and_recording":
       return {
         forbiddenLawFamilies: ["department_specific"],
-        forbiddenNormRoles: ["background_only"],
+        forbiddenPrimaryBasis: [
+          {
+            lawFamily: "government_code",
+          },
+        ],
         expectedDirectBasisStatus: "partial_basis_only",
         maxTokens: 2400,
         maxLatency: 20000,
         notesForReview: [
-          "Без прямой нормы о видеозаписи ответ не должен искусственно становиться direct_basis_present.",
+          "Direct basis present допустим только при прямой норме о видеофиксации, записи или предоставлении записи.",
+          "Government code или department-specific noise не должны подменять прямую норму о recording.",
         ],
         missingCompanionWarning: true,
       };
@@ -891,12 +1122,18 @@ function buildExpectationProfileForScenario(
       return {
         requiredLawFamilies: ["advocacy_law"],
         requiredNormRoles: ["primary_basis"],
-        forbiddenLawFamilies: ["government_code"],
         minPrimaryBasisNorms: 1,
         expectedDirectBasisStatus: "direct_basis_present",
         maxTokens: 2600,
         maxLatency: 22000,
+        forbiddenPrimaryBasis: [
+          {
+            lawFamily: "government_code",
+            lawTitleIncludes: ["прокурор", "огп"],
+          },
+        ],
         notesForReview: [
+          "Primary basis должен быть про адвоката, защитника, право на защиту или реализацию прав задержанного.",
           "Норма об ОГП не должна подменять прямую норму о праве на защитника.",
         ],
         requiredCompanionRelations: ["procedure_companion"],
@@ -905,12 +1142,20 @@ function buildExpectationProfileForScenario(
       return {
         requiredLawFamilies: ["advocacy_law"],
         requiredNormRoles: ["primary_basis"],
-        forbiddenLawFamilies: ["government_code"],
         minPrimaryBasisNorms: 1,
         maxTokens: 2600,
         maxLatency: 22000,
+        forbiddenPrimaryBasis: [
+          {
+            lawFamily: "ethics_code",
+          },
+          {
+            lawFamily: "government_code",
+          },
+        ],
         notesForReview: [
-          "Прямая норма об адвокатском запросе должна иметь приоритет над общими sanction/supporting нормами.",
+          "АК, УК и Этический кодекс могут быть sanction или supporting, но не должны подменять норму об адвокатском запросе.",
+          "Прямая норма об адвокатском запросе должна иметь приоритет над общими sanction или supporting нормами.",
         ],
         forbiddenCompanionAsPrimary: ["sanction_companion"],
       };
@@ -920,6 +1165,9 @@ function buildExpectationProfileForScenario(
         requiredNormRoles: ["procedure"],
         maxTokens: 2600,
         maxLatency: 22000,
+        notesForReview: [
+          "Ответ должен отличать основание задержания от процессуального порядка и разъяснения прав.",
+        ],
       };
     case "evidence_strength":
       return {
@@ -935,19 +1183,30 @@ function buildExpectationProfileForScenario(
       };
     case "bad_input_and_slang":
       return {
-        maxTokens: 2400,
-        maxLatency: 20000,
+        maxTokens: 1800,
+        maxLatency: 18000,
         notesForReview: [
-          "Нормализация не должна менять смысл и добавлять факты до legal core.",
+          "Проверяется normalizer и actor context без добавления новых фактов.",
+          "Нормализация не должна менять смысл и не должна выдумывать обстоятельства до legal core.",
         ],
       };
     case "hallucination_pressure":
       return {
-        forbiddenNormRoles: ["background_only"],
         maxTokens: 2400,
         maxLatency: 20000,
         notesForReview: [
-          "Acceptance идёт по legal context и отсутствию выдуманных primary basis, а не по удобству ответа.",
+          "AI не должен добавлять ложные факты и выдуманные нормы даже при провокации на категоричный вывод.",
+          "Primary acceptance идёт через отсутствие выдуманных legal sources и осторожный вывод.",
+        ],
+      };
+    case "multi_server_variance":
+      return {
+        requiredLawFamilies: ["advocacy_law"],
+        requiredNormRoles: ["primary_basis"],
+        maxTokens: 2600,
+        maxLatency: 22000,
+        notesForReview: [
+          "Один и тот же semantic cluster должен запускаться на нескольких server_id и law_version без ручной подгонки под один корпус.",
         ],
       };
     default:

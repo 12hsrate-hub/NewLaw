@@ -228,7 +228,7 @@ describe("internal ai legal core action", () => {
       ]),
       failed_expectations: [],
       expectation_summary: {
-        passed: 6,
+        passed: 7,
         failed: 0,
         not_evaluable: 0,
         future_reserved: 1,
@@ -449,7 +449,7 @@ describe("internal ai legal core action", () => {
       ]),
       failed_expectations: [],
       expectation_summary: {
-        passed: 4,
+        passed: 5,
         failed: 0,
         not_evaluable: 2,
         future_reserved: 1,
@@ -656,10 +656,15 @@ describe("internal ai legal core action", () => {
           status: "passed",
         }),
       ]),
-      failed_expectations: [],
+      failed_expectations: [
+        expect.objectContaining({
+          key: "forbiddenPrimaryBasis",
+          status: "failed",
+        }),
+      ],
       expectation_summary: {
-        passed: 5,
-        failed: 0,
+        passed: 4,
+        failed: 1,
         not_evaluable: 0,
         future_reserved: 1,
       },
