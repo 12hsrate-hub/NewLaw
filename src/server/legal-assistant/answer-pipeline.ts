@@ -7,6 +7,7 @@ import {
   type ProxyAttemptTrace,
   requestAssistantProxyCompletion,
 } from "@/server/legal-assistant/ai-proxy";
+import { buildNormBundle } from "@/server/legal-assistant/norm-bundle";
 import { selectQuestionAwareSourceExcerpt } from "@/server/legal-assistant/source-excerpt";
 import { buildAssistantRetrievalQuery } from "@/server/legal-core/assistant-retrieval-query";
 import { buildLegalGroundingDiagnostics } from "@/server/legal-core/legal-diagnostics";
@@ -1852,6 +1853,12 @@ export async function generateServerLegalAssistantAnswer(
     plan: legalQueryPlan,
     selection: lawSelection,
   });
+  const normBundle = buildNormBundle({
+    plan: legalQueryPlan,
+    selection: lawSelection,
+    retrievalResults: selectionCandidates,
+    citationDiagnostics: retrieval.retrievalDebug?.citation_resolution ?? [],
+  });
   const sourceLedgerBase = buildAssistantSourceLedger(retrieval, lawSelection.selected_norms);
   const sourceLedger = buildAssistantSourceLedgerWithUsedNorms(sourceLedgerBase, []);
   const lawVersionContract = buildAssistantLawVersionContract({
@@ -1922,6 +1929,17 @@ export async function generateServerLegalAssistantAnswer(
       law_block_id: entry.law_block_id,
       trimmed: entry.generation_excerpt_trimmed,
     })),
+  };
+  const normBundleDiagnosticsPayload = {
+    norm_bundle_present: normBundle.bundle_diagnostics.norm_bundle_present,
+    bundle_primary_count: normBundle.bundle_diagnostics.bundle_primary_count,
+    bundle_companion_count: normBundle.bundle_diagnostics.bundle_companion_count,
+    missing_expected_companion: normBundle.bundle_diagnostics.missing_expected_companion,
+    companion_relation_types: normBundle.bundle_diagnostics.companion_relation_types,
+    included_companions: normBundle.bundle_diagnostics.included_companions,
+    excluded_companions: normBundle.bundle_diagnostics.excluded_companions,
+    bundle_budget_trimmed: normBundle.bundle_diagnostics.bundle_budget_trimmed,
+    bundle_generation_context_items: normBundle.bundle_diagnostics.bundle_generation_context_items,
   };
   const metadataBase = {
     serverId: input.serverId,
@@ -2003,6 +2021,7 @@ export async function generateServerLegalAssistantAnswer(
       input_trace: inputTrace,
       used_sources: usedSources,
       source_ledger: sourceLedger,
+      ...normBundleDiagnosticsPayload,
       generation_source_budget: generationContext.generation_source_budget,
       generation_sources_count: generationContext.generation_sources_count,
       generation_excerpt_budget: generationContext.generation_excerpt_budget,
@@ -2127,6 +2146,7 @@ export async function generateServerLegalAssistantAnswer(
       input_trace: inputTrace,
       used_sources: usedSources,
       source_ledger: sourceLedger,
+      ...normBundleDiagnosticsPayload,
       generation_source_budget: generationContext.generation_source_budget,
       generation_sources_count: generationContext.generation_sources_count,
       generation_excerpt_budget: generationContext.generation_excerpt_budget,
@@ -2252,6 +2272,7 @@ export async function generateServerLegalAssistantAnswer(
     ...retrievalDebugPayload,
     input_trace: inputTrace,
     used_sources: usedSources,
+    ...normBundleDiagnosticsPayload,
     lawCorpusSnapshot: retrieval.lawCorpusSnapshot,
     precedentCorpusSnapshot: retrieval.precedentCorpusSnapshot,
     combinedRetrievalRevision: retrieval.combinedRetrievalRevision,

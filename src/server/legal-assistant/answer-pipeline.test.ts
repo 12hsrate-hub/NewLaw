@@ -2001,6 +2001,14 @@ describe("answer pipeline", () => {
         trimmed: expect.any(Boolean),
       }),
     ]);
+    expect(aiRequestPayload.requestPayloadJson.norm_bundle_present).toBe(true);
+    expect(aiRequestPayload.requestPayloadJson.bundle_primary_count).toBe(1);
+    expect(aiRequestPayload.requestPayloadJson.bundle_companion_count).toBe(0);
+    expect(aiRequestPayload.requestPayloadJson.companion_relation_types).toEqual([]);
+    expect(aiRequestPayload.requestPayloadJson.included_companions).toEqual([]);
+    expect(aiRequestPayload.requestPayloadJson.bundle_budget_trimmed).toBe(false);
+    expect(promptInput).not.toContain("companion[");
+    expect(promptInput).not.toContain("NormBundle");
   });
 
   it("нормализует ответ модели в структурированный markdown даже если precedent section пропущена", async () => {
