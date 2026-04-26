@@ -13,8 +13,10 @@ Post-MVP. Не входит в MVP.
 - `17` не подменяет `AI Legal Core`
 - `17` не проектирует retrieval-ядро заново
 - `17` оценивает результаты шага `16`, а не заменяет его
+- `17` не строит `Legal Citation Parser / Citation Resolver`
 - `16` собирает и применяет `NormBundle`, если этот слой добавлен в legal core
 - `17` не строит `NormBundle` заново
+- `17` проверяет citation errors только после того, как их сформировал шаг `16`
 - `17` проверяет ошибки bundle/grounding, а не подменяет bundle assembly
 
 ## Назначение
@@ -79,6 +81,14 @@ Post-MVP. Не входит в MVP.
 - `missing_companion_warning`
 - `cross_reference_unresolved`
 
+После появления `Legal Citation Parser / Citation Resolver` в шаге `16` review-контур также должен получать:
+
+- explicit citation diagnostics
+- `citation_resolved`
+- `citation_ambiguous`
+- `citation_unresolved`
+- markers о том, был ли semantic retrieval разрешён только как companion-context
+
 ## Цепочка проверки
 
 `AI Quality Review` должен проверять полную цепочку:
@@ -131,6 +141,10 @@ Post-MVP. Не входит в MVP.
 
 После появления `NormBundle` в шаге `16` должен быть предусмотрен future review expansion с дополнительными флагами:
 
+- `explicit_citation_ignored`
+- `explicit_citation_misresolved`
+- `semantic_search_overrode_explicit_citation`
+- `citation_unresolved`
 - `missing_required_companion`
 - `wrong_companion_relation`
 - `primary_norm_without_exception`
@@ -143,6 +157,7 @@ Post-MVP. Не входит в MVP.
 
 - эти флаги относятся к будущему расширению review-контура
 - они не должны описываться как уже включённая runtime review-логика
+- они не должны подменять `AI Legal Core` и не должны превращать шаг `17` в citation resolver или bundle assembler
 
 Дополнительно должны поддерживаться общие поля review-контура:
 
