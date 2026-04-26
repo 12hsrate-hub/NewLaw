@@ -314,6 +314,13 @@ export const LEGAL_SEMANTIC_ELIGIBILITY_KEYWORDS = {
 } as const;
 
 export const LEGAL_SOURCE_SPECIFICITY_PROFILES = {
+  administrative_offense: {
+    primaryPreferredFamilies: ["administrative_code"],
+    supportingFamilies: ["procedural_code"],
+    primaryForbiddenRoles: ["sanction", "exception"],
+    sanctionOnlyFamilies: [],
+    scopeRequiredFamilies: [],
+  },
   attorney_request: {
     primaryPreferredFamilies: ["advocacy_law"],
     supportingFamilies: [

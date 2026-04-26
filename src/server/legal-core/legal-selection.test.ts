@@ -299,7 +299,16 @@ describe("ai legal core selection", () => {
       ],
     });
 
-    expect(selection.primary_basis_norms.map((entry) => entry.lawId)).toEqual(["law-advocacy"]);
+    expect(selection.direct_basis_status).toBe("partial_basis_only");
+    expect(selection.primary_basis_norms).toEqual([]);
+    expect(selection.selected_norm_roles).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          law_id: "law-advocacy",
+          law_family: "advocacy_law",
+        }),
+      ]),
+    );
     expect(selection.selected_norm_roles).not.toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -880,6 +889,477 @@ describe("ai legal core selection", () => {
     expect(governmentCandidate?.specificity_penalties).toEqual(
       expect.arrayContaining(["scoped_family_without_explicit_scope"]),
     );
-    expect(diagnostics.grounding_diagnostics.flags).toContain("wrong_source_family");
+    expect(governmentCandidate?.primary_basis_eligibility).toBe("ineligible");
+    expect(governmentCandidate?.ineligible_primary_basis_reasons).toEqual(
+      expect.arrayContaining(["ineligible_due_to_scoped_family_without_scope"]),
+    );
+  });
+
+  it("делает advocacy_law eligible primary для attorney_request, а criminal/government/ethics не делает eligible primary", () => {
+    const plan = buildLegalQueryPlan({
+      normalizedInput: "какой срок ответа на адвокатский запрос",
+      intent: "situation_analysis",
+      actorContext: "general_question",
+      responseMode: "normal",
+      serverId: "server-1",
+    });
+
+    const selection = selectStructuredLegalContext({
+      plan,
+      candidates: [
+        {
+          serverId: "server-1",
+          lawId: "law-advocacy",
+          lawKey: "advocacy_law",
+          lawTitle: "Закон об адвокатуре и адвокатской деятельности",
+          lawVersionId: "version-1",
+          lawBlockId: "block-advocacy",
+          blockType: "article",
+          blockText: "Официальный адвокатский запрос подлежит обязательному рассмотрению. Ответ даётся в установленный срок.",
+          articleNumberNormalized: "5",
+          sourceTopicUrl: "https://forum.gta5rp.com/threads/advocacy",
+        },
+        {
+          serverId: "server-1",
+          lawId: "law-government",
+          lawKey: "government_code",
+          lawTitle: "Кодекс о деятельности Правительства",
+          lawVersionId: "version-1",
+          lawBlockId: "block-government",
+          blockType: "article",
+          blockText: "Должностное лицо обязано соблюдать служебные процедуры.",
+          articleNumberNormalized: "38",
+          sourceTopicUrl: "https://forum.gta5rp.com/threads/government",
+        },
+        {
+          serverId: "server-1",
+          lawId: "law-ethics",
+          lawKey: "ethics_code",
+          lawTitle: "Этический кодекс штата Сан-Андреас",
+          lawVersionId: "version-1",
+          lawBlockId: "block-ethics",
+          blockType: "article",
+          blockText: "Государственный служащий обязан соблюдать служебные обязанности.",
+          articleNumberNormalized: "12",
+          sourceTopicUrl: "https://forum.gta5rp.com/threads/ethics",
+        },
+        {
+          serverId: "server-1",
+          lawId: "law-criminal",
+          lawKey: "criminal_code",
+          lawTitle: "Уголовный кодекс",
+          lawVersionId: "version-1",
+          lawBlockId: "block-criminal",
+          blockType: "article",
+          blockText: "Неисполнение обязательного правового акта влечёт уголовную ответственность.",
+          articleNumberNormalized: "84",
+          sourceTopicUrl: "https://forum.gta5rp.com/threads/criminal",
+        },
+      ],
+    });
+
+    const scoredByLawId = new Map(
+      selection.scored_candidates.map((entry) => [entry.candidate.lawId, entry] as const),
+    );
+
+    expect(selection.direct_basis_status).toBe("direct_basis_present");
+    expect(selection.primary_basis_norms.map((entry) => entry.lawId)).toEqual(["law-advocacy"]);
+    expect(scoredByLawId.get("law-advocacy")?.primary_basis_eligibility).toBe("eligible");
+    expect(scoredByLawId.get("law-advocacy")?.primary_basis_eligibility_reason).toBe(
+      "eligible_due_to_specific_primary_family",
+    );
+    expect(scoredByLawId.get("law-government")?.primary_basis_eligibility).not.toBe("eligible");
+    expect(scoredByLawId.get("law-ethics")?.primary_basis_eligibility).not.toBe("eligible");
+    expect(scoredByLawId.get("law-criminal")?.primary_basis_eligibility).toBe("ineligible");
+    expect(scoredByLawId.get("law-criminal")?.primary_basis_eligibility_reason).toBe(
+      "ineligible_due_to_sanction_only",
+    );
+  });
+
+  it("не делает government_code clean direct primary для attorney_request, если advocacy_law отсутствует", () => {
+    const plan = buildLegalQueryPlan({
+      normalizedInput: "если руководство не ответило на адвокатский запрос",
+      intent: "situation_analysis",
+      actorContext: "general_question",
+      responseMode: "normal",
+      serverId: "server-1",
+    });
+
+    const selection = selectStructuredLegalContext({
+      plan,
+      candidates: [
+        {
+          serverId: "server-1",
+          lawId: "law-government",
+          lawKey: "government_code",
+          lawTitle: "Кодекс о деятельности Правительства",
+          lawVersionId: "version-1",
+          lawBlockId: "block-government",
+          blockType: "article",
+          blockText: "Должностное лицо обязано соблюдать служебные процедуры.",
+          articleNumberNormalized: "38",
+          sourceTopicUrl: "https://forum.gta5rp.com/threads/government",
+        },
+      ],
+    });
+
+    expect(selection.direct_basis_status).toBe("partial_basis_only");
+    expect(selection.primary_basis_norms).toEqual([]);
+  });
+
+  it("делает procedural_code recording duty eligible primary и не делает government_code eligible primary без scope", () => {
+    const plan = buildLegalQueryPlan({
+      normalizedInput: "обязаны ли сотрудники вести видеофиксацию",
+      intent: "situation_analysis",
+      actorContext: "general_question",
+      responseMode: "normal",
+      serverId: "server-1",
+    });
+
+    const selection = selectStructuredLegalContext({
+      plan,
+      candidates: [
+        {
+          serverId: "server-1",
+          lawId: "law-procedure",
+          lawKey: "procedural_code",
+          lawTitle: "Процессуальный кодекс",
+          lawVersionId: "version-1",
+          lawBlockId: "block-procedure",
+          blockType: "article",
+          blockText: "Сотрудник обязан вести видеозапись задержания и предоставить запись по запросу.",
+          articleNumberNormalized: "32",
+          sourceTopicUrl: "https://forum.gta5rp.com/threads/procedure",
+        },
+        {
+          serverId: "server-1",
+          lawId: "law-government",
+          lawKey: "government_code",
+          lawTitle: "Кодекс о деятельности Правительства",
+          lawVersionId: "version-1",
+          lawBlockId: "block-government",
+          blockType: "article",
+          blockText: "Государственный служащий обязан добросовестно исполнять служебные обязанности.",
+          articleNumberNormalized: "38",
+          sourceTopicUrl: "https://forum.gta5rp.com/threads/government",
+        },
+      ],
+    });
+
+    const scoredByLawId = new Map(
+      selection.scored_candidates.map((entry) => [entry.candidate.lawId, entry] as const),
+    );
+
+    expect(selection.direct_basis_status).toBe("direct_basis_present");
+    expect(selection.primary_basis_norms.map((entry) => entry.lawId)).toEqual(["law-procedure"]);
+    expect(scoredByLawId.get("law-procedure")?.primary_basis_eligibility).toBe("eligible");
+    expect(scoredByLawId.get("law-government")?.primary_basis_eligibility).toBe("ineligible");
+    expect(scoredByLawId.get("law-government")?.primary_basis_eligibility_reason).toBe(
+      "ineligible_due_to_scoped_family_without_scope",
+    );
+  });
+
+  it("делает procedural evidence-access rule eligible primary для запроса о предоставлении записи", () => {
+    const plan = buildLegalQueryPlan({
+      normalizedInput: "адвокат запросил запись задержания, но её не предоставили",
+      intent: "evidence_check",
+      actorContext: "general_question",
+      responseMode: "normal",
+      serverId: "server-1",
+    });
+
+    const selection = selectStructuredLegalContext({
+      plan,
+      candidates: [
+        {
+          serverId: "server-1",
+          lawId: "law-procedure",
+          lawKey: "procedural_code",
+          lawTitle: "Процессуальный кодекс",
+          lawVersionId: "version-1",
+          lawBlockId: "block-procedure",
+          blockType: "article",
+          blockText: "По запросу адвоката запись задержания подлежит предоставлению в процессуальном порядке.",
+          articleNumberNormalized: "23",
+          sourceTopicUrl: "https://forum.gta5rp.com/threads/procedure",
+        },
+        {
+          serverId: "server-1",
+          lawId: "law-government",
+          lawKey: "government_code",
+          lawTitle: "Кодекс о деятельности Правительства",
+          lawVersionId: "version-1",
+          lawBlockId: "block-government",
+          blockType: "article",
+          blockText: "Государственный служащий обязан соблюдать служебные процедуры.",
+          articleNumberNormalized: "38",
+          sourceTopicUrl: "https://forum.gta5rp.com/threads/government",
+        },
+      ],
+    });
+
+    expect(selection.direct_basis_status).toBe("direct_basis_present");
+    expect(selection.primary_basis_norms.map((entry) => entry.lawId)).toEqual(["law-procedure"]);
+  });
+
+  it("делает constitution/procedural eligible primary для attorney_rights, а advocacy/government/criminal не делает eligible primary по умолчанию", () => {
+    const plan = buildLegalQueryPlan({
+      normalizedInput: "обязаны ли допустить защитника при задержании",
+      intent: "situation_analysis",
+      actorContext: "general_question",
+      responseMode: "normal",
+      serverId: "server-1",
+    });
+
+    const selection = selectStructuredLegalContext({
+      plan,
+      candidates: [
+        {
+          serverId: "server-1",
+          lawId: "law-constitution",
+          lawKey: "constitution",
+          lawTitle: "Конституция штата Сан-Андреас",
+          lawVersionId: "version-1",
+          lawBlockId: "block-constitution",
+          blockType: "article",
+          blockText: "Каждому задержанному гарантируется право на защиту и допуск защитника.",
+          articleNumberNormalized: "14",
+          sourceTopicUrl: "https://forum.gta5rp.com/threads/constitution",
+        },
+        {
+          serverId: "server-1",
+          lawId: "law-procedure",
+          lawKey: "procedural_code",
+          lawTitle: "Процессуальный кодекс",
+          lawVersionId: "version-1",
+          lawBlockId: "block-procedure",
+          blockType: "article",
+          blockText: "При задержании разъясняется право на защитника и обеспечивается допуск адвоката.",
+          articleNumberNormalized: "23",
+          sourceTopicUrl: "https://forum.gta5rp.com/threads/procedure",
+        },
+        {
+          serverId: "server-1",
+          lawId: "law-advocacy",
+          lawKey: "advocacy_law",
+          lawTitle: "Закон об адвокатуре и адвокатской деятельности",
+          lawVersionId: "version-1",
+          lawBlockId: "block-advocacy",
+          blockType: "article",
+          blockText: "Адвокат подтверждает свой статус и обеспечивает право на защиту задержанного.",
+          articleNumberNormalized: "5",
+          sourceTopicUrl: "https://forum.gta5rp.com/threads/advocacy",
+        },
+        {
+          serverId: "server-1",
+          lawId: "law-government",
+          lawKey: "government_code",
+          lawTitle: "Кодекс о деятельности Правительства",
+          lawVersionId: "version-1",
+          lawBlockId: "block-government",
+          blockType: "article",
+          blockText: "Должностное лицо обязано соблюдать служебные процедуры.",
+          articleNumberNormalized: "38",
+          sourceTopicUrl: "https://forum.gta5rp.com/threads/government",
+        },
+        {
+          serverId: "server-1",
+          lawId: "law-criminal",
+          lawKey: "criminal_code",
+          lawTitle: "Уголовный кодекс",
+          lawVersionId: "version-1",
+          lawBlockId: "block-criminal",
+          blockType: "article",
+          blockText: "Воспрепятствование исполнению правового акта влечёт наказание.",
+          articleNumberNormalized: "84",
+          sourceTopicUrl: "https://forum.gta5rp.com/threads/criminal",
+        },
+      ],
+    });
+
+    const scoredByLawId = new Map(
+      selection.scored_candidates.map((entry) => [entry.candidate.lawId, entry] as const),
+    );
+
+    expect(selection.direct_basis_status).toBe("direct_basis_present");
+    expect(scoredByLawId.get("law-constitution")?.primary_basis_eligibility).toBe("eligible");
+    expect(scoredByLawId.get("law-procedure")?.primary_basis_eligibility).toBe("eligible");
+    expect(scoredByLawId.get("law-advocacy")?.primary_basis_eligibility).toBe("weak");
+    expect(scoredByLawId.get("law-advocacy")?.primary_basis_eligibility_reason).toBe(
+      "weak_due_to_missing_preferred_family",
+    );
+    expect(scoredByLawId.get("law-government")?.primary_basis_eligibility).toBe("ineligible");
+    expect(scoredByLawId.get("law-criminal")?.primary_basis_eligibility).toBe("ineligible");
+  });
+
+  it("делает procedural_code eligible primary для detention_procedure и не делает sanction/exception/government eligible", () => {
+    const plan = buildLegalQueryPlan({
+      normalizedInput: "когда допустимо задержание",
+      intent: "situation_analysis",
+      actorContext: "general_question",
+      responseMode: "normal",
+      serverId: "server-1",
+    });
+
+    const selection = selectStructuredLegalContext({
+      plan,
+      candidates: [
+        {
+          serverId: "server-1",
+          lawId: "law-procedure-primary",
+          lawKey: "procedural_code",
+          lawTitle: "Процессуальный кодекс",
+          lawVersionId: "version-1",
+          lawBlockId: "block-procedure-primary",
+          blockType: "article",
+          blockText: "Задержание допускается при наличии оснований и осуществляется в установленном порядке.",
+          articleNumberNormalized: "23",
+          sourceTopicUrl: "https://forum.gta5rp.com/threads/procedure",
+        },
+        {
+          serverId: "server-1",
+          lawId: "law-procedure-exception",
+          lawKey: "procedural_code",
+          lawTitle: "Процессуальный кодекс",
+          lawVersionId: "version-1",
+          lawBlockId: "block-procedure-exception",
+          blockType: "article",
+          blockText: "За исключением случаев, прямо предусмотренных законом.",
+          articleNumberNormalized: "37",
+          sourceTopicUrl: "https://forum.gta5rp.com/threads/procedure",
+        },
+        {
+          serverId: "server-1",
+          lawId: "law-procedure-sanction",
+          lawKey: "procedural_code",
+          lawTitle: "Процессуальный кодекс",
+          lawVersionId: "version-1",
+          lawBlockId: "block-procedure-sanction",
+          blockType: "article",
+          blockText: "Нарушение порядка задержания влечёт ответственность.",
+          articleNumberNormalized: "15",
+          sourceTopicUrl: "https://forum.gta5rp.com/threads/procedure",
+        },
+        {
+          serverId: "server-1",
+          lawId: "law-government",
+          lawKey: "government_code",
+          lawTitle: "Кодекс о деятельности Правительства",
+          lawVersionId: "version-1",
+          lawBlockId: "block-government",
+          blockType: "article",
+          blockText: "Должностное лицо обязано соблюдать служебные процедуры.",
+          articleNumberNormalized: "38",
+          sourceTopicUrl: "https://forum.gta5rp.com/threads/government",
+        },
+      ],
+    });
+
+    const scoredByLawId = new Map(
+      selection.scored_candidates.map((entry) => [entry.candidate.lawId, entry] as const),
+    );
+
+    expect(selection.direct_basis_status).toBe("direct_basis_present");
+    expect(selection.primary_basis_norms.map((entry) => entry.lawId)).toContain("law-procedure-primary");
+    expect(scoredByLawId.get("law-procedure-primary")?.primary_basis_eligibility).toBe("eligible");
+    expect(scoredByLawId.get("law-procedure-exception")?.primary_basis_eligibility).toBe("ineligible");
+    expect(scoredByLawId.get("law-procedure-exception")?.primary_basis_eligibility_reason).toBe(
+      "ineligible_due_to_exception_without_base",
+    );
+    expect(scoredByLawId.get("law-procedure-sanction")?.primary_basis_eligibility).toBe("ineligible");
+    expect(scoredByLawId.get("law-government")?.primary_basis_eligibility).toBe("ineligible");
+  });
+
+  it("сохраняет resolved citation_target eligible primary для citation_explanation и не даёт semantic hit подменить его", () => {
+    const plan = buildLegalQueryPlan({
+      normalizedInput: "что значит 84 УК",
+      originalInput: "что значит 84 УК",
+      intent: "qualification_check",
+      actorContext: "general_question",
+      responseMode: "normal",
+      serverId: "server-1",
+    });
+
+    const selection = selectStructuredLegalContext({
+      plan,
+      candidates: [
+        {
+          serverId: "server-1",
+          lawId: "law-citation-target",
+          lawKey: "criminal_code",
+          lawTitle: "Уголовный кодекс",
+          lawVersionId: "version-1",
+          lawBlockId: "block-citation-target",
+          blockType: "article",
+          blockText: "Неисполнение обязательного правового акта влечёт уголовную ответственность.",
+          articleNumberNormalized: "84",
+          sourceTopicUrl: "https://forum.gta5rp.com/threads/criminal",
+          sourceChannel: "citation_target",
+          citationResolutionStatus: "resolved",
+          citationMatchStrength: "exact_article",
+        },
+        {
+          serverId: "server-1",
+          lawId: "law-semantic",
+          lawKey: "government_code",
+          lawTitle: "Кодекс о деятельности Правительства",
+          lawVersionId: "version-1",
+          lawBlockId: "block-semantic",
+          blockType: "article",
+          blockText: "Должностное лицо обязано соблюдать служебные процедуры.",
+          articleNumberNormalized: "38",
+          sourceTopicUrl: "https://forum.gta5rp.com/threads/government",
+          sourceChannel: "semantic",
+        },
+      ],
+    });
+
+    const scoredByLawId = new Map(
+      selection.scored_candidates.map((entry) => [entry.candidate.lawId, entry] as const),
+    );
+
+    expect(selection.direct_basis_status).toBe("direct_basis_present");
+    expect(selection.primary_basis_norms.map((entry) => entry.lawId)).toEqual(["law-citation-target"]);
+    expect(scoredByLawId.get("law-citation-target")?.primary_basis_eligibility).toBe("eligible");
+    expect(scoredByLawId.get("law-citation-target")?.primary_basis_eligibility_reason).toBe(
+      "eligible_due_to_resolved_citation_target",
+    );
+    expect(scoredByLawId.get("law-semantic")?.primary_basis_eligibility).not.toBe("eligible");
+  });
+
+  it("не создаёт fake eligible primary из semantic hit при unresolved explicit citation", () => {
+    const plan = buildLegalQueryPlan({
+      normalizedInput: "что значит 999 УК",
+      originalInput: "что значит 999 УК",
+      intent: "qualification_check",
+      actorContext: "general_question",
+      responseMode: "normal",
+      serverId: "server-1",
+    });
+
+    const selection = selectStructuredLegalContext({
+      plan,
+      candidates: [
+        {
+          serverId: "server-1",
+          lawId: "law-semantic",
+          lawKey: "criminal_code",
+          lawTitle: "Уголовный кодекс",
+          lawVersionId: "version-1",
+          lawBlockId: "block-semantic",
+          blockType: "article",
+          blockText: "Неисполнение обязательного правового акта влечёт уголовную ответственность.",
+          articleNumberNormalized: "84",
+          sourceTopicUrl: "https://forum.gta5rp.com/threads/criminal",
+          sourceChannel: "semantic",
+        },
+      ],
+    });
+
+    const semanticCandidate = selection.scored_candidates[0];
+
+    expect(selection.primary_basis_norms).toEqual([]);
+    expect(selection.direct_basis_status).toBe("partial_basis_only");
+    expect(semanticCandidate?.primary_basis_eligibility).toBe("ineligible");
   });
 });

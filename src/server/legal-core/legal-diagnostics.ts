@@ -70,6 +70,7 @@ type SourceSpecificityProfileKey = Exclude<
 
 function getActiveSpecificityProfiles(plan: LegalQueryPlan) {
   const profiles: SourceSpecificityProfileKey[] = [];
+  const rightIssue = plan.primaryLegalIssueType === "right_question";
 
   if (plan.legal_anchors.includes("attorney_request")) {
     profiles.push("attorney_request");
@@ -79,11 +80,11 @@ function getActiveSpecificityProfiles(plan: LegalQueryPlan) {
     profiles.push("video_recording");
   }
 
-  if (plan.legal_anchors.includes("attorney_rights")) {
+  if (plan.legal_anchors.includes("attorney_rights") && rightIssue) {
     profiles.push("attorney_rights");
   }
 
-  if (plan.legal_anchors.includes("detention_procedure")) {
+  if (plan.legal_anchors.includes("detention_procedure") && !rightIssue) {
     profiles.push("detention_procedure");
   }
 
@@ -228,7 +229,8 @@ export function buildLegalGroundingDiagnostics<TCandidate extends LegalSelection
       entry.specificity_penalties.some(
         (penalty) =>
           penalty.includes("family_not_preferred_for_active_profile") ||
-          penalty === "selected_family_not_preferred",
+          penalty === "selected_family_not_preferred" ||
+          penalty === "scoped_family_without_explicit_scope",
       ),
     )
   ) {
