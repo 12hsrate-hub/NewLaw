@@ -335,6 +335,11 @@ type AssistantCompactSelectedCandidateDiagnostic = {
   primary_basis_eligibility_reason: string | null;
   ineligible_primary_basis_reasons: string[];
   weak_primary_basis_reasons: string[];
+  specificity_rank: number;
+  specificity_reasons: string[];
+  specificity_penalties: string[];
+  source_channel: string | null;
+  citation_resolution_status: string | null;
 };
 
 function parseAssistantUsedSourcesManifest(content: string): AssistantUsedSourceManifest | null {
@@ -1355,6 +1360,18 @@ function buildAssistantSelectedCandidateDiagnostics(input: {
       weak_primary_basis_reasons: Array.isArray(entry.weak_primary_basis_reasons)
         ? entry.weak_primary_basis_reasons.filter((value): value is string => typeof value === "string")
         : [],
+      specificity_rank: typeof entry.specificity_rank === "number" ? entry.specificity_rank : 0,
+      specificity_reasons: Array.isArray(entry.specificity_reasons)
+        ? entry.specificity_reasons.filter((value): value is string => typeof value === "string")
+        : [],
+      specificity_penalties: Array.isArray(entry.specificity_penalties)
+        ? entry.specificity_penalties.filter((value): value is string => typeof value === "string")
+        : [],
+      source_channel: typeof entry.source_channel === "string" ? entry.source_channel : null,
+      citation_resolution_status:
+        typeof entry.citation_resolution_status === "string"
+          ? entry.citation_resolution_status
+          : null,
     })) satisfies AssistantCompactSelectedCandidateDiagnostic[];
 }
 
@@ -1767,8 +1784,15 @@ export async function generateServerLegalAssistantAnswer(
     precedentLimit: 4,
     legalQueryPlan,
   });
+  const selectionCandidates = retrieval.lawRetrieval.results.map((result) => ({
+    ...result,
+    sourceChannel: result.metadata.citation?.source_channel ?? "semantic",
+    citationResolutionStatus: result.metadata.citation?.citation_resolution_status ?? null,
+    citationResolutionReason: result.metadata.citation?.citation_resolution_reason ?? null,
+    citationMatchStrength: result.metadata.citation?.citation_match_strength ?? null,
+  }));
   const lawSelection = selectStructuredLegalContext({
-    candidates: retrieval.lawRetrieval.results,
+    candidates: selectionCandidates,
     plan: legalQueryPlan,
   });
   const groundingDiagnostics = buildLegalGroundingDiagnostics({

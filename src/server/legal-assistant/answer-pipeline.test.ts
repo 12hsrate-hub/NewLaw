@@ -735,6 +735,13 @@ describe("answer pipeline", () => {
                   sourceSnapshotHash: "source-hash",
                   normalizedTextHash: "normalized-hash",
                   corpusSnapshotHash: "snapshot-hash",
+                  citation: {
+                    source_channel: "citation_target",
+                    explicit_citation_raw: "18 АК",
+                    citation_resolution_status: "resolved",
+                    citation_resolution_reason: null,
+                    citation_match_strength: "exact_article",
+                  },
                 },
               },
             ],
@@ -854,6 +861,13 @@ describe("answer pipeline", () => {
                   sourceSnapshotHash: "source-hash",
                   normalizedTextHash: "normalized-hash",
                   corpusSnapshotHash: "snapshot-hash",
+                  citation: {
+                    source_channel: "citation_target",
+                    explicit_citation_raw: "18 АК",
+                    citation_resolution_status: "resolved",
+                    citation_resolution_reason: null,
+                    citation_match_strength: "exact_article",
+                  },
                 },
               },
             ],
@@ -1032,6 +1046,13 @@ describe("answer pipeline", () => {
                   sourceSnapshotHash: "source-hash",
                   normalizedTextHash: "normalized-hash",
                   corpusSnapshotHash: "snapshot-hash",
+                  citation: {
+                    source_channel: "citation_target",
+                    explicit_citation_raw: "18 АК",
+                    citation_resolution_status: "resolved",
+                    citation_resolution_reason: null,
+                    citation_match_strength: "exact_article",
+                  },
                 },
               },
             ],
@@ -1120,6 +1141,13 @@ describe("answer pipeline", () => {
                   sourceSnapshotHash: "source-hash",
                   normalizedTextHash: "normalized-hash",
                   corpusSnapshotHash: "snapshot-hash",
+                  citation: {
+                    source_channel: "citation_target",
+                    explicit_citation_raw: "18 АК",
+                    citation_resolution_status: "resolved",
+                    citation_resolution_reason: null,
+                    citation_match_strength: "exact_article",
+                  },
                 },
               },
             ],
@@ -1251,6 +1279,13 @@ describe("answer pipeline", () => {
                   sourceSnapshotHash: "source-hash",
                   normalizedTextHash: "normalized-hash",
                   corpusSnapshotHash: "snapshot-hash",
+                  citation: {
+                    source_channel: "citation_target",
+                    explicit_citation_raw: "18 АК",
+                    citation_resolution_status: "resolved",
+                    citation_resolution_reason: null,
+                    citation_match_strength: "exact_article",
+                  },
                 },
               },
             ],
@@ -1377,6 +1412,13 @@ describe("answer pipeline", () => {
                   sourceSnapshotHash: "source-hash",
                   normalizedTextHash: "normalized-hash",
                   corpusSnapshotHash: "snapshot-hash",
+                  citation: {
+                    source_channel: "citation_target",
+                    explicit_citation_raw: "18 АК",
+                    citation_resolution_status: "resolved",
+                    citation_resolution_reason: null,
+                    citation_match_strength: "exact_article",
+                  },
                 },
               },
             ],
@@ -1403,6 +1445,18 @@ describe("answer pipeline", () => {
         }),
       ]);
       expect(result.metadata.direct_basis_status).toBe("direct_basis_present");
+      expect(result.metadata.applicability_diagnostics).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            law_id: "law-1",
+            source_channel: "citation_target",
+            citation_resolution_status: "resolved",
+            specificity_rank: expect.any(Number),
+            specificity_reasons: expect.any(Array),
+            specificity_penalties: expect.any(Array),
+          }),
+        ]),
+      );
       expect(result.metadata.self_assessment).toMatchObject({
         answer_confidence: "medium",
       });

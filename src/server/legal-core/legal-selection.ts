@@ -3,6 +3,7 @@ import {
   LEGAL_SEMANTIC_ANCHOR_MATCH_TERMS,
   LEGAL_SEMANTIC_ELIGIBILITY_KEYWORDS,
   LEGAL_SEMANTIC_FAMILY_HINTS,
+  LEGAL_SOURCE_SPECIFICITY_PROFILES,
 } from "@/server/legal-core/legal-semantic-dictionaries";
 
 export const lawFamilies = [
@@ -53,6 +54,21 @@ export type LegalSelectionCandidate = {
   blockText: string;
   articleNumberNormalized?: string | null;
   sourceTopicUrl: string;
+  sourceChannel?: "citation_target" | "citation_companion" | "semantic" | null;
+  citationResolutionStatus?:
+    | "not_attempted"
+    | "resolved"
+    | "ambiguous"
+    | "unresolved"
+    | "partially_supported"
+    | null;
+  citationResolutionReason?: string | null;
+  citationMatchStrength?:
+    | "exact_article"
+    | "exact_article_supported_subunit"
+    | "article_with_gap"
+    | "same_law_companion"
+    | null;
 };
 
 export type ScoredLegalCandidate<TCandidate extends LegalSelectionCandidate = LegalSelectionCandidate> = {
@@ -69,6 +85,11 @@ export type ScoredLegalCandidate<TCandidate extends LegalSelectionCandidate = Le
   matched_preferred_norm_role: boolean;
   off_topic: boolean;
   penalties: string[];
+  specificity_rank: number;
+  specificity_reasons: string[];
+  specificity_penalties: string[];
+  source_channel: LegalSelectionCandidate["sourceChannel"];
+  citation_resolution_status: LegalSelectionCandidate["citationResolutionStatus"];
 };
 
 export type SelectedNormRole = {
@@ -431,6 +452,209 @@ function hasAttorneyRequestTerms(text: string) {
   return hasKeyword(text, LEGAL_SEMANTIC_ELIGIBILITY_KEYWORDS.attorney_request_terms);
 }
 
+function includesString(values: readonly string[], value: string) {
+  return values.includes(value);
+}
+
+type SourceSpecificityProfileKey = keyof typeof LEGAL_SOURCE_SPECIFICITY_PROFILES;
+
+function getActiveSpecificityProfiles(plan: LegalQueryPlan) {
+  const profiles: SourceSpecificityProfileKey[] = [];
+
+  if (plan.legal_anchors.includes("attorney_request")) {
+    profiles.push("attorney_request");
+  }
+
+  if (plan.legal_anchors.includes("video_recording") || plan.legal_anchors.includes("evidence")) {
+    profiles.push("video_recording");
+  }
+
+  if (plan.legal_anchors.includes("attorney_rights")) {
+    profiles.push("attorney_rights");
+  }
+
+  if (plan.legal_anchors.includes("detention_procedure")) {
+    profiles.push("detention_procedure");
+  }
+
+  if (plan.explicitLegalCitations.length > 0) {
+    profiles.push("explicit_citation");
+  }
+
+  return profiles;
+}
+
+function hasAdvocateStatusQuestionSignal(normalizedQuestion: string) {
+  return hasKeyword(normalizedQuestion, [
+    "допуск адвоката",
+    "допустить защитника",
+    "статус адвоката",
+    "участник процесса",
+    "полномочия адвоката",
+  ]);
+}
+
+function scoreSourceSpecificity<TCandidate extends LegalSelectionCandidate>(input: {
+  candidate: TCandidate;
+  plan: LegalQueryPlan;
+  lawFamily: LawFamily;
+  normRole: NormRole;
+  matchedAnchors: LegalAnchor[];
+}) {
+  const text = buildCandidateSearchText(input.candidate);
+  const normalizedQuestion = normalizeText(input.plan.normalized_input);
+  const reasons: string[] = [];
+  const penalties: string[] = [];
+  let rank = 0;
+  const hasExplicitScope = hasExplicitScopeMarkerForLawFamily({
+    normalizedQuestion,
+    lawFamily: input.lawFamily,
+    candidate: input.candidate,
+  });
+  const resolvedCitationTarget =
+    input.candidate.sourceChannel === "citation_target" &&
+    (input.candidate.citationResolutionStatus === "resolved" ||
+      input.candidate.citationResolutionStatus === "partially_supported");
+
+  if (resolvedCitationTarget) {
+    rank += 6;
+    reasons.push("explicit_citation_target_preserved");
+  } else if (input.candidate.sourceChannel === "citation_companion") {
+    rank += 2;
+    reasons.push("same_law_companion_context");
+  } else if (
+    input.candidate.sourceChannel === "semantic" &&
+    input.plan.explicitLegalCitations.length > 0
+  ) {
+    penalties.push("semantic_candidate_behind_explicit_citation");
+    rank -= 1;
+  }
+
+  switch (input.plan.primaryLegalIssueType) {
+    case "right_question":
+      if (input.normRole === "right_or_guarantee") {
+        rank += 2;
+        reasons.push("issue_type:right_question_role_match");
+      }
+      break;
+    case "deadline_question":
+    case "refusal_question":
+    case "duty_question":
+      if (input.normRole === "primary_basis") {
+        rank += 2;
+        reasons.push(`issue_type:${input.plan.primaryLegalIssueType}_role_match`);
+      }
+      break;
+    case "procedure_question":
+    case "evidence_question":
+      if (input.normRole === "procedure") {
+        rank += 2;
+        reasons.push(`issue_type:${input.plan.primaryLegalIssueType}_role_match`);
+      }
+      break;
+    case "sanction_question":
+      if (input.normRole === "sanction") {
+        rank += 1;
+        reasons.push("issue_type:sanction_question_role_match");
+      }
+      break;
+    default:
+      break;
+  }
+
+  for (const profileKey of getActiveSpecificityProfiles(input.plan)) {
+    if (profileKey === "explicit_citation") {
+      if (
+        LEGAL_SOURCE_SPECIFICITY_PROFILES.explicit_citation.preserveCitationTarget &&
+        resolvedCitationTarget
+      ) {
+        reasons.push("explicit_citation:no_generic_family_penalty");
+      }
+
+      continue;
+    }
+
+    const profile = LEGAL_SOURCE_SPECIFICITY_PROFILES[profileKey];
+    const familyIsPrimaryPreferred = includesString(profile.primaryPreferredFamilies, input.lawFamily);
+    const familyIsSupporting = includesString(profile.supportingFamilies, input.lawFamily);
+    const familyRequiresScope = includesString(profile.scopeRequiredFamilies, input.lawFamily);
+    const roleIsPrimaryForbidden = includesString(profile.primaryForbiddenRoles, input.normRole);
+    const familyIsSanctionOnly =
+      includesString(profile.sanctionOnlyFamilies, input.lawFamily) && input.normRole !== "sanction";
+
+    if (familyIsPrimaryPreferred) {
+      rank += 4;
+      reasons.push(`${profileKey}:primary_preferred_family`);
+    } else if (familyIsSupporting) {
+      rank += 1;
+      reasons.push(`${profileKey}:supporting_family`);
+    } else if (!resolvedCitationTarget && profile.primaryPreferredFamilies.length > 0) {
+      penalties.push(`${profileKey}:family_not_preferred_for_active_profile`);
+      rank -= 1;
+    }
+
+    if (roleIsPrimaryForbidden && !resolvedCitationTarget) {
+      penalties.push(`${profileKey}:role_not_primary_for_profile`);
+      rank -= 3;
+    }
+
+    if (familyRequiresScope && !hasExplicitScope && !resolvedCitationTarget) {
+      penalties.push(`${profileKey}:missing_explicit_scope_marker`);
+      rank -= 3;
+    }
+
+    if (familyIsSanctionOnly) {
+      penalties.push(`${profileKey}:family_limited_to_sanction_or_consequence`);
+      rank -= 2;
+    }
+
+    switch (profileKey) {
+      case "attorney_request":
+        if (input.lawFamily === "advocacy_law" && hasAttorneyRequestTerms(text)) {
+          rank += 2;
+          reasons.push("attorney_request:special_subject_match");
+        }
+        break;
+      case "video_recording":
+        if (input.lawFamily === "procedural_code" && hasVideoRecordingTerms(text)) {
+          rank += 2;
+          reasons.push("video_recording:direct_recording_rule");
+        }
+        break;
+      case "attorney_rights":
+        if (
+          (input.lawFamily === "procedural_code" || input.lawFamily === "constitution") &&
+          hasAttorneyRightsTerms(text)
+        ) {
+          rank += 2;
+          reasons.push("attorney_rights:direct_right_or_guarantee_rule");
+        }
+
+        if (
+          input.lawFamily === "advocacy_law" &&
+          hasAttorneyRightsTerms(text) &&
+          !hasAdvocateStatusQuestionSignal(normalizedQuestion)
+        ) {
+          penalties.push("attorney_rights:advocacy_supporting_for_detainee_right");
+          rank -= 1;
+        }
+        break;
+      case "detention_procedure":
+        if (input.lawFamily === "procedural_code" && input.matchedAnchors.includes("detention_procedure")) {
+          rank += 2;
+          reasons.push("detention_procedure:direct_process_rule");
+        }
+        break;
+    }
+  }
+
+  return {
+    specificity_rank: rank,
+    specificity_reasons: Array.from(new Set(reasons)),
+    specificity_penalties: Array.from(new Set(penalties)),
+  };
+}
+
 function evaluatePrimaryBasisEligibility<TCandidate extends LegalSelectionCandidate>(input: {
   candidate: TCandidate;
   plan: LegalQueryPlan;
@@ -632,6 +856,13 @@ export function scoreLegalCandidate<TCandidate extends LegalSelectionCandidate>(
     matchedAnchors,
     matchedRequiredLawFamily,
   });
+  const sourceSpecificity = scoreSourceSpecificity({
+    candidate: input.candidate,
+    plan: input.plan,
+    lawFamily,
+    normRole,
+    matchedAnchors,
+  });
 
   return {
     candidate: input.candidate,
@@ -648,6 +879,11 @@ export function scoreLegalCandidate<TCandidate extends LegalSelectionCandidate>(
     matched_preferred_norm_role: matchedPreferredNormRole,
     off_topic: offTopic,
     penalties,
+    specificity_rank: sourceSpecificity.specificity_rank,
+    specificity_reasons: sourceSpecificity.specificity_reasons,
+    specificity_penalties: sourceSpecificity.specificity_penalties,
+    source_channel: input.candidate.sourceChannel ?? null,
+    citation_resolution_status: input.candidate.citationResolutionStatus ?? null,
   } satisfies ScoredLegalCandidate<TCandidate>;
 }
 

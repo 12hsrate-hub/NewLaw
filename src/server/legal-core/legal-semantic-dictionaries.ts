@@ -313,6 +313,46 @@ export const LEGAL_SEMANTIC_ELIGIBILITY_KEYWORDS = {
   },
 } as const;
 
+export const LEGAL_SOURCE_SPECIFICITY_PROFILES = {
+  attorney_request: {
+    primaryPreferredFamilies: ["advocacy_law"],
+    supportingFamilies: [
+      "government_code",
+      "ethics_code",
+      "criminal_code",
+      "administrative_code",
+    ],
+    primaryForbiddenRoles: ["sanction", "exception"],
+    sanctionOnlyFamilies: ["criminal_code"],
+    scopeRequiredFamilies: [],
+  },
+  video_recording: {
+    primaryPreferredFamilies: ["procedural_code"],
+    supportingFamilies: ["government_code", "department_specific"],
+    primaryForbiddenRoles: [],
+    sanctionOnlyFamilies: [],
+    scopeRequiredFamilies: ["government_code", "department_specific"],
+  },
+  attorney_rights: {
+    primaryPreferredFamilies: ["constitution", "procedural_code"],
+    supportingFamilies: ["advocacy_law"],
+    primaryForbiddenRoles: [],
+    sanctionOnlyFamilies: [],
+    scopeRequiredFamilies: ["government_code", "department_specific"],
+  },
+  detention_procedure: {
+    primaryPreferredFamilies: ["procedural_code"],
+    supportingFamilies: ["administrative_code", "criminal_code"],
+    primaryForbiddenRoles: ["sanction", "exception"],
+    sanctionOnlyFamilies: [],
+    scopeRequiredFamilies: [],
+  },
+  explicit_citation: {
+    preserveCitationTarget: true,
+    semanticCannotOverrideExactTarget: true,
+  },
+} as const;
+
 export const LEGAL_SEMANTIC_LEGAL_ISSUE_SIGNALS = {
   duty_question: ["обязаны ли", "должен ли", "обязан", "обяз", "должн", "обязанность"],
   right_question: [
