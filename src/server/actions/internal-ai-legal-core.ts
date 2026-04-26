@@ -24,6 +24,11 @@ import {
   type AILegalCoreScenarioTargetFlow,
   type AILegalCoreTestScenario,
 } from "@/server/legal-core/test-scenarios-registry";
+import {
+  evaluateScenarioExpectations,
+  type ExpectationCheckResult,
+  type ExpectationEvaluationResult,
+} from "@/server/legal-core/test-expectation-evaluator";
 import { runInternalDocumentTextImprovementScenario } from "@/server/legal-core/internal-document-text-improvement";
 import { generateServerLegalAssistantAnswer } from "@/server/legal-assistant/answer-pipeline";
 import {
@@ -107,6 +112,32 @@ export type InternalAILegalCoreTestRunResult = {
     } | null;
     stage_usage: Record<string, unknown> | null;
   } | null;
+  passed_expectations: ExpectationCheckResult[];
+  failed_expectations: ExpectationCheckResult[];
+  expectation_summary: {
+    passed: number;
+    failed: number;
+    not_evaluable: number;
+    future_reserved: number;
+  };
+  scenario_group_summary: {
+    scenario_group: string;
+    scenario_variant: string | null;
+    semantic_cluster: string | null;
+  };
+  cost_summary: {
+    tokens: number | null;
+    input_tokens: number | null;
+    output_tokens: number | null;
+    cost: number | null;
+    latency: number | null;
+  };
+  direct_basis_summary: {
+    direct_basis_status: string | null;
+    primary_basis_count: number;
+    eligible_primary_basis_count: number;
+    selected_law_families: string[];
+  };
   comparison: AILegalCoreScenarioComparison | null;
 };
 
@@ -125,6 +156,30 @@ export type InternalAILegalCoreActionState = {
     scenarioCount: number;
     sentToReviewCount: number;
     completedAt: string;
+  } | null;
+  scenario_group_summary?: {
+    total_scenarios: number;
+    passed_scenarios: number;
+    failed_scenarios: number;
+    unresolved_scenarios: number;
+    groups: Array<{
+      scenario_group: string;
+      total_scenarios: number;
+      passed_scenarios: number;
+      failed_scenarios: number;
+      unresolved_scenarios: number;
+    }>;
+  } | null;
+  cost_summary?: {
+    total_tokens: number | null;
+    average_tokens: number | null;
+    total_cost: number | null;
+    average_latency: number | null;
+  } | null;
+  direct_basis_summary?: {
+    counts_by_direct_basis_status: Record<string, number>;
+    scenarios_with_missing_direct_basis: string[];
+    scenarios_with_weak_only_basis: string[];
   } | null;
   results: InternalAILegalCoreTestRunResult[];
 };
@@ -177,6 +232,10 @@ function readArray(value: unknown) {
   return Array.isArray(value) ? value : [];
 }
 
+function readNumber(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
 function readTechnicalSnapshot(metadata: Record<string, unknown> | null | undefined) {
   const safeMetadata = readMetadataObject(metadata);
   const usedSources = Array.isArray(safeMetadata?.used_sources) ? safeMetadata.used_sources : [];
@@ -214,6 +273,44 @@ function readTechnicalSnapshot(metadata: Record<string, unknown> | null | undefi
         ? reviewStatus.future_review_priority
         : null,
   };
+}
+
+function readStageUsageEntry(value: unknown) {
+  const safeValue = readJsonObject(value);
+
+  if (!safeValue) {
+    return null;
+  }
+
+  return {
+    prompt_tokens: readNumber(safeValue.prompt_tokens),
+    completion_tokens: readNumber(safeValue.completion_tokens),
+    total_tokens: readNumber(safeValue.total_tokens),
+    estimated_cost_usd: readNumber(safeValue.estimated_cost_usd),
+    latency_ms: readNumber(safeValue.latency_ms),
+  };
+}
+
+function sumNullableNumbers(values: Array<number | null | undefined>) {
+  const numericValues = values.filter((value): value is number => typeof value === "number");
+
+  if (numericValues.length === 0) {
+    return null;
+  }
+
+  return Number(numericValues.reduce((sum, value) => sum + value, 0).toFixed(6));
+}
+
+function averageNullableNumbers(values: Array<number | null | undefined>) {
+  const numericValues = values.filter((value): value is number => typeof value === "number");
+
+  if (numericValues.length === 0) {
+    return null;
+  }
+
+  return Number(
+    (numericValues.reduce((sum, value) => sum + value, 0) / numericValues.length).toFixed(6),
+  );
 }
 
 function readCoreSnapshot(input: {
@@ -276,6 +373,252 @@ function readCoreSnapshot(input: {
   };
 }
 
+function buildEmptyExpectationEvaluation(): ExpectationEvaluationResult {
+  return {
+    checks: [],
+    passed_expectations: [],
+    failed_expectations: [],
+    expectation_summary: {
+      passed: 0,
+      failed: 0,
+      not_evaluable: 0,
+      future_reserved: 0,
+    },
+  };
+}
+
+function buildScenarioGroupSummary(scenario: AILegalCoreTestScenario) {
+  return {
+    scenario_group: scenario.suiteGroup ?? scenario.scenarioGroup,
+    scenario_variant: scenario.scenarioVariant ?? null,
+    semantic_cluster: scenario.semanticCluster ?? null,
+  };
+}
+
+function buildCostSummary(input: {
+  technical: InternalAILegalCoreTestRunResult["technical"];
+  coreSnapshot: InternalAILegalCoreTestRunResult["coreSnapshot"];
+}) {
+  const stageUsageEntries = Object.values(input.coreSnapshot?.stage_usage ?? {})
+    .map((entry) => readStageUsageEntry(entry))
+    .filter((entry): entry is NonNullable<ReturnType<typeof readStageUsageEntry>> => Boolean(entry));
+
+  const summedPromptTokens = sumNullableNumbers(stageUsageEntries.map((entry) => entry.prompt_tokens));
+  const summedCompletionTokens = sumNullableNumbers(
+    stageUsageEntries.map((entry) => entry.completion_tokens),
+  );
+  const summedTotalTokens = sumNullableNumbers(stageUsageEntries.map((entry) => entry.total_tokens));
+  const summedCost = sumNullableNumbers(stageUsageEntries.map((entry) => entry.estimated_cost_usd));
+  const summedLatency = sumNullableNumbers(stageUsageEntries.map((entry) => entry.latency_ms));
+
+  return {
+    tokens: input.technical.tokens ?? summedTotalTokens,
+    input_tokens: summedPromptTokens,
+    output_tokens: summedCompletionTokens,
+    cost: input.technical.costUsd ?? summedCost,
+    latency: input.technical.latencyMs ?? summedLatency,
+  };
+}
+
+function buildDirectBasisSummary(
+  coreSnapshot: InternalAILegalCoreTestRunResult["coreSnapshot"],
+) {
+  const selectedNormRoles = coreSnapshot?.selected_norm_roles ?? [];
+  const primaryBasisEntries = selectedNormRoles.filter((entry) => {
+    const safeEntry = readJsonObject(entry);
+
+    return readString(safeEntry?.norm_role) === "primary_basis";
+  });
+  const eligiblePrimaryBasisCount = (coreSnapshot?.primary_basis_eligibility ?? []).filter(
+    (entry) => entry.primary_basis_eligibility === "eligible",
+  ).length;
+  const selectedLawFamilies = Array.from(
+    new Set(
+      selectedNormRoles
+        .map((entry) => {
+          const safeEntry = readJsonObject(entry);
+
+          return readString(safeEntry?.law_family);
+        })
+        .filter((value): value is string => Boolean(value)),
+    ),
+  );
+
+  return {
+    direct_basis_status: coreSnapshot?.direct_basis_status ?? null,
+    primary_basis_count: primaryBasisEntries.length,
+    eligible_primary_basis_count: eligiblePrimaryBasisCount,
+    selected_law_families: selectedLawFamilies,
+  };
+}
+
+function buildExpectationEvaluationForScenario(input: {
+  scenario: AILegalCoreTestScenario;
+  technical: InternalAILegalCoreTestRunResult["technical"];
+  coreSnapshot: InternalAILegalCoreTestRunResult["coreSnapshot"];
+}) {
+  const expectationProfile = input.scenario.expectationProfile ?? null;
+
+  if (!expectationProfile || !input.coreSnapshot) {
+    return buildEmptyExpectationEvaluation();
+  }
+
+  return evaluateScenarioExpectations({
+    expectationProfile,
+    snapshot: {
+      selected_norm_roles: input.coreSnapshot.selected_norm_roles.map((entry) => {
+        const safeEntry = readJsonObject(entry);
+
+        return {
+          law_id: readString(safeEntry?.law_id),
+          law_version: readString(safeEntry?.law_version),
+          law_block_id: readString(safeEntry?.law_block_id),
+          law_family: readString(safeEntry?.law_family),
+          norm_role: readString(safeEntry?.norm_role),
+          applicability_score: readNumber(safeEntry?.applicability_score),
+        };
+      }),
+      primary_basis_eligibility: input.coreSnapshot.primary_basis_eligibility,
+      direct_basis_status: input.coreSnapshot.direct_basis_status,
+      used_sources: input.coreSnapshot.used_sources.map((entry) => {
+        const safeEntry = readJsonObject(entry);
+
+        return {
+          source_kind: readString(safeEntry?.source_kind),
+          law_id: readString(safeEntry?.law_id),
+          law_name: readString(safeEntry?.law_name),
+          article_number: readString(safeEntry?.article_number),
+        };
+      }),
+      technical: {
+        tokens: input.technical.tokens,
+        costUsd: input.technical.costUsd,
+        latencyMs: input.technical.latencyMs,
+      },
+      stage_usage: input.coreSnapshot.stage_usage,
+    },
+  });
+}
+
+function attachInternalRunnerSummaries(input: {
+  scenario: AILegalCoreTestScenario;
+  result: InternalAILegalCoreTestRunResult;
+}) {
+  const expectationEvaluation = buildExpectationEvaluationForScenario({
+    scenario: input.scenario,
+    technical: input.result.technical,
+    coreSnapshot: input.result.coreSnapshot,
+  });
+
+  return {
+    ...input.result,
+    passed_expectations: expectationEvaluation.passed_expectations,
+    failed_expectations: expectationEvaluation.failed_expectations,
+    expectation_summary: expectationEvaluation.expectation_summary,
+    scenario_group_summary: buildScenarioGroupSummary(input.scenario),
+    cost_summary: buildCostSummary({
+      technical: input.result.technical,
+      coreSnapshot: input.result.coreSnapshot,
+    }),
+    direct_basis_summary: buildDirectBasisSummary(input.result.coreSnapshot),
+  } satisfies InternalAILegalCoreTestRunResult;
+}
+
+function buildAggregateScenarioGroupSummary(results: InternalAILegalCoreTestRunResult[]) {
+  const groups = new Map<
+    string,
+    {
+      scenario_group: string;
+      total_scenarios: number;
+      passed_scenarios: number;
+      failed_scenarios: number;
+      unresolved_scenarios: number;
+    }
+  >();
+  let passedScenarios = 0;
+  let failedScenarios = 0;
+  let unresolvedScenarios = 0;
+
+  for (const result of results) {
+    const groupKey = result.scenario_group_summary.scenario_group;
+    const existing = groups.get(groupKey) ?? {
+      scenario_group: groupKey,
+      total_scenarios: 0,
+      passed_scenarios: 0,
+      failed_scenarios: 0,
+      unresolved_scenarios: 0,
+    };
+
+    const isFailed = result.expectation_summary.failed > 0;
+    const isPassed =
+      result.expectation_summary.failed === 0 &&
+      result.expectation_summary.not_evaluable === 0 &&
+      result.expectation_summary.passed > 0;
+
+    existing.total_scenarios += 1;
+
+    if (isFailed) {
+      existing.failed_scenarios += 1;
+      failedScenarios += 1;
+    } else if (isPassed) {
+      existing.passed_scenarios += 1;
+      passedScenarios += 1;
+    } else {
+      existing.unresolved_scenarios += 1;
+      unresolvedScenarios += 1;
+    }
+
+    groups.set(groupKey, existing);
+  }
+
+  return {
+    total_scenarios: results.length,
+    passed_scenarios: passedScenarios,
+    failed_scenarios: failedScenarios,
+    unresolved_scenarios: unresolvedScenarios,
+    groups: Array.from(groups.values()),
+  };
+}
+
+function buildAggregateCostSummary(results: InternalAILegalCoreTestRunResult[]) {
+  return {
+    total_tokens: sumNullableNumbers(results.map((result) => result.cost_summary.tokens)),
+    average_tokens: averageNullableNumbers(results.map((result) => result.cost_summary.tokens)),
+    total_cost: sumNullableNumbers(results.map((result) => result.cost_summary.cost)),
+    average_latency: averageNullableNumbers(results.map((result) => result.cost_summary.latency)),
+  };
+}
+
+function buildAggregateDirectBasisSummary(results: InternalAILegalCoreTestRunResult[]) {
+  const countsByDirectBasisStatus: Record<string, number> = {
+    direct_basis_present: 0,
+    partial_basis_only: 0,
+    no_direct_basis: 0,
+    unknown: 0,
+  };
+  const scenariosWithMissingDirectBasis: string[] = [];
+  const scenariosWithWeakOnlyBasis: string[] = [];
+
+  for (const result of results) {
+    const status = result.direct_basis_summary.direct_basis_status ?? "unknown";
+    countsByDirectBasisStatus[status] = (countsByDirectBasisStatus[status] ?? 0) + 1;
+
+    if (status === "no_direct_basis") {
+      scenariosWithMissingDirectBasis.push(result.scenarioId);
+    }
+
+    if (status === "partial_basis_only") {
+      scenariosWithWeakOnlyBasis.push(result.scenarioId);
+    }
+  }
+
+  return {
+    counts_by_direct_basis_status: countsByDirectBasisStatus,
+    scenarios_with_missing_direct_basis: scenariosWithMissingDirectBasis,
+    scenarios_with_weak_only_basis: scenariosWithWeakOnlyBasis,
+  };
+}
+
 function buildActionResultFromScenario(input: {
   scenario: AILegalCoreTestScenario;
   result: Awaited<ReturnType<typeof generateServerLegalAssistantAnswer>>;
@@ -301,6 +644,28 @@ function buildActionResultFromScenario(input: {
       rewrite: null,
       technical: readTechnicalSnapshot(input.result.metadata),
       coreSnapshot: null,
+      passed_expectations: [],
+      failed_expectations: [],
+      expectation_summary: {
+        passed: 0,
+        failed: 0,
+        not_evaluable: 0,
+        future_reserved: 0,
+      },
+      scenario_group_summary: buildScenarioGroupSummary(input.scenario),
+      cost_summary: {
+        tokens: null,
+        input_tokens: null,
+        output_tokens: null,
+        cost: null,
+        latency: null,
+      },
+      direct_basis_summary: {
+        direct_basis_status: null,
+        primary_basis_count: 0,
+        eligible_primary_basis_count: 0,
+        selected_law_families: [],
+      },
       comparison: null,
     };
   }
@@ -320,6 +685,28 @@ function buildActionResultFromScenario(input: {
       rewrite: null,
       technical: readTechnicalSnapshot(input.result.metadata),
       coreSnapshot: null,
+      passed_expectations: [],
+      failed_expectations: [],
+      expectation_summary: {
+        passed: 0,
+        failed: 0,
+        not_evaluable: 0,
+        future_reserved: 0,
+      },
+      scenario_group_summary: buildScenarioGroupSummary(input.scenario),
+      cost_summary: {
+        tokens: null,
+        input_tokens: null,
+        output_tokens: null,
+        cost: null,
+        latency: null,
+      },
+      direct_basis_summary: {
+        direct_basis_status: null,
+        primary_basis_count: 0,
+        eligible_primary_basis_count: 0,
+        selected_law_families: [],
+      },
       comparison: null,
     };
   }
@@ -338,6 +725,28 @@ function buildActionResultFromScenario(input: {
     rewrite: null,
     technical: readTechnicalSnapshot(input.result.metadata),
     coreSnapshot: null,
+    passed_expectations: [],
+    failed_expectations: [],
+    expectation_summary: {
+      passed: 0,
+      failed: 0,
+      not_evaluable: 0,
+      future_reserved: 0,
+    },
+    scenario_group_summary: buildScenarioGroupSummary(input.scenario),
+    cost_summary: {
+      tokens: null,
+      input_tokens: null,
+      output_tokens: null,
+      cost: null,
+      latency: null,
+    },
+    direct_basis_summary: {
+      direct_basis_status: null,
+      primary_basis_count: 0,
+      eligible_primary_basis_count: 0,
+      selected_law_families: [],
+    },
     comparison: null,
   };
 }
@@ -365,6 +774,28 @@ function buildRewriteResultFromScenario(input: {
       },
       technical: readTechnicalSnapshot(input.result.metadata),
       coreSnapshot: null,
+      passed_expectations: [],
+      failed_expectations: [],
+      expectation_summary: {
+        passed: 0,
+        failed: 0,
+        not_evaluable: 0,
+        future_reserved: 0,
+      },
+      scenario_group_summary: buildScenarioGroupSummary(input.scenario),
+      cost_summary: {
+        tokens: null,
+        input_tokens: null,
+        output_tokens: null,
+        cost: null,
+        latency: null,
+      },
+      direct_basis_summary: {
+        direct_basis_status: null,
+        primary_basis_count: 0,
+        eligible_primary_basis_count: 0,
+        selected_law_families: [],
+      },
       comparison: null,
     };
   }
@@ -383,6 +814,28 @@ function buildRewriteResultFromScenario(input: {
     rewrite: null,
     technical: readTechnicalSnapshot(input.result.metadata),
     coreSnapshot: null,
+    passed_expectations: [],
+    failed_expectations: [],
+    expectation_summary: {
+      passed: 0,
+      failed: 0,
+      not_evaluable: 0,
+      future_reserved: 0,
+    },
+    scenario_group_summary: buildScenarioGroupSummary(input.scenario),
+    cost_summary: {
+      tokens: null,
+      input_tokens: null,
+      output_tokens: null,
+      cost: null,
+      latency: null,
+    },
+    direct_basis_summary: {
+      direct_basis_status: null,
+      primary_basis_count: 0,
+      eligible_primary_basis_count: 0,
+      selected_law_families: [],
+    },
     comparison: null,
   };
 }
@@ -414,6 +867,28 @@ function buildErrorResultFromScenario(
       reviewPriority: null,
     },
     coreSnapshot: null,
+    passed_expectations: [],
+    failed_expectations: [],
+    expectation_summary: {
+      passed: 0,
+      failed: 0,
+      not_evaluable: 0,
+      future_reserved: 0,
+    },
+    scenario_group_summary: buildScenarioGroupSummary(scenario),
+    cost_summary: {
+      tokens: null,
+      input_tokens: null,
+      output_tokens: null,
+      cost: null,
+      latency: null,
+    },
+    direct_basis_summary: {
+      direct_basis_status: null,
+      primary_basis_count: 0,
+      eligible_primary_basis_count: 0,
+      selected_law_families: [],
+    },
     comparison: null,
   };
 }
@@ -570,22 +1045,33 @@ export async function runInternalAILegalCoreScenariosAction(
             accountId: protectedContext.account.id,
             serverId: server.id,
           });
+          const coreSnapshot = readCoreSnapshot({
+            requestPayloadJson: aiRequest?.requestPayloadJson,
+            responsePayloadJson: aiRequest?.responsePayloadJson,
+          });
 
           if (executionMode === "core_only") {
             actionResult = {
               ...actionResult,
               executionMode: "core_only",
-              coreSnapshot: readCoreSnapshot({
-                requestPayloadJson: aiRequest?.requestPayloadJson,
-                responsePayloadJson: aiRequest?.responsePayloadJson,
-              }),
+              coreSnapshot,
             };
           } else if (executionMode === "compact_generation") {
             actionResult = {
               ...actionResult,
               executionMode: "compact_generation",
+              coreSnapshot,
+            };
+          } else {
+            actionResult = {
+              ...actionResult,
+              coreSnapshot,
             };
           }
+          actionResult = attachInternalRunnerSummaries({
+            scenario,
+            result: actionResult,
+          });
 
           await dependencies.createAITestRunResult({
             testRunId,
@@ -643,7 +1129,12 @@ export async function runInternalAILegalCoreScenariosAction(
               !actionResult.technical.sentToReview && actionResult.status === "answered",
             sentToReview: actionResult.technical.sentToReview,
           });
-          results.push(actionResult);
+          results.push(
+            attachInternalRunnerSummaries({
+              scenario,
+              result: actionResult,
+            }),
+          );
         }
       } catch {
         const errorResult = buildErrorResultFromScenario(
@@ -660,7 +1151,12 @@ export async function runInternalAILegalCoreScenariosAction(
           passedBasicChecks: false,
           sentToReview: false,
         });
-        results.push(errorResult);
+        results.push(
+          attachInternalRunnerSummaries({
+            scenario,
+            result: errorResult,
+          }),
+        );
       }
     }
 
@@ -691,6 +1187,9 @@ export async function runInternalAILegalCoreScenariosAction(
         sentToReviewCount: resultsWithComparisons.filter((result) => result.technical.sentToReview).length,
         completedAt: dependencies.now().toISOString(),
       },
+      scenario_group_summary: buildAggregateScenarioGroupSummary(resultsWithComparisons),
+      cost_summary: buildAggregateCostSummary(resultsWithComparisons),
+      direct_basis_summary: buildAggregateDirectBasisSummary(resultsWithComparisons),
       results: resultsWithComparisons,
     };
   } catch (error) {
@@ -706,6 +1205,9 @@ export async function runInternalAILegalCoreScenariosAction(
           scenarioId: fieldErrors.scenarioId?.[0],
         },
         runSummary: null,
+        scenario_group_summary: null,
+        cost_summary: null,
+        direct_basis_summary: null,
         results: [],
       };
     }

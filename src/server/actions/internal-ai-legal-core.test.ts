@@ -67,6 +67,65 @@ describe("internal ai legal core action", () => {
         createAITestRunResult: vi.fn().mockResolvedValue(undefined),
         findLatestAIRequestByTestRunContext: vi.fn().mockResolvedValue({
           id: "ai-request-1",
+          requestPayloadJson: {
+            normalized_input: "Можно ли задержать человека за маску?",
+            legal_query_plan: {
+              normalized_input: "Можно ли задержать человека за маску?",
+            },
+            selected_norm_roles: [
+              {
+                law_id: "law-1",
+                law_version: "law-version-1",
+                law_block_id: "law-block-1",
+                law_family: "administrative_code",
+                norm_role: "primary_basis",
+                applicability_score: 10,
+              },
+            ],
+            applicability_diagnostics: [
+              {
+                law_id: "law-1",
+                law_version: "law-version-1",
+                law_block_id: "law-block-1",
+                primary_basis_eligibility: "eligible",
+                primary_basis_eligibility_reason: null,
+                ineligible_primary_basis_reasons: [],
+                weak_primary_basis_reasons: [],
+              },
+            ],
+            grounding_diagnostics: {
+              direct_basis_status: "direct_basis_present",
+            },
+            direct_basis_status: "direct_basis_present",
+          },
+          responsePayloadJson: {
+            used_sources: [
+              {
+                source_kind: "law",
+                law_id: "law-1",
+                law_name: "Административный кодекс",
+                article_number: "18",
+              },
+            ],
+            stage_usage: {
+              normalization: {
+                model: "gpt-5.4-nano",
+                prompt_tokens: 10,
+                completion_tokens: 3,
+                total_tokens: 13,
+                estimated_cost_usd: 0.00001,
+                latency_ms: 120,
+              },
+              generation: {
+                model: "gpt-5.4-mini",
+                prompt_tokens: 120,
+                completion_tokens: 45,
+                total_tokens: 165,
+                estimated_cost_usd: 0.003,
+                latency_ms: 245,
+              },
+            },
+          },
         }),
         getAILegalCoreScenarioComparisons: vi.fn().mockResolvedValue(
           new Map([
@@ -127,9 +186,71 @@ describe("internal ai legal core action", () => {
       sentToReviewCount: 0,
       completedAt: "2026-04-25T18:00:00.000Z",
     });
+    expect(result.scenario_group_summary).toEqual({
+      total_scenarios: 1,
+      passed_scenarios: 1,
+      failed_scenarios: 0,
+      unresolved_scenarios: 0,
+      groups: [
+        {
+          scenario_group: "mask_and_identity",
+          total_scenarios: 1,
+          passed_scenarios: 1,
+          failed_scenarios: 0,
+          unresolved_scenarios: 0,
+        },
+      ],
+    });
+    expect(result.cost_summary).toEqual({
+      total_tokens: 512,
+      average_tokens: 512,
+      total_cost: 0.019,
+      average_latency: 245,
+    });
+    expect(result.direct_basis_summary).toEqual({
+      counts_by_direct_basis_status: {
+        direct_basis_present: 1,
+        partial_basis_only: 0,
+        no_direct_basis: 0,
+        unknown: 0,
+      },
+      scenarios_with_missing_direct_basis: [],
+      scenarios_with_weak_only_basis: [],
+    });
     expect(result.results[0]).toMatchObject({
       scenarioId: "general-mask-detention",
       status: "answered",
+      passed_expectations: expect.arrayContaining([
+        expect.objectContaining({
+          key: "requiredLawFamilies",
+          status: "passed",
+        }),
+      ]),
+      failed_expectations: [],
+      expectation_summary: {
+        passed: 6,
+        failed: 0,
+        not_evaluable: 0,
+        future_reserved: 1,
+      },
+      scenario_group_summary: {
+        scenario_group: "mask_and_identity",
+        scenario_variant: "general_short",
+        semantic_cluster: "mask_detention",
+      },
+      cost_summary: {
+        tokens: 512,
+        input_tokens: 130,
+        output_tokens: 48,
+        cost: 0.019,
+        latency: 245,
+      },
+      direct_basis_summary: {
+        direct_basis_status: "direct_basis_present",
+        primary_basis_count: 1,
+        eligible_primary_basis_count: 1,
+        selected_law_families: ["administrative_code"],
+      },
       technical: {
         confidence: "high",
         insufficientData: false,
@@ -190,6 +311,12 @@ describe("internal ai legal core action", () => {
       scenarioGroup: "document_text_improvement",
       targetFlow: "document_text_improvement",
       status: "error",
+      expectation_summary: {
+        passed: 0,
+        failed: 0,
+        not_evaluable: 0,
+        future_reserved: 0,
+      },
     });
   });
 
@@ -259,7 +386,9 @@ describe("internal ai legal core action", () => {
                 law_id: "law-1",
                 law_version: "law-version-1",
                 law_block_id: "law-block-1",
+                law_family: "administrative_code",
                 norm_role: "primary_basis",
+                applicability_score: 10,
               },
             ],
             applicability_diagnostics: [
@@ -312,6 +441,37 @@ describe("internal ai legal core action", () => {
       technical: {
         confidence: "medium",
       },
+      passed_expectations: expect.arrayContaining([
+        expect.objectContaining({
+          key: "requiredLawFamilies",
+          status: "passed",
+        }),
+      ]),
+      failed_expectations: [],
+      expectation_summary: {
+        passed: 4,
+        failed: 0,
+        not_evaluable: 2,
+        future_reserved: 1,
+      },
+      scenario_group_summary: {
+        scenario_group: "mask_and_identity",
+        scenario_variant: "general_short",
+        semantic_cluster: "mask_detention",
+      },
+      cost_summary: {
+        tokens: 13,
+        input_tokens: 10,
+        output_tokens: 3,
+        cost: 0.00001,
+        latency: 120,
+      },
+      direct_basis_summary: {
+        direct_basis_status: "direct_basis_present",
+        primary_basis_count: 1,
+        eligible_primary_basis_count: 1,
+        selected_law_families: ["administrative_code"],
+      },
       coreSnapshot: {
         normalized_input: "Можно ли задержать человека за маску?",
         legal_query_plan: {
@@ -356,7 +516,7 @@ describe("internal ai legal core action", () => {
     formData.set("answerMode", "normal");
     formData.set("executionMode", "compact_generation");
     formData.set("scenarioGroup", "general_legal_questions");
-    formData.set("scenarioId", "general-mask-detention");
+    formData.set("scenarioId", "general-no-bodycam");
     formData.set("runTarget", "scenario");
 
     const generateServerLegalAssistantAnswer = vi.fn().mockResolvedValue({
@@ -415,6 +575,65 @@ describe("internal ai legal core action", () => {
         createAITestRunResult: vi.fn().mockResolvedValue(undefined),
         findLatestAIRequestByTestRunContext: vi.fn().mockResolvedValue({
           id: "ai-request-compact-1",
+          requestPayloadJson: {
+            normalized_input: "Если сотрудник не вел бодикам это нарушение?",
+            legal_query_plan: {
+              normalized_input: "Если сотрудник не вел бодикам это нарушение?",
+            },
+            selected_norm_roles: [
+              {
+                law_id: "law-2",
+                law_version: "law-version-2",
+                law_block_id: "law-block-2",
+                law_family: "government_code",
+                norm_role: "primary_basis",
+                applicability_score: 6,
+              },
+            ],
+            applicability_diagnostics: [
+              {
+                law_id: "law-2",
+                law_version: "law-version-2",
+                law_block_id: "law-block-2",
+                primary_basis_eligibility: "weak",
+                primary_basis_eligibility_reason: "government_code_general_scope",
+                ineligible_primary_basis_reasons: [],
+                weak_primary_basis_reasons: ["government_code_general_scope"],
+              },
+            ],
+            grounding_diagnostics: {
+              direct_basis_status: "partial_basis_only",
+            },
+            direct_basis_status: "partial_basis_only",
+          },
+          responsePayloadJson: {
+            used_sources: [
+              {
+                source_kind: "law",
+                law_id: "law-2",
+                law_name: "Закон об ОГП",
+                article_number: "4",
+              },
+            ],
+            stage_usage: {
+              normalization: {
+                model: "gpt-5.4-nano",
+                prompt_tokens: 8,
+                completion_tokens: 2,
+                total_tokens: 10,
+                estimated_cost_usd: 0.00001,
+                latency_ms: 100,
+              },
+              generation: {
+                model: "gpt-5.4-mini",
+                prompt_tokens: 70,
+                completion_tokens: 20,
+                total_tokens: 90,
+                estimated_cost_usd: 0.0015,
+                latency_ms: 140,
+              },
+            },
+          },
         }),
         getAILegalCoreScenarioComparisons: vi.fn().mockResolvedValue(new Map()),
         now: () => new Date("2026-04-26T12:05:00.000Z"),
@@ -431,10 +650,41 @@ describe("internal ai legal core action", () => {
     expect(result.results[0]).toMatchObject({
       status: "answered",
       executionMode: "compact_generation",
+      passed_expectations: expect.arrayContaining([
+        expect.objectContaining({
+          key: "expectedDirectBasisStatus",
+          status: "passed",
+        }),
+      ]),
+      failed_expectations: [],
+      expectation_summary: {
+        passed: 5,
+        failed: 0,
+        not_evaluable: 0,
+        future_reserved: 1,
+      },
+      scenario_group_summary: {
+        scenario_group: "bodycam_and_recording",
+        scenario_variant: "general_short",
+        semantic_cluster: "bodycam_missing_recording",
+      },
       technical: {
         tokens: 180,
         costUsd: 0.004,
         latencyMs: 140,
+      },
+      cost_summary: {
+        tokens: 180,
+        input_tokens: 78,
+        output_tokens: 22,
+        cost: 0.004,
+        latency: 140,
+      },
+      direct_basis_summary: {
+        direct_basis_status: "partial_basis_only",
+        primary_basis_count: 1,
+        eligible_primary_basis_count: 0,
+        selected_law_families: ["government_code"],
       },
     });
   });
@@ -587,6 +837,12 @@ describe("internal ai legal core action", () => {
         latencyMs: 180,
         sentToReview: true,
         reviewPriority: "medium",
+      },
+      expectation_summary: {
+        passed: 0,
+        failed: 0,
+        not_evaluable: 0,
+        future_reserved: 0,
       },
       comparison: {
         changed: {
