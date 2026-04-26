@@ -1,4 +1,5 @@
 import type { LegalQueryPlan } from "@/server/legal-core/legal-query-plan";
+import { LEGAL_SOURCE_SPECIFICITY_PROFILES } from "@/server/legal-core/legal-semantic-dictionaries";
 import type {
   LegalSelectionCandidate,
   StructuredSelectionResult,
@@ -58,8 +59,36 @@ export type LegalGroundingDiagnostics = {
     legal_issue_secondary_types: LegalQueryPlan["secondaryLegalIssueTypes"];
     legal_issue_confidence: LegalQueryPlan["legalIssueConfidence"];
     selected_primary_specificity_ranks?: number[];
+    specificity_warning_reasons?: string[];
   };
 };
+
+type SourceSpecificityProfileKey = Exclude<
+  keyof typeof LEGAL_SOURCE_SPECIFICITY_PROFILES,
+  "explicit_citation"
+>;
+
+function getActiveSpecificityProfiles(plan: LegalQueryPlan) {
+  const profiles: SourceSpecificityProfileKey[] = [];
+
+  if (plan.legal_anchors.includes("attorney_request")) {
+    profiles.push("attorney_request");
+  }
+
+  if (plan.legal_anchors.includes("video_recording") || plan.legal_anchors.includes("evidence")) {
+    profiles.push("video_recording");
+  }
+
+  if (plan.legal_anchors.includes("attorney_rights")) {
+    profiles.push("attorney_rights");
+  }
+
+  if (plan.legal_anchors.includes("detention_procedure")) {
+    profiles.push("detention_procedure");
+  }
+
+  return profiles;
+}
 
 export function buildLegalGroundingDiagnostics<TCandidate extends LegalSelectionCandidate>(input: {
   plan: LegalQueryPlan;
@@ -106,16 +135,42 @@ export function buildLegalGroundingDiagnostics<TCandidate extends LegalSelection
         selected.law_block_id === entry.law_block_id,
     ),
   );
+  const orderedSelectedDiagnostics = input.selection.selected_norm_roles.reduce<LegalCandidateDiagnostic[]>(
+    (accumulator, selected) => {
+      const matchingDiagnostic = selectedDiagnostics.find(
+        (entry) =>
+          entry.law_id === selected.law_id &&
+          entry.law_version === selected.law_version &&
+          entry.law_block_id === selected.law_block_id,
+      );
+
+      if (matchingDiagnostic) {
+        accumulator.push(matchingDiagnostic);
+      }
+
+      return accumulator;
+    },
+    [],
+  );
   const selectedLawFamilies = Array.from(new Set(selectedDiagnostics.map((entry) => entry.law_family)));
   const primaryBasisKeys = new Set(
     input.selection.primary_basis_norms.map(
       (candidate) => `${candidate.lawId}:${candidate.lawVersionId}:${candidate.lawBlockId}`,
     ),
   );
-  const primaryDiagnostics = selectedDiagnostics.filter((entry) =>
+  const primaryDiagnostics = orderedSelectedDiagnostics.filter((entry) =>
     primaryBasisKeys.has(`${entry.law_id}:${entry.law_version}:${entry.law_block_id}`),
   );
+  const effectiveBasisDiagnostics =
+    primaryDiagnostics.length > 0
+      ? primaryDiagnostics
+      : orderedSelectedDiagnostics.filter((entry) =>
+          ["primary_basis", "right_or_guarantee", "procedure", "exception", "sanction"].includes(
+            entry.norm_role,
+          ),
+        );
   const selectedPrimarySpecificityRanks = primaryDiagnostics.map((entry) => entry.specificity_rank);
+  const specificityWarningReasons = new Set<string>();
   const flags = new Set<LegalGroundingFlag>();
 
   if (input.selection.primary_basis_norms.length === 0) {
@@ -140,36 +195,54 @@ export function buildLegalGroundingDiagnostics<TCandidate extends LegalSelection
     flags.add("law_family_mismatch");
   }
 
-  if (primaryDiagnostics.some((entry) => entry.norm_role === "sanction")) {
+  if (effectiveBasisDiagnostics.some((entry) => entry.norm_role === "sanction")) {
     flags.add("sanction_used_as_primary");
+    specificityWarningReasons.add("sanction_without_primary_rule");
   }
 
-  if (primaryDiagnostics.some((entry) => entry.norm_role === "procedure")) {
+  if (effectiveBasisDiagnostics.some((entry) => entry.norm_role === "procedure")) {
     flags.add("procedure_used_as_primary");
+    specificityWarningReasons.add("procedure_without_issue_alignment");
   }
 
-  if (primaryDiagnostics.some((entry) => entry.norm_role === "exception")) {
+  if (effectiveBasisDiagnostics.some((entry) => entry.norm_role === "exception")) {
     flags.add("exception_used_as_primary");
+    specificityWarningReasons.add("exception_without_primary_rule");
   }
 
   if (
-    primaryDiagnostics.some((entry) =>
-      entry.specificity_penalties.some((penalty) => penalty.includes("missing_explicit_scope_marker")),
+    effectiveBasisDiagnostics.some((entry) =>
+      entry.specificity_penalties.some(
+        (penalty) =>
+          penalty.includes("missing_explicit_scope_marker") ||
+          penalty === "scoped_family_without_explicit_scope",
+      ),
     )
   ) {
     flags.add("specific_law_used_without_scope");
+    specificityWarningReasons.add("scoped_family_without_explicit_scope");
   }
 
   if (
-    primaryDiagnostics.some((entry) =>
-      entry.specificity_penalties.some((penalty) => penalty.includes("family_not_preferred_for_active_profile")),
+    effectiveBasisDiagnostics.some((entry) =>
+      entry.specificity_penalties.some(
+        (penalty) =>
+          penalty.includes("family_not_preferred_for_active_profile") ||
+          penalty === "selected_family_not_preferred",
+      ),
     )
   ) {
     flags.add("wrong_source_family");
+    specificityWarningReasons.add("selected_family_not_preferred");
   }
 
-  if (primaryDiagnostics.some((entry) => entry.specificity_penalties.length > 0)) {
+  if (
+    effectiveBasisDiagnostics.some(
+      (entry) => entry.specificity_rank <= 0 || entry.specificity_penalties.length > 0,
+    )
+  ) {
     flags.add("wrong_primary_basis");
+    specificityWarningReasons.add("selected_role_not_primary_suitable");
   }
 
   const highestSpecificityCandidate = candidateDiagnostics.reduce<LegalCandidateDiagnostic | null>(
@@ -182,20 +255,36 @@ export function buildLegalGroundingDiagnostics<TCandidate extends LegalSelection
     },
     null,
   );
-  const strongestPrimarySpecificity = Math.max(...selectedPrimarySpecificityRanks, Number.NEGATIVE_INFINITY);
+  const strongestPrimarySpecificity = Math.max(
+    ...effectiveBasisDiagnostics.map((entry) => entry.specificity_rank),
+    Number.NEGATIVE_INFINITY,
+  );
+
+  for (const profileKey of getActiveSpecificityProfiles(input.plan)) {
+    const profile = LEGAL_SOURCE_SPECIFICITY_PROFILES[profileKey];
+    const selectedHasPreferredFamily = selectedDiagnostics.some((entry) =>
+      (profile.primaryPreferredFamilies as readonly string[]).includes(entry.law_family),
+    );
+
+    if (!selectedHasPreferredFamily && profile.primaryPreferredFamilies.length > 0) {
+      specificityWarningReasons.add("missing_preferred_family_for_profile");
+      flags.add("wrong_source_family");
+    }
+  }
 
   if (
     highestSpecificityCandidate &&
-    primaryDiagnostics.length > 0 &&
+    effectiveBasisDiagnostics.length > 0 &&
     highestSpecificityCandidate.specificity_rank > strongestPrimarySpecificity &&
     highestSpecificityCandidate.specificity_reasons.some((reason) =>
       reason.includes("primary_preferred_family"),
     ) &&
-    primaryDiagnostics.some((entry) =>
+    effectiveBasisDiagnostics.some((entry) =>
       entry.specificity_penalties.some((penalty) => penalty.includes("family_not_preferred_for_active_profile")),
     )
   ) {
     flags.add("general_law_used_instead_of_specific_law");
+    specificityWarningReasons.add("missing_preferred_family_for_profile");
   }
 
   return {
@@ -210,6 +299,7 @@ export function buildLegalGroundingDiagnostics<TCandidate extends LegalSelection
       legal_issue_secondary_types: input.plan.secondaryLegalIssueTypes,
       legal_issue_confidence: input.plan.legalIssueConfidence,
       selected_primary_specificity_ranks: selectedPrimarySpecificityRanks,
+      specificity_warning_reasons: Array.from(specificityWarningReasons),
     },
   } satisfies LegalGroundingDiagnostics;
 }

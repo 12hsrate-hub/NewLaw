@@ -124,6 +124,7 @@ describe("submit assistant question action", () => {
             legal_issue_secondary_types: [],
             legal_issue_confidence: "low",
             selected_primary_specificity_ranks: [],
+            specificity_warning_reasons: [],
           },
           retrieval_query: "Что с договором?",
           law_version_ids: ["version-1"],

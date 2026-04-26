@@ -324,7 +324,7 @@ export const LEGAL_SOURCE_SPECIFICITY_PROFILES = {
     ],
     primaryForbiddenRoles: ["sanction", "exception"],
     sanctionOnlyFamilies: ["criminal_code"],
-    scopeRequiredFamilies: [],
+    scopeRequiredFamilies: ["government_code"],
   },
   video_recording: {
     primaryPreferredFamilies: ["procedural_code"],
@@ -338,14 +338,14 @@ export const LEGAL_SOURCE_SPECIFICITY_PROFILES = {
     supportingFamilies: ["advocacy_law"],
     primaryForbiddenRoles: [],
     sanctionOnlyFamilies: [],
-    scopeRequiredFamilies: ["government_code", "department_specific"],
+    scopeRequiredFamilies: ["government_code", "department_specific", "criminal_code"],
   },
   detention_procedure: {
     primaryPreferredFamilies: ["procedural_code"],
     supportingFamilies: ["administrative_code", "criminal_code"],
     primaryForbiddenRoles: ["sanction", "exception"],
     sanctionOnlyFamilies: [],
-    scopeRequiredFamilies: [],
+    scopeRequiredFamilies: ["government_code"],
   },
   explicit_citation: {
     preserveCitationTarget: true,

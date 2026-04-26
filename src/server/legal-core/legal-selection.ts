@@ -515,10 +515,17 @@ function scoreSourceSpecificity<TCandidate extends LegalSelectionCandidate>(inpu
     input.candidate.sourceChannel === "citation_target" &&
     (input.candidate.citationResolutionStatus === "resolved" ||
       input.candidate.citationResolutionStatus === "partially_supported");
+  const procedureIssueAligned = ["procedure_question", "evidence_question", "duty_question"].includes(
+    input.plan.primaryLegalIssueType,
+  );
+  const sanctionIssueAligned = ["sanction_question", "citation_explanation", "citation_application"].includes(
+    input.plan.primaryLegalIssueType,
+  );
 
   if (resolvedCitationTarget) {
     rank += 6;
     reasons.push("explicit_citation_target_preserved");
+    reasons.push("citation_target_preserved");
   } else if (input.candidate.sourceChannel === "citation_companion") {
     rank += 2;
     reasons.push("same_law_companion_context");
@@ -590,16 +597,25 @@ function scoreSourceSpecificity<TCandidate extends LegalSelectionCandidate>(inpu
       reasons.push(`${profileKey}:supporting_family`);
     } else if (!resolvedCitationTarget && profile.primaryPreferredFamilies.length > 0) {
       penalties.push(`${profileKey}:family_not_preferred_for_active_profile`);
+      penalties.push("selected_family_not_preferred");
       rank -= 1;
     }
 
     if (roleIsPrimaryForbidden && !resolvedCitationTarget) {
       penalties.push(`${profileKey}:role_not_primary_for_profile`);
+      penalties.push("selected_role_not_primary_suitable");
+      if (input.normRole === "sanction") {
+        penalties.push("sanction_without_primary_rule");
+      }
+      if (input.normRole === "exception") {
+        penalties.push("exception_without_primary_rule");
+      }
       rank -= 3;
     }
 
     if (familyRequiresScope && !hasExplicitScope && !resolvedCitationTarget) {
       penalties.push(`${profileKey}:missing_explicit_scope_marker`);
+      penalties.push("scoped_family_without_explicit_scope");
       rank -= 3;
     }
 
@@ -646,6 +662,22 @@ function scoreSourceSpecificity<TCandidate extends LegalSelectionCandidate>(inpu
         }
         break;
     }
+  }
+
+  if (!resolvedCitationTarget && input.normRole === "procedure" && !procedureIssueAligned) {
+    penalties.push("procedure_without_issue_alignment");
+    penalties.push("selected_role_not_primary_suitable");
+    rank -= 2;
+  }
+
+  if (!resolvedCitationTarget && input.normRole === "exception") {
+    penalties.push("exception_without_primary_rule");
+  }
+
+  if (!resolvedCitationTarget && input.normRole === "sanction" && !sanctionIssueAligned) {
+    penalties.push("sanction_without_primary_rule");
+    penalties.push("selected_role_not_primary_suitable");
+    rank -= 1;
   }
 
   return {

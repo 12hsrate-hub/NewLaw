@@ -1460,6 +1460,11 @@ describe("answer pipeline", () => {
       expect(result.metadata.self_assessment).toMatchObject({
         answer_confidence: "medium",
       });
+      expect(result.metadata.grounding_diagnostics).toEqual(
+        expect.objectContaining({
+          specificity_warning_reasons: expect.any(Array),
+        }),
+      );
     }
     expect(createAIRequest).toHaveBeenCalledWith(
       expect.objectContaining({
