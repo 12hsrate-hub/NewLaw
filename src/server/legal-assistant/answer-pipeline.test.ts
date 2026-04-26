@@ -359,6 +359,13 @@ describe("answer pipeline", () => {
         normalized_input: "Нужен ли письменный договор?",
         server_id: "server-1",
         law_version: "current_snapshot_only",
+        primaryLegalIssueType: "unclear",
+        secondaryLegalIssueTypes: [],
+        legalIssueConfidence: "low",
+        legalIssueDiagnostics: expect.objectContaining({
+          legal_issue_type: "unclear",
+          legal_issue_confidence: "low",
+        }),
       });
       expect(result.metadata.selected_norm_roles).toEqual([
         expect.objectContaining({
@@ -503,6 +510,17 @@ describe("answer pipeline", () => {
       grounding_diagnostics: expect.objectContaining({
         direct_basis_status: expect.any(String),
         selected_primary_basis_eligibility_summary: expect.any(Object),
+        legal_issue_type: expect.any(String),
+        legal_issue_secondary_types: expect.any(Array),
+        legal_issue_confidence: expect.any(String),
+      }),
+    });
+    expect(aiRequestPayload.requestPayloadJson.legal_query_plan).toMatchObject({
+      primaryLegalIssueType: "unclear",
+      secondaryLegalIssueTypes: [],
+      legalIssueConfidence: "low",
+      legalIssueDiagnostics: expect.objectContaining({
+        legal_issue_type: "unclear",
       }),
     });
     expect(aiRequestPayload.requestPayloadJson.applied_biases).toEqual(expect.any(Array));

@@ -1,4 +1,5 @@
 import { buildAssistantRetrievalQuery } from "@/server/legal-core/assistant-retrieval-query";
+import { LEGAL_SEMANTIC_LEGAL_ISSUE_SIGNALS } from "@/server/legal-core/legal-semantic-dictionaries";
 import type {
   LegalCoreActorContext,
   LegalCoreIntent,
@@ -21,6 +22,51 @@ export const legalAnchors = [
 
 export type LegalAnchor = (typeof legalAnchors)[number];
 
+export const legalIssueTypes = [
+  "duty_question",
+  "right_question",
+  "deadline_question",
+  "refusal_question",
+  "evidence_question",
+  "sanction_question",
+  "procedure_question",
+  "qualification_question",
+  "remedy_question",
+  "citation_explanation",
+  "citation_application",
+  "document_strategy",
+  "unclear",
+] as const;
+
+export const legalIssueConfidences = ["high", "medium", "low"] as const;
+
+export type LegalIssueType = (typeof legalIssueTypes)[number];
+export type LegalIssueConfidence = (typeof legalIssueConfidences)[number];
+
+export const legalIssueSignalSources = [
+  "normalized_input",
+  "intent",
+  "actor_context",
+  "legal_anchor",
+  "citation_hint",
+] as const;
+
+export type LegalIssueSignalSource = (typeof legalIssueSignalSources)[number];
+
+export type LegalIssueSignal = {
+  issueType: Exclude<LegalIssueType, "unclear">;
+  signal: string;
+  source: LegalIssueSignalSource;
+};
+
+export type LegalIssueDiagnostics = {
+  legal_issue_type: LegalIssueType;
+  legal_issue_secondary_types: Exclude<LegalIssueType, "unclear">[];
+  legal_issue_confidence: LegalIssueConfidence;
+  legal_issue_signals: LegalIssueSignal[];
+  legal_issue_unclear_reason: string | null;
+};
+
 export type LegalQueryPlan = {
   normalized_input: string;
   intent: LegalCoreIntent;
@@ -34,6 +80,10 @@ export type LegalQueryPlan = {
   preferred_norm_roles: NormRole[];
   forbidden_scope_markers: string[];
   expanded_query: string;
+  primaryLegalIssueType: LegalIssueType;
+  secondaryLegalIssueTypes: Exclude<LegalIssueType, "unclear">[];
+  legalIssueConfidence: LegalIssueConfidence;
+  legalIssueDiagnostics: LegalIssueDiagnostics;
 };
 
 function hasKeyword(source: string, keywords: string[]) {
@@ -54,6 +104,557 @@ function pushUniqueValues<T>(target: T[], values: T[]) {
 
 function normalizeQuestion(input: string) {
   return input.trim().toLowerCase();
+}
+
+const legalIssuePriorityOrder = [
+  "citation_explanation",
+  "citation_application",
+  "deadline_question",
+  "refusal_question",
+  "right_question",
+  "duty_question",
+  "evidence_question",
+  "qualification_question",
+  "sanction_question",
+  "remedy_question",
+  "procedure_question",
+  "document_strategy",
+  "unclear",
+] as const satisfies readonly LegalIssueType[];
+
+const legalIssuePriorityRank = new Map(
+  legalIssuePriorityOrder.map((issueType, index) => [issueType, index] as const),
+);
+
+const citationHintRegex =
+  /(?:ст\.?\s*\d+(?:\.\d+)?|\d+(?:\.\d+)?\s*(?:ак|пк|ук|эк|зоа)|закон[а-я\s"]+об адвокатуре|конституц)/i;
+
+function hasCitationLikeHint(source: string) {
+  return citationHintRegex.test(source);
+}
+
+function isExplicitPhrase(signal: string) {
+  return signal.includes(" ") || signal.includes(".");
+}
+
+function createLegalIssueScoreMap() {
+  return new Map<Exclude<LegalIssueType, "unclear">, number>(
+    legalIssueTypes
+      .filter((issueType): issueType is Exclude<LegalIssueType, "unclear"> => issueType !== "unclear")
+      .map((issueType) => [issueType, 0]),
+  );
+}
+
+function pushLegalIssueSignal(
+  signals: LegalIssueSignal[],
+  candidate: LegalIssueSignal,
+  scores: Map<Exclude<LegalIssueType, "unclear">, number>,
+  weight: number,
+) {
+  signals.push(candidate);
+  scores.set(candidate.issueType, (scores.get(candidate.issueType) ?? 0) + weight);
+}
+
+function addTextualSignals(input: {
+  normalizedInput: string;
+  scores: Map<Exclude<LegalIssueType, "unclear">, number>;
+  signals: LegalIssueSignal[];
+}) {
+  for (const [issueType, rawSignals] of Object.entries(LEGAL_SEMANTIC_LEGAL_ISSUE_SIGNALS) as Array<
+    [Exclude<LegalIssueType, "unclear">, readonly string[]]
+  >) {
+    const matchedSignals: string[] = [];
+    const sortedSignals = [...rawSignals].sort((left, right) => right.length - left.length);
+
+    for (const signal of sortedSignals) {
+      if (!input.normalizedInput.includes(signal)) {
+        continue;
+      }
+
+      if (matchedSignals.some((existingSignal) => existingSignal.includes(signal))) {
+        continue;
+      }
+
+      matchedSignals.push(signal);
+
+      pushLegalIssueSignal(
+        input.signals,
+        {
+          issueType,
+          signal,
+          source: "normalized_input",
+        },
+        input.scores,
+        isExplicitPhrase(signal) ? 2 : 1,
+      );
+    }
+  }
+}
+
+function addIntentBoosts(input: {
+  intent: LegalCoreIntent;
+  scores: Map<Exclude<LegalIssueType, "unclear">, number>;
+  signals: LegalIssueSignal[];
+}) {
+  switch (input.intent) {
+    case "complaint_strategy":
+      pushLegalIssueSignal(
+        input.signals,
+        {
+          issueType: "remedy_question",
+          signal: "intent:complaint_strategy",
+          source: "intent",
+        },
+        input.scores,
+        1,
+      );
+      pushLegalIssueSignal(
+        input.signals,
+        {
+          issueType: "document_strategy",
+          signal: "intent:complaint_strategy",
+          source: "intent",
+        },
+        input.scores,
+        1,
+      );
+      break;
+    case "evidence_check":
+      pushLegalIssueSignal(
+        input.signals,
+        {
+          issueType: "evidence_question",
+          signal: "intent:evidence_check",
+          source: "intent",
+        },
+        input.scores,
+        1,
+      );
+      break;
+    case "qualification_check":
+      pushLegalIssueSignal(
+        input.signals,
+        {
+          issueType: "qualification_question",
+          signal: "intent:qualification_check",
+          source: "intent",
+        },
+        input.scores,
+        2,
+      );
+      break;
+    case "document_text_improvement":
+      pushLegalIssueSignal(
+        input.signals,
+        {
+          issueType: "document_strategy",
+          signal: "intent:document_text_improvement",
+          source: "intent",
+        },
+        input.scores,
+        2,
+      );
+      break;
+    default:
+      break;
+  }
+}
+
+function addActorContextBoosts(input: {
+  actorContext: LegalCoreActorContext;
+  normalizedInput: string;
+  scores: Map<Exclude<LegalIssueType, "unclear">, number>;
+  signals: LegalIssueSignal[];
+}) {
+  if (input.actorContext === "general_question") {
+    return;
+  }
+
+  if (
+    hasKeyword(input.normalizedInput, [
+      "не дали",
+      "не предоставили",
+      "задерж",
+      "адвокат",
+      "защитник",
+      "жалоб",
+      "оспор",
+    ])
+  ) {
+    pushLegalIssueSignal(
+      input.signals,
+      {
+        issueType: "right_question",
+        signal: `actor_context:${input.actorContext}`,
+        source: "actor_context",
+      },
+      input.scores,
+      1,
+    );
+  }
+}
+
+function addAnchorBoosts(input: {
+  legalAnchors: LegalAnchor[];
+  scores: Map<Exclude<LegalIssueType, "unclear">, number>;
+  signals: LegalIssueSignal[];
+}) {
+  for (const anchor of input.legalAnchors) {
+    switch (anchor) {
+      case "attorney_request":
+        pushLegalIssueSignal(
+          input.signals,
+          {
+            issueType: "duty_question",
+            signal: `anchor:${anchor}`,
+            source: "legal_anchor",
+          },
+          input.scores,
+          1,
+        );
+        pushLegalIssueSignal(
+          input.signals,
+          {
+            issueType: "deadline_question",
+            signal: `anchor:${anchor}`,
+            source: "legal_anchor",
+          },
+          input.scores,
+          1,
+        );
+        break;
+      case "attorney_rights":
+        pushLegalIssueSignal(
+          input.signals,
+          {
+            issueType: "right_question",
+            signal: `anchor:${anchor}`,
+            source: "legal_anchor",
+          },
+          input.scores,
+          1,
+        );
+        break;
+      case "detention_procedure":
+        pushLegalIssueSignal(
+          input.signals,
+          {
+            issueType: "procedure_question",
+            signal: `anchor:${anchor}`,
+            source: "legal_anchor",
+          },
+          input.scores,
+          1,
+        );
+        break;
+      case "video_recording":
+      case "evidence":
+        pushLegalIssueSignal(
+          input.signals,
+          {
+            issueType: "evidence_question",
+            signal: `anchor:${anchor}`,
+            source: "legal_anchor",
+          },
+          input.scores,
+          1,
+        );
+        break;
+      case "sanction":
+        pushLegalIssueSignal(
+          input.signals,
+          {
+            issueType: "sanction_question",
+            signal: `anchor:${anchor}`,
+            source: "legal_anchor",
+          },
+          input.scores,
+          1,
+        );
+        break;
+      case "remedy":
+        pushLegalIssueSignal(
+          input.signals,
+          {
+            issueType: "remedy_question",
+            signal: `anchor:${anchor}`,
+            source: "legal_anchor",
+          },
+          input.scores,
+          1,
+        );
+        pushLegalIssueSignal(
+          input.signals,
+          {
+            issueType: "document_strategy",
+            signal: `anchor:${anchor}`,
+            source: "legal_anchor",
+          },
+          input.scores,
+          1,
+        );
+        break;
+      case "official_duty":
+        pushLegalIssueSignal(
+          input.signals,
+          {
+            issueType: "duty_question",
+            signal: `anchor:${anchor}`,
+            source: "legal_anchor",
+          },
+          input.scores,
+          1,
+        );
+        break;
+      default:
+        break;
+    }
+  }
+}
+
+function addCitationBoosts(input: {
+  normalizedInput: string;
+  scores: Map<Exclude<LegalIssueType, "unclear">, number>;
+  signals: LegalIssueSignal[];
+}) {
+  if (!hasCitationLikeHint(input.normalizedInput)) {
+    return;
+  }
+
+  const explanationPhrasing = hasKeyword(input.normalizedInput, ["что значит", "что означает", "что написано в", "как понимать"]);
+  const applicationPhrasing = hasKeyword(input.normalizedInput, [
+    "можно ли по",
+    "применима ли",
+    "подходит ли",
+    "квалифицируется ли по",
+  ]);
+
+  if (explanationPhrasing) {
+    pushLegalIssueSignal(
+      input.signals,
+      {
+        issueType: "citation_explanation",
+        signal: "explicit_citation_explanation",
+        source: "citation_hint",
+      },
+      input.scores,
+      3,
+    );
+  }
+
+  if (applicationPhrasing) {
+    pushLegalIssueSignal(
+      input.signals,
+      {
+        issueType: "citation_application",
+        signal: "explicit_citation_application",
+        source: "citation_hint",
+      },
+      input.scores,
+      3,
+    );
+  }
+
+  if (!explanationPhrasing && !applicationPhrasing) {
+    pushLegalIssueSignal(
+      input.signals,
+      {
+        issueType: "citation_application",
+        signal: "explicit_citation_present",
+        source: "citation_hint",
+      },
+      input.scores,
+      1,
+    );
+  }
+}
+
+function addPatternBoosts(input: {
+  normalizedInput: string;
+  scores: Map<Exclude<LegalIssueType, "unclear">, number>;
+  signals: LegalIssueSignal[];
+}) {
+  if (hasKeyword(input.normalizedInput, ["обязаны ли", "должен ли"])) {
+    pushLegalIssueSignal(
+      input.signals,
+      {
+        issueType: "duty_question",
+        signal: "question_form:obligation",
+        source: "normalized_input",
+      },
+      input.scores,
+      1,
+    );
+  }
+
+  if (
+    hasKeyword(input.normalizedInput, [
+      "не ответил",
+      "не ответило",
+      "не ответили",
+      "не предоставил",
+      "не предоставили",
+      "не дали",
+      "отказали",
+    ])
+  ) {
+    pushLegalIssueSignal(
+      input.signals,
+      {
+        issueType: "refusal_question",
+        signal: "negative_outcome_phrase",
+        source: "normalized_input",
+      },
+      input.scores,
+      2,
+    );
+  }
+
+  if (hasKeyword(input.normalizedInput, ["не дали звонок", "не дали адвоката"])) {
+    pushLegalIssueSignal(
+      input.signals,
+      {
+        issueType: "right_question",
+        signal: "deprived_specific_right",
+        source: "normalized_input",
+      },
+      input.scores,
+      2,
+    );
+  }
+
+  if (hasCitationLikeHint(input.normalizedInput) && hasKeyword(input.normalizedInput, [" ук", "уголов"])) {
+    pushLegalIssueSignal(
+      input.signals,
+      {
+        issueType: "sanction_question",
+        signal: "citation_points_to_criminal_scope",
+        source: "citation_hint",
+      },
+      input.scores,
+      1,
+    );
+  }
+}
+
+function compareLegalIssuePriority(
+  left: LegalIssueType,
+  right: LegalIssueType,
+) {
+  return (legalIssuePriorityRank.get(left) ?? Number.MAX_SAFE_INTEGER) -
+    (legalIssuePriorityRank.get(right) ?? Number.MAX_SAFE_INTEGER);
+}
+
+export function classifyLegalIssueTypes(input: {
+  normalizedInput: string;
+  intent: LegalCoreIntent;
+  actorContext: LegalCoreActorContext;
+  legalAnchors: LegalAnchor[];
+}) {
+  const normalizedInput = normalizeQuestion(input.normalizedInput);
+  const scores = createLegalIssueScoreMap();
+  const signals: LegalIssueSignal[] = [];
+
+  addTextualSignals({
+    normalizedInput,
+    scores,
+    signals,
+  });
+  addIntentBoosts({
+    intent: input.intent,
+    scores,
+    signals,
+  });
+  addActorContextBoosts({
+    actorContext: input.actorContext,
+    normalizedInput,
+    scores,
+    signals,
+  });
+  addAnchorBoosts({
+    legalAnchors: input.legalAnchors,
+    scores,
+    signals,
+  });
+  addCitationBoosts({
+    normalizedInput,
+    scores,
+    signals,
+  });
+  addPatternBoosts({
+    normalizedInput,
+    scores,
+    signals,
+  });
+
+  const scoredIssueTypes = Array.from(scores.entries())
+    .filter(([, score]) => score > 0)
+    .sort((left, right) => {
+      if (right[1] !== left[1]) {
+        return right[1] - left[1];
+      }
+
+      return compareLegalIssuePriority(left[0], right[0]);
+    });
+
+  if (scoredIssueTypes.length === 0) {
+    return {
+      primaryLegalIssueType: "unclear" as const,
+      secondaryLegalIssueTypes: [],
+      legalIssueConfidence: "low" as const,
+      legalIssueDiagnostics: {
+        legal_issue_type: "unclear" as const,
+        legal_issue_secondary_types: [],
+        legal_issue_confidence: "low" as const,
+        legal_issue_signals: [],
+        legal_issue_unclear_reason: "no_clear_issue_signals",
+      } satisfies LegalIssueDiagnostics,
+    };
+  }
+
+  const [primaryLegalIssueType, primaryScore] = scoredIssueTypes[0];
+  const primarySignals = signals.filter((signal) => signal.issueType === primaryLegalIssueType);
+  const hasStrongPhraseSignal = primarySignals.some(
+    (signal) =>
+      signal.source === "citation_hint" ||
+      (signal.source === "normalized_input" && isExplicitPhrase(signal.signal)),
+  );
+  const runnerUpScore = scoredIssueTypes[1]?.[1] ?? 0;
+  const legalIssueConfidence: LegalIssueConfidence =
+    primarySignals.length >= 2 || hasStrongPhraseSignal
+      ? "high"
+      : primaryScore >= runnerUpScore + 2
+        ? "medium"
+        : "low";
+  const issueTypesWithEligibleSecondarySignals = new Set(
+    signals
+      .filter((signal) => signal.source !== "actor_context")
+      .map((signal) => signal.issueType),
+  );
+  const secondaryLegalIssueTypes = scoredIssueTypes
+    .slice(1)
+    .filter(
+      ([issueType, score]) =>
+        score >= Math.max(primaryScore - 2, 1) && issueTypesWithEligibleSecondarySignals.has(issueType),
+    )
+    .map(([issueType]) => issueType)
+    .sort(compareLegalIssuePriority)
+    .slice(0, 3);
+
+  return {
+    primaryLegalIssueType,
+    secondaryLegalIssueTypes,
+    legalIssueConfidence,
+    legalIssueDiagnostics: {
+      legal_issue_type: primaryLegalIssueType,
+      legal_issue_secondary_types: secondaryLegalIssueTypes,
+      legal_issue_confidence: legalIssueConfidence,
+      legal_issue_signals: signals,
+      legal_issue_unclear_reason: legalIssueConfidence === "low" && runnerUpScore >= primaryScore - 1
+        ? "competing_issue_signals"
+        : null,
+    } satisfies LegalIssueDiagnostics,
+  };
 }
 
 function buildLegalAnchors(input: {
@@ -247,6 +848,12 @@ export function buildLegalQueryPlan(input: {
     actorContext: input.actorContext,
     anchors: legalAnchors,
   });
+  const legalIssueClassification = classifyLegalIssueTypes({
+    normalizedInput: input.normalizedInput,
+    intent: input.intent,
+    actorContext: input.actorContext,
+    legalAnchors,
+  });
   const retrievalQuery = buildAssistantRetrievalQuery({
     normalized_input: input.normalizedInput,
     intent: input.intent,
@@ -270,5 +877,9 @@ export function buildLegalQueryPlan(input: {
     preferred_norm_roles: preferredNormRoles,
     forbidden_scope_markers: forbiddenScopeMarkers,
     expanded_query: retrievalQuery.expanded_query,
+    primaryLegalIssueType: legalIssueClassification.primaryLegalIssueType,
+    secondaryLegalIssueTypes: legalIssueClassification.secondaryLegalIssueTypes,
+    legalIssueConfidence: legalIssueClassification.legalIssueConfidence,
+    legalIssueDiagnostics: legalIssueClassification.legalIssueDiagnostics,
   } satisfies LegalQueryPlan;
 }

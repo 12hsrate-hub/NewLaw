@@ -42,6 +42,9 @@ export type LegalGroundingDiagnostics = {
     selected_norm_count: number;
     primary_basis_norm_count: number;
     selected_law_families: string[];
+    legal_issue_type: LegalQueryPlan["primaryLegalIssueType"];
+    legal_issue_secondary_types: LegalQueryPlan["secondaryLegalIssueTypes"];
+    legal_issue_confidence: LegalQueryPlan["legalIssueConfidence"];
   };
 };
 
@@ -111,6 +114,9 @@ export function buildLegalGroundingDiagnostics<TCandidate extends LegalSelection
       selected_norm_count: input.selection.selected_norms.length,
       primary_basis_norm_count: input.selection.primary_basis_norms.length,
       selected_law_families: selectedLawFamilies,
+      legal_issue_type: input.plan.primaryLegalIssueType,
+      legal_issue_secondary_types: input.plan.secondaryLegalIssueTypes,
+      legal_issue_confidence: input.plan.legalIssueConfidence,
     },
   } satisfies LegalGroundingDiagnostics;
 }

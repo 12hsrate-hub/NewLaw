@@ -71,6 +71,16 @@ describe("internal ai legal core action", () => {
             normalized_input: "Можно ли задержать человека за маску?",
             legal_query_plan: {
               normalized_input: "Можно ли задержать человека за маску?",
+              primaryLegalIssueType: "duty_question",
+              secondaryLegalIssueTypes: ["procedure_question"],
+              legalIssueConfidence: "medium",
+              legalIssueDiagnostics: {
+                legal_issue_type: "duty_question",
+                legal_issue_secondary_types: ["procedure_question"],
+                legal_issue_confidence: "medium",
+                legal_issue_signals: [],
+                legal_issue_unclear_reason: null,
+              },
             },
             selected_norm_roles: [
               {
@@ -95,6 +105,9 @@ describe("internal ai legal core action", () => {
             ],
             grounding_diagnostics: {
               direct_basis_status: "direct_basis_present",
+              legal_issue_type: "duty_question",
+              legal_issue_secondary_types: ["procedure_question"],
+              legal_issue_confidence: "medium",
             },
             direct_basis_status: "direct_basis_present",
           },
@@ -380,6 +393,16 @@ describe("internal ai legal core action", () => {
             normalized_input: "Можно ли задержать человека за маску?",
             legal_query_plan: {
               normalized_input: "Можно ли задержать человека за маску?",
+              primaryLegalIssueType: "duty_question",
+              secondaryLegalIssueTypes: ["procedure_question"],
+              legalIssueConfidence: "medium",
+              legalIssueDiagnostics: {
+                legal_issue_type: "duty_question",
+                legal_issue_secondary_types: ["procedure_question"],
+                legal_issue_confidence: "medium",
+                legal_issue_signals: [],
+                legal_issue_unclear_reason: null,
+              },
             },
             selected_norm_roles: [
               {
@@ -404,6 +427,9 @@ describe("internal ai legal core action", () => {
             ],
             grounding_diagnostics: {
               direct_basis_status: "direct_basis_present",
+              legal_issue_type: "duty_question",
+              legal_issue_secondary_types: ["procedure_question"],
+              legal_issue_confidence: "medium",
             },
             direct_basis_status: "direct_basis_present",
           },
@@ -476,6 +502,9 @@ describe("internal ai legal core action", () => {
         normalized_input: "Можно ли задержать человека за маску?",
         legal_query_plan: {
           normalized_input: "Можно ли задержать человека за маску?",
+          primaryLegalIssueType: "duty_question",
+          secondaryLegalIssueTypes: ["procedure_question"],
+          legalIssueConfidence: "medium",
         },
         selected_norm_roles: [
           expect.objectContaining({
@@ -497,6 +526,9 @@ describe("internal ai legal core action", () => {
           applicability_diagnostics: expect.any(Array),
           grounding_diagnostics: expect.objectContaining({
             direct_basis_status: "direct_basis_present",
+            legal_issue_type: "duty_question",
+            legal_issue_secondary_types: ["procedure_question"],
+            legal_issue_confidence: "medium",
           }),
         },
         stage_usage: {
@@ -579,6 +611,16 @@ describe("internal ai legal core action", () => {
             normalized_input: "Если сотрудник не вел бодикам это нарушение?",
             legal_query_plan: {
               normalized_input: "Если сотрудник не вел бодикам это нарушение?",
+              primaryLegalIssueType: "evidence_question",
+              secondaryLegalIssueTypes: ["duty_question"],
+              legalIssueConfidence: "medium",
+              legalIssueDiagnostics: {
+                legal_issue_type: "evidence_question",
+                legal_issue_secondary_types: ["duty_question"],
+                legal_issue_confidence: "medium",
+                legal_issue_signals: [],
+                legal_issue_unclear_reason: null,
+              },
             },
             selected_norm_roles: [
               {
@@ -603,6 +645,9 @@ describe("internal ai legal core action", () => {
             ],
             grounding_diagnostics: {
               direct_basis_status: "partial_basis_only",
+              legal_issue_type: "evidence_question",
+              legal_issue_secondary_types: ["duty_question"],
+              legal_issue_confidence: "medium",
             },
             direct_basis_status: "partial_basis_only",
           },
@@ -758,6 +803,16 @@ describe("internal ai legal core action", () => {
             normalized_input: "Можно ли задержать человека за маску?",
             legal_query_plan: {
               normalized_input: "Можно ли задержать человека за маску?",
+              primaryLegalIssueType: "duty_question",
+              secondaryLegalIssueTypes: ["procedure_question"],
+              legalIssueConfidence: "medium",
+              legalIssueDiagnostics: {
+                legal_issue_type: "duty_question",
+                legal_issue_secondary_types: ["procedure_question"],
+                legal_issue_confidence: "medium",
+                legal_issue_signals: [],
+                legal_issue_unclear_reason: null,
+              },
             },
             selected_norm_roles: [
               {
@@ -782,6 +837,9 @@ describe("internal ai legal core action", () => {
             ],
             grounding_diagnostics: {
               direct_basis_status: "direct_basis_present",
+              legal_issue_type: "duty_question",
+              legal_issue_secondary_types: ["procedure_question"],
+              legal_issue_confidence: "medium",
             },
             direct_basis_status: "direct_basis_present",
           },
@@ -864,6 +922,9 @@ describe("internal ai legal core action", () => {
         normalized_input: "Можно ли задержать человека за маску?",
         legal_query_plan: {
           normalized_input: "Можно ли задержать человека за маску?",
+          primaryLegalIssueType: "duty_question",
+          secondaryLegalIssueTypes: ["procedure_question"],
+          legalIssueConfidence: "medium",
         },
         selected_norm_roles: [
           expect.objectContaining({
@@ -880,6 +941,9 @@ describe("internal ai legal core action", () => {
           applicability_diagnostics: expect.any(Array),
           grounding_diagnostics: expect.objectContaining({
             direct_basis_status: "direct_basis_present",
+            legal_issue_type: "duty_question",
+            legal_issue_secondary_types: ["procedure_question"],
+            legal_issue_confidence: "medium",
           }),
         },
         stage_usage: {

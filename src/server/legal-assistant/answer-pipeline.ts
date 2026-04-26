@@ -1413,6 +1413,21 @@ function buildAssistantCompactDiagnostics(input: {
               (value): value is string => typeof value === "string",
             )
           : [],
+      legal_issue_type:
+        input.groundingDiagnostics && typeof input.groundingDiagnostics.legal_issue_type === "string"
+          ? input.groundingDiagnostics.legal_issue_type
+          : "unclear",
+      legal_issue_secondary_types:
+        input.groundingDiagnostics && Array.isArray(input.groundingDiagnostics.legal_issue_secondary_types)
+          ? input.groundingDiagnostics.legal_issue_secondary_types.filter(
+              (value): value is string => typeof value === "string",
+            )
+          : [],
+      legal_issue_confidence:
+        input.groundingDiagnostics &&
+        typeof input.groundingDiagnostics.legal_issue_confidence === "string"
+          ? input.groundingDiagnostics.legal_issue_confidence
+          : "low",
       selected_primary_basis_eligibility_summary: selectedEligibilityCounts,
     },
   };
