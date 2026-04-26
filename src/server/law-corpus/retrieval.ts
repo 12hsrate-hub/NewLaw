@@ -173,6 +173,27 @@ const defaultDependencies: RetrievalDependencies = {
 
 const MIN_OVERFETCH_LIMIT = 18;
 const MAX_ASSISTANT_FINAL_POOL = 12;
+const ATTORNEY_REQUEST_FILTER_SOFTENABLE_REASONS = [
+  "department_specific_for_general_question",
+  "immunity_without_scope",
+  "exception_only_without_primary_basis_signal",
+] as const;
+const ATTORNEY_REQUEST_STRONG_TOPIC_TERMS = [
+  "адвокатский запрос",
+  "официальный адвокатский запрос",
+  "срок ответа",
+  "ответ на запрос",
+  "должны дать ответ",
+  "обязанность ответить",
+  "один календарный день",
+  "в течение одного календарного дня",
+  "отказ в предоставлении сведений",
+  "основания отказа",
+  "нарушение сроков",
+  "нарушение срока ответа",
+  "предоставление сведений",
+  "запрашиваемые сведения",
+] as const;
 
 const neighboringFamiliesByFamily = {
   administrative_code: ["procedural_code"],
@@ -500,6 +521,57 @@ function buildCompactCandidate(entry: ScoredLawCandidate): LawRetrievalCompactCa
   };
 }
 
+function hasStrongAttorneyRequestTopicMatch(input: {
+  candidate: LegalSelectionCandidate;
+  block: CurrentLawBlock;
+  lawFamily: LawFamily;
+  plan: LegalQueryPlan;
+}) {
+  if (input.lawFamily !== "advocacy_law") {
+    return false;
+  }
+
+  if (!input.plan.legal_anchors.includes("attorney_request")) {
+    return false;
+  }
+
+  const normalizedTitle = normalizeSearchText(input.candidate.lawTitle);
+  const normalizedBlockTitle = normalizeSearchText(input.block.blockTitle ?? "");
+  const normalizedBlockText = normalizeSearchText(input.candidate.blockText);
+  const normalizedSource = [normalizedTitle, normalizedBlockTitle, normalizedBlockText].join(" ");
+  const topicMatchCount = ATTORNEY_REQUEST_STRONG_TOPIC_TERMS.filter((term) =>
+    normalizedSource.includes(normalizeSearchText(term))
+  ).length;
+  const blockTitleStrongMatch = normalizedBlockTitle.includes("адвокатский запрос");
+  const textStrongMatch =
+    normalizedBlockText.includes("адвокатский запрос") &&
+    (normalizedBlockText.includes("ответ") ||
+      normalizedBlockText.includes("должны дать") ||
+      normalizedBlockText.includes("один календарный день"));
+
+  return blockTitleStrongMatch || textStrongMatch || topicMatchCount >= 3;
+}
+
+function softenAttorneyRequestFilterReasons(input: {
+  penalties: string[];
+  candidate: LegalSelectionCandidate;
+  block: CurrentLawBlock;
+  lawFamily: LawFamily;
+  plan: LegalQueryPlan;
+}) {
+  if (!hasStrongAttorneyRequestTopicMatch(input)) {
+    return input.penalties;
+  }
+
+  return input.penalties.map((penalty) =>
+    ATTORNEY_REQUEST_FILTER_SOFTENABLE_REASONS.includes(
+      penalty as (typeof ATTORNEY_REQUEST_FILTER_SOFTENABLE_REASONS)[number],
+    )
+      ? `${penalty}_softened_for_attorney_request`
+      : penalty,
+  );
+}
+
 function buildScoredCandidate(input: {
   block: CurrentLawBlock;
   lexicalScore: number;
@@ -644,6 +716,14 @@ function buildScoredCandidate(input: {
     penalties.push("exception_only_without_primary_basis_signal");
   }
 
+  const softenedPenalties = softenAttorneyRequestFilterReasons({
+    penalties,
+    candidate,
+    block: input.block,
+    lawFamily,
+    plan: input.context.legalQueryPlan,
+  });
+
   return {
     block: input.block,
     law_family_guess: lawFamily,
@@ -651,7 +731,7 @@ function buildScoredCandidate(input: {
     runtime_tags: runtimeTags,
     lexical_score: input.lexicalScore,
     retrieval_score: retrievalScore,
-    filter_reasons: penalties,
+    filter_reasons: softenedPenalties,
     source_channel: input.citationMetadata?.source_channel ?? "semantic",
     explicit_citation_raw: input.citationMetadata?.explicit_citation_raw ?? null,
     citation_resolution_status: input.citationMetadata?.citation_resolution_status ?? null,

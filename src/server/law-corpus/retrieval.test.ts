@@ -308,8 +308,9 @@ describe("law corpus retrieval", () => {
             lawKey: "advocacy_law",
             lawTitle: "Закон об адвокатуре и адвокатской деятельности",
             topicUrl: "https://forum.gta5rp.com/threads/advocacy/",
+            blockTitle: "Статья 5. Адвокатский запрос",
             blockText:
-              "Официальный адвокатский запрос подлежит обязательному рассмотрению. Ответ даётся в установленный срок.",
+              "Официальный адвокатский запрос подлежит обязательному рассмотрению. Органы и организации должны дать ответ в течение одного календарного дня. Неправомерный отказ в предоставлении сведений, нарушение сроков предоставления сведений, запрашиваемые сведения, видеозаписи для ОГП, упоминание департамента и неприкосновенное лицо указываются в исключениях статьи.",
             articleNumberNormalized: "5",
           }),
           createLawBlock({
@@ -338,6 +339,22 @@ describe("law corpus retrieval", () => {
 
     expect(result.results[0]?.lawKey).toBe("advocacy_law");
     expect(result.retrievalDebug?.candidate_pool_after_filters[0]?.law_key).toBe("advocacy_law");
+    expect(
+      result.retrievalDebug?.candidate_pool_after_filters.some(
+        (entry) => entry.law_key === "advocacy_law" && entry.article_number === "5",
+      ),
+    ).toBe(true);
+    expect(result.retrievalDebug?.filter_reasons).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          law_block_id: "block-advocacy",
+          reasons: expect.arrayContaining([
+            "department_specific_for_general_question_softened_for_attorney_request",
+            "immunity_without_scope_softened_for_attorney_request",
+          ]),
+        }),
+      ]),
+    );
   });
 
   it("для срока ответа на адвокатский запрос поднимает advocacy_law выше government и ethics", async () => {
@@ -361,8 +378,9 @@ describe("law corpus retrieval", () => {
             lawKey: "advocacy_law",
             lawTitle: "Закон об адвокатуре и адвокатской деятельности",
             topicUrl: "https://forum.gta5rp.com/threads/advocacy/",
+            blockTitle: "Статья 5. Адвокатский запрос",
             blockText:
-              "Адвокатский запрос подлежит рассмотрению. Органы и организации должны дать на него ответ в течение одного календарного дня. Неправомерный отказ и нарушение сроков влекут ответственность.",
+              "Адвокатский запрос подлежит рассмотрению. Официальный адвокатский запрос, ответ на запрос, должны дать ответ в течение одного календарного дня. Отказ в предоставлении сведений, основания отказа, нарушение сроков, предоставление сведений, видеозаписи, ОГП, департамент и неприкосновенное лицо перечислены в тексте статьи.",
             articleNumberNormalized: "5",
           }),
           createLawBlock({
@@ -391,6 +409,22 @@ describe("law corpus retrieval", () => {
     expect(result.results[0]?.lawKey).toBe("advocacy_law");
     expect(result.results.map((entry) => entry.lawKey)).toEqual(
       expect.arrayContaining(["advocacy_law", "ethics_code"]),
+    );
+    expect(
+      result.retrievalDebug?.candidate_pool_after_filters.some(
+        (entry) => entry.law_key === "advocacy_law" && entry.article_number === "5",
+      ),
+    ).toBe(true);
+    expect(result.retrievalDebug?.filter_reasons).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          law_block_id: "block-advocacy",
+          reasons: expect.arrayContaining([
+            "department_specific_for_general_question_softened_for_attorney_request",
+            "immunity_without_scope_softened_for_attorney_request",
+          ]),
+        }),
+      ]),
     );
     const advocacyIndex = result.results.findIndex((entry) => entry.lawKey === "advocacy_law");
     const ethicsIndex = result.results.findIndex((entry) => entry.lawKey === "ethics_code");
@@ -425,8 +459,9 @@ describe("law corpus retrieval", () => {
             lawKey: "advocacy_law",
             lawTitle: "Закон об адвокатуре и адвокатской деятельности",
             topicUrl: "https://forum.gta5rp.com/threads/advocacy/",
+            blockTitle: "Статья 5. Адвокатский запрос",
             blockText:
-              "Официальный адвокатский запрос подлежит обязательному рассмотрению. Неправомерный отказ и нарушение сроков предоставления сведений влекут ответственность.",
+              "Статья 5. Адвокатский запрос. Официальный адвокатский запрос подлежит обязательному рассмотрению. Должны дать ответ в течение одного календарного дня. Отказ в предоставлении сведений и нарушение сроков, предоставление сведений, запрашиваемые сведения, видеозаписи, ОГП, департамент и неприкосновенное лицо упоминаются в тексте статьи.",
             articleNumberNormalized: "5",
           }),
           createLawBlock({
@@ -455,6 +490,145 @@ describe("law corpus retrieval", () => {
     expect(result.results[0]?.lawKey).toBe("advocacy_law");
     expect(result.results.map((entry) => entry.lawKey)).toEqual(
       expect.arrayContaining(["advocacy_law", "criminal_code"]),
+    );
+    expect(
+      result.retrievalDebug?.candidate_pool_after_filters.some(
+        (entry) => entry.law_key === "advocacy_law" && entry.article_number === "5",
+      ),
+    ).toBe(true);
+    expect(result.retrievalDebug?.candidate_pool_after_filters[0]).toEqual(
+      expect.objectContaining({
+        law_key: "advocacy_law",
+        article_number: "5",
+      }),
+    );
+  });
+
+  it("не смягчает government и department_specific candidates только из-за похожих attorney_request terms", async () => {
+    const context = createRetrievalContext({
+      normalizedInput: "какой срок ответа на адвокатский запрос",
+      intent: "law_explanation",
+    });
+
+    const result = await searchCurrentLawCorpusWithContext(
+      {
+        serverId: "server-1",
+        query: context.queryBreakdown.expanded_query,
+        limit: 12,
+        retrievalContext: context,
+      },
+      {
+        listCurrentLawBlocksByServer: vi.fn().mockResolvedValue([
+          createLawBlock({
+            id: "block-advocacy",
+            lawId: "law-advocacy",
+            lawKey: "advocacy_law",
+            lawTitle: "Закон об адвокатуре и адвокатской деятельности",
+            topicUrl: "https://forum.gta5rp.com/threads/advocacy/",
+            blockTitle: "Статья 5. Адвокатский запрос",
+            blockText:
+              "Адвокатский запрос. Должны дать ответ в течение одного календарного дня. Отказ в предоставлении сведений, видеозаписи, ОГП и неприкосновенное лицо указаны в статье.",
+            articleNumberNormalized: "5",
+          }),
+          createLawBlock({
+            id: "block-gov-like",
+            lawId: "law-gov",
+            lawKey: "government_code",
+            lawTitle: "Кодекс о деятельности Правительства",
+            topicUrl: "https://forum.gta5rp.com/threads/gov/",
+            blockText:
+              "Официальный запрос рассматривается должностным лицом. Срок ответа и предоставление сведений определяются служебным регламентом ОГП.",
+            articleNumberNormalized: "68",
+          }),
+          createLawBlock({
+            id: "block-dept-like",
+            lawId: "law-dept",
+            lawKey: "national_guard",
+            lawTitle: "Закон о Национальной Гвардии штата Сан-Андреас",
+            topicUrl: "https://forum.gta5rp.com/threads/guard/",
+            blockText:
+              "Подразделение рассматривает запросы и предоставляет сведения по внутреннему регламенту и служебной отчетности.",
+            articleNumberNormalized: "25",
+          }),
+        ]),
+        now: () => new Date("2026-04-20T12:00:00.000Z"),
+      },
+    );
+
+    expect(result.results[0]?.lawKey).toBe("advocacy_law");
+    expect(result.retrievalDebug?.filter_reasons).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          law_block_id: "block-gov-like",
+          reasons: expect.arrayContaining([
+            "department_specific_for_general_question_softened_for_attorney_request",
+          ]),
+        }),
+      ]),
+    );
+    expect(result.retrievalDebug?.filter_reasons).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          law_block_id: "block-dept-like",
+          reasons: expect.arrayContaining([
+            "department_specific_for_general_question_softened_for_attorney_request",
+          ]),
+        }),
+      ]),
+    );
+  });
+
+  it("не включает attorney_request filter safety для non-attorney_request query", async () => {
+    const context = createRetrievalContext({
+      normalizedInput: "если сотрудник не вёл бодикам, это нарушение?",
+      intent: "evidence_check",
+    });
+
+    const result = await searchCurrentLawCorpusWithContext(
+      {
+        serverId: "server-1",
+        query: context.queryBreakdown.expanded_query,
+        limit: 12,
+        retrievalContext: context,
+      },
+      {
+        listCurrentLawBlocksByServer: vi.fn().mockResolvedValue([
+          createLawBlock({
+            id: "block-advocacy-noisy",
+            lawId: "law-advocacy",
+            lawKey: "advocacy_law",
+            lawTitle: "Закон об адвокатуре и адвокатской деятельности",
+            topicUrl: "https://forum.gta5rp.com/threads/advocacy/",
+            blockTitle: "Статья 5. Адвокатский запрос",
+            blockText:
+              "Официальный адвокатский запрос. Должны дать ответ в течение одного календарного дня. Отказ в предоставлении сведений, видеозаписи, ОГП и неприкосновенное лицо указаны в тексте.",
+            articleNumberNormalized: "5",
+          }),
+          createLawBlock({
+            id: "block-procedure-video",
+            lawId: "law-procedure",
+            lawKey: "procedural_code",
+            lawTitle: "Процессуальный кодекс",
+            topicUrl: "https://forum.gta5rp.com/threads/procedure/",
+            blockText: "При задержании допускается видеозапись и фиксация процессуальных действий.",
+            articleNumberNormalized: "19",
+          }),
+        ]),
+        now: () => new Date("2026-04-20T12:00:00.000Z"),
+      },
+    );
+
+    expect(result.results[0]?.lawKey).toBe("procedural_code");
+    expect(result.retrievalDebug?.filter_reasons).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          law_block_id: "block-advocacy-noisy",
+          reasons: expect.arrayContaining([
+            "department_specific_for_general_question_softened_for_attorney_request",
+            "immunity_without_scope_softened_for_attorney_request",
+          ]),
+        }),
+      ]),
     );
   });
 
