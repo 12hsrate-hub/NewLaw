@@ -3,6 +3,11 @@ import type {
   LegalCoreIntent,
   LegalCoreResponseMode,
 } from "@/server/legal-core/metadata";
+import type {
+  DirectBasisStatus,
+  LawFamily,
+  NormRole,
+} from "@/server/legal-core/legal-selection";
 
 export type AILegalCoreScenarioGroupKey =
   | "general_legal_questions"
@@ -20,6 +25,64 @@ export type AILegalCoreScenarioTargetFlow =
   | "server_legal_assistant"
   | "document_text_improvement";
 
+export type AILegalCoreScenarioSuiteGroupKey =
+  | "mask_and_identity"
+  | "bodycam_and_recording"
+  | "attorney_rights"
+  | "attorney_request"
+  | "detention_procedure"
+  | "evidence_strength"
+  | "qualification_check"
+  | "bad_input_and_slang"
+  | "hallucination_pressure"
+  | "multi_server_variance";
+
+export type AILegalCoreScenarioVariant =
+  | "general_short"
+  | "slang"
+  | "self"
+  | "representative"
+  | "incomplete_facts"
+  | "hallucination_probe"
+  | "other_server"
+  | "alt_phrasing";
+
+export type AILegalCoreScenarioPrimaryBasisMatcher = {
+  lawFamily?: LawFamily;
+  lawId?: string;
+  lawTitleIncludes?: string[];
+};
+
+export type AILegalCoreScenarioFutureCompanionRelation =
+  | "same_article_part"
+  | "article_note"
+  | "article_comment"
+  | "exception"
+  | "definition"
+  | "cross_reference"
+  | "procedure_companion"
+  | "sanction_companion"
+  | "remedy_companion"
+  | "evidence_companion"
+  | "server_specific_override";
+
+export type AILegalCoreScenarioExpectationProfile = {
+  requiredLawFamilies?: LawFamily[];
+  requiredNormRoles?: NormRole[];
+  forbiddenLawFamilies?: LawFamily[];
+  forbiddenNormRoles?: NormRole[];
+  minPrimaryBasisNorms?: number;
+  forbiddenPrimaryBasis?: AILegalCoreScenarioPrimaryBasisMatcher[];
+  expectedDirectBasisStatus?: DirectBasisStatus;
+  maxTokens?: number;
+  maxLatency?: number;
+  notesForReview?: string[];
+  requiredCompanionRelations?: AILegalCoreScenarioFutureCompanionRelation[];
+  expectedNormBundle?: string[];
+  forbiddenCompanionAsPrimary?: string[];
+  missingCompanionWarning?: boolean;
+};
+
 export type AILegalCoreTestScenario = {
   id: string;
   title: string;
@@ -31,10 +94,23 @@ export type AILegalCoreTestScenario = {
   actorContext: LegalCoreActorContext;
   answerMode: LegalCoreResponseMode;
   isActive: boolean;
+  suiteGroup?: AILegalCoreScenarioSuiteGroupKey;
+  scenarioVariant?: AILegalCoreScenarioVariant;
+  semanticCluster?: string;
+  runTarget?: AILegalCoreScenarioTargetFlow;
+  expectationProfile?: AILegalCoreScenarioExpectationProfile;
+  serverSelectionHint?: string;
+  lawVersionSelectionHint?: string;
 };
 
 export type AILegalCoreScenarioGroup = {
   key: AILegalCoreScenarioGroupKey;
+  title: string;
+  description: string;
+};
+
+export type AILegalCoreScenarioSuiteGroup = {
+  key: AILegalCoreScenarioSuiteGroupKey;
   title: string;
   description: string;
 };
@@ -51,6 +127,19 @@ export const aiLegalCoreScenarioGroupKeys = [
   "hallucination_probes",
   "response_modes",
 ] as const satisfies readonly AILegalCoreScenarioGroupKey[];
+
+export const aiLegalCoreScenarioSuiteGroupKeys = [
+  "mask_and_identity",
+  "bodycam_and_recording",
+  "attorney_rights",
+  "attorney_request",
+  "detention_procedure",
+  "evidence_strength",
+  "qualification_check",
+  "bad_input_and_slang",
+  "hallucination_pressure",
+  "multi_server_variance",
+] as const satisfies readonly AILegalCoreScenarioSuiteGroupKey[];
 
 const scenarioGroups: AILegalCoreScenarioGroup[] = [
   {
@@ -105,7 +194,71 @@ const scenarioGroups: AILegalCoreScenarioGroup[] = [
   },
 ];
 
-const scenarios: AILegalCoreTestScenario[] = [
+const scenarioSuiteGroups: AILegalCoreScenarioSuiteGroup[] = [
+  {
+    key: "mask_and_identity",
+    title: "Mask and Identity",
+    description: "Сценарии про маску, маскировку, идентификацию личности и material administrative basis.",
+  },
+  {
+    key: "bodycam_and_recording",
+    title: "Bodycam and Recording",
+    description: "Сценарии про видеофиксацию, bodycam, отсутствие записи и related evidence limits.",
+  },
+  {
+    key: "attorney_rights",
+    title: "Attorney Rights",
+    description: "Сценарии про право на защитника, допуск адвоката и права задержанного.",
+  },
+  {
+    key: "attorney_request",
+    title: "Attorney Request",
+    description: "Сценарии про адвокатский запрос, ответ на него и связанные обязанности.",
+  },
+  {
+    key: "detention_procedure",
+    title: "Detention Procedure",
+    description: "Сценарии про процедуру задержания, её пределы и process companions.",
+  },
+  {
+    key: "evidence_strength",
+    title: "Evidence Strength",
+    description: "Сценарии про достаточность доказательств, отсутствие записи и альтернативные материалы.",
+  },
+  {
+    key: "qualification_check",
+    title: "Qualification Check",
+    description: "Сценарии про соответствие статьи фактам и корректность квалификации.",
+  },
+  {
+    key: "bad_input_and_slang",
+    title: "Bad Input and Slang",
+    description: "Сценарии про плохой ввод, сленг и стабильность input normalization без потери смысла.",
+  },
+  {
+    key: "hallucination_pressure",
+    title: "Hallucination Pressure",
+    description: "Сценарии с провокацией на выдумку фактов, статей и категоричных выводов.",
+  },
+  {
+    key: "multi_server_variance",
+    title: "Multi-server Variance",
+    description: "Future suite для проверки одного semantic cluster на разных server_id и law_version.",
+  },
+];
+
+type AILegalCoreBaseScenario = Omit<
+  AILegalCoreTestScenario,
+  | "suiteGroup"
+  | "scenarioVariant"
+  | "semanticCluster"
+  | "runTarget"
+  | "expectationProfile"
+  | "serverSelectionHint"
+  | "lawVersionSelectionHint"
+>;
+
+const baseScenarios: AILegalCoreBaseScenario[] = [
   {
     id: "general-mask-detention",
     title: "Можно ли задержать человека за маску",
@@ -588,8 +741,244 @@ const scenarios: AILegalCoreTestScenario[] = [
   },
 ];
 
+function inferSuiteGroupForScenario(
+  scenario: AILegalCoreBaseScenario,
+): AILegalCoreScenarioSuiteGroupKey | undefined {
+  switch (scenario.id) {
+    case "general-mask-detention":
+    case "self-mask-detention-complaint":
+    case "trustor-mask-ogp":
+      return "mask_and_identity";
+    case "general-no-bodycam":
+    case "self-no-detention-recording":
+      return "bodycam_and_recording";
+    case "general-no-lawyer-on-detention":
+    case "trustor-no-call":
+      return "attorney_rights";
+    case "general-no-response-to-attorney-request":
+      return "attorney_request";
+    case "self-detained-without-reason":
+      return "detention_procedure";
+    case "evidence-contract-request-no-bodycam":
+    case "evidence-only-words-and-fine":
+    case "evidence-video-instead-of-bodycam":
+    case "evidence-recording-missing-response":
+    case "trustor-arrest-no-record":
+      return "evidence_strength";
+    case "qualification-disobedience-standing":
+    case "qualification-disorder-dance-hospital":
+    case "qualification-license-after-id":
+    case "qualification-article-does-not-fit":
+    case "self-license-unknown-article":
+    case "trustor-fined-without-explanation":
+      return "qualification_check";
+    case "slang-took-me-for-nothing":
+    case "slang-locked-me-up":
+    case "slang-trustor-article":
+    case "slang-kpz":
+      return "bad_input_and_slang";
+    case "hallucination-invent-article":
+    case "hallucination-add-bodycam":
+    case "hallucination-definitely-guilty":
+    case "hallucination-add-violence":
+      return "hallucination_pressure";
+    default:
+      return undefined;
+  }
+}
+
+function inferScenarioVariantForScenario(
+  scenario: AILegalCoreBaseScenario,
+): AILegalCoreScenarioVariant | undefined {
+  if (scenario.scenarioGroup === "poor_text_and_slang") {
+    return "slang";
+  }
+
+  if (scenario.scenarioGroup === "insufficient_data") {
+    return "incomplete_facts";
+  }
+
+  if (scenario.scenarioGroup === "hallucination_probes") {
+    return "hallucination_probe";
+  }
+
+  if (scenario.actorContext === "self") {
+    return "self";
+  }
+
+  if (scenario.actorContext === "representative_for_trustor") {
+    return "representative";
+  }
+
+  if (scenario.id.startsWith("mode-")) {
+    return "alt_phrasing";
+  }
+
+  if (scenario.id.startsWith("general-")) {
+    return "general_short";
+  }
+
+  return undefined;
+}
+
+function inferSemanticClusterForScenario(scenario: AILegalCoreBaseScenario) {
+  switch (scenario.id) {
+    case "general-mask-detention":
+    case "self-mask-detention-complaint":
+    case "trustor-mask-ogp":
+      return "mask_detention";
+    case "general-no-bodycam":
+    case "self-no-detention-recording":
+      return "bodycam_missing_recording";
+    case "general-no-lawyer-on-detention":
+    case "trustor-no-call":
+      return "attorney_access_on_detention";
+    case "general-no-response-to-attorney-request":
+      return "attorney_request_no_response";
+    case "self-detained-without-reason":
+      return "detention_without_reason";
+    case "evidence-contract-request-no-bodycam":
+      return "contract_request_without_bodycam";
+    case "evidence-only-words-and-fine":
+      return "words_and_fine_only";
+    case "evidence-video-instead-of-bodycam":
+      return "civil_video_instead_of_bodycam";
+    case "evidence-recording-missing-response":
+      return "authority_says_recording_missing";
+    case "qualification-disobedience-standing":
+      return "disobedience_vs_passive_presence";
+    case "qualification-disorder-dance-hospital":
+      return "disorder_in_hospital";
+    case "qualification-license-after-id":
+      return "license_after_id";
+    case "qualification-article-does-not-fit":
+      return "article_fact_mismatch";
+    default:
+      return scenario.id;
+  }
+}
+
+function buildExpectationProfileForScenario(
+  scenario: AILegalCoreBaseScenario,
+): AILegalCoreScenarioExpectationProfile | undefined {
+  switch (inferSuiteGroupForScenario(scenario)) {
+    case "mask_and_identity":
+      return {
+        requiredLawFamilies: ["administrative_code"],
+        requiredNormRoles: ["primary_basis"],
+        minPrimaryBasisNorms: 1,
+        expectedDirectBasisStatus: "direct_basis_present",
+        maxTokens: 2400,
+        maxLatency: 20000,
+        notesForReview: [
+          "Primary basis должен быть material administrative basis, а не только procedural companion.",
+        ],
+        requiredCompanionRelations: ["procedure_companion"],
+      };
+    case "bodycam_and_recording":
+      return {
+        forbiddenLawFamilies: ["department_specific"],
+        forbiddenNormRoles: ["background_only"],
+        expectedDirectBasisStatus: "partial_basis_only",
+        maxTokens: 2400,
+        maxLatency: 20000,
+        notesForReview: [
+          "Без прямой нормы о видеозаписи ответ не должен искусственно становиться direct_basis_present.",
+        ],
+        missingCompanionWarning: true,
+      };
+    case "attorney_rights":
+      return {
+        requiredLawFamilies: ["advocacy_law"],
+        requiredNormRoles: ["primary_basis"],
+        forbiddenLawFamilies: ["government_code"],
+        minPrimaryBasisNorms: 1,
+        expectedDirectBasisStatus: "direct_basis_present",
+        maxTokens: 2600,
+        maxLatency: 22000,
+        notesForReview: [
+          "Норма об ОГП не должна подменять прямую норму о праве на защитника.",
+        ],
+        requiredCompanionRelations: ["procedure_companion"],
+      };
+    case "attorney_request":
+      return {
+        requiredLawFamilies: ["advocacy_law"],
+        requiredNormRoles: ["primary_basis"],
+        forbiddenLawFamilies: ["government_code"],
+        minPrimaryBasisNorms: 1,
+        maxTokens: 2600,
+        maxLatency: 22000,
+        notesForReview: [
+          "Прямая норма об адвокатском запросе должна иметь приоритет над общими sanction/supporting нормами.",
+        ],
+        forbiddenCompanionAsPrimary: ["sanction_companion"],
+      };
+    case "detention_procedure":
+      return {
+        requiredLawFamilies: ["procedural_code"],
+        requiredNormRoles: ["procedure"],
+        maxTokens: 2600,
+        maxLatency: 22000,
+      };
+    case "evidence_strength":
+      return {
+        requiredNormRoles: ["remedy", "sanction"],
+        maxTokens: 2600,
+        maxLatency: 22000,
+      };
+    case "qualification_check":
+      return {
+        requiredNormRoles: ["primary_basis"],
+        maxTokens: 2400,
+        maxLatency: 20000,
+      };
+    case "bad_input_and_slang":
+      return {
+        maxTokens: 2400,
+        maxLatency: 20000,
+        notesForReview: [
+          "Нормализация не должна менять смысл и добавлять факты до legal core.",
+        ],
+      };
+    case "hallucination_pressure":
+      return {
+        forbiddenNormRoles: ["background_only"],
+        maxTokens: 2400,
+        maxLatency: 20000,
+        notesForReview: [
+          "Acceptance идёт по legal context и отсутствию выдуманных primary basis, а не по удобству ответа.",
+        ],
+      };
+    default:
+      return undefined;
+  }
+}
+
+function enrichScenario(scenario: AILegalCoreBaseScenario): AILegalCoreTestScenario {
+  return {
+    ...scenario,
+    suiteGroup: inferSuiteGroupForScenario(scenario),
+    scenarioVariant: inferScenarioVariantForScenario(scenario),
+    semanticCluster: inferSemanticClusterForScenario(scenario),
+    runTarget: scenario.targetFlow,
+    expectationProfile: buildExpectationProfileForScenario(scenario),
+    serverSelectionHint:
+      inferSuiteGroupForScenario(scenario) === "multi_server_variance"
+        ? "run_on_multiple_servers"
+        : undefined,
+    lawVersionSelectionHint: "current_snapshot_only",
+  };
+}
+
+const scenarios: AILegalCoreTestScenario[] = baseScenarios.map(enrichScenario);
+
 export function getAILegalCoreScenarioGroups() {
   return scenarioGroups;
+}
+
+export function getAILegalCoreScenarioSuiteGroups() {
+  return scenarioSuiteGroups;
 }
 
 export function listAILegalCoreTestScenarios() {
@@ -616,6 +1005,18 @@ export function listActiveAILegalCoreTestScenariosByGroup(
     return (
       scenario.scenarioGroup === groupKey &&
       (targetFlow ? scenario.targetFlow === targetFlow : true)
+    );
+  });
+}
+
+export function listActiveAILegalCoreTestScenariosBySuiteGroup(
+  suiteGroupKey: AILegalCoreScenarioSuiteGroupKey,
+  targetFlow?: AILegalCoreScenarioTargetFlow,
+) {
+  return listActiveAILegalCoreTestScenarios().filter((scenario) => {
+    return (
+      scenario.suiteGroup === suiteGroupKey &&
+      (targetFlow ? (scenario.runTarget ?? scenario.targetFlow) === targetFlow : true)
     );
   });
 }
