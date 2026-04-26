@@ -14,6 +14,13 @@ import {
   type LegalSelectionCandidate,
   type NormRole,
 } from "@/server/legal-core/legal-selection";
+import {
+  buildLegalCitationResolverEntriesFromLawBlocks,
+  resolveExplicitLegalCitation,
+  type LegalCitationResolutionReason,
+  type LegalCitationResolutionReport,
+  type LegalCitationResolutionStatus,
+} from "@/server/law-corpus/legal-citation-resolver";
 import { searchCurrentLawCorpusInputSchema } from "@/schemas/law-corpus";
 
 type RetrievalDependencies = {
@@ -26,6 +33,21 @@ type CurrentLawBlock = Awaited<ReturnType<typeof listCurrentLawBlocksByServer>>[
 type LawRetrievalContext = {
   legalQueryPlan: LegalQueryPlan;
   queryBreakdown: AssistantRetrievalQueryBreakdown;
+};
+
+type CitationSourceChannel = "citation_target" | "citation_companion" | "semantic";
+type CitationMatchStrength =
+  | "exact_article"
+  | "exact_article_supported_subunit"
+  | "article_with_gap"
+  | "same_law_companion";
+
+type LawSearchResultCitationMetadata = {
+  source_channel: CitationSourceChannel;
+  explicit_citation_raw: string | null;
+  citation_resolution_status: LegalCitationResolutionStatus | null;
+  citation_resolution_reason: LegalCitationResolutionReason | null;
+  citation_match_strength: CitationMatchStrength | null;
 };
 
 type LawSearchResultItem = {
@@ -52,6 +74,7 @@ type LawSearchResultItem = {
     sourceSnapshotHash: string;
     normalizedTextHash: string;
     corpusSnapshotHash: string;
+    citation?: LawSearchResultCitationMetadata;
   };
 };
 
@@ -80,6 +103,11 @@ type LawRetrievalCompactCandidate = {
   runtime_tags: AssistantRetrievalRuntimeTag[];
   retrieval_score: number;
   filter_reasons: string[];
+  source_channel: CitationSourceChannel;
+  explicit_citation_raw: string | null;
+  citation_resolution_status: LegalCitationResolutionStatus | null;
+  citation_resolution_reason: LegalCitationResolutionReason | null;
+  citation_match_strength: CitationMatchStrength | null;
 };
 
 type LawRetrievalDebug = {
@@ -94,6 +122,28 @@ type LawRetrievalDebug = {
     law_block_id: string;
     reasons: string[];
   }>;
+  citation_resolution: Array<{
+    raw_citation: string;
+    law_family: LawFamily | null;
+    article_number: string;
+    part_number: string | null;
+    point_number: string | null;
+    resolution_status: LegalCitationResolutionStatus;
+    resolution_reason: LegalCitationResolutionReason | null;
+    resolved_block_id: string | null;
+    resolved_law_source_id: string | null;
+    matched_law_title: string | null;
+    matched_block_title: string | null;
+    collision_candidates_count: number;
+    same_law_companion_candidates_count: number;
+    note_exception_comment_hits_count: number;
+    cross_reference_hits_count: number;
+  }>;
+  citation_target_count: number;
+  citation_companion_count: number;
+  citation_unresolved_count: number;
+  citation_partially_supported_count: number;
+  semantic_retrieval_allowed_as_companion_only: boolean;
 };
 
 type LawRetrievalResult = BaseLawCorpusSearchResult & {
@@ -109,6 +159,11 @@ type ScoredLawCandidate = {
   lexical_score: number;
   retrieval_score: number;
   filter_reasons: string[];
+  source_channel: CitationSourceChannel;
+  explicit_citation_raw: string | null;
+  citation_resolution_status: LegalCitationResolutionStatus | null;
+  citation_resolution_reason: LegalCitationResolutionReason | null;
+  citation_match_strength: CitationMatchStrength | null;
 };
 
 const defaultDependencies: RetrievalDependencies = {
@@ -437,6 +492,11 @@ function buildCompactCandidate(entry: ScoredLawCandidate): LawRetrievalCompactCa
     runtime_tags: entry.runtime_tags,
     retrieval_score: entry.retrieval_score,
     filter_reasons: entry.filter_reasons,
+    source_channel: entry.source_channel,
+    explicit_citation_raw: entry.explicit_citation_raw,
+    citation_resolution_status: entry.citation_resolution_status,
+    citation_resolution_reason: entry.citation_resolution_reason,
+    citation_match_strength: entry.citation_match_strength,
   };
 }
 
@@ -447,6 +507,7 @@ function buildScoredCandidate(input: {
   corpusSnapshotHash: string;
   lexicalQueryTokens: string[];
   serverId: string;
+  citationMetadata?: LawSearchResultCitationMetadata;
 }) {
   const candidate = buildSelectionCandidate(input.block, input.serverId);
 
@@ -591,6 +652,11 @@ function buildScoredCandidate(input: {
     lexical_score: input.lexicalScore,
     retrieval_score: retrievalScore,
     filter_reasons: penalties,
+    source_channel: input.citationMetadata?.source_channel ?? "semantic",
+    explicit_citation_raw: input.citationMetadata?.explicit_citation_raw ?? null,
+    citation_resolution_status: input.citationMetadata?.citation_resolution_status ?? null,
+    citation_resolution_reason: input.citationMetadata?.citation_resolution_reason ?? null,
+    citation_match_strength: input.citationMetadata?.citation_match_strength ?? null,
     result: {
       score: retrievalScore,
       serverId: candidate.serverId,
@@ -615,9 +681,165 @@ function buildScoredCandidate(input: {
         sourceSnapshotHash: input.block.lawVersion.sourceSnapshotHash,
         normalizedTextHash: input.block.lawVersion.normalizedTextHash,
         corpusSnapshotHash: input.corpusSnapshotHash,
+        ...(input.citationMetadata ? { citation: input.citationMetadata } : {}),
       },
     },
   } satisfies ScoredLawCandidate;
+}
+
+function buildCitationResolutionDebugEntry(
+  citation: LegalQueryPlan["explicitLegalCitations"][number],
+  report: LegalCitationResolutionReport,
+) {
+  return {
+    raw_citation: citation.raw,
+    law_family: report.lawFamily,
+    article_number: citation.articleNumber,
+    part_number: citation.partNumber,
+    point_number: citation.pointNumber,
+    resolution_status: report.resolutionStatus,
+    resolution_reason: report.resolutionReason,
+    resolved_block_id: report.resolvedBlockId,
+    resolved_law_source_id: report.resolvedLawSourceId,
+    matched_law_title: report.matchedLawTitle,
+    matched_block_title: report.matchedBlockTitle,
+    collision_candidates_count: report.collisionCandidates.length,
+    same_law_companion_candidates_count: report.sameLawCompanionCandidates.length,
+    note_exception_comment_hits_count: report.noteExceptionCommentHits.length,
+    cross_reference_hits_count: report.crossReferenceHits.length,
+  };
+}
+
+function buildCitationMatchStrength(input: {
+  report: LegalCitationResolutionReport;
+  sourceChannel: CitationSourceChannel;
+}): CitationMatchStrength {
+  if (input.sourceChannel === "citation_companion") {
+    return "same_law_companion";
+  }
+
+  if (input.report.resolutionStatus === "partially_supported") {
+    return "article_with_gap";
+  }
+
+  if (input.report.partSupport.requestedPart || input.report.pointSupport.requestedPoint) {
+    return "exact_article_supported_subunit";
+  }
+
+  return "exact_article";
+}
+
+function buildCitationMetadata(input: {
+  sourceChannel: CitationSourceChannel;
+  citationRaw: string;
+  report: LegalCitationResolutionReport;
+}): LawSearchResultCitationMetadata {
+  return {
+    source_channel: input.sourceChannel,
+    explicit_citation_raw: input.citationRaw,
+    citation_resolution_status: input.report.resolutionStatus,
+    citation_resolution_reason: input.report.resolutionReason,
+    citation_match_strength: buildCitationMatchStrength({
+      report: input.report,
+      sourceChannel: input.sourceChannel,
+    }),
+  };
+}
+
+function dedupeScoredCandidatesByBlockId(candidates: ScoredLawCandidate[]) {
+  const seen = new Set<string>();
+
+  return candidates.filter((candidate) => {
+    if (seen.has(candidate.result.lawBlockId)) {
+      return false;
+    }
+
+    seen.add(candidate.result.lawBlockId);
+    return true;
+  });
+}
+
+function buildCitationDrivenCandidates(input: {
+  reports: Array<{
+    citation: LegalQueryPlan["explicitLegalCitations"][number];
+    report: LegalCitationResolutionReport;
+  }>;
+  candidateBlocks: CurrentLawBlock[];
+  lexicalScoreByBlockId: Map<string, number>;
+  context: LawRetrievalContext;
+  corpusSnapshotHash: string;
+  lexicalQueryTokens: string[];
+  serverId: string;
+}) {
+  const blockById = new Map(input.candidateBlocks.map((block) => [block.id, block]));
+  const citationTargets: ScoredLawCandidate[] = [];
+  const citationCompanions: ScoredLawCandidate[] = [];
+
+  const buildCandidateFromBlock = (params: {
+    block: CurrentLawBlock;
+    citationRaw: string;
+    report: LegalCitationResolutionReport;
+    sourceChannel: CitationSourceChannel;
+  }): ScoredLawCandidate | null =>
+    buildScoredCandidate({
+      block: params.block,
+      lexicalScore: input.lexicalScoreByBlockId.get(params.block.id) ?? 1,
+      context: input.context,
+      corpusSnapshotHash: input.corpusSnapshotHash,
+      lexicalQueryTokens: input.lexicalQueryTokens,
+      serverId: input.serverId,
+      citationMetadata: buildCitationMetadata({
+        sourceChannel: params.sourceChannel,
+        citationRaw: params.citationRaw,
+        report: params.report,
+      }),
+    });
+
+  for (const entry of input.reports) {
+    if (
+      entry.report.resolutionStatus !== "resolved" &&
+      entry.report.resolutionStatus !== "partially_supported"
+    ) {
+      continue;
+    }
+
+    if (entry.report.resolvedBlockId) {
+      const targetBlock = blockById.get(entry.report.resolvedBlockId);
+      const targetCandidate =
+        targetBlock &&
+        buildCandidateFromBlock({
+          block: targetBlock,
+          citationRaw: entry.citation.raw,
+          report: entry.report,
+          sourceChannel: "citation_target",
+        });
+
+      if (targetCandidate) {
+        citationTargets.push(targetCandidate);
+      }
+    }
+
+    for (const companion of entry.report.sameLawCompanionCandidates) {
+      const companionBlock = blockById.get(companion.lawBlockId);
+      const companionCandidate =
+        companionBlock &&
+        buildCandidateFromBlock({
+          block: companionBlock,
+          citationRaw: entry.citation.raw,
+          report: entry.report,
+          sourceChannel: "citation_companion",
+        });
+
+      if (companionCandidate) {
+        citationCompanions.push(companionCandidate);
+      }
+    }
+  }
+
+  return {
+    citationTargets: dedupeScoredCandidatesByBlockId(citationTargets),
+    citationCompanions: dedupeScoredCandidatesByBlockId(citationCompanions),
+  };
 }
 
 function sortScoredCandidates(candidates: ScoredLawCandidate[]) {
@@ -790,6 +1012,9 @@ async function runCurrentLawCorpusSearch(
       return left.block.blockOrder - right.block.blockOrder;
     });
   const articlePreferredLexicalResults = applyArticlePreferenceToLexicalResults(lexicalResults);
+  const lexicalScoreByBlockId = new Map(
+    lexicalResults.map((entry) => [entry.block.id, entry.lexicalScore] as const),
+  );
   const overfetchLimit = Math.max(parsed.limit * 3, MIN_OVERFETCH_LIMIT);
   const lexicalPool = articlePreferredLexicalResults.slice(0, overfetchLimit);
 
@@ -849,7 +1074,35 @@ async function runCurrentLawCorpusSearch(
       )
       .filter((entry): entry is ScoredLawCandidate => Boolean(entry)),
   );
-  const candidatePoolBeforeFilters = scoredCandidates.map(buildCompactCandidate);
+  const explicitCitations = input.retrievalContext.legalQueryPlan.explicitLegalCitations;
+  const resolverEntries =
+    explicitCitations.length > 0
+      ? buildLegalCitationResolverEntriesFromLawBlocks(candidateBlocks)
+      : [];
+  const citationResolutionReports =
+    explicitCitations.length > 0
+      ? explicitCitations.map((citation) => ({
+          citation,
+          report: resolveExplicitLegalCitation({
+            citation,
+            corpusEntries: resolverEntries,
+          }),
+        }))
+      : [];
+  const { citationTargets, citationCompanions } = buildCitationDrivenCandidates({
+    reports: citationResolutionReports,
+    candidateBlocks,
+    lexicalScoreByBlockId,
+    context: input.retrievalContext,
+    corpusSnapshotHash: corpusSnapshot.corpusSnapshotHash,
+    lexicalQueryTokens,
+    serverId: parsed.serverId,
+  });
+  const candidatePoolBeforeFilters = dedupeScoredCandidatesByBlockId([
+    ...citationTargets,
+    ...citationCompanions,
+    ...scoredCandidates,
+  ]).map(buildCompactCandidate);
   const strictCandidates = sortScoredCandidates(
     applyArticlePreference(
       filterStrictCandidates({
@@ -881,8 +1134,21 @@ async function runCurrentLawCorpusSearch(
       : relaxedCandidates.length > 0
         ? relaxedCandidates
         : fallbackCandidates;
-  const selectedCandidates = stageCandidates.slice(0, finalLimit);
+  const selectedCandidates = dedupeScoredCandidatesByBlockId([
+    ...citationTargets,
+    ...citationCompanions,
+    ...stageCandidates,
+  ]).slice(0, finalLimit);
   const selectedResults = selectedCandidates.map((candidate) => candidate.result);
+  const citationResolution = citationResolutionReports.map(({ citation, report }) =>
+    buildCitationResolutionDebugEntry(citation, report),
+  );
+  const citationUnresolvedCount = citationResolutionReports.filter(
+    ({ report }) => report.resolutionStatus === "unresolved",
+  ).length;
+  const citationPartiallySupportedCount = citationResolutionReports.filter(
+    ({ report }) => report.resolutionStatus === "partially_supported",
+  ).length;
 
   return {
     query: parsed.query,
@@ -904,6 +1170,12 @@ async function runCurrentLawCorpusSearch(
           law_block_id: candidate.result.lawBlockId,
           reasons: candidate.filter_reasons,
         })),
+      citation_resolution: citationResolution,
+      citation_target_count: citationTargets.length,
+      citation_companion_count: citationCompanions.length,
+      citation_unresolved_count: citationUnresolvedCount,
+      citation_partially_supported_count: citationPartiallySupportedCount,
+      semantic_retrieval_allowed_as_companion_only: explicitCitations.length > 0,
     },
   };
 }

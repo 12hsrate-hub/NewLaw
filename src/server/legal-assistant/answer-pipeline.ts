@@ -1805,6 +1805,14 @@ export async function generateServerLegalAssistantAnswer(
     candidate_pool_after_filters: retrieval.retrievalDebug?.candidate_pool_after_filters ?? [],
     applied_biases: retrieval.retrievalDebug?.applied_biases ?? retrievalQueryBreakdown.applied_biases,
     filter_reasons: retrieval.retrievalDebug?.filter_reasons ?? [],
+    citation_resolution: retrieval.retrievalDebug?.citation_resolution ?? [],
+    citation_target_count: retrieval.retrievalDebug?.citation_target_count ?? 0,
+    citation_companion_count: retrieval.retrievalDebug?.citation_companion_count ?? 0,
+    citation_unresolved_count: retrieval.retrievalDebug?.citation_unresolved_count ?? 0,
+    citation_partially_supported_count:
+      retrieval.retrievalDebug?.citation_partially_supported_count ?? 0,
+    semantic_retrieval_allowed_as_companion_only:
+      retrieval.retrievalDebug?.semantic_retrieval_allowed_as_companion_only ?? false,
   };
   const payloadProfile = getAssistantAIPayloadProfile({
     testRunContext: input.testRunContext,

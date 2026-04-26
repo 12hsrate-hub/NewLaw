@@ -373,4 +373,375 @@ describe("law corpus retrieval", () => {
     expect(result.retrievalDebug?.candidate_pool_after_filters).toHaveLength(1);
     expect(result.retrievalDebug?.candidate_pool_after_filters.length).toBeLessThanOrEqual(12);
   });
+
+  it("для 22 ч.1 АК добавляет citation_target первым и не подменяет его cross-family статьями", async () => {
+    const context = createRetrievalContext({
+      normalizedInput: "22 ч.1 АК",
+      intent: "law_explanation",
+    });
+
+    const result = await searchCurrentLawCorpusWithContext(
+      {
+        serverId: "server-1",
+        query: context.queryBreakdown.expanded_query,
+        limit: 12,
+        retrievalContext: context,
+      },
+      {
+        listCurrentLawBlocksByServer: vi.fn().mockResolvedValue([
+          createLawBlock({
+            id: "block-ak-22",
+            lawId: "law-ak",
+            lawKey: "administrative_code",
+            lawTitle: "Административный кодекс",
+            topicUrl: "https://forum.gta5rp.com/threads/ak/",
+            blockText: "Статья 22. ч. 1 Нарушение порядка и административная ответственность.",
+            articleNumberNormalized: "22",
+          }),
+          createLawBlock({
+            id: "block-ak-22-note",
+            lawId: "law-ak",
+            lawKey: "administrative_code",
+            lawTitle: "Административный кодекс",
+            topicUrl: "https://forum.gta5rp.com/threads/ak/",
+            blockType: "unstructured",
+            blockOrder: 2,
+            blockTitle: "Примечание",
+            blockText: "Примечание к статье 22: за исключением особых случаев.",
+          }),
+          createLawBlock({
+            id: "block-pk-22",
+            lawId: "law-pk",
+            lawKey: "procedural_code",
+            lawTitle: "Процессуальный кодекс",
+            topicUrl: "https://forum.gta5rp.com/threads/pk/",
+            blockText: "Статья 22. Процедурное действие.",
+            articleNumberNormalized: "22",
+          }),
+          createLawBlock({
+            id: "block-uk-22",
+            lawId: "law-uk",
+            lawKey: "criminal_code",
+            lawTitle: "Уголовный кодекс",
+            topicUrl: "https://forum.gta5rp.com/threads/uk/",
+            blockText: "Статья 22. Уголовный состав.",
+            articleNumberNormalized: "22",
+          }),
+        ]),
+        now: () => new Date("2026-04-20T12:00:00.000Z"),
+      },
+    );
+
+    expect(result.results[0]).toEqual(
+      expect.objectContaining({
+        lawKey: "administrative_code",
+        lawBlockId: "block-ak-22",
+        metadata: expect.objectContaining({
+          citation: expect.objectContaining({
+            source_channel: "citation_target",
+            citation_resolution_status: "resolved",
+          }),
+        }),
+      }),
+    );
+    expect(
+      result.results.filter((entry) => entry.metadata.citation?.source_channel === "citation_target"),
+    ).toHaveLength(1);
+    expect(
+      result.results.some(
+        (entry) =>
+          entry.lawBlockId !== "block-ak-22" &&
+          entry.metadata.citation?.source_channel === "citation_target",
+      ),
+    ).toBe(false);
+    expect(result.retrievalDebug?.citation_target_count).toBe(1);
+    expect(result.retrievalDebug?.citation_resolution).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          raw_citation: "22 ч.1 ак",
+          resolution_status: "resolved",
+          resolved_block_id: "block-ak-22",
+        }),
+      ]),
+    );
+  });
+
+  it("для 23.1 ПК ставит citation_target выше semantic hits", async () => {
+    const context = createRetrievalContext({
+      normalizedInput: "23.1 ПК",
+      intent: "law_explanation",
+    });
+
+    const result = await searchCurrentLawCorpusWithContext(
+      {
+        serverId: "server-1",
+        query: context.queryBreakdown.expanded_query,
+        limit: 12,
+        retrievalContext: context,
+      },
+      {
+        listCurrentLawBlocksByServer: vi.fn().mockResolvedValue([
+          createLawBlock({
+            id: "block-pk-23-1",
+            lawId: "law-pk",
+            lawKey: "procedural_code",
+            lawTitle: "Процессуальный кодекс",
+            topicUrl: "https://forum.gta5rp.com/threads/pk/",
+            blockText: "Статья 23.1 Порядок наложения штрафа.",
+            articleNumberNormalized: "23.1",
+          }),
+          createLawBlock({
+            id: "block-pk-ticket",
+            lawId: "law-pk",
+            lawKey: "procedural_code",
+            lawTitle: "Процессуальный кодекс",
+            topicUrl: "https://forum.gta5rp.com/threads/pk/",
+            blockText: "Статья 19. При тикете применяется процессуальный порядок.",
+            articleNumberNormalized: "19",
+          }),
+        ]),
+        now: () => new Date("2026-04-20T12:00:00.000Z"),
+      },
+    );
+
+    expect(result.results[0]?.lawBlockId).toBe("block-pk-23-1");
+    expect(result.results[0]?.metadata.citation?.source_channel).toBe("citation_target");
+  });
+
+  it("для 999 УК оставляет citation unresolved и не маркирует semantic hits как citation_target", async () => {
+    const context = createRetrievalContext({
+      normalizedInput: "999 УК",
+      intent: "law_explanation",
+    });
+
+    const result = await searchCurrentLawCorpusWithContext(
+      {
+        serverId: "server-1",
+        query: context.queryBreakdown.expanded_query,
+        limit: 12,
+        retrievalContext: context,
+      },
+      {
+        listCurrentLawBlocksByServer: vi.fn().mockResolvedValue([
+          createLawBlock({
+            id: "block-uk-84",
+            lawId: "law-uk",
+            lawKey: "criminal_code",
+            lawTitle: "Уголовный кодекс",
+            topicUrl: "https://forum.gta5rp.com/threads/uk/",
+            blockText: "Статья 84. Неисполнение обязательных правовых актов.",
+            articleNumberNormalized: "84",
+          }),
+        ]),
+        now: () => new Date("2026-04-20T12:00:00.000Z"),
+      },
+    );
+
+    expect(result.retrievalDebug?.citation_resolution).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          raw_citation: "999 ук",
+          resolution_status: "unresolved",
+          resolution_reason: "no_article",
+        }),
+      ]),
+    );
+    expect(result.retrievalDebug?.citation_target_count).toBe(0);
+    expect(
+      result.results.some((entry) => entry.metadata.citation?.source_channel === "citation_target"),
+    ).toBe(false);
+  });
+
+  it("для ст. 23 ч.1 п. «в» ПК сохраняет citation_target и point gap в diagnostics", async () => {
+    const context = createRetrievalContext({
+      normalizedInput: "ст. 23 ч.1 п. «в» ПК",
+      intent: "law_explanation",
+    });
+
+    const result = await searchCurrentLawCorpusWithContext(
+      {
+        serverId: "server-1",
+        query: context.queryBreakdown.expanded_query,
+        limit: 12,
+        retrievalContext: context,
+      },
+      {
+        listCurrentLawBlocksByServer: vi.fn().mockResolvedValue([
+          createLawBlock({
+            id: "block-pk-23",
+            lawId: "law-pk",
+            lawKey: "procedural_code",
+            lawTitle: "Процессуальный кодекс",
+            topicUrl: "https://forum.gta5rp.com/threads/pk/",
+            blockText: "Статья 23. ч. 1 Обязанности сотрудника, выполняющего задержание.",
+            articleNumberNormalized: "23",
+          }),
+          createLawBlock({
+            id: "block-fbr-23",
+            lawId: "law-fbr",
+            lawKey: "government_code",
+            lawTitle: "Закон о Федеральном бюро",
+            topicUrl: "https://forum.gta5rp.com/threads/fbr/",
+            blockText: "Статья 23. Полномочия подразделения.",
+            articleNumberNormalized: "23",
+          }),
+        ]),
+        now: () => new Date("2026-04-20T12:00:00.000Z"),
+      },
+    );
+
+    expect(result.results[0]?.lawBlockId).toBe("block-pk-23");
+    expect(result.results[0]?.metadata.citation).toMatchObject({
+      source_channel: "citation_target",
+      citation_resolution_status: "partially_supported",
+      citation_resolution_reason: "no_point_metadata",
+      citation_match_strength: "article_with_gap",
+    });
+    expect(result.retrievalDebug?.citation_partially_supported_count).toBe(1);
+    expect(result.retrievalDebug?.citation_resolution).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          raw_citation: "ст. 23 ч.1 п. «в» пк",
+          resolution_status: "partially_supported",
+          resolution_reason: "no_point_metadata",
+        }),
+      ]),
+    );
+  });
+
+  it("не меняет non-citation поведение и оставляет citation diagnostics пустыми", async () => {
+    const context = createRetrievalContext({
+      normalizedInput: "Можно ли задержать человека за маску?",
+      intent: "situation_analysis",
+    });
+
+    const result = await searchCurrentLawCorpusWithContext(
+      {
+        serverId: "server-1",
+        query: context.queryBreakdown.expanded_query,
+        limit: 12,
+        retrievalContext: context,
+      },
+      {
+        listCurrentLawBlocksByServer: vi.fn().mockResolvedValue([
+          createLawBlock({
+            id: "block-admin",
+            lawId: "law-admin",
+            lawKey: "administrative_code",
+            lawTitle: "Административный кодекс",
+            topicUrl: "https://forum.gta5rp.com/threads/admin/",
+            blockText: "Статья 18. Использование масок запрещено и влечёт штраф.",
+            articleNumberNormalized: "18",
+          }),
+          createLawBlock({
+            id: "block-procedure",
+            lawId: "law-procedure",
+            lawKey: "procedural_code",
+            lawTitle: "Процессуальный кодекс",
+            topicUrl: "https://forum.gta5rp.com/threads/procedure/",
+            blockText: "Статья 23.1. Допускается задержание и идентификация личности.",
+            articleNumberNormalized: "23.1",
+          }),
+        ]),
+        now: () => new Date("2026-04-20T12:00:00.000Z"),
+      },
+    );
+
+    expect(result.results[0]?.lawKey).toBe("administrative_code");
+    expect(result.retrievalDebug?.citation_target_count).toBe(0);
+    expect(result.retrievalDebug?.citation_resolution).toEqual([]);
+  });
+
+  it("дедуплицирует exact target и сохраняет source_channel citation_target", async () => {
+    const context = createRetrievalContext({
+      normalizedInput: "84 УК",
+      intent: "law_explanation",
+    });
+
+    const result = await searchCurrentLawCorpusWithContext(
+      {
+        serverId: "server-1",
+        query: context.queryBreakdown.expanded_query,
+        limit: 12,
+        retrievalContext: context,
+      },
+      {
+        listCurrentLawBlocksByServer: vi.fn().mockResolvedValue([
+          createLawBlock({
+            id: "block-uk-84",
+            lawId: "law-uk",
+            lawKey: "criminal_code",
+            lawTitle: "Уголовный кодекс",
+            topicUrl: "https://forum.gta5rp.com/threads/uk/",
+            blockText: "Статья 84. Неисполнение обязательных правовых актов.",
+            articleNumberNormalized: "84",
+          }),
+        ]),
+        now: () => new Date("2026-04-20T12:00:00.000Z"),
+      },
+    );
+
+    expect(result.results.filter((entry) => entry.lawBlockId === "block-uk-84")).toHaveLength(1);
+    expect(result.results[0]?.metadata.citation?.source_channel).toBe("citation_target");
+  });
+
+  it("добавляет same-law companions после citation_target и не выводит companions из другого закона", async () => {
+    const context = createRetrievalContext({
+      normalizedInput: "22 ч.1 АК",
+      intent: "law_explanation",
+    });
+
+    const result = await searchCurrentLawCorpusWithContext(
+      {
+        serverId: "server-1",
+        query: context.queryBreakdown.expanded_query,
+        limit: 12,
+        retrievalContext: context,
+      },
+      {
+        listCurrentLawBlocksByServer: vi.fn().mockResolvedValue([
+          createLawBlock({
+            id: "block-ak-22",
+            lawId: "law-ak",
+            lawKey: "administrative_code",
+            lawTitle: "Административный кодекс",
+            topicUrl: "https://forum.gta5rp.com/threads/ak/",
+            blockText: "Статья 22. ч. 1 Нарушение порядка.",
+            articleNumberNormalized: "22",
+          }),
+          createLawBlock({
+            id: "block-ak-next",
+            lawId: "law-ak",
+            lawKey: "administrative_code",
+            lawTitle: "Административный кодекс",
+            topicUrl: "https://forum.gta5rp.com/threads/ak/",
+            blockType: "unstructured",
+            blockOrder: 2,
+            blockTitle: "Комментарий",
+            blockText: "Комментарий к статье 22 и порядок применения.",
+          }),
+          createLawBlock({
+            id: "block-pk-22",
+            lawId: "law-pk",
+            lawKey: "procedural_code",
+            lawTitle: "Процессуальный кодекс",
+            topicUrl: "https://forum.gta5rp.com/threads/pk/",
+            blockText: "Статья 22. Другая статья другого закона.",
+            articleNumberNormalized: "22",
+          }),
+        ]),
+        now: () => new Date("2026-04-20T12:00:00.000Z"),
+      },
+    );
+
+    expect(result.results[0]?.metadata.citation?.source_channel).toBe("citation_target");
+    expect(result.results[1]?.metadata.citation?.source_channel).toBe("citation_companion");
+    expect(result.results[1]?.lawId).toBe("law-ak");
+    expect(
+      result.results.some(
+        (entry) =>
+          entry.metadata.citation?.source_channel === "citation_companion" && entry.lawId !== "law-ak",
+      ),
+    ).toBe(false);
+  });
 });
