@@ -316,6 +316,30 @@ export const LEGAL_SEMANTIC_ELIGIBILITY_KEYWORDS = {
     "предоставление сведений",
     "запрашиваемые сведения",
   ],
+  attorney_request_primary_subject_terms: [
+    "адвокатский запрос",
+    "официальный адвокатский запрос",
+  ],
+  attorney_request_primary_duty_terms: [
+    "должны дать ответ",
+    "обязанность ответить",
+    "обязан ответить",
+  ],
+  attorney_request_primary_deadline_terms: [
+    "срок ответа",
+    "один календарный день",
+    "в течение одного календарного дня",
+  ],
+  attorney_request_primary_response_terms: [
+    "ответ на запрос",
+  ],
+  attorney_request_primary_consequence_terms: [
+    "отказ в предоставлении сведений",
+    "основания отказа",
+    "нарушение сроков",
+    "нарушение срока ответа",
+    "влекут ответственность",
+  ],
   explicit_scope_markers: {
     department_specific_question: [
       "нацгвард",

@@ -452,6 +452,57 @@ function hasAttorneyRequestTerms(text: string) {
   return hasKeyword(text, LEGAL_SEMANTIC_ELIGIBILITY_KEYWORDS.attorney_request_terms);
 }
 
+function hasAttorneyRequestPrimarySubjectTerms(text: string) {
+  return hasKeyword(
+    text,
+    LEGAL_SEMANTIC_ELIGIBILITY_KEYWORDS.attorney_request_primary_subject_terms,
+  );
+}
+
+function hasAttorneyRequestPrimaryDutyTerms(text: string) {
+  return hasKeyword(text, LEGAL_SEMANTIC_ELIGIBILITY_KEYWORDS.attorney_request_primary_duty_terms);
+}
+
+function hasAttorneyRequestPrimaryDeadlineTerms(text: string) {
+  return hasKeyword(
+    text,
+    LEGAL_SEMANTIC_ELIGIBILITY_KEYWORDS.attorney_request_primary_deadline_terms,
+  );
+}
+
+function hasAttorneyRequestPrimaryResponseTerms(text: string) {
+  return hasKeyword(
+    text,
+    LEGAL_SEMANTIC_ELIGIBILITY_KEYWORDS.attorney_request_primary_response_terms,
+  );
+}
+
+function isStrongAttorneyRequestPrimaryRuleCandidate(input: {
+  candidate: LegalSelectionCandidate;
+  plan: LegalQueryPlan;
+  lawFamily: LawFamily;
+}) {
+  if (!input.plan.legal_anchors.includes("attorney_request")) {
+    return false;
+  }
+
+  if (input.lawFamily !== "advocacy_law" || !isArticleLike(input.candidate)) {
+    return false;
+  }
+
+  const text = buildCandidateSearchText(input.candidate);
+
+  if (!hasAttorneyRequestPrimarySubjectTerms(text)) {
+    return false;
+  }
+
+  return (
+    hasAttorneyRequestPrimaryDutyTerms(text) ||
+    hasAttorneyRequestPrimaryDeadlineTerms(text) ||
+    hasAttorneyRequestPrimaryResponseTerms(text)
+  );
+}
+
 function includesString(values: readonly string[], value: string) {
   return values.includes(value);
 }
@@ -514,6 +565,19 @@ function isResolvedCitationTargetCandidate(candidate: LegalSelectionCandidate) {
     (candidate.citationResolutionStatus === "resolved" ||
       candidate.citationResolutionStatus === "partially_supported")
   );
+}
+
+function normalizeNormRoleForSelection(input: {
+  candidate: LegalSelectionCandidate;
+  plan: LegalQueryPlan;
+  lawFamily: LawFamily;
+  baseRole: NormRole;
+}) {
+  if (isStrongAttorneyRequestPrimaryRuleCandidate(input)) {
+    return "primary_basis" as const;
+  }
+
+  return input.baseRole;
 }
 
 function isProcedurePrimaryIssueAligned(input: {
@@ -812,6 +876,15 @@ function evaluatePrimaryBasisEligibility<TCandidate extends LegalSelectionCandid
     input.lawFamily === "advocacy_law" &&
     hasAdvocateStatusQuestionSignal(normalizedQuestion) &&
     hasAttorneyRightsTerms(text);
+  const strongAttorneyRequestPrimaryRuleCandidate = isStrongAttorneyRequestPrimaryRuleCandidate({
+    candidate: input.candidate,
+    plan: input.plan,
+    lawFamily: input.lawFamily,
+  });
+  const missingAttorneyRequestSubjectMatch =
+    attorneyRequestProfileActive &&
+    input.lawFamily === "advocacy_law" &&
+    !hasAttorneyRequestTerms(text);
 
   if (resolvedCitationTarget && citationIssue) {
     if (!isArticleLike(input.candidate)) {
@@ -938,12 +1011,20 @@ function evaluatePrimaryBasisEligibility<TCandidate extends LegalSelectionCandid
     }
 
     if (input.lawFamily === "advocacy_law") {
+      if (strongAttorneyRequestPrimaryRuleCandidate) {
+        eligibleReasons.push("eligible_due_to_attorney_request_primary_rule");
+      }
+
       eligibleReasons.push("eligible_due_to_specific_primary_family");
     } else if (["government_code", "ethics_code", "administrative_code"].includes(input.lawFamily)) {
       weakReasons.push("weak_due_to_missing_preferred_family");
     } else {
       ineligibleReasons.push("ineligible_due_to_wrong_source_family");
     }
+  }
+
+  if (missingAttorneyRequestSubjectMatch) {
+    ineligibleReasons.push("missing_anchor_subject_match");
   }
 
   if (
@@ -1003,7 +1084,7 @@ function evaluatePrimaryBasisEligibility<TCandidate extends LegalSelectionCandid
     }
   }
 
-  if (familyPreferredByAnyProfile) {
+  if (familyPreferredByAnyProfile && !missingAttorneyRequestSubjectMatch) {
     eligibleReasons.push("eligible_due_to_specific_primary_family");
   }
 
@@ -1038,7 +1119,13 @@ export function scoreLegalCandidate<TCandidate extends LegalSelectionCandidate>(
   plan: LegalQueryPlan;
 }) {
   const lawFamily = classifyLawFamily(input.candidate);
-  const normRole = classifyNormRole(input.candidate);
+  const baseNormRole = classifyNormRole(input.candidate);
+  const normRole = normalizeNormRoleForSelection({
+    candidate: input.candidate,
+    plan: input.plan,
+    lawFamily,
+    baseRole: baseNormRole,
+  });
   const matchedAnchors = input.plan.legal_anchors.filter((anchor) =>
     matchesAnchor(anchor, input.candidate),
   );

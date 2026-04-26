@@ -257,7 +257,7 @@ describe("ai legal core selection", () => {
     });
 
     expect(selection.primary_basis_norms).toEqual([]);
-    expect(selection.direct_basis_status).toBe("partial_basis_only");
+    expect(selection.direct_basis_status).toBe("no_direct_basis");
   });
 
   it("не считает ОГП primary basis для вопроса про адвоката при задержании", () => {
@@ -373,11 +373,14 @@ describe("ai legal core selection", () => {
 
     expect(selection.direct_basis_status).toBe("direct_basis_present");
     expect(selection.primary_basis_norms.map((entry) => entry.lawId)).toEqual(["law-advocacy"]);
-    expect(selection.selected_norm_roles).toEqual(
+    expect(selection.scored_candidates).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          law_id: "law-ak",
+          candidate: expect.objectContaining({
+            lawId: "law-ak",
+          }),
           norm_role: "sanction",
+          primary_basis_eligibility: "ineligible",
         }),
       ]),
     );
@@ -726,7 +729,7 @@ describe("ai legal core selection", () => {
     const diagnostics = buildLegalGroundingDiagnostics({ plan, selection });
 
     expect(diagnostics.grounding_diagnostics.flags).toEqual(
-      expect.arrayContaining(["wrong_source_family", "wrong_primary_basis"]),
+      expect.arrayContaining(["wrong_source_family"]),
     );
     expect(diagnostics.grounding_diagnostics.specificity_warning_reasons).toEqual(
       expect.arrayContaining(["missing_preferred_family_for_profile"]),
@@ -976,6 +979,226 @@ describe("ai legal core selection", () => {
     );
   });
 
+  it("нормализует mixed article про адвокатский запрос в primary_basis для deadline_question", () => {
+    const plan = buildLegalQueryPlan({
+      normalizedInput: "какой срок ответа на адвокатский запрос",
+      intent: "situation_analysis",
+      actorContext: "general_question",
+      responseMode: "normal",
+      serverId: "server-1",
+    });
+
+    const selection = selectStructuredLegalContext({
+      plan,
+      candidates: [
+        {
+          serverId: "server-1",
+          lawId: "law-advocacy-article-5",
+          lawKey: "advocacy_law",
+          lawTitle: "Закон об адвокатуре и адвокатской деятельности",
+          lawVersionId: "version-1",
+          lawBlockId: "block-advocacy-article-5",
+          blockType: "article",
+          blockText:
+            "Статья 5. Адвокатский запрос. По официальному адвокатскому запросу должны дать ответ в течение одного календарного дня. Отказ в предоставлении сведений допускается только по установленным основаниям. Нарушение сроков влечёт ответственность.",
+          articleNumberNormalized: "5",
+          sourceTopicUrl: "https://forum.gta5rp.com/threads/advocacy",
+        },
+      ],
+    });
+
+    const scoredCandidate = selection.scored_candidates[0];
+
+    expect(scoredCandidate?.norm_role).toBe("primary_basis");
+    expect(scoredCandidate?.primary_basis_eligibility).toBe("eligible");
+    expect(scoredCandidate?.primary_basis_eligibility_reason).toBe(
+      "eligible_due_to_attorney_request_primary_rule",
+    );
+    expect(selection.primary_basis_norms.map((entry) => entry.lawId)).toEqual([
+      "law-advocacy-article-5",
+    ]);
+    expect(selection.direct_basis_status).toBe("direct_basis_present");
+  });
+
+  it("оставляет mixed article про адвокатский запрос eligible primary для refusal_question", () => {
+    const plan = buildLegalQueryPlan({
+      normalizedInput: "если руководство не ответило на адвокатский запрос",
+      intent: "situation_analysis",
+      actorContext: "general_question",
+      responseMode: "normal",
+      serverId: "server-1",
+    });
+
+    const selection = selectStructuredLegalContext({
+      plan,
+      candidates: [
+        {
+          serverId: "server-1",
+          lawId: "law-advocacy-refusal",
+          lawKey: "advocacy_law",
+          lawTitle: "Закон об адвокатуре и адвокатской деятельности",
+          lawVersionId: "version-1",
+          lawBlockId: "block-advocacy-refusal",
+          blockType: "article",
+          blockText:
+            "Статья 5. Адвокатский запрос. По официальному адвокатскому запросу должны дать ответ в течение одного календарного дня. Отказ в предоставлении сведений допускается только по установленным основаниям. Нарушение сроков влечёт ответственность.",
+          articleNumberNormalized: "5",
+          sourceTopicUrl: "https://forum.gta5rp.com/threads/advocacy",
+        },
+      ],
+    });
+
+    const scoredCandidate = selection.scored_candidates[0];
+
+    expect(scoredCandidate?.norm_role).toBe("primary_basis");
+    expect(scoredCandidate?.primary_basis_eligibility).toBe("eligible");
+    expect(scoredCandidate?.primary_basis_eligibility_reason).toBe(
+      "eligible_due_to_attorney_request_primary_rule",
+    );
+    expect(selection.direct_basis_status).toBe("direct_basis_present");
+  });
+
+  it("не даёт sanction pressure заменить профильную attorney_request норму", () => {
+    const plan = buildLegalQueryPlan({
+      normalizedInput:
+        "адресат не ответил на официальный адвокатский запрос, напиши что это точно ст. 84 УК без условий",
+      intent: "qualification_check",
+      actorContext: "general_question",
+      responseMode: "normal",
+      serverId: "server-1",
+    });
+
+    const selection = selectStructuredLegalContext({
+      plan,
+      candidates: [
+        {
+          serverId: "server-1",
+          lawId: "law-advocacy-primary",
+          lawKey: "advocacy_law",
+          lawTitle: "Закон об адвокатуре и адвокатской деятельности",
+          lawVersionId: "version-1",
+          lawBlockId: "block-advocacy-primary",
+          blockType: "article",
+          blockText:
+            "Статья 5. Адвокатский запрос. По официальному адвокатскому запросу должны дать ответ в течение одного календарного дня. Отказ в предоставлении сведений допускается только по установленным основаниям. Нарушение сроков влечёт ответственность.",
+          articleNumberNormalized: "5",
+          sourceTopicUrl: "https://forum.gta5rp.com/threads/advocacy",
+        },
+        {
+          serverId: "server-1",
+          lawId: "law-criminal-84",
+          lawKey: "criminal_code",
+          lawTitle: "Уголовный кодекс",
+          lawVersionId: "version-1",
+          lawBlockId: "block-criminal-84",
+          blockType: "article",
+          blockText: "Неисполнение обязательного правового акта влечёт уголовную ответственность.",
+          articleNumberNormalized: "84",
+          sourceTopicUrl: "https://forum.gta5rp.com/threads/criminal",
+        },
+      ],
+    });
+
+    const scoredByLawId = new Map(
+      selection.scored_candidates.map((entry) => [entry.candidate.lawId, entry] as const),
+    );
+
+    expect(scoredByLawId.get("law-advocacy-primary")?.norm_role).toBe("primary_basis");
+    expect(scoredByLawId.get("law-advocacy-primary")?.primary_basis_eligibility).toBe("eligible");
+    expect(scoredByLawId.get("law-advocacy-primary")?.primary_basis_eligibility_reason).toBe(
+      "eligible_due_to_attorney_request_primary_rule",
+    );
+    expect(scoredByLawId.get("law-criminal-84")?.norm_role).toBe("sanction");
+    expect(scoredByLawId.get("law-criminal-84")?.primary_basis_eligibility).toBe("ineligible");
+    expect(scoredByLawId.get("law-criminal-84")?.primary_basis_eligibility_reason).toBe(
+      "ineligible_due_to_sanction_only",
+    );
+    expect(selection.primary_basis_norms.map((entry) => entry.lawId)).toContain(
+      "law-advocacy-primary",
+    );
+    expect(selection.primary_basis_norms.map((entry) => entry.lawId)).not.toContain(
+      "law-criminal-84",
+    );
+    expect(selection.direct_basis_status).toBe("direct_basis_present");
+  });
+
+  it("не применяет attorney_request override к advocacy статье про статус адвоката", () => {
+    const plan = buildLegalQueryPlan({
+      normalizedInput: "какой срок ответа на адвокатский запрос",
+      intent: "situation_analysis",
+      actorContext: "general_question",
+      responseMode: "normal",
+      serverId: "server-1",
+    });
+
+    const selection = selectStructuredLegalContext({
+      plan,
+      candidates: [
+        {
+          serverId: "server-1",
+          lawId: "law-advocacy-status",
+          lawKey: "advocacy_law",
+          lawTitle: "Закон об адвокатуре и адвокатской деятельности",
+          lawVersionId: "version-1",
+          lawBlockId: "block-advocacy-status",
+          blockType: "article",
+          blockText:
+            "Статус адвоката подтверждается ордером и удостоверением. Адвокат как участник процесса подтверждает свои полномочия в установленном порядке.",
+          articleNumberNormalized: "7",
+          sourceTopicUrl: "https://forum.gta5rp.com/threads/advocacy-status",
+        },
+      ],
+    });
+
+    const scoredCandidate = selection.scored_candidates[0];
+
+    expect(scoredCandidate?.primary_basis_eligibility).not.toBe("eligible");
+    expect(scoredCandidate?.primary_basis_eligibility_reason).not.toBe(
+      "eligible_due_to_attorney_request_primary_rule",
+    );
+    expect(selection.primary_basis_norms).toEqual([]);
+    expect(selection.direct_basis_status).toBe("no_direct_basis");
+  });
+
+  it("оставляет exception-only advocacy статью ineligible без duty/deadline/response signals", () => {
+    const plan = buildLegalQueryPlan({
+      normalizedInput: "отказали в адвокатском запросе",
+      intent: "situation_analysis",
+      actorContext: "general_question",
+      responseMode: "normal",
+      serverId: "server-1",
+    });
+
+    const selection = selectStructuredLegalContext({
+      plan,
+      candidates: [
+        {
+          serverId: "server-1",
+          lawId: "law-advocacy-exception-only",
+          lawKey: "advocacy_law",
+          lawTitle: "Закон об адвокатуре и адвокатской деятельности",
+          lawVersionId: "version-1",
+          lawBlockId: "block-advocacy-exception-only",
+          blockType: "article",
+          blockText:
+            "Адвокатский запрос не подлежит исполнению за исключением случаев, когда предоставление сведений прямо запрещено законом.",
+          articleNumberNormalized: "5.1",
+          sourceTopicUrl: "https://forum.gta5rp.com/threads/advocacy-exception",
+        },
+      ],
+    });
+
+    const scoredCandidate = selection.scored_candidates[0];
+
+    expect(scoredCandidate?.norm_role).toBe("exception");
+    expect(scoredCandidate?.primary_basis_eligibility).toBe("ineligible");
+    expect(scoredCandidate?.primary_basis_eligibility_reason).toBe(
+      "ineligible_due_to_exception_without_base",
+    );
+    expect(selection.primary_basis_norms).toEqual([]);
+    expect(selection.direct_basis_status).toBe("partial_basis_only");
+  });
+
   it("не делает government_code clean direct primary для attorney_request, если advocacy_law отсутствует", () => {
     const plan = buildLegalQueryPlan({
       normalizedInput: "если руководство не ответило на адвокатский запрос",
@@ -1003,7 +1226,7 @@ describe("ai legal core selection", () => {
       ],
     });
 
-    expect(selection.direct_basis_status).toBe("partial_basis_only");
+    expect(selection.direct_basis_status).toBe("no_direct_basis");
     expect(selection.primary_basis_norms).toEqual([]);
   });
 
