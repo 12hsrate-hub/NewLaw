@@ -37,7 +37,7 @@ describe("ai legal core test scenarios registry", () => {
     );
   });
 
-  it("поддерживает suite-oriented groups и наполняет их несколькими вариантами сценариев", () => {
+  it("поддерживает suite-oriented groups и наполняет active suites репрезентативными сценариями", () => {
     const suiteGroups = getAILegalCoreScenarioSuiteGroups();
 
     expect(suiteGroups).toEqual(
@@ -54,114 +54,95 @@ describe("ai legal core test scenarios registry", () => {
     );
 
     expect(readScenarioIds("mask_and_identity")).toEqual(
-      expect.arrayContaining([
-        "general-mask-detention",
-        "self-mask-detention-complaint",
-        "alt-mask-formalize-person",
-        "hallucination-mask-invent-article",
-      ]),
+      ["general-mask-detention", "self-mask-detention-complaint"],
     );
     expect(readScenarioVariants("mask_and_identity")).toEqual(
-      expect.arrayContaining(["general_short", "self", "alt_phrasing", "hallucination_probe"]),
+      expect.arrayContaining(["general_short", "self"]),
     );
 
     expect(readScenarioIds("bodycam_and_recording")).toEqual(
       expect.arrayContaining([
         "general-no-bodycam",
-        "self-no-detention-recording",
-        "trustor-no-bodycam-record",
         "alt-bodycam-recording-duty",
+        "attorney-requested-detention-record",
+        "citizen-requested-detention-record",
       ]),
     );
     expect(readScenarioVariants("bodycam_and_recording")).toEqual(
-      expect.arrayContaining(["general_short", "self", "representative", "alt_phrasing"]),
+      expect.arrayContaining(["general_short", "representative", "alt_phrasing"]),
     );
 
     expect(readScenarioIds("attorney_rights")).toEqual(
-      expect.arrayContaining([
-        "general-no-lawyer-on-detention",
-        "self-no-lawyer-on-detention",
-        "trustor-no-lawyer-on-detention",
+      [
         "alt-attorney-admit-defender-on-detention",
-      ]),
+        "self-no-lawyer-on-detention",
+        "trustor-no-call",
+      ],
     );
     expect(readScenarioVariants("attorney_rights")).toEqual(
-      expect.arrayContaining(["general_short", "self", "representative", "alt_phrasing"]),
+      expect.arrayContaining(["self", "representative", "alt_phrasing"]),
     );
 
     expect(readScenarioIds("attorney_request")).toEqual(
-      expect.arrayContaining([
+      [
         "general-no-response-to-attorney-request",
-        "trustor-attorney-request-no-response",
         "alt-attorney-request-deadline",
         "hallucination-attorney-request-crime",
-      ]),
+      ],
     );
     expect(readScenarioVariants("attorney_request")).toEqual(
       expect.arrayContaining([
         "general_short",
-        "representative",
         "alt_phrasing",
         "hallucination_probe",
       ]),
     );
 
     expect(readScenarioIds("detention_procedure")).toEqual(
-      expect.arrayContaining([
+      [
         "general-when-detention-allowed",
         "self-detained-without-reason",
-        "alt-detention-state-reason",
-        "self-just-locked-up",
-      ]),
+        "insufficient-illegal-detention",
+      ],
     );
     expect(readScenarioVariants("detention_procedure")).toEqual(
-      expect.arrayContaining(["general_short", "self", "alt_phrasing", "incomplete_facts"]),
+      expect.arrayContaining(["general_short", "self", "incomplete_facts"]),
     );
 
     expect(readScenarioIds("bad_input_and_slang")).toEqual(
-      expect.arrayContaining([
-        "slang-took-me-for-nothing",
-        "slang-trustor-no-bodycam",
-        "slang-kpz",
-      ]),
+      ["slang-took-me-for-nothing", "slang-trustor-no-bodycam"],
     );
     expect(readScenarioVariants("bad_input_and_slang")).toEqual(
       expect.arrayContaining(["slang"]),
     );
 
     expect(readScenarioIds("hallucination_pressure")).toEqual(
-      expect.arrayContaining([
-        "hallucination-invent-article",
-        "hallucination-add-bodycam",
-        "hallucination-definitely-guilty",
-        "hallucination-add-violence",
-      ]),
+      ["hallucination-add-bodycam", "hallucination-add-violence"],
     );
     expect(readScenarioVariants("hallucination_pressure")).toEqual(
       expect.arrayContaining(["hallucination_probe"]),
     );
 
-    expect(readScenarioIds("mask_and_identity")).toHaveLength(5);
+    expect(readScenarioIds("mask_and_identity")).toHaveLength(2);
     expect(readScenarioIds("bodycam_and_recording")).toHaveLength(4);
-    expect(readScenarioIds("attorney_rights")).toHaveLength(5);
-    expect(readScenarioIds("attorney_request")).toHaveLength(4);
-    expect(readScenarioIds("detention_procedure")).toHaveLength(5);
-    expect(readScenarioIds("bad_input_and_slang")).toHaveLength(5);
-    expect(readScenarioIds("hallucination_pressure")).toHaveLength(4);
+    expect(readScenarioIds("attorney_rights")).toHaveLength(3);
+    expect(readScenarioIds("attorney_request")).toHaveLength(3);
+    expect(readScenarioIds("detention_procedure")).toHaveLength(3);
+    expect(readScenarioIds("bad_input_and_slang")).toHaveLength(2);
+    expect(readScenarioIds("hallucination_pressure")).toHaveLength(2);
   });
 
   it("сохраняет expectationProfile для ключевых suite groups и не утверждает runtime NormBundle", () => {
     const maskScenario = getAILegalCoreTestScenarioById("general-mask-detention");
-    const bodycamScenario = getAILegalCoreTestScenarioById("general-no-bodycam");
-    const attorneyRightsScenario = getAILegalCoreTestScenarioById(
-      "general-no-lawyer-on-detention",
-    );
+    const bodycamScenario = getAILegalCoreTestScenarioById("attorney-requested-detention-record");
+    const attorneyRightsScenario = getAILegalCoreTestScenarioById("self-no-lawyer-on-detention");
     const attorneyRequestScenario = getAILegalCoreTestScenarioById(
       "general-no-response-to-attorney-request",
     );
     const detentionScenario = getAILegalCoreTestScenarioById("general-when-detention-allowed");
     const slangScenario = getAILegalCoreTestScenarioById("slang-took-me-for-nothing");
     const otherServerScenario = getAILegalCoreTestScenarioById("general-attorney-request-other-server");
+    const trustorNoCallScenario = getAILegalCoreTestScenarioById("trustor-no-call");
 
     expect(maskScenario).toMatchObject({
       suiteGroup: "mask_and_identity",
@@ -238,6 +219,14 @@ describe("ai legal core test scenarios registry", () => {
       }),
     });
 
+    expect(trustorNoCallScenario).toMatchObject({
+      suiteGroup: "attorney_rights",
+      expectationProfile: expect.objectContaining({
+        requiredLawFamilies: ["procedural_code"],
+        forbiddenPrimaryBasis: [expect.objectContaining({ lawFamily: "advocacy_law" })],
+      }),
+    });
+
     expect(maskScenario?.expectationProfile?.expectedNormBundle).toBeUndefined();
   });
 
@@ -247,5 +236,48 @@ describe("ai legal core test scenarios registry", () => {
     expect(scenario?.expectationProfile).toMatchObject({
       requiredCompanionRelations: ["procedure_companion"],
     });
+  });
+
+  it("деактивированные сценарии сохраняют compatibility по id, но не попадают в active suite selection", () => {
+    const deactivatedScenarioIds = [
+      "trustor-attorney-request-no-response",
+      "self-no-detention-recording",
+      "trustor-no-bodycam-record",
+      "general-no-lawyer-on-detention",
+      "trustor-no-lawyer-on-detention",
+      "alt-detention-state-reason",
+      "self-just-locked-up",
+      "alt-mask-formalize-person",
+      "trustor-mask-ogp",
+      "hallucination-mask-invent-article",
+      "slang-locked-me-up",
+      "slang-trustor-article",
+      "slang-kpz",
+      "hallucination-invent-article",
+      "hallucination-definitely-guilty",
+    ];
+
+    for (const scenarioId of deactivatedScenarioIds) {
+      expect(getAILegalCoreTestScenarioById(scenarioId)).toMatchObject({
+        id: scenarioId,
+        isActive: false,
+      });
+    }
+
+    expect(readScenarioIds("attorney_request")).not.toContain("trustor-attorney-request-no-response");
+    expect(readScenarioIds("bodycam_and_recording")).not.toContain("self-no-detention-recording");
+    expect(readScenarioIds("bodycam_and_recording")).not.toContain("trustor-no-bodycam-record");
+    expect(readScenarioIds("attorney_rights")).not.toContain("general-no-lawyer-on-detention");
+    expect(readScenarioIds("attorney_rights")).not.toContain("trustor-no-lawyer-on-detention");
+    expect(readScenarioIds("detention_procedure")).not.toContain("alt-detention-state-reason");
+    expect(readScenarioIds("detention_procedure")).not.toContain("self-just-locked-up");
+    expect(readScenarioIds("mask_and_identity")).not.toContain("alt-mask-formalize-person");
+    expect(readScenarioIds("mask_and_identity")).not.toContain("trustor-mask-ogp");
+    expect(readScenarioIds("mask_and_identity")).not.toContain("hallucination-mask-invent-article");
+    expect(readScenarioIds("bad_input_and_slang")).not.toContain("slang-locked-me-up");
+    expect(readScenarioIds("bad_input_and_slang")).not.toContain("slang-trustor-article");
+    expect(readScenarioIds("bad_input_and_slang")).not.toContain("slang-kpz");
+    expect(readScenarioIds("hallucination_pressure")).not.toContain("hallucination-invent-article");
+    expect(readScenarioIds("hallucination_pressure")).not.toContain("hallucination-definitely-guilty");
   });
 });

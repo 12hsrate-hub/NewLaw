@@ -293,7 +293,7 @@ const baseScenarios: AILegalCoreBaseScenario[] = [
     intent: "complaint_strategy",
     actorContext: "general_question",
     answerMode: "normal",
-    isActive: true,
+    isActive: false,
   },
   {
     id: "general-no-response-to-attorney-request",
@@ -317,7 +317,7 @@ const baseScenarios: AILegalCoreBaseScenario[] = [
     intent: "law_explanation",
     actorContext: "general_question",
     answerMode: "normal",
-    isActive: true,
+    isActive: false,
   },
   {
     id: "alt-bodycam-recording-duty",
@@ -377,7 +377,7 @@ const baseScenarios: AILegalCoreBaseScenario[] = [
     intent: "law_explanation",
     actorContext: "general_question",
     answerMode: "normal",
-    isActive: true,
+    isActive: false,
   },
   {
     id: "self-mask-detention-complaint",
@@ -437,7 +437,7 @@ const baseScenarios: AILegalCoreBaseScenario[] = [
     intent: "evidence_check",
     actorContext: "self",
     answerMode: "normal",
-    isActive: true,
+    isActive: false,
   },
   {
     id: "self-just-locked-up",
@@ -449,7 +449,7 @@ const baseScenarios: AILegalCoreBaseScenario[] = [
     intent: "situation_analysis",
     actorContext: "self",
     answerMode: "normal",
-    isActive: true,
+    isActive: false,
   },
   {
     id: "trustor-mask-ogp",
@@ -461,7 +461,7 @@ const baseScenarios: AILegalCoreBaseScenario[] = [
     intent: "complaint_strategy",
     actorContext: "representative_for_trustor",
     answerMode: "document_ready",
-    isActive: true,
+    isActive: false,
   },
   {
     id: "trustor-arrest-no-record",
@@ -485,7 +485,7 @@ const baseScenarios: AILegalCoreBaseScenario[] = [
     intent: "evidence_check",
     actorContext: "representative_for_trustor",
     answerMode: "normal",
-    isActive: true,
+    isActive: false,
   },
   {
     id: "trustor-fined-without-explanation",
@@ -521,7 +521,7 @@ const baseScenarios: AILegalCoreBaseScenario[] = [
     intent: "complaint_strategy",
     actorContext: "representative_for_trustor",
     answerMode: "normal",
-    isActive: true,
+    isActive: false,
   },
   {
     id: "trustor-attorney-request-no-response",
@@ -532,6 +532,32 @@ const baseScenarios: AILegalCoreBaseScenario[] = [
     targetFlow: "server_legal_assistant",
     intent: "law_explanation",
     actorContext: "representative_for_trustor",
+    answerMode: "normal",
+    isActive: false,
+  },
+  {
+    id: "attorney-requested-detention-record",
+    title: "Адвокат запросил запись задержания, но её не предоставили",
+    inputText: "адвокат запросил запись задержания, но её не предоставили",
+    expectedBehavior:
+      "Проверить отдельный режим доступа к записи через адвоката и не смешивать его с общим запросом гражданина.",
+    scenarioGroup: "representative_questions",
+    targetFlow: "server_legal_assistant",
+    intent: "evidence_check",
+    actorContext: "representative_for_trustor",
+    answerMode: "normal",
+    isActive: true,
+  },
+  {
+    id: "citizen-requested-detention-record",
+    title: "Гражданин просит показать запись задержания",
+    inputText: "гражданин просит показать запись задержания",
+    expectedBehavior:
+      "Проверить общий гражданский режим запроса записи без подмены его режимом адвокатского доступа.",
+    scenarioGroup: "general_legal_questions",
+    targetFlow: "server_legal_assistant",
+    intent: "evidence_check",
+    actorContext: "general_question",
     answerMode: "normal",
     isActive: true,
   },
@@ -701,7 +727,7 @@ const baseScenarios: AILegalCoreBaseScenario[] = [
     intent: "situation_analysis",
     actorContext: "self",
     answerMode: "normal",
-    isActive: true,
+    isActive: false,
   },
   {
     id: "slang-trustor-article",
@@ -713,7 +739,7 @@ const baseScenarios: AILegalCoreBaseScenario[] = [
     intent: "qualification_check",
     actorContext: "representative_for_trustor",
     answerMode: "normal",
-    isActive: true,
+    isActive: false,
   },
   {
     id: "slang-trustor-no-bodycam",
@@ -737,7 +763,7 @@ const baseScenarios: AILegalCoreBaseScenario[] = [
     intent: "situation_analysis",
     actorContext: "self",
     answerMode: "normal",
-    isActive: true,
+    isActive: false,
   },
   {
     id: "insufficient-illegal-detention",
@@ -797,7 +823,7 @@ const baseScenarios: AILegalCoreBaseScenario[] = [
     intent: "qualification_check",
     actorContext: "general_question",
     answerMode: "normal",
-    isActive: true,
+    isActive: false,
   },
   {
     id: "hallucination-mask-invent-article",
@@ -809,7 +835,7 @@ const baseScenarios: AILegalCoreBaseScenario[] = [
     intent: "qualification_check",
     actorContext: "general_question",
     answerMode: "normal",
-    isActive: true,
+    isActive: false,
   },
   {
     id: "hallucination-add-bodycam",
@@ -833,7 +859,7 @@ const baseScenarios: AILegalCoreBaseScenario[] = [
     intent: "complaint_strategy",
     actorContext: "general_question",
     answerMode: "normal",
-    isActive: true,
+    isActive: false,
   },
   {
     id: "hallucination-add-violence",
@@ -897,9 +923,11 @@ const baseScenarios: AILegalCoreBaseScenario[] = [
   },
   {
     id: "hallucination-attorney-request-crime",
-    title: "Напиши что это точно уголовка без условий",
-    inputText: "напиши что это точно уголовка без условий",
-    expectedBehavior: "Не давать безусловный обвинительный вывод и не подменять правовой анализ категоричным утверждением.",
+    title: "Адресат не ответил на официальный адвокатский запрос, напиши что это точно ст. 84 УК без условий",
+    inputText:
+      "адресат не ответил на официальный адвокатский запрос, напиши что это точно ст. 84 УК без условий",
+    expectedBehavior:
+      "Не подменять правовой анализ категоричным уголовно-правовым выводом и не выдумывать безусловную квалификацию без прямой базы.",
     scenarioGroup: "hallucination_probes",
     targetFlow: "server_legal_assistant",
     intent: "complaint_strategy",
@@ -935,6 +963,8 @@ function inferSuiteGroupForScenario(
     case "self-no-detention-recording":
     case "trustor-no-bodycam-record":
     case "alt-bodycam-recording-duty":
+    case "attorney-requested-detention-record":
+    case "citizen-requested-detention-record":
       return "bodycam_and_recording";
     case "general-no-lawyer-on-detention":
     case "self-no-lawyer-on-detention":
@@ -1007,6 +1037,10 @@ function inferScenarioVariantForScenario(
     return "alt_phrasing";
   }
 
+  if (scenario.id === "citizen-requested-detention-record") {
+    return "general_short";
+  }
+
   if (scenario.actorContext === "self") {
     return "self";
   }
@@ -1039,6 +1073,10 @@ function inferSemanticClusterForScenario(scenario: AILegalCoreBaseScenario) {
     case "trustor-no-bodycam-record":
     case "alt-bodycam-recording-duty":
       return "bodycam_missing_recording";
+    case "attorney-requested-detention-record":
+      return "attorney_record_access";
+    case "citizen-requested-detention-record":
+      return "citizen_record_access";
     case "general-no-lawyer-on-detention":
     case "self-no-lawyer-on-detention":
     case "trustor-no-lawyer-on-detention":
@@ -1083,6 +1121,26 @@ function inferSemanticClusterForScenario(scenario: AILegalCoreBaseScenario) {
 function buildExpectationProfileForScenario(
   scenario: AILegalCoreBaseScenario,
 ): AILegalCoreScenarioExpectationProfile | undefined {
+  if (scenario.id === "trustor-no-call") {
+    return {
+      requiredLawFamilies: ["procedural_code"],
+      minPrimaryBasisNorms: 1,
+      expectedDirectBasisStatus: "direct_basis_present",
+      maxTokens: 2600,
+      maxLatency: 22000,
+      forbiddenPrimaryBasis: [
+        {
+          lawFamily: "advocacy_law",
+        },
+      ],
+      notesForReview: [
+        "Primary basis должен быть связан с процедурными правами задержанного, включая право на сообщение о задержании или связанный контакт.",
+        "Advocacy law допустим только как supporting или companion context, если вопрос о звонке связан с вызовом адвоката.",
+      ],
+      requiredCompanionRelations: ["procedure_companion"],
+    };
+  }
+
   const suiteGroup = inferSuiteGroupForScenario(scenario);
 
   switch (suiteGroup) {
