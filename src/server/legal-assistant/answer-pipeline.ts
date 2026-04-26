@@ -7,10 +7,11 @@ import {
   type ProxyAttemptTrace,
   requestAssistantProxyCompletion,
 } from "@/server/legal-assistant/ai-proxy";
+import { selectQuestionAwareSourceExcerpt } from "@/server/legal-assistant/source-excerpt";
 import { buildAssistantRetrievalQuery } from "@/server/legal-core/assistant-retrieval-query";
 import { buildLegalGroundingDiagnostics } from "@/server/legal-core/legal-diagnostics";
 import { normalizeLegalInputText } from "@/server/legal-core/input-normalization";
-import { buildLegalQueryPlan } from "@/server/legal-core/legal-query-plan";
+import { buildLegalQueryPlan, type LegalQueryPlan } from "@/server/legal-core/legal-query-plan";
 import {
   selectStructuredLegalContext,
   type SelectedNormRole,
@@ -189,6 +190,17 @@ type AssistantGenerationContext = {
   precedent_sources: AssistantPromptPrecedentContextEntry[];
   law_context_text: string;
   precedent_context_text: string;
+  generation_excerpt_diagnostics: Array<{
+    law_id: string;
+    law_version: string;
+    law_block_id: string;
+    generation_excerpt_strategy: "front_excerpt" | "issue_targeted_segment" | "issue_targeted_window";
+    generation_excerpt_matched_terms: string[];
+    generation_excerpt_was_targeted: boolean;
+    generation_excerpt_trimmed: boolean;
+    generation_excerpt_start: number;
+    generation_excerpt_end: number;
+  }>;
   generation_source_budget: number;
   generation_sources_count: number;
   generation_excerpt_budget: number;
@@ -830,6 +842,26 @@ function clampAssistantPromptExcerpt(value: string, limit: number) {
   };
 }
 
+function buildAssistantLawSourceExcerpt(input: {
+  blockText: string;
+  budget: number;
+  plan: LegalQueryPlan;
+  lawFamily: SelectedNormRole["law_family"] | null;
+  normRole: SelectedNormRole["norm_role"] | null;
+  articleNumber: string | null;
+}) {
+  return selectQuestionAwareSourceExcerpt({
+    blockText: input.blockText,
+    primaryLegalIssueType: input.plan.primaryLegalIssueType,
+    normalizedInput: input.plan.normalized_input,
+    legalAnchors: input.plan.legal_anchors,
+    lawFamily: input.lawFamily,
+    normRole: input.normRole,
+    articleNumber: input.articleNumber,
+    maxChars: input.budget,
+  });
+}
+
 function shouldIncludePrecedentsInGenerationContext(input: {
   responseMode: LegalCoreResponseMode;
   retrieval: RetrievalResult;
@@ -855,6 +887,7 @@ function buildAssistantGenerationContext(input: {
   lawSelection: AssistantLawSelection;
   responseMode: LegalCoreResponseMode;
   internalExecutionMode: AssistantInternalExecutionMode;
+  plan: LegalQueryPlan;
 }) {
   const budget = getAssistantGenerationBudget({
     responseMode: input.responseMode,
@@ -902,6 +935,7 @@ function buildAssistantGenerationContext(input: {
   let generationContextTrimmed = availableLawSources.length > lawSources.length;
   const lawContextParts: string[] = [];
   const includedLawSources: AssistantPromptLawContextEntry[] = [];
+  const generationExcerptDiagnostics: AssistantGenerationContext["generation_excerpt_diagnostics"] = [];
 
   for (const [index, result] of lawSources.entries()) {
     if (remainingContextChars <= 0) {
@@ -913,11 +947,29 @@ function buildAssistantGenerationContext(input: {
       budget.max_excerpt_chars_per_source,
       remainingContextChars,
     );
-    const excerpt = clampAssistantPromptExcerpt(result.blockText, excerptBudget);
+    const excerpt = buildAssistantLawSourceExcerpt({
+      blockText: result.blockText,
+      budget: excerptBudget,
+      plan: input.plan,
+      lawFamily: result.selected_role?.law_family ?? null,
+      normRole: result.selected_role?.norm_role ?? null,
+      articleNumber: result.articleNumberNormalized ?? null,
+    });
     remainingContextChars -= excerpt.text.length;
     generationContextChars += excerpt.text.length;
     generationContextTrimmed = generationContextTrimmed || excerpt.trimmed;
     includedLawSources.push(result);
+    generationExcerptDiagnostics.push({
+      law_id: result.lawId,
+      law_version: result.lawVersionId,
+      law_block_id: result.lawBlockId,
+      generation_excerpt_strategy: excerpt.strategy,
+      generation_excerpt_matched_terms: excerpt.matchedTerms,
+      generation_excerpt_was_targeted: excerpt.wasTargeted,
+      generation_excerpt_trimmed: excerpt.trimmed,
+      generation_excerpt_start: excerpt.excerptStart,
+      generation_excerpt_end: excerpt.excerptEnd,
+    });
     lawContextParts.push(
       [
         `Law source ${index + 1}`,
@@ -965,6 +1017,7 @@ function buildAssistantGenerationContext(input: {
     precedent_sources: includedPrecedentSources,
     law_context_text: lawContextParts.join("\n\n"),
     precedent_context_text: precedentContextParts.join("\n\n"),
+    generation_excerpt_diagnostics: generationExcerptDiagnostics,
     generation_source_budget: budget.max_total_sources,
     generation_sources_count:
       includedLawSources.length + includedPrecedentSources.length,
@@ -1811,6 +1864,7 @@ export async function generateServerLegalAssistantAnswer(
     lawSelection,
     responseMode,
     internalExecutionMode,
+    plan: legalQueryPlan,
   });
   const usedSources = buildAssistantContextUsedSources({
     lawContext: generationContext.law_sources,
@@ -1843,6 +1897,32 @@ export async function generateServerLegalAssistantAnswer(
     testRunContext: input.testRunContext,
     internalExecutionMode,
   });
+  const generationExcerptPayload = {
+    generation_excerpt_strategy: generationContext.generation_excerpt_diagnostics.map((entry) => ({
+      law_id: entry.law_id,
+      law_version: entry.law_version,
+      law_block_id: entry.law_block_id,
+      strategy: entry.generation_excerpt_strategy,
+    })),
+    generation_excerpt_matched_terms: generationContext.generation_excerpt_diagnostics.map((entry) => ({
+      law_id: entry.law_id,
+      law_version: entry.law_version,
+      law_block_id: entry.law_block_id,
+      matched_terms: entry.generation_excerpt_matched_terms,
+    })),
+    generation_excerpt_was_targeted: generationContext.generation_excerpt_diagnostics.map((entry) => ({
+      law_id: entry.law_id,
+      law_version: entry.law_version,
+      law_block_id: entry.law_block_id,
+      was_targeted: entry.generation_excerpt_was_targeted,
+    })),
+    generation_excerpt_trimmed: generationContext.generation_excerpt_diagnostics.map((entry) => ({
+      law_id: entry.law_id,
+      law_version: entry.law_version,
+      law_block_id: entry.law_block_id,
+      trimmed: entry.generation_excerpt_trimmed,
+    })),
+  };
   const metadataBase = {
     serverId: input.serverId,
     serverCode: input.serverCode,
@@ -1926,6 +2006,7 @@ export async function generateServerLegalAssistantAnswer(
       generation_source_budget: generationContext.generation_source_budget,
       generation_sources_count: generationContext.generation_sources_count,
       generation_excerpt_budget: generationContext.generation_excerpt_budget,
+      ...generationExcerptPayload,
       generation_context_chars: generationContext.generation_context_chars,
       generation_context_trimmed: generationContext.generation_context_trimmed,
       answer_mode_effective_budget: generationContext.answer_mode_effective_budget,
@@ -2049,6 +2130,7 @@ export async function generateServerLegalAssistantAnswer(
       generation_source_budget: generationContext.generation_source_budget,
       generation_sources_count: generationContext.generation_sources_count,
       generation_excerpt_budget: generationContext.generation_excerpt_budget,
+      ...generationExcerptPayload,
       generation_context_chars: generationContext.generation_context_chars,
       generation_context_trimmed: generationContext.generation_context_trimmed,
       answer_mode_effective_budget: generationContext.answer_mode_effective_budget,
@@ -2177,6 +2259,7 @@ export async function generateServerLegalAssistantAnswer(
     generation_source_budget: generationContext.generation_source_budget,
     generation_sources_count: generationContext.generation_sources_count,
     generation_excerpt_budget: generationContext.generation_excerpt_budget,
+    ...generationExcerptPayload,
     generation_context_chars: generationContext.generation_context_chars,
     generation_context_trimmed: generationContext.generation_context_trimmed,
     answer_mode_effective_budget: generationContext.answer_mode_effective_budget,

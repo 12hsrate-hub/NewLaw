@@ -1884,6 +1884,125 @@ describe("answer pipeline", () => {
     );
   });
 
+  it("в compact_generation выбирает question-aware excerpt и подтягивает срок из глубокой части статьи", async () => {
+    const createAIRequest = vi.fn();
+    const requestAssistantProxyCompletion = vi.fn().mockResolvedValue({
+      status: "success",
+      content: [
+        "## Краткий вывод",
+        "Срок есть.",
+        "",
+        "## Что прямо следует из норм закона",
+        "Статья прямо называет срок.",
+        "",
+        "## Что подтверждается судебными прецедентами",
+        "Подтверждённые прецеденты не использовались.",
+        "",
+        "## Вывод / интерпретация",
+        "Нужно учитывать срок из нормы.",
+        "",
+        "## Использованные нормы / источники",
+        "Закон об адвокатуре, ст. 5.",
+      ].join("\n"),
+      proxyKey: "primary",
+      providerKey: "openai_compatible",
+      model: "gpt-5.4-mini",
+      responsePayloadJson: {
+        choices: [],
+      },
+    });
+
+    const longAttorneyArticle = [
+      "Статья 5. Адвокатский запрос",
+      `ч. 1 ${"Адвокат вправе направлять официальный адвокатский запрос по вопросам компетенции органов и организаций. ".repeat(12)}`,
+      "ч. 2 Органы и организации, которым направлен адвокатский запрос, должны дать на него ответ в течение одного календарного дня с момента его получения.",
+      "ч. 3 В предоставлении запрошенных сведений может быть отказано, если адресат ими не располагает.",
+      "ч. 4 Неправомерный отказ и нарушение сроков предоставления сведений влекут ответственность.",
+    ].join("\n");
+
+    const result = await generateServerLegalAssistantAnswer(
+      {
+        serverId: "server-1",
+        serverCode: "blackberry",
+        serverName: "Blackberry",
+        question: "какой срок ответа на адвокатский запрос",
+        responseModeOverride: "normal",
+        internalExecutionMode: "compact_generation",
+      },
+      {
+        searchAssistantCorpus: vi.fn().mockResolvedValue(
+          createAssistantRetrieval({
+            lawResults: [
+              {
+                serverId: "server-1",
+                lawId: "law-1",
+                lawKey: "advocacy_law",
+                lawTitle: "Закон об адвокатуре",
+                lawVersionId: "law-version-1",
+                lawVersionStatus: "current",
+                lawBlockId: "law-block-1",
+                blockType: "article",
+                blockOrder: 1,
+                articleNumberNormalized: "5",
+                snippet: "Статья 5. Адвокатский запрос.",
+                blockText: longAttorneyArticle,
+                sourceTopicUrl: "https://forum.gta5rp.com/threads/100001/",
+                sourcePosts: [],
+                metadata: {
+                  sourceSnapshotHash: "source-hash",
+                  normalizedTextHash: "normalized-hash",
+                  corpusSnapshotHash: "snapshot-hash",
+                },
+              },
+            ],
+          }),
+        ),
+        normalizeInputText: vi
+          .fn()
+          .mockResolvedValue(createNormalizationResult("какой срок ответа на адвокатский запрос")),
+        requestAssistantProxyCompletion,
+        createAIRequest,
+        now: () => new Date("2026-04-26T08:00:00.000Z"),
+      },
+    );
+
+    expect(result.status).toBe("answered");
+    const promptInput = requestAssistantProxyCompletion.mock.calls[0]?.[0]?.userPrompt as string;
+    expect(promptInput).toContain("одного календарного дня");
+    expect(promptInput).not.toContain("3 рабочих дня");
+    expect(promptInput).not.toContain(longAttorneyArticle);
+
+    const aiRequestPayload = createAIRequest.mock.calls[0]?.[0];
+    expect(aiRequestPayload.requestPayloadJson.generation_excerpt_strategy).toEqual([
+      expect.objectContaining({
+        law_id: "law-1",
+        law_block_id: "law-block-1",
+        strategy: expect.stringMatching(/^issue_targeted_/),
+      }),
+    ]);
+    expect(aiRequestPayload.requestPayloadJson.generation_excerpt_matched_terms).toEqual([
+      expect.objectContaining({
+        law_id: "law-1",
+        law_block_id: "law-block-1",
+        matched_terms: expect.arrayContaining(["календарного дня", "ответ"]),
+      }),
+    ]);
+    expect(aiRequestPayload.requestPayloadJson.generation_excerpt_was_targeted).toEqual([
+      expect.objectContaining({
+        law_id: "law-1",
+        law_block_id: "law-block-1",
+        was_targeted: true,
+      }),
+    ]);
+    expect(aiRequestPayload.requestPayloadJson.generation_excerpt_trimmed).toEqual([
+      expect.objectContaining({
+        law_id: "law-1",
+        law_block_id: "law-block-1",
+        trimmed: expect.any(Boolean),
+      }),
+    ]);
+  });
+
   it("нормализует ответ модели в структурированный markdown даже если precedent section пропущена", async () => {
     const result = await generateServerLegalAssistantAnswer(
       {
