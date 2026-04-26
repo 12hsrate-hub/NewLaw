@@ -227,4 +227,38 @@ describe("legal query plan legal issue diagnostics", () => {
       }),
     ]);
   });
+
+  it("прокидывает hardened parser forms в legal query plan", () => {
+    const proceduralPlan = buildLegalQueryPlan({
+      normalizedInput: "можно ли по 23.1 ПК",
+      intent: "law_explanation",
+      actorContext: "general_question",
+      responseMode: "normal",
+      serverId: "server-1",
+    });
+    const advocacyPlan = buildLegalQueryPlan({
+      normalizedInput: "какой срок по 5 ч.4 Закона об адвокатуре",
+      intent: "law_explanation",
+      actorContext: "general_question",
+      responseMode: "normal",
+      serverId: "server-1",
+    });
+
+    expect(proceduralPlan.explicitLegalCitations).toEqual([
+      expect.objectContaining({
+        lawCode: "ПК",
+        lawFamily: "procedural_code",
+        articleNumber: "23.1",
+        partNumber: null,
+      }),
+    ]);
+    expect(advocacyPlan.explicitLegalCitations).toEqual([
+      expect.objectContaining({
+        lawCode: "ЗоА",
+        lawFamily: "advocacy_law",
+        articleNumber: "5",
+        partNumber: "4",
+      }),
+    ]);
+  });
 });

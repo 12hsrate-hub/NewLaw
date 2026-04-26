@@ -80,6 +80,22 @@ describe("legal citation parser", () => {
         partNumber: null,
       }),
     ]);
+
+    expect(parseExplicitLegalCitations("22 ч 1 АК")).toEqual([
+      expect.objectContaining({
+        lawCode: "АК",
+        articleNumber: "22",
+        partNumber: "1",
+      }),
+    ]);
+
+    expect(parseExplicitLegalCitations("22 часть 1 АК")).toEqual([
+      expect.objectContaining({
+        lawCode: "АК",
+        articleNumber: "22",
+        partNumber: "1",
+      }),
+    ]);
   });
 
   it("распознает point marker без попытки resolver", () => {
@@ -90,6 +106,64 @@ describe("legal citation parser", () => {
         partNumber: "1",
         pointNumber: "в",
         resolutionStatus: "not_attempted",
+      }),
+    ]);
+  });
+
+  it("поддерживает citation формы с предлогом по", () => {
+    expect(parseExplicitLegalCitations("можно ли по 23.1 ПК")).toEqual([
+      expect.objectContaining({
+        lawCode: "ПК",
+        lawFamily: "procedural_code",
+        articleNumber: "23.1",
+        partNumber: null,
+      }),
+    ]);
+
+    expect(parseExplicitLegalCitations("допустимо ли по 22 ч.1 АК")).toEqual([
+      expect.objectContaining({
+        lawCode: "АК",
+        lawFamily: "administrative_code",
+        articleNumber: "22",
+        partNumber: "1",
+      }),
+    ]);
+
+    expect(parseExplicitLegalCitations("привлечь по 84 УК")).toEqual([
+      expect.objectContaining({
+        lawCode: "УК",
+        lawFamily: "criminal_code",
+        articleNumber: "84",
+        partNumber: null,
+      }),
+    ]);
+  });
+
+  it("сохраняет partNumber для long-title forms закона об адвокатуре", () => {
+    expect(parseExplicitLegalCitations("5 ч.4 Закона об адвокатуре")).toEqual([
+      expect.objectContaining({
+        lawCode: "ЗоА",
+        lawFamily: "advocacy_law",
+        articleNumber: "5",
+        partNumber: "4",
+      }),
+    ]);
+
+    expect(parseExplicitLegalCitations("5 часть 4 Закона об адвокатуре")).toEqual([
+      expect.objectContaining({
+        lawCode: "ЗоА",
+        lawFamily: "advocacy_law",
+        articleNumber: "5",
+        partNumber: "4",
+      }),
+    ]);
+
+    expect(parseExplicitLegalCitations("ст. 5 ч.4 Закона об адвокатуре")).toEqual([
+      expect.objectContaining({
+        lawCode: "ЗоА",
+        lawFamily: "advocacy_law",
+        articleNumber: "5",
+        partNumber: "4",
       }),
     ]);
   });

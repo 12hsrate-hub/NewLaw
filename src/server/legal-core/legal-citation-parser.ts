@@ -132,6 +132,7 @@ const articleNumberPattern = String.raw`(?<article>\d+(?:\.\d+)?)`;
 const partPattern = String.raw`(?:\s*(?:ч\.?|част(?:ь|и))\s*(?<part>\d+))?`;
 const pointPattern =
   String.raw`(?:\s*(?:п\.?|пункт)\s*[«"']?(?<point>[а-яa-z0-9]+)[»"']?)?`;
+const citationLeadInPattern = String.raw`(?:по\s+)?`;
 
 function normalizeInput(input: string) {
   return input.trim().toLowerCase().replace(/\s+/g, " ");
@@ -147,7 +148,7 @@ function buildAliasMatcher(aliasPatterns: string[]) {
 
 function createAliasLastPattern(aliasPatterns: string[]) {
   return new RegExp(
-    String.raw`(?:ст\.?\s*)?${articleNumberPattern}${partPattern}${pointPattern}\s*(?<law>${buildAliasMatcher(aliasPatterns)})(?![\p{L}\p{N}_])`,
+    String.raw`${citationLeadInPattern}(?:ст\.?\s*)?${articleNumberPattern}${partPattern}${pointPattern}\s*(?<law>${buildAliasMatcher(aliasPatterns)})(?![\p{L}\p{N}_])`,
     "giu",
   );
 }
