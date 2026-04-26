@@ -1169,6 +1169,40 @@ function takeCandidatesByRole<TCandidate extends LegalSelectionCandidate>(
   return selected;
 }
 
+function takeResolvedCitationPrimaryCandidates<TCandidate extends LegalSelectionCandidate>(
+  scoredCandidates: Array<ScoredLegalCandidate<TCandidate>>,
+  limit: number,
+  selectedIds: Set<string>,
+) {
+  const selected: TCandidate[] = [];
+
+  for (const scored of scoredCandidates) {
+    if (selected.length >= limit) {
+      break;
+    }
+
+    if (
+      scored.primary_basis_eligibility !== "eligible" ||
+      scored.source_channel !== "citation_target" ||
+      (scored.citation_resolution_status !== "resolved" &&
+        scored.citation_resolution_status !== "partially_supported")
+    ) {
+      continue;
+    }
+
+    const candidateKey = scored.candidate.lawBlockId;
+
+    if (selectedIds.has(candidateKey)) {
+      continue;
+    }
+
+    selectedIds.add(candidateKey);
+    selected.push(scored.candidate);
+  }
+
+  return selected;
+}
+
 export function selectStructuredLegalContext<TCandidate extends LegalSelectionCandidate>(input: {
   candidates: TCandidate[];
   plan: LegalQueryPlan;
@@ -1180,18 +1214,30 @@ export function selectStructuredLegalContext<TCandidate extends LegalSelectionCa
         plan: input.plan,
       }),
       )
-      .sort((left, right) => right.applicability_score - left.applicability_score);
+      .sort((left, right) => {
+        if (left.applicability_score !== right.applicability_score) {
+          return right.applicability_score - left.applicability_score;
+        }
+
+        return right.specificity_rank - left.specificity_rank;
+      });
   const selectedIds = new Set<string>();
   const primarySelectionRoles = getPrimarySelectionRoles(input.plan);
-  const primaryBasisNorms = takeCandidatesByRole(
+  const citationPrimaryNorms = isCitationIssueType(input.plan)
+    ? takeResolvedCitationPrimaryCandidates(scoredCandidates, 2, selectedIds)
+    : [];
+  const primaryBasisNorms = [
+    ...citationPrimaryNorms,
+    ...takeCandidatesByRole(
     scoredCandidates,
     primarySelectionRoles,
-    2,
+    Math.max(0, 2 - citationPrimaryNorms.length),
     selectedIds,
     {
       allowedEligibilities: ["eligible"],
     },
-  );
+    ),
+  ];
   const procedureNorms = takeCandidatesByRole(
     scoredCandidates,
     ["procedure", "right_or_guarantee"],

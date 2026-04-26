@@ -10,6 +10,7 @@ export const legalGroundingFlags = [
   "law_family_mismatch",
   "weak_direct_basis",
   "off_topic_context_norm",
+  "citation_unresolved_no_primary_basis",
   "general_law_used_instead_of_specific_law",
   "specific_law_used_without_scope",
   "sanction_used_as_primary",
@@ -173,6 +174,15 @@ export function buildLegalGroundingDiagnostics<TCandidate extends LegalSelection
   const selectedPrimarySpecificityRanks = primaryDiagnostics.map((entry) => entry.specificity_rank);
   const specificityWarningReasons = new Set<string>();
   const flags = new Set<LegalGroundingFlag>();
+  const citationIssue =
+    input.plan.primaryLegalIssueType === "citation_explanation" ||
+    input.plan.primaryLegalIssueType === "citation_application";
+  const hasResolvedCitationTarget = candidateDiagnostics.some(
+    (entry) =>
+      entry.source_channel === "citation_target" &&
+      (entry.citation_resolution_status === "resolved" ||
+        entry.citation_resolution_status === "partially_supported"),
+  );
 
   if (input.selection.primary_basis_norms.length === 0) {
     flags.add("missing_primary_basis_norm");
@@ -287,6 +297,15 @@ export function buildLegalGroundingDiagnostics<TCandidate extends LegalSelection
   ) {
     flags.add("general_law_used_instead_of_specific_law");
     specificityWarningReasons.add("missing_preferred_family_for_profile");
+  }
+
+  if (
+    citationIssue &&
+    input.plan.explicitLegalCitations.length > 0 &&
+    !hasResolvedCitationTarget &&
+    input.selection.primary_basis_norms.length === 0
+  ) {
+    flags.add("citation_unresolved_no_primary_basis");
   }
 
   return {

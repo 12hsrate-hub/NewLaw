@@ -1327,6 +1327,215 @@ describe("ai legal core selection", () => {
     expect(scoredByLawId.get("law-semantic")?.primary_basis_eligibility).not.toBe("eligible");
   });
 
+  it("делает citation_target по АК clean direct basis для citation_explanation даже при санкционном role", () => {
+    const plan = buildLegalQueryPlan({
+      normalizedInput: "что значит 22 ч.1 АК",
+      originalInput: "что значит 22 ч.1 АК",
+      intent: "qualification_check",
+      actorContext: "general_question",
+      responseMode: "normal",
+      serverId: "server-1",
+    });
+
+    const selection = selectStructuredLegalContext({
+      plan,
+      candidates: [
+        {
+          serverId: "server-1",
+          lawId: "law-citation-target-ak",
+          lawKey: "administrative_code",
+          lawTitle: "Административный кодекс",
+          lawVersionId: "version-1",
+          lawBlockId: "block-citation-target-ak",
+          blockType: "article",
+          blockText: "Незаконное проникновение или нахождение влечет штраф и иные меры ответственности.",
+          articleNumberNormalized: "22",
+          sourceTopicUrl: "https://forum.gta5rp.com/threads/administrative",
+          sourceChannel: "citation_target",
+          citationResolutionStatus: "resolved",
+          citationMatchStrength: "exact_article_supported_subunit",
+        },
+        {
+          serverId: "server-1",
+          lawId: "law-semantic-ak",
+          lawKey: "ethics_code",
+          lawTitle: "Этический кодекс",
+          lawVersionId: "version-1",
+          lawBlockId: "block-semantic-ak",
+          blockType: "article",
+          blockText: "Статья 22. Государственный служащий обязан соблюдать процедуры и правила поведения.",
+          articleNumberNormalized: "22",
+          sourceTopicUrl: "https://forum.gta5rp.com/threads/ethics",
+          sourceChannel: "semantic",
+        },
+      ],
+    });
+
+    const scoredByLawId = new Map(
+      selection.scored_candidates.map((entry) => [entry.candidate.lawId, entry] as const),
+    );
+
+    expect(plan.primaryLegalIssueType).toBe("citation_explanation");
+    expect(selection.direct_basis_status).toBe("direct_basis_present");
+    expect(selection.primary_basis_norms.map((entry) => entry.lawId)).toEqual(["law-citation-target-ak"]);
+    expect(scoredByLawId.get("law-citation-target-ak")?.norm_role).toBe("sanction");
+    expect(scoredByLawId.get("law-citation-target-ak")?.primary_basis_eligibility).toBe("eligible");
+    expect(scoredByLawId.get("law-citation-target-ak")?.primary_basis_eligibility_reason).toBe(
+      "eligible_due_to_resolved_citation_target",
+    );
+  });
+
+  it("делает citation_target по ПК clean direct basis для citation_application даже если semantic hit релевантнее по score", () => {
+    const plan = buildLegalQueryPlan({
+      normalizedInput: "можно ли по 23.1 ПК",
+      originalInput: "можно ли по 23.1 ПК",
+      intent: "qualification_check",
+      actorContext: "general_question",
+      responseMode: "normal",
+      serverId: "server-1",
+    });
+
+    const selection = selectStructuredLegalContext({
+      plan,
+      candidates: [
+        {
+          serverId: "server-1",
+          lawId: "law-semantic-pk",
+          lawKey: "government_code",
+          lawTitle: "Кодекс о деятельности Правительства",
+          lawVersionId: "version-1",
+          lawBlockId: "block-semantic-pk",
+          blockType: "article",
+          blockText:
+            "Можно ли по этой процедуре квалифицировать нарушение и применить меры по статье 23.1 в общем служебном порядке.",
+          articleNumberNormalized: "40",
+          sourceTopicUrl: "https://forum.gta5rp.com/threads/government",
+          sourceChannel: "semantic",
+        },
+        {
+          serverId: "server-1",
+          lawId: "law-citation-target-pk",
+          lawKey: "procedural_code",
+          lawTitle: "Процессуальный кодекс",
+          lawVersionId: "version-1",
+          lawBlockId: "block-citation-target-pk",
+          blockType: "article",
+          blockText: "Порядок наложения штрафа (тикета).",
+          articleNumberNormalized: "23.1",
+          sourceTopicUrl: "https://forum.gta5rp.com/threads/procedural",
+          sourceChannel: "citation_target",
+          citationResolutionStatus: "resolved",
+          citationMatchStrength: "exact_article",
+        },
+      ],
+    });
+
+    const scoredByLawId = new Map(
+      selection.scored_candidates.map((entry) => [entry.candidate.lawId, entry] as const),
+    );
+
+    expect(plan.primaryLegalIssueType).toBe("citation_application");
+    expect(selection.direct_basis_status).toBe("direct_basis_present");
+    expect(selection.primary_basis_norms.map((entry) => entry.lawId)).toEqual(["law-citation-target-pk"]);
+    expect(scoredByLawId.get("law-citation-target-pk")?.primary_basis_eligibility).toBe("eligible");
+    expect(scoredByLawId.get("law-citation-target-pk")?.primary_basis_eligibility_reason).toBe(
+      "eligible_due_to_resolved_citation_target",
+    );
+    expect(scoredByLawId.get("law-semantic-pk")?.primary_basis_eligibility).toBe("ineligible");
+  });
+
+  it("делает citation_target по Закону об адвокатуре clean direct basis для citation_explanation", () => {
+    const plan = buildLegalQueryPlan({
+      normalizedInput: "что значит 5 ч.4 Закона об адвокатуре",
+      originalInput: "что значит 5 ч.4 Закона об адвокатуре",
+      intent: "qualification_check",
+      actorContext: "general_question",
+      responseMode: "normal",
+      serverId: "server-1",
+    });
+
+    const selection = selectStructuredLegalContext({
+      plan,
+      candidates: [
+        {
+          serverId: "server-1",
+          lawId: "law-citation-target-advocacy",
+          lawKey: "advocacy_law",
+          lawTitle: "Закон об адвокатуре и адвокатской деятельности",
+          lawVersionId: "version-1",
+          lawBlockId: "block-citation-target-advocacy",
+          blockType: "article",
+          blockText: "За исключением случаев ограниченного доступа ответ на адвокатский запрос предоставляется в установленном порядке.",
+          articleNumberNormalized: "5",
+          sourceTopicUrl: "https://forum.gta5rp.com/threads/advocacy",
+          sourceChannel: "citation_target",
+          citationResolutionStatus: "resolved",
+          citationMatchStrength: "exact_article_supported_subunit",
+        },
+      ],
+    });
+
+    const scoredCandidate = selection.scored_candidates[0];
+
+    expect(plan.primaryLegalIssueType).toBe("citation_explanation");
+    expect(selection.direct_basis_status).toBe("direct_basis_present");
+    expect(selection.primary_basis_norms.map((entry) => entry.lawId)).toEqual([
+      "law-citation-target-advocacy",
+    ]);
+    expect(scoredCandidate?.norm_role).toBe("exception");
+    expect(scoredCandidate?.primary_basis_eligibility).toBe("eligible");
+    expect(scoredCandidate?.primary_basis_eligibility_reason).toBe(
+      "eligible_due_to_resolved_citation_target",
+    );
+  });
+
+  it("оставляет partially_supported citation_target direct basis и сохраняет статус gap в diagnostics", () => {
+    const plan = buildLegalQueryPlan({
+      normalizedInput: "что значит ст. 23 ч.1 п. «в» ПК",
+      originalInput: "что значит ст. 23 ч.1 п. «в» ПК",
+      intent: "qualification_check",
+      actorContext: "general_question",
+      responseMode: "normal",
+      serverId: "server-1",
+    });
+
+    const selection = selectStructuredLegalContext({
+      plan,
+      candidates: [
+        {
+          serverId: "server-1",
+          lawId: "law-citation-target-partial",
+          lawKey: "procedural_code",
+          lawTitle: "Процессуальный кодекс",
+          lawVersionId: "version-1",
+          lawBlockId: "block-citation-target-partial",
+          blockType: "article",
+          blockText: "Обязанности сотрудника, выполняющего задержание.",
+          articleNumberNormalized: "23",
+          sourceTopicUrl: "https://forum.gta5rp.com/threads/procedure",
+          sourceChannel: "citation_target",
+          citationResolutionStatus: "partially_supported",
+          citationResolutionReason: "no_point_metadata",
+          citationMatchStrength: "article_with_gap",
+        },
+      ],
+    });
+    const diagnostics = buildLegalGroundingDiagnostics({ plan, selection });
+    const citationDiagnostic = diagnostics.candidate_diagnostics.find(
+      (entry) => entry.law_id === "law-citation-target-partial",
+    );
+
+    expect(selection.direct_basis_status).toBe("direct_basis_present");
+    expect(selection.primary_basis_norms.map((entry) => entry.lawId)).toEqual([
+      "law-citation-target-partial",
+    ]);
+    expect(citationDiagnostic?.primary_basis_eligibility).toBe("eligible");
+    expect(citationDiagnostic?.primary_basis_eligibility_reason).toBe(
+      "eligible_due_to_resolved_citation_target",
+    );
+    expect(citationDiagnostic?.citation_resolution_status).toBe("partially_supported");
+  });
+
   it("не создаёт fake eligible primary из semantic hit при unresolved explicit citation", () => {
     const plan = buildLegalQueryPlan({
       normalizedInput: "что значит 999 УК",
@@ -1357,9 +1566,11 @@ describe("ai legal core selection", () => {
     });
 
     const semanticCandidate = selection.scored_candidates[0];
+    const diagnostics = buildLegalGroundingDiagnostics({ plan, selection });
 
     expect(selection.primary_basis_norms).toEqual([]);
     expect(selection.direct_basis_status).toBe("partial_basis_only");
     expect(semanticCandidate?.primary_basis_eligibility).toBe("ineligible");
+    expect(diagnostics.grounding_diagnostics.flags).toContain("citation_unresolved_no_primary_basis");
   });
 });
