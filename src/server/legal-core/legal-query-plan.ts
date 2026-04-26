@@ -1,4 +1,12 @@
 import { buildAssistantRetrievalQuery } from "@/server/legal-core/assistant-retrieval-query";
+import {
+  buildCitationConstraints,
+  buildCitationDiagnostics,
+  parseExplicitLegalCitations,
+  type CitationConstraints,
+  type CitationDiagnostics,
+  type ExplicitLegalCitation,
+} from "@/server/legal-core/legal-citation-parser";
 import { LEGAL_SEMANTIC_LEGAL_ISSUE_SIGNALS } from "@/server/legal-core/legal-semantic-dictionaries";
 import type {
   LegalCoreActorContext,
@@ -80,6 +88,9 @@ export type LegalQueryPlan = {
   preferred_norm_roles: NormRole[];
   forbidden_scope_markers: string[];
   expanded_query: string;
+  explicitLegalCitations: ExplicitLegalCitation[];
+  citationConstraints: CitationConstraints;
+  citationDiagnostics: CitationDiagnostics;
   primaryLegalIssueType: LegalIssueType;
   secondaryLegalIssueTypes: Exclude<LegalIssueType, "unclear">[];
   legalIssueConfidence: LegalIssueConfidence;
@@ -854,6 +865,9 @@ export function buildLegalQueryPlan(input: {
     actorContext: input.actorContext,
     legalAnchors,
   });
+  const explicitLegalCitations = parseExplicitLegalCitations(input.normalizedInput);
+  const citationConstraints = buildCitationConstraints(explicitLegalCitations);
+  const citationDiagnostics = buildCitationDiagnostics(explicitLegalCitations);
   const retrievalQuery = buildAssistantRetrievalQuery({
     normalized_input: input.normalizedInput,
     intent: input.intent,
@@ -877,6 +891,9 @@ export function buildLegalQueryPlan(input: {
     preferred_norm_roles: preferredNormRoles,
     forbidden_scope_markers: forbiddenScopeMarkers,
     expanded_query: retrievalQuery.expanded_query,
+    explicitLegalCitations,
+    citationConstraints,
+    citationDiagnostics,
     primaryLegalIssueType: legalIssueClassification.primaryLegalIssueType,
     secondaryLegalIssueTypes: legalIssueClassification.secondaryLegalIssueTypes,
     legalIssueConfidence: legalIssueClassification.legalIssueConfidence,

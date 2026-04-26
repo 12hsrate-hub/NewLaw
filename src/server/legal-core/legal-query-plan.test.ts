@@ -140,6 +140,29 @@ describe("legal query plan legal issue diagnostics", () => {
     expect(plan.primaryLegalIssueType).toBe("citation_explanation");
     expect(plan.secondaryLegalIssueTypes).toContain("sanction_question");
     expect(plan.legalIssueConfidence).toBe("high");
+    expect(plan.explicitLegalCitations).toEqual([
+      expect.objectContaining({
+        lawCode: "УК",
+        lawFamily: "criminal_code",
+        articleNumber: "84",
+        partNumber: null,
+        pointNumber: null,
+        resolutionStatus: "not_attempted",
+      }),
+    ]);
+    expect(plan.citationConstraints).toEqual({
+      restrictToExplicitLawFamily: true,
+      restrictToExplicitArticle: true,
+      restrictToExplicitPart: false,
+      allowCompanionContext: true,
+      semanticRetrievalAllowedAsCompanionOnly: false,
+    });
+    expect(plan.citationDiagnostics).toEqual({
+      citation_resolved: false,
+      citation_unresolved: false,
+      citation_ambiguous: false,
+      semantic_retrieval_overrode_explicit_citation: false,
+    });
     expect(plan.legalIssueDiagnostics.legal_issue_signals).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -162,8 +185,46 @@ describe("legal query plan legal issue diagnostics", () => {
     expect(plan.primaryLegalIssueType).toBe("unclear");
     expect(plan.secondaryLegalIssueTypes).toEqual([]);
     expect(plan.legalIssueConfidence).toBe("low");
+    expect(plan.explicitLegalCitations).toEqual([]);
+    expect(plan.citationConstraints).toEqual({
+      restrictToExplicitLawFamily: false,
+      restrictToExplicitArticle: false,
+      restrictToExplicitPart: false,
+      allowCompanionContext: false,
+      semanticRetrievalAllowedAsCompanionOnly: false,
+    });
     expect(plan.legalIssueDiagnostics.legal_issue_unclear_reason).toBe(
       "no_clear_issue_signals",
     );
+  });
+
+  it("не смешивает decimal article и article plus part", () => {
+    const decimalPlan = buildLegalQueryPlan({
+      normalizedInput: "что значит 22.1 АК",
+      intent: "law_explanation",
+      actorContext: "general_question",
+      responseMode: "normal",
+      serverId: "server-1",
+    });
+    const partPlan = buildLegalQueryPlan({
+      normalizedInput: "что значит 22 ч.1 АК",
+      intent: "law_explanation",
+      actorContext: "general_question",
+      responseMode: "normal",
+      serverId: "server-1",
+    });
+
+    expect(decimalPlan.explicitLegalCitations).toEqual([
+      expect.objectContaining({
+        articleNumber: "22.1",
+        partNumber: null,
+      }),
+    ]);
+    expect(partPlan.explicitLegalCitations).toEqual([
+      expect.objectContaining({
+        articleNumber: "22",
+        partNumber: "1",
+      }),
+    ]);
   });
 });
