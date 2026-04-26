@@ -1,4 +1,9 @@
 import type { LegalQueryPlan } from "@/server/legal-core/legal-query-plan";
+import {
+  parseArticleSegments,
+  type ArticleSegment,
+  type ArticleSegmentRelationHint,
+} from "@/server/legal-assistant/article-segments";
 import type {
   LawFamily,
   LegalSelectionCandidate,
@@ -32,6 +37,8 @@ export type NormBundleItem = {
   law_block_id: string | null;
   law_family: LawFamily | null;
   article_number: string | null;
+  marker?: string | null;
+  part_number?: string | null;
   relation_type: NormBundleRelationType;
   relation_reason: string;
   compact_excerpt: string | null;
@@ -51,9 +58,21 @@ export type NormBundleCompanionDecision = {
   law_id: string | null;
   law_version: string | null;
   law_block_id: string | null;
+  marker?: string | null;
+  part_number?: string | null;
   relation_type: Exclude<NormBundleRelationType, "primary" | "unresolved_reference">;
   reason_code: string;
   should_include_in_generation_context: boolean;
+};
+
+export type NormBundleArticleSegmentDecision = {
+  law_id: string | null;
+  law_version: string | null;
+  law_block_id: string | null;
+  marker: string | null;
+  part_number: string | null;
+  relation_type: Exclude<NormBundleRelationType, "primary" | "unresolved_reference">;
+  reason_code: string;
 };
 
 export type NormBundleDiagnostics = {
@@ -68,6 +87,16 @@ export type NormBundleDiagnostics = {
   excluded_companions: NormBundleCompanionDecision[];
   bundle_budget_trimmed: boolean;
   bundle_generation_context_items: number;
+  same_article_part_count: number;
+  article_note_count: number;
+  exception_count: number;
+  sanction_companion_count: number;
+  evidence_companion_count: number;
+  segment_relation_types: Array<
+    Exclude<NormBundleRelationType, "primary" | "unresolved_reference">
+  >;
+  included_article_segments: NormBundleArticleSegmentDecision[];
+  excluded_article_segments: NormBundleArticleSegmentDecision[];
 };
 
 export type NormBundle = {
@@ -159,8 +188,17 @@ function buildCandidateKey(input: {
   lawVersion: string | null;
   lawBlockId: string | null;
   relationType: string;
+  marker?: string | null;
+  partNumber?: string | null;
 }) {
-  return [input.lawId ?? "", input.lawVersion ?? "", input.lawBlockId ?? "", input.relationType].join(":");
+  return [
+    input.lawId ?? "",
+    input.lawVersion ?? "",
+    input.lawBlockId ?? "",
+    input.relationType,
+    input.marker ?? "",
+    input.partNumber ?? "",
+  ].join(":");
 }
 
 function buildItem(input: {
@@ -178,9 +216,37 @@ function buildItem(input: {
     law_block_id: input.candidate.lawBlockId,
     law_family: input.lawFamily,
     article_number: input.candidate.articleNumberNormalized ?? null,
+    marker: null,
+    part_number: null,
     relation_type: input.relationType,
     relation_reason: input.relationReason,
     compact_excerpt: clampCompactExcerpt(input.candidate.blockText),
+    priority: input.priority,
+    should_include_in_generation_context: input.shouldIncludeInGenerationContext,
+  };
+}
+
+function buildSegmentItem(input: {
+  primaryCandidate: CompanionLikeCandidate;
+  lawFamily: LawFamily | null;
+  segment: ArticleSegment;
+  relationType: Exclude<NormBundleRelationType, "primary" | "unresolved_reference">;
+  relationReason: string;
+  priority: number;
+  shouldIncludeInGenerationContext: boolean;
+}): NormBundleItem {
+  return {
+    source_kind: "law",
+    law_id: input.primaryCandidate.lawId,
+    law_version: input.primaryCandidate.lawVersionId,
+    law_block_id: input.primaryCandidate.lawBlockId,
+    law_family: input.lawFamily,
+    article_number: input.primaryCandidate.articleNumberNormalized ?? null,
+    marker: input.segment.marker,
+    part_number: input.segment.partNumber,
+    relation_type: input.relationType,
+    relation_reason: input.relationReason,
+    compact_excerpt: clampCompactExcerpt(input.segment.text, 140),
     priority: input.priority,
     should_include_in_generation_context: input.shouldIncludeInGenerationContext,
   };
@@ -197,6 +263,8 @@ function addBundleItem(
     lawVersion: item.law_version,
     lawBlockId: item.law_block_id,
     relationType: item.relation_type,
+    marker: item.marker,
+    partNumber: item.part_number,
   });
 
   if (seenKeys.has(key)) {
@@ -205,6 +273,8 @@ function addBundleItem(
         law_id: item.law_id,
         law_version: item.law_version,
         law_block_id: item.law_block_id,
+        marker: item.marker,
+        part_number: item.part_number,
         relation_type: item.relation_type,
         reason_code: "duplicate_relation",
         should_include_in_generation_context: item.should_include_in_generation_context,
@@ -362,6 +432,199 @@ function countCompanionItems(bundle: Omit<NormBundle, "bundle_diagnostics">) {
   );
 }
 
+function hasNormalizedKeyword(source: string, keywords: readonly string[]) {
+  return keywords.some((keyword) => source.includes(keyword));
+}
+
+function hasTimingSignal(plan: LegalQueryPlan) {
+  const normalizedInput = normalizeText(plan.normalized_input);
+
+  return (
+    plan.primaryLegalIssueType === "deadline_question" ||
+    hasNormalizedKeyword(normalizedInput, [
+      "не ответ",
+      "срок",
+      "в течение",
+      "когда ответ",
+      "календарного дня",
+    ])
+  );
+}
+
+function hasViolationOrSanctionSignal(plan: LegalQueryPlan) {
+  const normalizedInput = normalizeText(plan.normalized_input);
+
+  return (
+    plan.primaryLegalIssueType === "sanction_question" ||
+    plan.secondaryLegalIssueTypes.includes("sanction_question") ||
+    hasNormalizedKeyword(normalizedInput, [
+      "не ответ",
+      "наруш",
+      "ответственност",
+      "что грозит",
+      "наказ",
+      "уголовк",
+      "неисполн",
+      "неправомерн",
+    ])
+  );
+}
+
+function hasEvidenceSignal(plan: LegalQueryPlan) {
+  const normalizedInput = normalizeText(plan.normalized_input);
+
+  return (
+    plan.primaryLegalIssueType === "evidence_question" ||
+    plan.secondaryLegalIssueTypes.includes("evidence_question") ||
+    plan.legal_anchors.includes("evidence") ||
+    plan.legal_anchors.includes("video_recording") ||
+    hasNormalizedKeyword(normalizedInput, [
+      "доказ",
+      "видеозап",
+      "аудиозап",
+      "запись",
+      "видеофиксац",
+    ])
+  );
+}
+
+function hasDefinitionSignal(plan: LegalQueryPlan) {
+  const normalizedInput = normalizeText(plan.normalized_input);
+
+  return (
+    plan.primaryLegalIssueType === "citation_explanation" ||
+    hasNormalizedKeyword(normalizedInput, ["что такое", "что значит", "что считается", "понятие"])
+  );
+}
+
+function hasProcedureSignal(plan: LegalQueryPlan) {
+  const normalizedInput = normalizeText(plan.normalized_input);
+
+  return (
+    plan.primaryLegalIssueType === "procedure_question" ||
+    plan.primaryLegalIssueType === "duty_question" ||
+    hasNormalizedKeyword(normalizedInput, ["порядок", "процедур", "как направить", "необходимо"])
+  );
+}
+
+function hasHint(segment: ArticleSegment, hint: ArticleSegmentRelationHint) {
+  return segment.relationHints.includes(hint);
+}
+
+function inferArticleSegmentRelation(input: {
+  segment: ArticleSegment;
+  plan: LegalQueryPlan;
+  lawFamily: LawFamily | null;
+}):
+  | {
+      relationType: Exclude<NormBundleRelationType, "primary" | "unresolved_reference">;
+      relationReason: string;
+      priority: number;
+      shouldIncludeInGenerationContext: boolean;
+    }
+  | null {
+  if (input.segment.segmentType === "article_heading") {
+    return null;
+  }
+
+  if (input.segment.segmentType === "note") {
+    if (hasProcedureSignal(input.plan) || hasEvidenceSignal(input.plan)) {
+      return {
+        relationType: "article_note",
+        relationReason: "article_segment_note_relevant",
+        priority: 18,
+        shouldIncludeInGenerationContext: false,
+      };
+    }
+
+    return null;
+  }
+
+  if (
+    hasHint(input.segment, "evidence") &&
+    (hasEvidenceSignal(input.plan) || input.plan.primaryLegalIssueType === "procedure_question")
+  ) {
+    return {
+      relationType: "evidence_companion",
+      relationReason: "article_segment_evidence_signal",
+      priority: 38,
+      shouldIncludeInGenerationContext: false,
+    };
+  }
+
+  if (hasHint(input.segment, "sanction")) {
+    if (hasViolationOrSanctionSignal(input.plan)) {
+      return {
+        relationType: "sanction_companion",
+        relationReason: "article_segment_sanction_signal",
+        priority: 45,
+        shouldIncludeInGenerationContext: false,
+      };
+    }
+
+    return null;
+  }
+
+  if (hasHint(input.segment, "exception")) {
+    if (
+      input.plan.primaryLegalIssueType === "refusal_question" ||
+      input.plan.secondaryLegalIssueTypes.includes("refusal_question") ||
+      input.plan.legal_anchors.includes("exception")
+    ) {
+      return {
+        relationType: "exception",
+        relationReason: "article_segment_exception_signal",
+        priority: 42,
+        shouldIncludeInGenerationContext: false,
+      };
+    }
+
+    return null;
+  }
+
+  if (
+    (hasHint(input.segment, "deadline") || hasHint(input.segment, "procedure")) &&
+    (input.plan.primaryLegalIssueType === "deadline_question" ||
+      hasProcedureSignal(input.plan) ||
+      (input.plan.primaryLegalIssueType === "refusal_question" && hasTimingSignal(input.plan)))
+  ) {
+    return {
+      relationType: "procedure_companion",
+      relationReason: "article_segment_deadline_or_procedure_signal",
+      priority: 36,
+      shouldIncludeInGenerationContext: false,
+    };
+  }
+
+  if (hasHint(input.segment, "definition") && hasDefinitionSignal(input.plan)) {
+    return {
+      relationType: "definition",
+      relationReason: "article_segment_definition_signal",
+      priority: 16,
+      shouldIncludeInGenerationContext: false,
+    };
+  }
+
+  if (
+    input.segment.segmentType === "part" &&
+    (hasHint(input.segment, "definition") ||
+      hasHint(input.segment, "procedure") ||
+      hasHint(input.segment, "evidence")) &&
+    input.lawFamily === "advocacy_law" &&
+    input.plan.legal_anchors.includes("attorney_request") &&
+    (hasDefinitionSignal(input.plan) || hasProcedureSignal(input.plan))
+  ) {
+    return {
+      relationType: "same_article_part",
+      relationReason: "article_segment_relevant_same_article_context",
+      priority: 12,
+      shouldIncludeInGenerationContext: false,
+    };
+  }
+
+  return null;
+}
+
 export function buildNormBundle<TCandidate extends CompanionLikeCandidate>(
   input: BuildNormBundleInput<TCandidate>,
 ): NormBundle {
@@ -380,6 +643,8 @@ export function buildNormBundle<TCandidate extends CompanionLikeCandidate>(
   );
   const seenKeys = new Set<string>();
   const excludedCompanions: NormBundleCompanionDecision[] = [];
+  const includedArticleSegments: NormBundleArticleSegmentDecision[] = [];
+  const excludedArticleSegments: NormBundleArticleSegmentDecision[] = [];
   const bundle: Omit<NormBundle, "bundle_diagnostics"> = {
     primary_basis_norms: [],
     same_article_parts: [],
@@ -410,6 +675,108 @@ export function buildNormBundle<TCandidate extends CompanionLikeCandidate>(
     });
 
     addBundleItem(bundle.primary_basis_norms, item, seenKeys, excludedCompanions);
+
+    if (primaryCandidate.blockType !== "article") {
+      continue;
+    }
+
+    const articleSegments = parseArticleSegments(primaryCandidate.blockText);
+
+    if (
+      articleSegments.length === 1 &&
+      articleSegments[0]?.segmentType === "unstructured"
+    ) {
+      continue;
+    }
+
+    for (const segment of articleSegments) {
+      if (segment.segmentType === "article_heading") {
+        continue;
+      }
+
+      const relation = inferArticleSegmentRelation({
+        segment,
+        plan: input.plan,
+        lawFamily: scoredCandidate?.law_family ?? null,
+      });
+
+      if (!relation) {
+        excludedArticleSegments.push({
+          law_id: primaryCandidate.lawId,
+          law_version: primaryCandidate.lawVersionId,
+          law_block_id: primaryCandidate.lawBlockId,
+          marker: segment.marker,
+          part_number: segment.partNumber,
+          relation_type: segment.segmentType === "note" ? "article_note" : "same_article_part",
+          reason_code: "article_segment_not_relevant_for_issue",
+        });
+        continue;
+      }
+
+      const segmentItem = buildSegmentItem({
+        primaryCandidate,
+        lawFamily: scoredCandidate?.law_family ?? null,
+        segment,
+        relationType: relation.relationType,
+        relationReason: relation.relationReason,
+        priority: relation.priority,
+        shouldIncludeInGenerationContext: relation.shouldIncludeInGenerationContext,
+      });
+      const beforeSize = seenKeys.size;
+
+      switch (relation.relationType) {
+        case "same_article_part":
+          addBundleItem(bundle.same_article_parts, segmentItem, seenKeys, excludedCompanions);
+          break;
+        case "article_note":
+          addBundleItem(bundle.article_notes, segmentItem, seenKeys, excludedCompanions);
+          break;
+        case "definition":
+          addBundleItem(bundle.definitions, segmentItem, seenKeys, excludedCompanions);
+          break;
+        case "exception":
+          addBundleItem(bundle.exceptions, segmentItem, seenKeys, excludedCompanions);
+          break;
+        case "procedure_companion":
+          addBundleItem(bundle.procedure_companions, segmentItem, seenKeys, excludedCompanions);
+          break;
+        case "sanction_companion":
+          addBundleItem(bundle.sanction_companions, segmentItem, seenKeys, excludedCompanions);
+          break;
+        case "evidence_companion":
+          addBundleItem(bundle.evidence_companions, segmentItem, seenKeys, excludedCompanions);
+          break;
+        case "remedy_companion":
+          addBundleItem(bundle.remedy_companions, segmentItem, seenKeys, excludedCompanions);
+          break;
+        case "citation_companion":
+          addBundleItem(bundle.citation_companions, segmentItem, seenKeys, excludedCompanions);
+          break;
+      }
+
+      if (seenKeys.size === beforeSize) {
+        excludedArticleSegments.push({
+          law_id: primaryCandidate.lawId,
+          law_version: primaryCandidate.lawVersionId,
+          law_block_id: primaryCandidate.lawBlockId,
+          marker: segment.marker,
+          part_number: segment.partNumber,
+          relation_type: relation.relationType,
+          reason_code: "duplicate_relation",
+        });
+        continue;
+      }
+
+      includedArticleSegments.push({
+        law_id: primaryCandidate.lawId,
+        law_version: primaryCandidate.lawVersionId,
+        law_block_id: primaryCandidate.lawBlockId,
+        marker: segment.marker,
+        part_number: segment.partNumber,
+        relation_type: relation.relationType,
+        reason_code: relation.relationReason,
+      });
+    }
   }
 
   for (const selectedCandidate of input.selection.selected_norms) {
@@ -568,6 +935,8 @@ export function buildNormBundle<TCandidate extends CompanionLikeCandidate>(
       law_id: item.law_id,
       law_version: item.law_version,
       law_block_id: item.law_block_id,
+      marker: item.marker ?? null,
+      part_number: item.part_number ?? null,
       relation_type: item.relation_type as Exclude<
         NormBundleRelationType,
         "primary" | "unresolved_reference"
@@ -608,6 +977,16 @@ export function buildNormBundle<TCandidate extends CompanionLikeCandidate>(
       ...bundle.remedy_companions,
       ...bundle.citation_companions,
     ].filter((item) => item.should_include_in_generation_context).length,
+    same_article_part_count: bundle.same_article_parts.length,
+    article_note_count: bundle.article_notes.length,
+    exception_count: bundle.exceptions.length,
+    sanction_companion_count: bundle.sanction_companions.length,
+    evidence_companion_count: bundle.evidence_companions.length,
+    segment_relation_types: Array.from(
+      new Set(includedArticleSegments.map((entry) => entry.relation_type)),
+    ),
+    included_article_segments: includedArticleSegments,
+    excluded_article_segments: excludedArticleSegments,
   };
 
   return {

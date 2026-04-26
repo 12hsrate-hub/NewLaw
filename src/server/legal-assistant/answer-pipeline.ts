@@ -1940,6 +1940,14 @@ export async function generateServerLegalAssistantAnswer(
     excluded_companions: normBundle.bundle_diagnostics.excluded_companions,
     bundle_budget_trimmed: normBundle.bundle_diagnostics.bundle_budget_trimmed,
     bundle_generation_context_items: normBundle.bundle_diagnostics.bundle_generation_context_items,
+    same_article_part_count: normBundle.bundle_diagnostics.same_article_part_count,
+    article_note_count: normBundle.bundle_diagnostics.article_note_count,
+    exception_count: normBundle.bundle_diagnostics.exception_count,
+    sanction_companion_count: normBundle.bundle_diagnostics.sanction_companion_count,
+    evidence_companion_count: normBundle.bundle_diagnostics.evidence_companion_count,
+    segment_relation_types: normBundle.bundle_diagnostics.segment_relation_types,
+    included_article_segments: normBundle.bundle_diagnostics.included_article_segments,
+    excluded_article_segments: normBundle.bundle_diagnostics.excluded_article_segments,
   };
   const metadataBase = {
     serverId: input.serverId,

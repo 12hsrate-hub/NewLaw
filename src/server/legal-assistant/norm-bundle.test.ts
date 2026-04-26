@@ -73,9 +73,9 @@ function createSelection(
 }
 
 describe("norm bundle", () => {
-  it("кладёт selected advocacy primary в primary_basis_norms, а criminal sanction — в sanction_companions", () => {
+  it("для deadline_question оставляет advocacy primary и добавляет ч. 2 как extracted companion без blind inclusion всех частей", () => {
     const plan = buildLegalQueryPlan({
-      normalizedInput: "если руководство не ответило на адвокатский запрос и что за это грозит",
+      normalizedInput: "какой срок ответа на адвокатский запрос",
       intent: "law_explanation",
       actorContext: "general_question",
       responseMode: "normal",
@@ -86,8 +86,14 @@ describe("norm bundle", () => {
       lawKey: "advocacy_law",
       lawTitle: "Закон об адвокатуре и адвокатской деятельности",
       lawBlockId: "block-advocacy",
-      blockText:
-        "Статья 5. Адвокатский запрос. Официальный адвокатский запрос подлежит обязательному рассмотрению. Ответ даётся в течение одного календарного дня.",
+      blockText: [
+        "Статья 5. Адвокатский запрос",
+        "ч. 1 Адвокат вправе направлять официальный адвокатский запрос (далее - адвокатский запрос).",
+        "Примечание: Перед направлением запроса необходимо соблюсти установленный порядок публикации.",
+        "ч. 2 Органы и организации должны дать на него ответ в течение одного календарного дня.",
+        "ч. 4 В предоставлении сведений может быть отказано, если адресат не располагает сведениями.",
+        "ч. 5 Неправомерный отказ и нарушение сроков влекут ответственность.",
+      ].join("\n"),
       articleNumberNormalized: "5",
       blockOrder: 5,
     });
@@ -169,9 +175,30 @@ describe("norm bundle", () => {
         }),
       ]),
     );
+    expect(bundle.procedure_companions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          law_id: "law-advocacy",
+          marker: "ч. 2",
+          relation_type: "procedure_companion",
+        }),
+      ]),
+    );
+    expect(bundle.bundle_diagnostics.included_article_segments).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          marker: "ч. 2",
+          relation_type: "procedure_companion",
+        }),
+      ]),
+    );
+    expect(bundle.bundle_diagnostics.included_article_segments).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ marker: "ч. 4" })]),
+    );
     expect(bundle.primary_basis_norms).not.toEqual(
       expect.arrayContaining([expect.objectContaining({ law_id: "law-criminal" })]),
     );
+    expect(selection.direct_basis_status).toBe("direct_basis_present");
   });
 
   it("оставляет citation_target primary, citation_companion — companion, а unresolved citation переводит в warning", () => {
@@ -290,6 +317,209 @@ describe("norm bundle", () => {
         }),
       ]),
     );
+  });
+
+  it("для refusal_question включает ч. 4, ч. 2 и ч. 5 как same-article companions без promotion в primary", () => {
+    const plan = buildLegalQueryPlan({
+      normalizedInput: "если руководство не ответило на адвокатский запрос",
+      intent: "law_explanation",
+      actorContext: "general_question",
+      responseMode: "normal",
+      serverId: "server-1",
+    });
+    const advocacyCandidate = createCandidate({
+      lawId: "law-advocacy",
+      lawKey: "advocacy_law",
+      lawTitle: "Закон об адвокатуре и адвокатской деятельности",
+      lawBlockId: "block-advocacy",
+      blockText: [
+        "Статья 5. Адвокатский запрос",
+        "ч. 1 Адвокат вправе направлять официальный адвокатский запрос (далее - адвокатский запрос).",
+        "ч. 2 Органы и организации должны дать на него ответ в течение одного календарного дня.",
+        "ч. 4 В предоставлении сведений может быть отказано, если адресат не располагает сведениями или информация покрывается тайной.",
+        "ч. 5 Неправомерный отказ и нарушение сроков влекут ответственность.",
+      ].join("\n"),
+      articleNumberNormalized: "5",
+      blockOrder: 5,
+    });
+    const selection = createSelection({
+      scored_candidates: [
+        createScoredCandidate(advocacyCandidate, {
+          law_family: "advocacy_law",
+          norm_role: "primary_basis",
+          applicability_score: 10,
+          primary_basis_eligibility: "eligible",
+          primary_basis_eligibility_reason: "eligible_due_to_attorney_request_primary_rule",
+          matched_anchors: ["attorney_request"],
+          specificity_rank: 5,
+        }),
+      ],
+      primary_basis_norms: [advocacyCandidate],
+      selected_norms: [advocacyCandidate],
+      selected_norm_roles: [
+        {
+          server_id: "server-1",
+          law_id: "law-advocacy",
+          law_version: "version-1",
+          law_block_id: "block-advocacy",
+          law_family: "advocacy_law",
+          norm_role: "primary_basis",
+          applicability_score: 10,
+        },
+      ],
+      direct_basis_status: "direct_basis_present",
+    });
+
+    const bundle = buildNormBundle({
+      plan,
+      selection,
+      retrievalResults: [advocacyCandidate],
+    });
+
+    expect(bundle.primary_basis_norms).toHaveLength(1);
+    expect(bundle.exceptions).toEqual(
+      expect.arrayContaining([expect.objectContaining({ marker: "ч. 4", relation_type: "exception" })]),
+    );
+    expect(bundle.procedure_companions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ marker: "ч. 2", relation_type: "procedure_companion" }),
+      ]),
+    );
+    expect(bundle.sanction_companions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ marker: "ч. 5", relation_type: "sanction_companion" }),
+      ]),
+    );
+  });
+
+  it("для sanction_question включает ч. 5 как sanction_companion и не повышает сегменты до primary", () => {
+    const plan = buildLegalQueryPlan({
+      normalizedInput: "что грозит за неисполнение адвокатского запроса",
+      intent: "qualification_check",
+      actorContext: "general_question",
+      responseMode: "normal",
+      serverId: "server-1",
+    });
+    const advocacyCandidate = createCandidate({
+      lawId: "law-advocacy",
+      lawKey: "advocacy_law",
+      lawTitle: "Закон об адвокатуре и адвокатской деятельности",
+      lawBlockId: "block-advocacy",
+      blockText: [
+        "Статья 5. Адвокатский запрос",
+        "ч. 1 Адвокат вправе направлять официальный адвокатский запрос.",
+        "ч. 5 Неправомерный отказ и нарушение сроков влекут ответственность.",
+      ].join("\n"),
+      articleNumberNormalized: "5",
+      blockOrder: 5,
+    });
+    const selection = createSelection({
+      scored_candidates: [
+        createScoredCandidate(advocacyCandidate, {
+          law_family: "advocacy_law",
+          norm_role: "primary_basis",
+          applicability_score: 10,
+          primary_basis_eligibility: "eligible",
+          primary_basis_eligibility_reason: "eligible_due_to_attorney_request_primary_rule",
+          matched_anchors: ["attorney_request", "sanction"],
+          specificity_rank: 5,
+        }),
+      ],
+      primary_basis_norms: [advocacyCandidate],
+      selected_norms: [advocacyCandidate],
+      selected_norm_roles: [
+        {
+          server_id: "server-1",
+          law_id: "law-advocacy",
+          law_version: "version-1",
+          law_block_id: "block-advocacy",
+          law_family: "advocacy_law",
+          norm_role: "primary_basis",
+          applicability_score: 10,
+        },
+      ],
+      direct_basis_status: "direct_basis_present",
+    });
+
+    const bundle = buildNormBundle({
+      plan,
+      selection,
+      retrievalResults: [advocacyCandidate],
+    });
+
+    expect(bundle.sanction_companions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ marker: "ч. 5", relation_type: "sanction_companion" }),
+      ]),
+    );
+    expect(bundle.primary_basis_norms).toEqual([
+      expect.objectContaining({
+        law_id: "law-advocacy",
+        relation_type: "primary",
+      }),
+    ]);
+  });
+
+  it("кладёт Примечание в article_notes и увеличивает diagnostics count", () => {
+    const plan = buildLegalQueryPlan({
+      normalizedInput: "как направить адвокатский запрос",
+      intent: "law_explanation",
+      actorContext: "general_question",
+      responseMode: "normal",
+      serverId: "server-1",
+    });
+    const advocacyCandidate = createCandidate({
+      lawId: "law-advocacy",
+      lawKey: "advocacy_law",
+      lawTitle: "Закон об адвокатуре и адвокатской деятельности",
+      lawBlockId: "block-advocacy",
+      blockText: [
+        "Статья 5. Адвокатский запрос",
+        "Примечание: Перед тем как направить адвокатский запрос, необходимо опубликовать его в установленном порядке.",
+        "ч. 2 Органы должны дать ответ в течение одного календарного дня.",
+      ].join("\n"),
+      articleNumberNormalized: "5",
+      blockOrder: 5,
+    });
+    const selection = createSelection({
+      scored_candidates: [
+        createScoredCandidate(advocacyCandidate, {
+          law_family: "advocacy_law",
+          norm_role: "primary_basis",
+          applicability_score: 9,
+          primary_basis_eligibility: "eligible",
+          primary_basis_eligibility_reason: "eligible_due_to_attorney_request_primary_rule",
+          matched_anchors: ["attorney_request"],
+        }),
+      ],
+      primary_basis_norms: [advocacyCandidate],
+      selected_norms: [advocacyCandidate],
+      selected_norm_roles: [
+        {
+          server_id: "server-1",
+          law_id: "law-advocacy",
+          law_version: "version-1",
+          law_block_id: "block-advocacy",
+          law_family: "advocacy_law",
+          norm_role: "primary_basis",
+          applicability_score: 9,
+        },
+      ],
+      direct_basis_status: "direct_basis_present",
+    });
+
+    const bundle = buildNormBundle({
+      plan,
+      selection,
+      retrievalResults: [advocacyCandidate],
+    });
+
+    expect(bundle.article_notes).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ marker: "Примечание", relation_type: "article_note" }),
+      ]),
+    );
+    expect(bundle.bundle_diagnostics.article_note_count).toBe(1);
   });
 
   it("не создаёт primary_basis_norms из companion-only или exception-only context и не мутирует selection", () => {
@@ -431,6 +661,7 @@ describe("norm bundle", () => {
     expect(bundle.bundle_diagnostics.bundle_companion_count).toBe(0);
     expect(bundle.bundle_diagnostics.companion_relation_types).toEqual([]);
     expect(bundle.bundle_diagnostics.included_companions).toEqual([]);
+    expect(bundle.bundle_diagnostics.included_article_segments).toEqual([]);
     expect(JSON.stringify(bundle.bundle_diagnostics)).not.toContain("Официальный адвокатский запрос направляется");
   });
 });

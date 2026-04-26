@@ -2003,12 +2003,43 @@ describe("answer pipeline", () => {
     ]);
     expect(aiRequestPayload.requestPayloadJson.norm_bundle_present).toBe(true);
     expect(aiRequestPayload.requestPayloadJson.bundle_primary_count).toBe(1);
-    expect(aiRequestPayload.requestPayloadJson.bundle_companion_count).toBe(0);
-    expect(aiRequestPayload.requestPayloadJson.companion_relation_types).toEqual([]);
-    expect(aiRequestPayload.requestPayloadJson.included_companions).toEqual([]);
+    expect(aiRequestPayload.requestPayloadJson.bundle_companion_count).toBe(1);
+    expect(aiRequestPayload.requestPayloadJson.companion_relation_types).toEqual([
+      "procedure_companion",
+    ]);
+    expect(aiRequestPayload.requestPayloadJson.included_companions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          law_id: "law-1",
+          law_block_id: "law-block-1",
+          marker: "ч. 2",
+          relation_type: "procedure_companion",
+        }),
+      ]),
+    );
     expect(aiRequestPayload.requestPayloadJson.bundle_budget_trimmed).toBe(false);
+    expect(aiRequestPayload.requestPayloadJson.same_article_part_count).toBe(0);
+    expect(aiRequestPayload.requestPayloadJson.article_note_count).toBe(0);
+    expect(aiRequestPayload.requestPayloadJson.exception_count).toBe(0);
+    expect(aiRequestPayload.requestPayloadJson.sanction_companion_count).toBe(0);
+    expect(aiRequestPayload.requestPayloadJson.evidence_companion_count).toBe(0);
+    expect(aiRequestPayload.requestPayloadJson.segment_relation_types).toEqual([
+      "procedure_companion",
+    ]);
+    expect(aiRequestPayload.requestPayloadJson.included_article_segments).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          marker: "ч. 2",
+          relation_type: "procedure_companion",
+        }),
+      ]),
+    );
+    expect(aiRequestPayload.requestPayloadJson.excluded_article_segments).toEqual(
+      expect.arrayContaining([expect.objectContaining({ reason_code: expect.any(String) })]),
+    );
     expect(promptInput).not.toContain("companion[");
     expect(promptInput).not.toContain("NormBundle");
+    expect(JSON.stringify(aiRequestPayload.requestPayloadJson)).not.toContain("Текст нормы");
   });
 
   it("нормализует ответ модели в структурированный markdown даже если precedent section пропущена", async () => {
