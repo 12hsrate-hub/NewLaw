@@ -52,6 +52,89 @@ export const rewriteGroundedDocumentFieldActionInputSchema = z.object({
   sectionKey: groundedDocumentRewriteSectionKeySchema,
 });
 
+export const complaintNarrativeLengthModes = ["short", "normal", "detailed"] as const;
+export const complaintNarrativeRiskFlags = [
+  "insufficient_facts",
+  "weak_legal_context",
+  "missing_evidence",
+  "unclear_roles",
+  "unclear_timeline",
+  "ambiguous_date_time",
+  "possible_overclaiming",
+  "legal_basis_not_found",
+] as const;
+
+export const complaintNarrativeLengthModeSchema = z.enum(complaintNarrativeLengthModes);
+export const complaintNarrativeRiskFlagSchema = z.enum(complaintNarrativeRiskFlags);
+
+export const complaintNarrativeImprovementActionInputSchema = z.object({
+  documentId: documentIdSchema,
+  lengthMode: complaintNarrativeLengthModeSchema.default("normal"),
+});
+
+export const complaintNarrativeApplicantSchema = z.object({
+  full_name: z.string().trim().min(1).max(160),
+  role_label: z.string().trim().max(160).nullable(),
+});
+
+export const complaintNarrativeEvidenceItemSchema = z.object({
+  label: z.string().trim().min(1).max(240),
+  url: z.string().trim().url().optional(),
+});
+
+export const complaintNarrativeLegalContextLawSchema = z.object({
+  law_name: z.string().trim().min(1).max(240),
+  article: z.string().trim().max(64).optional(),
+  part: z.string().trim().max(64).optional(),
+  excerpt: z.string().trim().max(2_000).optional(),
+});
+
+export const complaintNarrativeLegalContextPrecedentSchema = z.object({
+  title: z.string().trim().min(1).max(240),
+  reason: z.string().trim().min(1).max(500),
+});
+
+export const complaintNarrativeLegalContextSchema = z.object({
+  laws: z.array(complaintNarrativeLegalContextLawSchema).max(8).default([]),
+  precedents: z.array(complaintNarrativeLegalContextPrecedentSchema).max(4).default([]),
+});
+
+export const complaintNarrativeImprovementRuntimeInputSchema = z.object({
+  server_id: z.string().trim().min(1),
+  law_version: z.string().trim().min(1).nullable(),
+  active_character: complaintNarrativeApplicantSchema,
+  applicant_role: z.string().trim().min(1).max(160).nullable(),
+  representative_mode: z.enum(["self", "representative"]),
+  victim_or_trustor_mode: z.enum(["self", "trustor"]),
+  victim_or_trustor_name: z.string().trim().max(160).nullable(),
+  organization: z.string().trim().min(1).max(160),
+  subject_name: z.string().trim().min(1).max(160),
+  date_time: z.string().trim().min(1).max(64),
+  raw_situation_description: z.string().trim().min(1).max(12_000),
+  evidence_list: z.array(complaintNarrativeEvidenceItemSchema).max(40).default([]),
+  attorney_request_context: z.record(z.string(), z.unknown()).nullable().optional(),
+  arrest_or_bodycam_context: z.record(z.string(), z.unknown()).nullable().optional(),
+  selected_legal_context: complaintNarrativeLegalContextSchema.nullable().optional(),
+  length_mode: complaintNarrativeLengthModeSchema.default("normal"),
+});
+
+export const complaintNarrativeLegalBasisUsedSchema = z.object({
+  law_name: z.string().trim().min(1).max(240),
+  article: z.string().trim().max(64).optional(),
+  part: z.string().trim().max(64).optional(),
+  reason: z.string().trim().min(1).max(500),
+});
+
+export const complaintNarrativeImprovementResultSchema = z.object({
+  improved_text: z.string().trim().min(1).max(4_000),
+  legal_basis_used: z.array(complaintNarrativeLegalBasisUsedSchema).max(6),
+  used_facts: z.array(z.string().trim().min(1).max(500)).max(32),
+  missing_facts: z.array(z.string().trim().min(1).max(500)).max(32),
+  review_notes: z.array(z.string().trim().min(1).max(1_000)).max(32),
+  risk_flags: z.array(complaintNarrativeRiskFlagSchema).max(16),
+  should_send_to_review: z.boolean(),
+});
+
 export const documentFieldRewriteUsageMetaSchema = z.object({
   featureKey: z.literal("document_field_rewrite"),
   providerKey: z.string().trim().min(1).nullable(),
@@ -121,4 +204,15 @@ export type GroundedDocumentRewriteMode = z.infer<typeof groundedDocumentRewrite
 export type GroundedDocumentReference = z.infer<typeof groundedDocumentReferenceSchema>;
 export type GroundedDocumentFieldRewriteUsageMeta = z.infer<
   typeof groundedDocumentFieldRewriteUsageMetaSchema
+>;
+export type ComplaintNarrativeLengthMode = z.infer<typeof complaintNarrativeLengthModeSchema>;
+export type ComplaintNarrativeRiskFlag = z.infer<typeof complaintNarrativeRiskFlagSchema>;
+export type ComplaintNarrativeImprovementActionInput = z.infer<
+  typeof complaintNarrativeImprovementActionInputSchema
+>;
+export type ComplaintNarrativeImprovementRuntimeInput = z.infer<
+  typeof complaintNarrativeImprovementRuntimeInputSchema
+>;
+export type ComplaintNarrativeImprovementResult = z.infer<
+  typeof complaintNarrativeImprovementResultSchema
 >;

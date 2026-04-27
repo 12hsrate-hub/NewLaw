@@ -4,6 +4,27 @@
 
 `post-MVP / planned`
 
+## Текущий implemented checkpoint по `18.1`
+
+`18.1` реализован как backend-only contract slice без UI integration.
+
+Что уже входит:
+
+- schema-driven input contract
+- schema-driven output contract
+- blocking preflight validation
+- compact prompt/style builder
+- structured output parser/validator
+- deterministic backend tests без real AI calls
+
+Что intentionally ещё не входит:
+
+- real AI action invocation
+- wiring в complaint wizard UI
+- кнопка `Улучшить описание`
+- persistence нового результата в draft editor
+- full review workflow вокруг этого модуля
+
 ## Назначение линии
 
 `Complaint Narrative Improvement v1` — это отдельный AI-flow для `ogp_complaint`, который улучшает только поле `Подробное описание ситуации`.
@@ -451,12 +472,21 @@ Implementation должен покрыть:
 - validation rules
 - test plan
 
+Статус:
+
+- implemented через `18.1`
+
 ### Slice B — backend contract and prompt builder
 
 - input/result types
 - compact style profile
 - prompt builder
 - structured output parsing and validation
+
+Статус:
+
+- partially implemented в `18.1`
+- full AI action invocation остаётся следующим безопасным slice
 
 ### Slice C — tests
 
@@ -471,6 +501,10 @@ Implementation должен покрыть:
 - подключение к complaint wizard backend action
 - blocking validation перед AI run
 - без UI redesign
+
+Статус:
+
+- future
 
 ### Slice E — future UI
 
