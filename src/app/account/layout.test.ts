@@ -2,6 +2,21 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+const { usePathnameMock, useSearchParamsMock } = vi.hoisted(() => ({
+  usePathnameMock: vi.fn(),
+  useSearchParamsMock: vi.fn(),
+}));
+
+vi.mock("next/navigation", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("next/navigation")>();
+
+  return {
+    ...actual,
+    usePathname: usePathnameMock,
+    useSearchParams: useSearchParamsMock,
+  };
+});
+
 vi.mock("@/server/auth/protected", () => ({
   requireProtectedAccountContext: vi.fn(),
 }));
@@ -17,6 +32,8 @@ import { getPrimaryShellContext } from "@/server/primary-shell/context";
 describe("account layout", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    usePathnameMock.mockReturnValue("/account");
+    useSearchParamsMock.mockReturnValue(new URLSearchParams());
     vi.mocked(getPrimaryShellContext).mockResolvedValue({
       viewer: {
         isAuthenticated: true,
@@ -25,6 +42,13 @@ describe("account layout", () => {
         isSuperAdmin: false,
       },
       currentPath: "/account",
+      availableServers: [
+        {
+          id: "server-1",
+          name: "Blackberry",
+          slug: "blackberry",
+        },
+      ],
       activeServer: {
         id: "server-1",
         name: "Blackberry",
@@ -62,6 +86,7 @@ describe("account layout", () => {
     expect(html).toContain('href="/account/documents"');
     expect(html).toContain('href="/account/trustors"');
     expect(html).toContain('href="/servers/blackberry/documents"');
+    expect(html).toContain(">Переключить<");
     expect(html).not.toContain('href="/internal/access-requests"');
   });
 
@@ -83,6 +108,13 @@ describe("account layout", () => {
         isSuperAdmin: true,
       },
       currentPath: "/account",
+      availableServers: [
+        {
+          id: "server-1",
+          name: "Blackberry",
+          slug: "blackberry",
+        },
+      ],
       activeServer: {
         id: "server-1",
         name: "Blackberry",

@@ -23,6 +23,7 @@ describe("assistant layout", () => {
         isSuperAdmin: false,
       },
       currentPath: "/assistant",
+      availableServers: [],
       activeServer: {
         id: null,
         name: null,

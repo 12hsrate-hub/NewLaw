@@ -1,10 +1,28 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+const { usePathnameMock, useSearchParamsMock } = vi.hoisted(() => ({
+  usePathnameMock: vi.fn(),
+  useSearchParamsMock: vi.fn(),
+}));
+
+vi.mock("next/navigation", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("next/navigation")>();
+
+  return {
+    ...actual,
+    usePathname: usePathnameMock,
+    useSearchParams: useSearchParamsMock,
+  };
+});
 
 import { PrimaryHeader } from "@/components/product/shell/primary-header";
 
 describe("primary header", () => {
   it("показывает ordinary navigation и гостевой вход для public zones", () => {
+    usePathnameMock.mockReturnValue("/assistant");
+    useSearchParamsMock.mockReturnValue(new URLSearchParams());
+
     const html = renderToStaticMarkup(
       <PrimaryHeader
         context={{
@@ -15,6 +33,7 @@ describe("primary header", () => {
             isSuperAdmin: false,
           },
           currentPath: "/assistant",
+          availableServers: [],
           activeServer: {
             id: null,
             name: null,
@@ -35,10 +54,14 @@ describe("primary header", () => {
     expect(html).toContain('href="/account"');
     expect(html).toContain("Сервер не выбран");
     expect(html).toContain('href="/sign-in?next=%2Fassistant"');
+    expect(html).not.toContain("Переключить");
     expect(html).not.toContain("Служебная зона");
   });
 
-  it("добавляет служебную ссылку и contextual documents link для super_admin", () => {
+  it("для авторизованного viewer показывает switcher, active server и служебную ссылку для super_admin", () => {
+    usePathnameMock.mockReturnValue("/account");
+    useSearchParamsMock.mockReturnValue(new URLSearchParams());
+
     const html = renderToStaticMarkup(
       <PrimaryHeader
         context={{
@@ -49,6 +72,18 @@ describe("primary header", () => {
             isSuperAdmin: true,
           },
           currentPath: "/account",
+          availableServers: [
+            {
+              id: "server-1",
+              name: "Blackberry",
+              slug: "blackberry",
+            },
+            {
+              id: "server-2",
+              name: "Rainbow",
+              slug: "rainbow",
+            },
+          ],
           activeServer: {
             id: "server-1",
             name: "Blackberry",
@@ -65,8 +100,47 @@ describe("primary header", () => {
     expect(html).toContain("Вы вошли как");
     expect(html).toContain("admin");
     expect(html).toContain("Blackberry");
+    expect(html).toContain(">Сервер<");
+    expect(html).toContain(">Переключить<");
+    expect(html).toContain("Текущий выбор влияет на серверные разделы и документы.");
+    expect(html).toContain('name="serverId"');
+    expect(html).toContain('value="/account"');
     expect(html).toContain('href="/servers/blackberry/documents"');
     expect(html).toContain('href="/internal"');
     expect(html).toContain("Служебная зона");
+  });
+
+  it("показывает disabled state, если у пользователя нет доступных серверов", () => {
+    usePathnameMock.mockReturnValue("/servers");
+    useSearchParamsMock.mockReturnValue(new URLSearchParams());
+
+    const html = renderToStaticMarkup(
+      <PrimaryHeader
+        context={{
+          viewer: {
+            isAuthenticated: true,
+            accountLogin: "user",
+            accountEmail: "user@example.com",
+            isSuperAdmin: false,
+          },
+          currentPath: "/servers",
+          availableServers: [],
+          activeServer: {
+            id: null,
+            name: null,
+            slug: null,
+          },
+          navigation: {
+            documentsHref: null,
+            internalHref: null,
+          },
+        }}
+      />,
+    );
+
+    expect(html).toContain(">Переключить<");
+    expect(html).toContain("Пока нет доступных серверов для переключения.");
+    expect(html).toContain("Серверов пока нет");
+    expect(html).toContain("disabled");
   });
 });

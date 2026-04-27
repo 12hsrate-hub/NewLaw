@@ -5,6 +5,7 @@ import type { PrimaryShellContext } from "@/server/primary-shell/context";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { PrimaryNav } from "@/components/product/shell/primary-nav";
+import { PrimaryServerSwitcher } from "@/components/product/shell/primary-server-switcher";
 
 type PrimaryHeaderProps = {
   context: PrimaryShellContext;
@@ -34,12 +35,17 @@ export function PrimaryHeader({ context }: PrimaryHeaderProps) {
             навигации.
           </p>
 
-          <p className="text-sm leading-6 text-[var(--muted)]">
-            Сервер:{" "}
-            <span className="font-medium text-[var(--foreground)]">
-              {context.activeServer.name ?? "Сервер не выбран"}
-            </span>
-          </p>
+          {context.viewer.isAuthenticated ? (
+            <PrimaryServerSwitcher
+              activeServerId={context.activeServer.id}
+              availableServers={context.availableServers}
+            />
+          ) : (
+            <p className="text-sm leading-6 text-[var(--muted)]">
+              Сервер:{" "}
+              <span className="font-medium text-[var(--foreground)]">Сервер не выбран</span>
+            </p>
+          )}
         </div>
 
         <div className="flex flex-col items-start gap-3 lg:items-end">

@@ -25,6 +25,11 @@ export type PrimaryShellContext = {
     isSuperAdmin: boolean;
   };
   currentPath: string;
+  availableServers: Array<{
+    id: string;
+    name: string;
+    slug: string;
+  }>;
   activeServer: {
     id: string | null;
     name: string | null;
@@ -50,6 +55,7 @@ function buildGuestContext(currentPath: string): PrimaryShellContext {
       isSuperAdmin: false,
     },
     currentPath,
+    availableServers: [],
     activeServer: {
       id: null,
       name: null,
@@ -86,6 +92,11 @@ export async function getPrimaryShellContext(
         isSuperAdmin: account.isSuperAdmin,
       },
       currentPath,
+      availableServers: servers.map((server) => ({
+        id: server.id,
+        name: server.name,
+        slug: server.code,
+      })),
       activeServer: {
         id: activeServer?.id ?? null,
         name: activeServer?.name ?? null,
@@ -122,6 +133,11 @@ export async function getPrimaryShellContext(
       isSuperAdmin: account.isSuperAdmin,
     },
     currentPath,
+    availableServers: servers.map((server) => ({
+      id: server.id,
+      name: server.name,
+      slug: server.code,
+    })),
     activeServer: {
       id: activeServer?.id ?? null,
       name: activeServer?.name ?? null,
