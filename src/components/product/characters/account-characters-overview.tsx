@@ -27,36 +27,36 @@ const statusLabels: Record<string, string> = {
   "character-updated": "Изменения персонажа сохранены.",
   "character-limit": "На одном сервере нельзя иметь больше трёх персонажей.",
   "passport-conflict": "Паспорт уже используется в рамках этого аккаунта и сервера.",
-  "character-create-error": "Не удалось создать персонажа. Проверьте данные и попробуйте снова. Код: CHARACTER_CREATE_FAILED.",
-  "character-update-error": "Не удалось сохранить изменения персонажа. Проверьте данные и попробуйте снова. Код: CHARACTER_UPDATE_FAILED.",
-  "character-not-found": "Персонаж для редактирования не найден. Код: CHARACTER_NOT_FOUND.",
+  "character-create-error": "Не удалось создать персонажа. Проверьте ФИО и паспорт, затем повторите попытку.",
+  "character-update-error": "Не удалось сохранить изменения персонажа. Проверьте заполненные поля и попробуйте снова.",
+  "character-not-found": "Не удалось найти персонажа для редактирования. Обновите страницу и попробуйте снова.",
   "character-signature-uploaded": "Подпись персонажа сохранена и станет использоваться в новых шаблонных документах.",
   "character-signature-uploaded-warning":
     "Подпись персонажа сохранена. Для лучшего отображения в документах рекомендуется использовать PNG с прозрачным фоном.",
   "character-signature-removed":
     "Активная подпись отвязана от персонажа. Уже созданные документы продолжают использовать сохранённый снимок подписи.",
   "character-signature-access-denied":
-    "Не удалось изменить подпись персонажа. Проверьте права доступа и попробуйте снова. Код: CHARACTER_SIGNATURE_ACCESS_DENIED.",
+    "Не удалось изменить подпись персонажа. Проверьте, что редактируете свой профиль, и попробуйте снова.",
   "character-signature-missing-file":
-    "Выберите файл подписи и попробуйте снова. Код: CHARACTER_SIGNATURE_MISSING_FILE.",
+    "Выберите файл подписи и попробуйте снова.",
   "character-signature-invalid-format":
-    "Поддерживаются только PNG, JPG/JPEG и WEBP. Код: CHARACTER_SIGNATURE_INVALID_FORMAT.",
+    "Поддерживаются только PNG, JPG/JPEG и WEBP.",
   "character-signature-file-too-large":
-    "Файл подписи должен быть не больше 1 МБ. Код: CHARACTER_SIGNATURE_FILE_TOO_LARGE.",
+    "Файл подписи должен быть не больше 1 МБ.",
   "character-signature-invalid-dimensions":
-    "Проверьте размеры подписи: допустимо от 300×100 до 1200×400 px и от 2:1 до 5:1. Код: CHARACTER_SIGNATURE_INVALID_DIMENSIONS.",
+    "Проверьте размеры подписи: допустимо от 300×100 до 1200×400 px и от 2:1 до 5:1.",
   "character-signature-upload-error":
-    "Не удалось сохранить подпись персонажа. Попробуйте снова позже. Код: CHARACTER_SIGNATURE_UPLOAD_FAILED.",
+    "Не удалось сохранить подпись персонажа. Попробуйте снова позже.",
   "character-access-request-created":
     "Заявка на адвокатский доступ отправлена и ожидает рассмотрения администратором.",
   "character-access-request-not-found":
-    "Не удалось найти персонажа для заявки на доступ. Код: CHARACTER_ACCESS_REQUEST_CHARACTER_NOT_FOUND.",
+    "Не удалось найти персонажа для заявки на доступ. Обновите страницу и попробуйте снова.",
   "character-access-request-pending-exists":
-    "По этому персонажу уже есть заявка на рассмотрении. Код: CHARACTER_ACCESS_REQUEST_PENDING_EXISTS.",
+    "По этому персонажу уже есть заявка на рассмотрении.",
   "character-access-request-already-granted":
-    "У персонажа уже выдан адвокатский доступ. Новая заявка не требуется. Код: CHARACTER_ACCESS_REQUEST_ALREADY_GRANTED.",
+    "У этого персонажа уже есть адвокатский доступ. Новая заявка не требуется.",
   "character-access-request-create-error":
-    "Не удалось отправить заявку на адвокатский доступ. Попробуйте снова позже. Код: CHARACTER_ACCESS_REQUEST_CREATE_FAILED.",
+    "Не удалось отправить заявку на адвокатский доступ. Попробуйте снова позже.",
 };
 
 function formatLabels(values: string[], labels: Record<string, string>) {
@@ -89,9 +89,6 @@ function CharacterGroup(props: { group: AccountCharactersServerGroup }) {
         <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-2">
             <Badge>{group.server.name}</Badge>
-            <span className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
-              {group.server.code}
-            </span>
             {group.isFocused ? (
               <Badge className="bg-[#e9efe0] text-[#35501c]">Выбранный сервер</Badge>
             ) : null}
@@ -354,11 +351,7 @@ export function AccountCharactersOverview(props: {
 
         {props.context.focusedServerCode ? (
           <p className="rounded-2xl border border-[var(--border)] bg-white/60 px-4 py-3 text-sm leading-6 text-[var(--muted)]">
-            Сейчас открыт список для сервера:{" "}
-            <span className="font-medium text-[var(--foreground)]">
-              {props.context.focusedServerCode}
-            </span>
-            . Это только подсветка нужной группы.
+            Показана группа выбранного сервера. Данные персонажей не меняются.
           </p>
         ) : null}
 

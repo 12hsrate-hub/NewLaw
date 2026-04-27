@@ -65,7 +65,7 @@ export default async function AccountLayout({ children }: AccountLayoutProps) {
                   className="rounded-2xl border border-[var(--border)] bg-white/70 px-4 py-2 text-sm font-medium transition hover:bg-white"
                   href="/internal/access-requests"
                 >
-                  Access Requests
+                  Заявки на доступ
                 </Link>
               ) : null}
             </nav>

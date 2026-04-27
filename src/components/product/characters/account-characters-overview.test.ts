@@ -112,6 +112,7 @@ describe("account characters overview", () => {
     expect(html).toContain("Заметка профиля");
     expect(html).toContain("Подпись для документов");
     expect(html).toContain("Персонажей пока нет");
+    expect(html).not.toContain("CHARACTER_");
     expect(html).not.toContain("Assistant");
     expect(html).not.toContain("Documents hub");
   });

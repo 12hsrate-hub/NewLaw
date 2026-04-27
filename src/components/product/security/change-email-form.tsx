@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { changeEmailAction } from "@/server/actions/account-security";
+import { getSafeAccountSecurityMessage } from "@/components/product/security/account-security-copy";
 
 type ChangeEmailFormProps = {
   currentEmail: string;
@@ -90,7 +91,9 @@ export function ChangeEmailForm({
       </form>
 
       {safeState.errorMessage ? (
-        <p className="text-sm leading-6 text-[#8a2d1d]">{safeState.errorMessage}</p>
+        <p className="text-sm leading-6 text-[#8a2d1d]">
+          {getSafeAccountSecurityMessage(safeState.errorMessage)}
+        </p>
       ) : null}
     </Card>
   );

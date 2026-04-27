@@ -9,15 +9,16 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { TrustorFormCard } from "@/components/product/trustors/trustor-form-card";
+import { formatDocumentStatus } from "@/components/product/document-area/document-persistence-shared";
 
 const statusLabels: Record<string, string> = {
   "trustor-created": "Доверитель сохранён.",
   "trustor-updated": "Изменения по доверителю сохранены.",
   "trustor-deleted": "Доверитель удалён из списка.",
-  "trustor-not-found": "Не удалось найти доверителя для редактирования или удаления. Код: TRUSTOR_NOT_FOUND.",
-  "trustor-create-error": "Не удалось сохранить доверителя. Проверьте данные и попробуйте снова. Код: TRUSTOR_CREATE_FAILED.",
-  "trustor-update-error": "Не удалось сохранить изменения по доверителю. Попробуйте снова. Код: TRUSTOR_UPDATE_FAILED.",
-  "trustor-delete-error": "Не удалось удалить доверителя из списка. Попробуйте снова. Код: TRUSTOR_DELETE_FAILED.",
+  "trustor-not-found": "Не удалось найти доверителя для редактирования или удаления. Обновите страницу и попробуйте снова.",
+  "trustor-create-error": "Не удалось сохранить доверителя. Проверьте заполненные поля и повторите попытку.",
+  "trustor-update-error": "Не удалось сохранить изменения по доверителю. Проверьте данные и попробуйте снова.",
+  "trustor-delete-error": "Не удалось удалить доверителя из списка. Попробуйте снова позже.",
 };
 
 function TrustorGroup(props: { group: AccountTrustorsServerGroup }) {
@@ -31,9 +32,6 @@ function TrustorGroup(props: { group: AccountTrustorsServerGroup }) {
         <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-2">
             <Badge>{group.server.name}</Badge>
-            <span className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
-              {group.server.code}
-            </span>
             {group.isFocused ? (
               <Badge className="bg-[#e9efe0] text-[#35501c]">Выбранный сервер</Badge>
             ) : null}
@@ -81,7 +79,7 @@ function TrustorGroup(props: { group: AccountTrustorsServerGroup }) {
 
       {!group.trustors.length ? (
         <div className="space-y-3 rounded-2xl border border-dashed border-[var(--border)] bg-white/50 p-4">
-          <h3 className="text-lg font-semibold">Карточек доверителей пока нет</h3>
+          <h3 className="text-lg font-semibold">Пока нет доверителей</h3>
           <p className="text-sm leading-6 text-[var(--muted)]">
             Здесь можно хранить данные доверителей для этого сервера. Уже созданные документы от
             этого списка не зависят: в каждом документе остаётся своя сохранённая копия данных.
@@ -162,7 +160,7 @@ function TrustorGroup(props: { group: AccountTrustorsServerGroup }) {
                         >
                           {document.title}
                         </Link>{" "}
-                        · {document.status === "draft" ? "черновик" : document.status === "generated" ? "сгенерировано" : "опубликовано"} ·{" "}
+                        · {formatDocumentStatus(document.status)} ·{" "}
                         {new Date(document.updatedAt).toLocaleString("ru-RU")}
                       </li>
                     ))}
@@ -231,11 +229,8 @@ export function AccountTrustorsOverview(props: {
 
         {props.context.focusedServerCode ? (
           <p className="rounded-2xl border border-[var(--border)] bg-white/60 px-4 py-3 text-sm leading-6 text-[var(--muted)]">
-            Сейчас открыт список для сервера:{" "}
-            <span className="font-medium text-[var(--foreground)]">
-              {props.context.focusedServerCode}
-            </span>
-            .
+            Показана группа выбранного сервера, чтобы быстрее найти доверителей и связанные
+            документы.
           </p>
         ) : null}
 

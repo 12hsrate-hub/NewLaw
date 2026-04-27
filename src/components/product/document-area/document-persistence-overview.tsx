@@ -30,9 +30,9 @@ function PersistedDocumentList(props: {
   if (props.documents.length === 0) {
     return (
       <Card className="space-y-3">
-        <h2 className="text-2xl font-semibold">Документы пока не созданы</h2>
+        <h2 className="text-2xl font-semibold">Пока нет документов</h2>
         <p className="text-sm leading-6 text-[var(--muted)]">
-          У этого аккаунта пока нет сохранённых документов.
+          Созданные черновики и собранные документы появятся здесь.
         </p>
       </Card>
     );

@@ -66,7 +66,7 @@ describe("account trustors overview", () => {
     );
 
     expect(html).toContain("Доверители");
-    expect(html).toContain("Сейчас открыт список для сервера");
+    expect(html).toContain("Показана группа выбранного сервера");
     expect(html).toContain("Добавить доверителя");
     expect(html).toContain("Добавить доверителя на этом сервере");
     expect(html).toContain("Редактировать доверителя");
@@ -75,7 +75,7 @@ describe("account trustors overview", () => {
     expect(html).toContain("Готов для подачи через представителя");
     expect(html).toContain("Нужны обязательные поля");
     expect(html).toContain("Проверенный представитель");
-    expect(html).toContain("Карточек доверителей пока нет");
+    expect(html).toContain("Пока нет доверителей");
     expect(html).toContain('/account/trustors?server=rainbow');
     expect(html).not.toContain("Claims");
     expect(html).not.toContain("Assistant");

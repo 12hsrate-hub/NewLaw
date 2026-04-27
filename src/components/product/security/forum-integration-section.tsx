@@ -12,6 +12,11 @@ import {
   validateForumConnectionAction,
 } from "@/server/actions/forum-integration";
 import type { ForumConnectionSummary } from "@/schemas/forum-integration";
+import {
+  formatForumProviderLabel,
+  getSafeForumFieldError,
+  getSafeForumIntegrationMessage,
+} from "@/components/product/security/account-security-copy";
 
 type ForumIntegrationSectionProps = {
   forumConnection: ForumConnectionSummary;
@@ -77,7 +82,7 @@ export function ForumIntegrationSection({
 
       <div className="rounded-2xl border border-[var(--border)] bg-[rgba(255,255,255,0.7)] px-4 py-3 text-sm leading-6 text-[var(--muted)]">
         <p>
-          Форум: <span className="font-medium text-[var(--foreground)]">{forumConnection.providerKey}</span>
+          Форум: <span className="font-medium text-[var(--foreground)]">{formatForumProviderLabel(forumConnection.providerKey)}</span>
         </p>
         <p>
           Статус: <span className="font-medium text-[var(--foreground)]">{formatForumConnectionState(forumConnection.state)}</span>
@@ -85,8 +90,7 @@ export function ForumIntegrationSection({
         <p>
           Форумный аккаунт:{" "}
           <span className="font-medium text-[var(--foreground)]">
-            {forumConnection.forumUsername ?? "ещё не извлечена"}
-            {forumConnection.forumUserId ? ` (${forumConnection.forumUserId})` : ""}
+            {forumConnection.forumUsername ?? "ещё не подтверждён"}
           </span>
         </p>
         <p>
@@ -99,7 +103,7 @@ export function ForumIntegrationSection({
         </p>
         {forumConnection.lastValidationError ? (
           <p className="mt-2 text-[#8a2d1d]">
-            Последняя ошибка проверки: {forumConnection.lastValidationError}
+            Подключение к форуму не подтверждено. Обновите данные форума и повторите проверку.
           </p>
         ) : null}
       </div>
@@ -107,7 +111,7 @@ export function ForumIntegrationSection({
       <form action={saveAction} className="space-y-4">
         <div className="space-y-2">
           <label className="text-sm font-medium" htmlFor="rawSessionInput">
-            Cookie header форума
+            Данные форума для подключения
           </label>
           <Textarea
             id="rawSessionInput"
@@ -120,11 +124,13 @@ export function ForumIntegrationSection({
             value={rawSessionInput}
           />
           <p className="text-xs leading-5 text-[var(--muted)]">
-            Вставьте Cookie header из запроса к `forum.gta5rp.com`. После сохранения он больше не
-            будет показан в интерфейсе.
+            Вставьте cookie форума из браузера. После сохранения эти данные больше не будут
+            показаны в интерфейсе.
           </p>
           {saveState?.fieldErrors.rawSessionInput ? (
-            <p className="text-sm leading-6 text-[#8a2d1d]">{saveState.fieldErrors.rawSessionInput}</p>
+            <p className="text-sm leading-6 text-[#8a2d1d]">
+              {getSafeForumFieldError(saveState.fieldErrors.rawSessionInput)}
+            </p>
           ) : null}
         </div>
 
@@ -134,7 +140,9 @@ export function ForumIntegrationSection({
       </form>
 
       {saveState?.errorMessage ? (
-        <p className="text-sm leading-6 text-[#8a2d1d]">{saveState.errorMessage}</p>
+        <p className="text-sm leading-6 text-[#8a2d1d]">
+          {getSafeForumIntegrationMessage(saveState.errorMessage)}
+        </p>
       ) : null}
       {saveState?.successMessage ? (
         <p className="text-sm leading-6 text-[var(--muted)]">{saveState.successMessage}</p>
@@ -171,13 +179,17 @@ export function ForumIntegrationSection({
       </div>
 
       {validateState?.errorMessage ? (
-        <p className="text-sm leading-6 text-[#8a2d1d]">{validateState.errorMessage}</p>
+        <p className="text-sm leading-6 text-[#8a2d1d]">
+          {getSafeForumIntegrationMessage(validateState.errorMessage)}
+        </p>
       ) : null}
       {validateState?.successMessage ? (
         <p className="text-sm leading-6 text-[var(--muted)]">{validateState.successMessage}</p>
       ) : null}
       {disableState?.errorMessage ? (
-        <p className="text-sm leading-6 text-[#8a2d1d]">{disableState.errorMessage}</p>
+        <p className="text-sm leading-6 text-[#8a2d1d]">
+          {getSafeForumIntegrationMessage(disableState.errorMessage)}
+        </p>
       ) : null}
       {disableState?.successMessage ? (
         <p className="text-sm leading-6 text-[var(--muted)]">{disableState.successMessage}</p>

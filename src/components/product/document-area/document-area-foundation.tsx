@@ -47,7 +47,7 @@ export function AccountZoneFoundationIntro(props: {
         </FoundationLink>
         {props.isSuperAdmin ? (
           <FoundationLink className="text-[var(--muted)]" href="/internal/access-requests">
-            Открыть access requests
+            Открыть заявки на доступ
           </FoundationLink>
         ) : null}
       </div>

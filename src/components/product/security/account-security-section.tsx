@@ -12,7 +12,7 @@ type AccountSecuritySectionProps = {
 
 const statusMessages: Record<string, string> = {
   "admin-access-denied":
-    "У вас нет доступа к внутреннему разделу безопасности. Здесь можно управлять только настройками своего аккаунта. Код: ACCOUNT_ADMIN_SECURITY_DENIED.",
+    "Этот раздел недоступен. Здесь можно управлять только безопасностью своего аккаунта.",
   "email-change-confirmed":
     "Новый email подтверждён. Теперь аккаунт будет использовать обновлённый адрес.",
   "email-change-requested":

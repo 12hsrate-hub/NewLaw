@@ -54,5 +54,6 @@ describe("account layout", () => {
     );
 
     expect(html).toContain('href="/internal/access-requests"');
+    expect(html).toContain("Заявки на доступ");
   });
 });
