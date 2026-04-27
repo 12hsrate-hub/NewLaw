@@ -15,6 +15,11 @@ import {
   ClaimsEditorActionBar,
   ClaimsEditorPreviewPanels,
 } from "@/components/product/document-area/document-claims-editor-panels";
+import {
+  formatDocumentRewriteBlockedMessage,
+  formatDocumentRewriteUnavailableMessage,
+  formatGroundedRewriteInsufficientCorpusMessage,
+} from "@/components/product/document-area/document-ai-review-copy";
 import { DocumentFieldRewritePanel } from "@/components/product/document-area/document-field-rewrite-panel";
 import {
   areStatesEqual,
@@ -379,7 +384,7 @@ export function ClaimsDraftEditorClient(props: ClaimsDraftEditorClientProps) {
           if (result.error === "rewrite-blocked") {
             setRewriteFeedback({
               sectionKey,
-              message: result.reasons.join(" "),
+              message: formatDocumentRewriteBlockedMessage("standard", result.reasons),
             });
             setRewriteSuggestion(null);
             return;
@@ -388,7 +393,7 @@ export function ClaimsDraftEditorClient(props: ClaimsDraftEditorClientProps) {
           if (result.error === "rewrite-unavailable") {
             setRewriteFeedback({
               sectionKey,
-              message: result.message,
+              message: formatDocumentRewriteUnavailableMessage("standard"),
             });
             setRewriteSuggestion(null);
             return;
@@ -481,16 +486,25 @@ export function ClaimsDraftEditorClient(props: ClaimsDraftEditorClientProps) {
           if (result.error === "rewrite-blocked") {
             setGroundedRewriteFeedback({
               sectionKey,
-              message: result.reasons.join(" "),
+              message: formatDocumentRewriteBlockedMessage("grounded", result.reasons),
             });
             setGroundedRewriteSuggestion(null);
             return;
           }
 
-          if (result.error === "insufficient-corpus" || result.error === "rewrite-unavailable") {
+          if (result.error === "insufficient-corpus") {
             setGroundedRewriteFeedback({
               sectionKey,
-              message: result.message,
+              message: formatGroundedRewriteInsufficientCorpusMessage(),
+            });
+            setGroundedRewriteSuggestion(null);
+            return;
+          }
+
+          if (result.error === "rewrite-unavailable") {
+            setGroundedRewriteFeedback({
+              sectionKey,
+              message: formatDocumentRewriteUnavailableMessage("grounded"),
             });
             setGroundedRewriteSuggestion(null);
             return;
@@ -594,7 +608,7 @@ export function ClaimsDraftEditorClient(props: ClaimsDraftEditorClientProps) {
               type="button"
               variant="secondary"
             >
-              {rewritePendingSectionKey === input.sectionKey ? "AI обрабатывает..." : "Улучшить текст"}
+              {rewritePendingSectionKey === input.sectionKey ? "Готовим вариант..." : "Улучшить текст"}
             </Button>
             {supportsGrounded ? (
               <Button
@@ -609,12 +623,12 @@ export function ClaimsDraftEditorClient(props: ClaimsDraftEditorClientProps) {
                 variant="secondary"
               >
                 {groundedRewritePendingSectionKey === input.sectionKey
-                  ? "AI обрабатывает..."
+                  ? "Готовим вариант..."
                   : "Улучшить с опорой на нормы"}
               </Button>
             ) : null}
             <span className="text-xs leading-5 text-[var(--muted)]">
-              Помощник использует только последнюю сохранённую версию этого раздела.
+              Вариант строится по последней сохранённой версии этого раздела.
             </span>
           </div>
           {sectionFeedback ? <p className="text-sm text-[var(--muted)]">{sectionFeedback}</p> : null}

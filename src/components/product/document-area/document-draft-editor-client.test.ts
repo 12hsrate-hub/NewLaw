@@ -87,9 +87,7 @@ describe("OGP document editor rewrite affordances", () => {
     expect(html).toContain("Публикация на форуме");
     expect(html).toContain("Очистить форму жалобы");
     expect(html).toContain("Обновить данные профиля в жалобе");
-    expect(html).toContain(
-      "Помощник использует только последнюю сохранённую версию этого раздела.",
-    );
+    expect(html).toContain("Вариант строится по последней сохранённой версии этого раздела.");
     expect(html).not.toContain("AI-предложение для секции Working notes");
   });
 

@@ -593,7 +593,7 @@ export function ClaimsFormFields(props: {
         </div>
         <div className="space-y-2">
           <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`${props.mode}-claim-requested-relief`}>
-            Просьба заявителя
+            Требования заявителя
           </label>
           <Textarea
             id={`${props.mode}-claim-requested-relief`}
@@ -611,7 +611,7 @@ export function ClaimsFormFields(props: {
           />
           {props.renderRewriteControls?.({
             sectionKey: "requested_relief",
-            sectionLabel: "Просьба заявителя",
+            sectionLabel: "Требования заявителя",
           })}
         </div>
       </div>

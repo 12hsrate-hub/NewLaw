@@ -64,9 +64,10 @@ describe("claims document editor rewrite affordances", () => {
     expect(html.match(/Улучшить с опорой на нормы/g)?.length).toBe(2);
     expect(html).toContain("Фактические обстоятельства");
     expect(html).toContain("Правовые основания");
-    expect(html).toContain("Просьба заявителя");
+    expect(html).toContain("Требования заявителя");
     expect(html).toContain("Основание для реабилитации");
     expect(html).toContain("Описание причинённого вреда");
+    expect(html).toContain("Вариант строится по последней сохранённой версии этого раздела.");
     expect(html).not.toContain("ФИО доверителя");
     expect(html).not.toContain("AI-предложение для секции Working notes");
   });

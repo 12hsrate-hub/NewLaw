@@ -201,10 +201,10 @@ export function formatGroundedSupportSummary(
   references: GroundedDocumentReference[],
 ) {
   if (groundingMode === "law_grounded") {
-    return `Опора: подтверждённые нормы закона (${references.length}). Предложение не сохраняется автоматически.`;
+    return `Правовая опора: подтверждённые нормы закона (${references.length}). Проверьте, что формулировка действительно соответствует вашему случаю.`;
   }
 
-  return `Опора: подтверждённые судебные прецеденты (${references.length}). Подходящей нормы закона не найдено, поэтому текст опирается только на прецеденты.`;
+  return `Для этого фрагмента подтверждены только судебные прецеденты (${references.length}). Проверьте, хватает ли их без прямой нормы закона.`;
 }
 
 export function formatForumConnectionState(state: ForumConnectionSummary["state"]) {

@@ -44,7 +44,9 @@ describe("ComplaintNarrativeImprovementPanel", () => {
     );
 
     expect(html).toContain("Предложенный улучшенный текст");
-    expect(html).toContain("Текст уже можно использовать как основу, но перед подачей лучше проверить замечания ниже.");
+    expect(html).toContain("Текст нужно проверить перед использованием");
+    expect(html).toContain("Текст можно использовать как основу, но перед подачей лучше проверить замечания ниже.");
+    expect(html).toContain("Какие факты уже отражены");
     expect(html).toContain("Что ещё стоит уточнить");
     expect(html).toContain("Что стоит проверить перед подачей");
     expect(html).toContain("На что обратить внимание");
@@ -54,7 +56,9 @@ describe("ComplaintNarrativeImprovementPanel", () => {
     expect(html).toContain("Уточните назначение даты/времени");
     expect(html).toContain("Проверьте категоричность формулировок");
     expect(html).toContain("Применить текст");
-    expect(html).toContain("Закрыть");
+    expect(html).toContain("Оставить исходный текст");
+    expect(html).toContain("Скопировать вариант");
+    expect(html).not.toContain("persisted");
   });
 
   it("не показывает пустой legal basis block, если нормы не использовались", () => {
@@ -88,9 +92,52 @@ describe("ComplaintNarrativeImprovementPanel", () => {
       }),
     );
 
+    expect(html).toContain("Перед использованием текст нужно доработать");
+    expect(html).toContain(
+      "В тексте пока не хватает важных фактов или точной правовой опоры. Сначала лучше уточнить замечания ниже.",
+    );
+    expect(html).toContain("Какие факты уже отражены");
     expect(html).toContain("Что ещё стоит уточнить");
     expect(html).toContain("Что стоит проверить перед подачей");
     expect(html).not.toContain("Использованные нормы");
     expect(html).not.toContain("Нормы не добавлялись");
+  });
+
+  it("показывает спокойный ready-state без замечаний", () => {
+    const html = renderToStaticMarkup(
+      createElement(ComplaintNarrativeImprovementPanel, {
+        suggestion: {
+          sourceText: "Исходный текст",
+          improvedText: "Уточнённый текст без спорных формулировок.",
+          basedOnUpdatedAt: "2026-04-27T10:00:00.000Z",
+          legalBasisUsed: [],
+          usedFacts: [],
+          missingFacts: [],
+          reviewNotes: [],
+          riskFlags: [],
+          shouldSendToReview: false,
+          usageMeta: {
+            featureKey: "complaint_narrative_improvement",
+            providerKey: "openai",
+            proxyKey: "primary",
+            model: "gpt-5.4-mini",
+            latencyMs: 650,
+            finishReason: "stop",
+            attemptedProxyKeys: ["primary"],
+            improvedTextLength: 910,
+            lengthMode: "short",
+          },
+        },
+        onApply: () => {},
+        onDismiss: () => {},
+        onCopy: () => {},
+      }),
+    );
+
+    expect(html).toContain("Текст можно использовать как основу");
+    expect(html).toContain(
+      "Существенных замечаний по этому варианту нет. Перед использованием достаточно обычной проверки.",
+    );
+    expect(html).not.toContain("Какие факты уже отражены");
   });
 });

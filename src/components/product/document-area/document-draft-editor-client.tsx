@@ -9,6 +9,12 @@ import {
   isGroundedRewriteSectionSupportedForDocumentType,
 } from "@/document-ai/sections";
 import { ComplaintNarrativeImprovementPanel } from "@/components/product/document-area/complaint-narrative-improvement-panel";
+import {
+  formatComplaintNarrativeUnavailableMessage,
+  formatDocumentRewriteBlockedMessage,
+  formatDocumentRewriteUnavailableMessage,
+  formatGroundedRewriteInsufficientCorpusMessage,
+} from "@/components/product/document-area/document-ai-review-copy";
 import { DocumentFieldRewritePanel } from "@/components/product/document-area/document-field-rewrite-panel";
 import { DocumentTrustorRegistryPrefill } from "@/components/product/document-area/document-trustor-registry-prefill";
 import { Badge } from "@/components/ui/badge";
@@ -1227,7 +1233,7 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
           if (result.error === "rewrite-blocked") {
             setRewriteFeedback({
               sectionKey,
-              message: result.reasons.join(" "),
+              message: formatDocumentRewriteBlockedMessage("standard", result.reasons),
             });
             setRewriteSuggestion(null);
             return;
@@ -1236,7 +1242,7 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
           if (result.error === "rewrite-unavailable") {
             setRewriteFeedback({
               sectionKey,
-              message: result.message,
+              message: formatDocumentRewriteUnavailableMessage("standard"),
             });
             setRewriteSuggestion(null);
             return;
@@ -1329,16 +1335,25 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
           if (result.error === "rewrite-blocked") {
             setGroundedRewriteFeedback({
               sectionKey,
-              message: result.reasons.join(" "),
+              message: formatDocumentRewriteBlockedMessage("grounded", result.reasons),
             });
             setGroundedRewriteSuggestion(null);
             return;
           }
 
-          if (result.error === "insufficient-corpus" || result.error === "rewrite-unavailable") {
+          if (result.error === "insufficient-corpus") {
             setGroundedRewriteFeedback({
               sectionKey,
-              message: result.message,
+              message: formatGroundedRewriteInsufficientCorpusMessage(),
+            });
+            setGroundedRewriteSuggestion(null);
+            return;
+          }
+
+          if (result.error === "rewrite-unavailable") {
+            setGroundedRewriteFeedback({
+              sectionKey,
+              message: formatDocumentRewriteUnavailableMessage("grounded"),
             });
             setGroundedRewriteSuggestion(null);
             return;
@@ -1455,14 +1470,16 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
         }
 
         if (result.error === "rewrite-unavailable") {
-          setComplaintNarrativeFeedback(result.message);
+          setComplaintNarrativeFeedback(
+            formatComplaintNarrativeUnavailableMessage("unavailable"),
+          );
           setComplaintNarrativeSuggestion(null);
           return;
         }
 
         if (result.error === "invalid-output") {
           setComplaintNarrativeFeedback(
-            "AI вернул некорректный результат. Попробуйте запросить улучшение ещё раз.",
+            formatComplaintNarrativeUnavailableMessage("invalid-output"),
           );
           setComplaintNarrativeSuggestion(null);
           return;
@@ -1607,7 +1624,7 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
               </Button>
             ) : null}
             <span className="text-xs leading-5 text-[var(--muted)]">
-              Помощник использует только последнюю сохранённую версию этого раздела.
+              Вариант строится по последней сохранённой версии этого раздела.
             </span>
           </div>
           {complaintNarrativeSectionFeedback ? (
@@ -2065,7 +2082,7 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
             </span>
           </p>
           <p>
-            Публикация через приложение:{" "}
+            Публикация на форуме:{" "}
             <span className="font-medium text-[var(--foreground)]">
               {generationState.forumThreadId && generationState.forumPostId
                 ? "опубликована"

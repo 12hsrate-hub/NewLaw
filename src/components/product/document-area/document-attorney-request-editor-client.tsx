@@ -443,7 +443,7 @@ export function AttorneyRequestEditorClient(props: AttorneyRequestEditorClientPr
           Сохранить черновик
         </Button>
         <Button onClick={performGenerate} type="button" variant="secondary">
-          Собрать предпросмотр и файлы
+          Собрать документ и файлы
         </Button>
         <Badge>{formatDocumentStatus(status)}</Badge>
         {isDirty ? <Badge>есть несохранённые изменения</Badge> : null}

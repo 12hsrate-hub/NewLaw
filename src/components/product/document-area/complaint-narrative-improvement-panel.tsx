@@ -3,6 +3,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { resolveComplaintNarrativeReviewStatus } from "@/components/product/document-area/document-ai-review-copy";
 import {
   formatComplaintNarrativeRiskFlagLabel,
   type OgpComplaintNarrativeImprovementSuggestionState,
@@ -29,13 +30,23 @@ export function ComplaintNarrativeImprovementPanel(
   props: ComplaintNarrativeImprovementPanelProps,
 ) {
   const { suggestion } = props;
+  const reviewStatus = resolveComplaintNarrativeReviewStatus({
+    riskFlags: suggestion.riskFlags,
+    shouldSendToReview: suggestion.shouldSendToReview,
+  });
+  const reviewToneClassName =
+    reviewStatus.tone === "ready"
+      ? "bg-[rgba(32,99,69,0.08)]"
+      : reviewStatus.tone === "rework"
+        ? "bg-[rgba(141,79,49,0.12)]"
+        : "bg-[rgba(141,79,49,0.08)]";
 
   return (
     <div className="space-y-4 rounded-2xl border border-[var(--border)] bg-white/80 p-4">
       <div className="space-y-1">
         <p className="text-sm font-medium text-[var(--foreground)]">Предложенный улучшенный текст</p>
         <p className="text-xs leading-5 text-[var(--muted)]">
-          Предложение собрано только из последнего persisted состояния документа от{" "}
+          Вариант подготовлен по последней сохранённой версии документа от{" "}
           {new Date(suggestion.basedOnUpdatedAt).toLocaleString("ru-RU")}.
         </p>
         <p className="text-xs leading-5 text-[var(--muted)]">
@@ -43,11 +54,12 @@ export function ComplaintNarrativeImprovementPanel(
         </p>
       </div>
 
-      {suggestion.shouldSendToReview ? (
-        <div className="rounded-2xl border border-[var(--border)] bg-[rgba(141,79,49,0.08)] p-3 text-sm leading-6 text-[var(--foreground)]">
-          Текст уже можно использовать как основу, но перед подачей лучше проверить замечания ниже.
-        </div>
-      ) : null}
+      <div
+        className={`space-y-1 rounded-2xl border border-[var(--border)] p-3 text-sm leading-6 text-[var(--foreground)] ${reviewToneClassName}`}
+      >
+        <p className="font-medium">{reviewStatus.title}</p>
+        <p>{reviewStatus.description}</p>
+      </div>
 
       <div className="space-y-2">
         <p className="text-xs font-medium uppercase tracking-[0.12em] text-[var(--muted)]">
@@ -62,6 +74,17 @@ export function ComplaintNarrativeImprovementPanel(
         </p>
         <Textarea className="min-h-[220px]" readOnly value={suggestion.improvedText} />
       </div>
+
+      {suggestion.usedFacts.length > 0 ? (
+        <div className="space-y-2">
+          <p className="text-sm font-medium text-[var(--foreground)]">Какие факты уже отражены</p>
+          <ul className="space-y-2 text-sm leading-6 text-[var(--muted)]">
+            {suggestion.usedFacts.map((item) => (
+              <li key={item}>• {item}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
 
       {suggestion.missingFacts.length > 0 ? (
         <div className="space-y-2">
@@ -121,10 +144,10 @@ export function ComplaintNarrativeImprovementPanel(
           Применить текст
         </Button>
         <Button onClick={props.onDismiss} type="button" variant="secondary">
-          Закрыть
+          Оставить исходный текст
         </Button>
         <Button onClick={props.onCopy} type="button" variant="secondary">
-          Скопировать
+          Скопировать вариант
         </Button>
       </div>
     </div>
