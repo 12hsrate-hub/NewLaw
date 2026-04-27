@@ -569,6 +569,10 @@ AI не должен показывать сомнения напрямую.
 
 Текущий реализованный объём `16.3` после deploy `8b7333a`:
 
+Статус линии на текущем уровне:
+
+- `stabilised / partial-complete`
+
 - `5a` — `NormBundle diagnostics-only` после `structured selection` и до generation
 - `5b` — safe same-article part extraction для длинных article-like норм
 - `5b.1` — issue-aware narrowing для same-article segments без blind inclusion procedural-looking частей
@@ -581,9 +585,9 @@ AI не должен показывать сомнения напрямую.
 
 Текущий ещё не закрытый объём:
 
-- постепенное расширение companion-aware expectation checks за пределы `attorney_request`, `attorney_rights`, bodycam access-сценариев и `multi_server_variance`
-- отдельные более строгие slices для general bodycam / missing recording scenarios, где false-positive risk остаётся выше
-- отдельный analysis-first шаг для `detention_procedure`, `evidence_strength`, `qualification_check`, `mask_and_identity`, `bad_input_and_slang` и `hallucination_pressure`, где companion signal пока недостаточно устойчив
+- возможны только отдельные analysis-first future slices для remaining suite groups
+- дальнейшее расширение companion-aware expectations без нового analysis-first шага сейчас не рекомендуется из-за риска false positives
+- следующий крупный шаг AI Legal Core лучше искать уже вне companion expectations / `16.3` acceptance expansion
 
 `NormBundle` должен включать:
 
@@ -669,6 +673,11 @@ Prod model:
 - diagnostics `duplicate_of_primary_excerpt`
 - приоритет `ч. 2` и `ч. 5` для `attorney_request / no-response-refusal`
 - отсутствие увеличения общего generation budget
+- usable runtime состояние `16.3`, в котором:
+  - explicit citations работают
+  - `attorney_request` grounded через `primary_excerpt + companions`
+  - duplicate companions режутся через `duplicate_of_primary_excerpt`
+  - budget не увеличивался
 - отсутствие изменений в:
   - retrieval
   - selection / `PrimaryBasisEligibility`
@@ -872,6 +881,39 @@ Prod model:
   - там главная цель не companion package, а антигаллюцинаторная дисциплина
 - general bodycam / missing recording scenarios
   - остаются отдельной осторожной линией из-за higher false-positive risk
+
+## Итоговый stabilisation checkpoint по `16.3`
+
+На текущем уровне `16.3` следует считать `stabilised / partial-complete line`.
+
+Что уже покрыто companion-aware expectations:
+
+- `attorney_request`
+- `attorney_rights`
+- `bodycam_and_recording` только для access-сценариев
+- `multi_server_variance`
+
+Что intentionally остаётся future_reserved:
+
+- `mask_and_identity`
+- `detention_procedure`
+- `evidence_strength`
+- `qualification_check`
+- `bad_input_and_slang`
+- `hallucination_pressure`
+- general bodycam / missing recording scenarios
+
+Почему линия не расширяется дальше автоматически:
+
+- оставшиеся группы либо имеют более слабый companion signal
+- либо относятся к другому типу acceptance problems
+- либо дают слишком высокий риск false positives при жёсткой companion activation
+
+Практический вывод:
+
+- runtime часть `16.3` закрыта до usable уровня через `5c.1`
+- acceptance/evaluator часть `16.3` закрыта до достаточно широкого и безопасного coverage через `5d`-`5d.3`
+- следующий крупный шаг AI Legal Core лучше искать вне companion expectations / `16.3` acceptance expansion
 
 Источник данных для evaluator не менялся:
 

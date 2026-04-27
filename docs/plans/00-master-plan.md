@@ -246,6 +246,7 @@
 - зафиксировать, что `5d.1` уже расширил companion-aware expectations на `attorney_rights` как acceptance-only слой без изменения runtime
 - зафиксировать, что `5d.2` уже минимально расширил companion-aware expectations на `bodycam_and_recording` только для access-сценариев без изменения runtime
 - зафиксировать, что `5d.3` в repo-state расширяет companion-aware expectations на `multi_server_variance` без изменения runtime
+- зафиксировать, что `16.3` на текущем уровне считается `stabilised / partial-complete line`, а следующий крупный AI Legal Core шаг лучше искать вне дальнейшего companion expansion
 
 Границы:
 
