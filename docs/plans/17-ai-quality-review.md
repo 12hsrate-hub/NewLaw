@@ -222,6 +222,109 @@ Post-MVP. Не входит в MVP.
 - public/internal UI exposure beyond existing preview layer
 - richer analytics по issue clusters и trends
 
+## Текущий implemented checkpoint по `17.1c`
+
+`17.1c` зафиксирован как calibration baseline для deterministic `law_basis_review`.
+
+Это calibration / visibility slice:
+
+- без regression gate
+- без suite blocking
+- без public behavior changes
+- без runtime changes в `Step 16`
+- без AI reviewer expansion
+- без UI / Prisma / queue workflow
+
+Практическая цель `17.1c`:
+
+- зафиксировать, какие deterministic flags уже достаточно полезны для internal visibility
+- отделить потенциальные `candidate_for_gate` сигналы от `warn_only` и `diagnostics_only`
+- не смешивать review-layer с acceptance-layer
+
+### Baseline policy по текущим flags
+
+`missing_primary_basis_norm`
+
+- статус: `candidate_for_gate`
+- почему:
+  - это прямой и устойчивый сигнал про отсутствие usable primary basis
+  - хорошо согласуется с `direct_basis_status` и `primary_basis_eligibility`
+- риск false positives: низкий
+- важные scenario groups:
+  - `attorney_request`
+  - `attorney_rights`
+  - `multi_server_variance`
+
+`law_family_mismatch`
+
+- статус: `candidate_for_gate`
+- почему:
+  - хорошо ложится на scenario expectation context и explicit citation family constraints
+  - часто указывает на реальную grounding ошибку
+- риск false positives: средний
+  - выше вне test-run/expectation context
+- важные scenario groups:
+  - `attorney_request`
+  - `bodycam_and_recording`
+  - `multi_server_variance`
+
+`weak_direct_basis`
+
+- статус: `warn_only`
+- почему:
+  - сам по себе weak basis не всегда является ошибкой
+  - полезен как calibration signal, но ещё слишком широкий для gate
+- риск false positives: средний
+- важные scenario groups:
+  - `bodycam_and_recording`
+  - `evidence_strength`
+  - `hallucination_pressure`
+
+`sanction_or_exception_used_as_primary`
+
+- статус: `candidate_for_gate`
+- почему:
+  - это уже почти бинарная структурная ошибка
+  - хорошо согласуется с существующей логикой `16.3` и expectation checks
+- риск false positives: низкий
+- важные scenario groups:
+  - `attorney_request`
+  - `multi_server_variance`
+  - future citation-heavy scenarios
+
+`missing_required_companion_context`
+
+- статус: `warn_only`
+- почему:
+  - полезен только в activated scenario/test-run context
+  - уже чувствителен к companion coverage nuances вроде `duplicate_of_primary_excerpt`
+- риск false positives: средний
+- важные scenario groups:
+  - `attorney_request`
+  - `attorney_rights`
+  - `bodycam_and_recording` access scenarios
+
+`unresolved_explicit_citation_used_as_basis`
+
+- статус: `diagnostics_only`
+- почему:
+  - explicit citation diagnostics уже полезны, но corpus/citation surface ещё требует дальнейшей калибровки
+  - этот сигнал пока лучше использовать для visibility и manual review, а не для gate
+- риск false positives: средний или высокий
+- важные scenario groups:
+  - explicit citation probes
+  - `multi_server_variance`
+  - `hallucination_pressure`
+
+### Что это значит practically
+
+На этапе `17.1c`:
+
+- `review fail / warn` не блокирует suite
+- `law_basis_review` остаётся visibility/calibration layer
+- acceptance всё ещё определяется отдельно через `expectation_summary`
+- возможный regression gate по review flags допускается только в отдельном future slice после дополнительной калибровки
+
 ## `law_basis_issue`
 
 В шаге `17` должен быть отдельный класс проблем `law_basis_issue`.

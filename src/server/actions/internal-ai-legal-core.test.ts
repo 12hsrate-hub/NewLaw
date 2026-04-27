@@ -3,6 +3,203 @@ import { describe, expect, it, vi } from "vitest";
 import { runInternalAILegalCoreScenariosAction } from "@/server/actions/internal-ai-legal-core";
 
 describe("internal ai legal core action", () => {
+  it("не превращает law_basis_review fail в automatic suite failure, если expectation_summary остаётся passed", async () => {
+    const formData = new FormData();
+    formData.set("serverSlug", "blackberry");
+    formData.set("lawVersionSelection", "current_snapshot_only");
+    formData.set("actorContext", "self");
+    formData.set("answerMode", "normal");
+    formData.set("scenarioGroup", "general_legal_questions");
+    formData.set("scenarioId", "general-mask-detention");
+    formData.set("runTarget", "scenario");
+
+    const result = await runInternalAILegalCoreScenariosAction(
+      {
+        status: "idle",
+        errorMessage: null,
+        fieldErrors: {},
+        runSummary: null,
+        results: [],
+      },
+      formData,
+      {
+        requireSuperAdminAccountContext: vi.fn().mockResolvedValue({
+          account: {
+            id: "account-1",
+            isSuperAdmin: true,
+          },
+        }),
+        getServerByCode: vi.fn().mockResolvedValue({
+          id: "server-1",
+          code: "blackberry",
+          name: "Blackberry",
+        }),
+        generateServerLegalAssistantAnswer: vi.fn().mockResolvedValue({
+          status: "answered",
+          answerMarkdown:
+            "## Краткий вывод\nОтвет.\n\n## Что прямо следует из норм закона\nНорма.\n\n## Что подтверждается судебными прецедентами\nПрецедент.\n\n## Вывод / интерпретация\nИнтерпретация.",
+          sections: {
+            summary: "Ответ.",
+            normativeAnalysis: "Норма.",
+            precedentAnalysis: "Прецедент.",
+            interpretation: "Интерпретация.",
+            sources: "Источник.",
+          },
+          metadata: {
+            used_sources: [{ source_kind: "law", law_id: "law-1" }],
+            total_tokens: 256,
+            cost_usd: 0.009,
+            latency_ms: 180,
+            self_assessment: {
+              answer_confidence: "medium",
+              insufficient_data: false,
+            },
+            review_status: {
+              queue_for_future_ai_quality_review: false,
+              future_review_priority: "low",
+            },
+          },
+        }),
+        runInternalDocumentTextImprovementScenario: vi.fn(),
+        syncAITestScenarios: vi.fn().mockResolvedValue(undefined),
+        createAITestRun: vi.fn().mockResolvedValue(undefined),
+        completeAITestRun: vi.fn().mockResolvedValue(undefined),
+        createAITestRunResult: vi.fn().mockResolvedValue(undefined),
+        findLatestAIRequestByTestRunContext: vi.fn().mockResolvedValue({
+          id: "ai-request-review-calibration-1",
+          requestPayloadJson: {
+            normalized_input: "Можно ли задержать человека за маску?",
+            legal_query_plan: {
+              normalized_input: "Можно ли задержать человека за маску?",
+              primaryLegalIssueType: "duty_question",
+              secondaryLegalIssueTypes: ["procedure_question"],
+              legalIssueConfidence: "medium",
+              legalIssueDiagnostics: {
+                legal_issue_type: "duty_question",
+                legal_issue_secondary_types: ["procedure_question"],
+                legal_issue_confidence: "medium",
+                legal_issue_signals: [],
+                legal_issue_unclear_reason: null,
+              },
+            },
+            selected_norm_roles: [
+              {
+                law_id: "law-1",
+                law_version: "law-version-1",
+                law_block_id: "law-block-1",
+                law_family: "administrative_code",
+                norm_role: "primary_basis",
+                applicability_score: 10,
+              },
+            ],
+            applicability_diagnostics: [
+              {
+                law_id: "law-1",
+                law_version: "law-version-1",
+                law_block_id: "law-block-1",
+                primary_basis_eligibility: "eligible",
+                primary_basis_eligibility_reason: null,
+                ineligible_primary_basis_reasons: [],
+                weak_primary_basis_reasons: [],
+              },
+            ],
+            grounding_diagnostics: {
+              direct_basis_status: "direct_basis_present",
+              legal_issue_type: "duty_question",
+              legal_issue_secondary_types: ["procedure_question"],
+              legal_issue_confidence: "medium",
+            },
+            direct_basis_status: "direct_basis_present",
+          },
+          responsePayloadJson: {
+            used_sources: [
+              {
+                source_kind: "law",
+                law_id: "law-1",
+                law_name: "Административный кодекс",
+                article_number: "18",
+              },
+            ],
+            ai_quality_review: {
+              layers: {
+                deterministic_checks: {
+                  law_basis_review: {
+                    overall_status: "fail",
+                    flags: [
+                      {
+                        code: "law_family_mismatch",
+                        severity: "fail",
+                      },
+                    ],
+                    summary: {
+                      pass: 0,
+                      warn: 0,
+                      fail: 1,
+                    },
+                  },
+                },
+              },
+            },
+            stage_usage: {
+              generation: {
+                model: "gpt-5.4-mini",
+                prompt_tokens: 100,
+                completion_tokens: 30,
+                total_tokens: 130,
+                estimated_cost_usd: 0.002,
+                latency_ms: 180,
+              },
+            },
+          },
+        }),
+        getAILegalCoreScenarioComparisons: vi.fn().mockResolvedValue(new Map()),
+        now: () => new Date("2026-04-27T09:00:00.000Z"),
+        createId: () => "test-run-review-calibration-1",
+      },
+    );
+
+    expect(result.status).toBe("success");
+    expect(result.results[0]).toMatchObject({
+      expectation_summary: {
+        failed: 0,
+      },
+      law_basis_review: {
+        overall_status: "fail",
+        failed_flag_codes: ["law_family_mismatch"],
+      },
+    });
+    expect(result.scenario_group_summary).toEqual({
+      total_scenarios: 1,
+      passed_scenarios: 1,
+      failed_scenarios: 0,
+      unresolved_scenarios: 0,
+      groups: [
+        {
+          scenario_group: "mask_and_identity",
+          total_scenarios: 1,
+          passed_scenarios: 1,
+          failed_scenarios: 0,
+          unresolved_scenarios: 0,
+        },
+      ],
+    });
+    expect(result.law_basis_review_summary).toEqual({
+      counts_by_law_basis_review_status: {
+        pass: 0,
+        warn: 0,
+        fail: 1,
+        unknown: 0,
+      },
+      scenarios_with_failed_law_basis_review: ["general-mask-detention"],
+      top_law_basis_review_flags: [
+        {
+          code: "law_family_mismatch",
+          count: 1,
+        },
+      ],
+    });
+  });
+
   it("запускает выбранный assistant scenario через legal-core pipeline и возвращает technical snapshot", async () => {
     const formData = new FormData();
     formData.set("serverSlug", "blackberry");
