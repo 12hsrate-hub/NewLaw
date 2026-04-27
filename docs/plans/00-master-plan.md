@@ -280,6 +280,7 @@
 - зафиксировать `17.1b` как internal reporting integration для `law_basis_review` без regression gate и без изменения public behavior
 - зафиксировать `17.1c` как calibration baseline для deterministic review flags без suite blocking и без изменения runtime/public behavior
 - зафиксировать `17.1d` как non-blocking gate simulation для deterministic review flags без изменения suite result и без изменения runtime/public behavior
+- зафиксировать `17.1e` как dry-run calibration report для `law_basis_gate_simulation` без blocking policy и без изменения runtime/public behavior
 
 Границы:
 

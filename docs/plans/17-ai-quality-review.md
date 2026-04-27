@@ -371,6 +371,116 @@ Post-MVP. Не входит в MVP.
 - richer cross-run calibration analytics
 - public/internal UI exposure beyond current internal reporting
 
+## Текущий implemented checkpoint по `17.1e`
+
+`17.1e` зафиксирован как dry-run calibration report для non-blocking `law_basis_gate_simulation`.
+
+Это docs-first calibration slice:
+
+- без нового runtime wiring
+- без suite blocking
+- без public assistant behavior changes
+- без UI / Prisma / queue workflow
+- без AI reviewer expansion
+- без изменения runtime `Step 16`
+
+Источник baseline для `17.1e`:
+
+- existing internal runner output из `17.1d`
+- existing internal test fixtures и reporting tests
+- aggregate dry-run summary без запуска дорогого production-like full AI прогона
+
+### Текущая calibration policy по dry-run gate
+
+`candidate_for_gate`
+
+- `missing_primary_basis_norm`
+- `law_family_mismatch`
+- `sanction_or_exception_used_as_primary`
+
+`warn_only`
+
+- `weak_direct_basis`
+- `missing_required_companion_context`
+
+`diagnostics_only`
+
+- `unresolved_explicit_citation_used_as_basis`
+
+### Как интерпретировать aggregate dry-run output
+
+`scenarios_that_would_fail_law_basis_gate`
+
+- это список scenario ids, где dry-run gate уже сейчас увидел хотя бы один `candidate_for_gate` fail flag
+- этот список не означает automatic suite failure
+- это shortlist для ручной проверки шумности и повторяемости перед будущим blocking gate
+
+`top_candidate_gate_flag_codes`
+
+- это ranking наиболее частых `candidate_for_gate` signals в текущем dry-run baseline
+- если один и тот же flag стабильно всплывает в нескольких scenario groups и совпадает с real acceptance issues, он ближе к future gate readiness
+- если flag появляется редко и только в noisy groups, его нельзя автоматически трактовать как готовый blocking signal
+
+`groups_with_candidate_gate_fails`
+
+- это индикатор того, какие scenario groups дают основной dry-run risk surface
+- если candidate fail концентрируется в одной шумной группе, это сигнал к отдельной analysis-first калибровке, а не к немедленному gate rollout
+- если candidate fail воспроизводится в стабильных groups вроде `attorney_request` и `multi_server_variance`, это более сильный аргумент в пользу future gate
+
+### Интерпретация candidate_for_gate flags
+
+`missing_primary_basis_norm`
+
+- likely true positive:
+  - когда в scenario context ожидается прямая правовая база, но `primary_basis` отсутствует или остаётся unusable/ineligible
+  - особенно важно для:
+    - `attorney_request`
+    - `attorney_rights`
+    - `multi_server_variance`
+- возможный false positive:
+  - в сценариях, где `partial_basis_only` допустим как текущий рабочий результат и acceptance специально не требует strong direct basis
+- что проверить до blocking gate:
+  - совпадает ли сигнал с `direct_basis_status`
+  - не относится ли scenario group к knowingly weak-basis zones
+
+`law_family_mismatch`
+
+- likely true positive:
+  - когда primary basis ушёл в чужую `LawFamily` вопреки scenario expectations или explicit citation family constraints
+  - особенно важно для:
+    - `attorney_request`
+    - `bodycam_and_recording`
+    - `multi_server_variance`
+- возможный false positive:
+  - если off-family noise присутствует как companion/supporting context, но primary basis фактически корректный
+  - если scenario group остаётся noisy и corpus signal нестабилен
+- что проверить до blocking gate:
+  - что mismatch относится именно к primary basis, а не к supporting noise
+  - что signal повторяется не только в одном noisy fixture
+
+`sanction_or_exception_used_as_primary`
+
+- likely true positive:
+  - когда sanction или exception фактически подменяет base rule
+  - особенно важно для:
+    - `attorney_request`
+    - `multi_server_variance`
+    - future citation-heavy probes
+- возможный false positive:
+  - если sanction/exception заметно присутствует в review snapshot, но companion/base split при этом всё же корректный
+- что проверить до blocking gate:
+  - что primary replacement происходит структурно, а не только stylistically
+  - что `NormBundle` / selected roles подтверждают подмену, а не просто наличие companion context
+
+### Что это значит practically
+
+На этапе `17.1e`:
+
+- `law_basis_gate_simulation` остаётся dry-run visibility layer
+- `review fail / warn` по-прежнему не блокирует suite
+- suite pass/fail всё ещё определяется через acceptance/evaluator layer
+- blocking gate можно обсуждать только в отдельном будущем `Step 17.2` после ручной проверки baseline
+
 ## `law_basis_issue`
 
 В шаге `17` должен быть отдельный класс проблем `law_basis_issue`.
