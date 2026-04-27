@@ -35,8 +35,9 @@ describe("/assistant page", () => {
 
     const html = renderToStaticMarkup(await AssistantLandingPage());
 
-    expect(html).toContain("Юридический помощник по законам сервера");
+    expect(html).toContain("Юридический помощник по законодательству сервера");
     expect(html).toContain("Blackberry");
     expect(html).toContain("/assistant/blackberry");
+    expect(html).toContain("Выберите сервер, чтобы задать вопрос по его законодательству и судебной практике.");
   });
 });

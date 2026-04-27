@@ -26,7 +26,7 @@ export function AssistantServerSelector({
       <Card className="space-y-3">
         <h2 className="text-xl font-semibold">Серверы пока недоступны</h2>
         <p className="text-sm leading-6 text-[var(--muted)]">
-          Для юридического помощника ещё не подготовлены доступные серверные контексты.
+          Для юридического помощника пока нет доступных серверов.
         </p>
       </Card>
     );
@@ -47,11 +47,11 @@ export function AssistantServerSelector({
               </div>
               <p className="text-sm leading-6 text-[var(--muted)]">
                 {server.hasUsableAssistantCorpus
-                  ? `Подтвержденный corpus: ${server.currentPrimaryLawCount} law(s), ${server.currentPrecedentCount} precedent(s).`
-                  : "Для сервера пока нет подтвержденного usable corpus для assistant."}
+                  ? `Доступно: ${server.currentPrimaryLawCount} норм закона и ${server.currentPrecedentCount} судебных прецедентов.`
+                  : "Для этого сервера пока не хватает подтверждённых правовых материалов."}
               </p>
               <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">
-                Открыть assistant
+                Открыть помощника
               </p>
             </Card>
           </Link>

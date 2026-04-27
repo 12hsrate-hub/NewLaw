@@ -23,7 +23,7 @@ function DocumentsAction({ server }: { server: PublicServerDirectoryItem }) {
         href={documentsHref}
         className="inline-flex items-center rounded-full border border-[var(--border)] px-3 py-1 text-xs font-medium text-[var(--foreground)] transition hover:bg-white/80"
       >
-        Documents
+        Документы
       </Link>
     );
   }
@@ -41,7 +41,7 @@ function AssistantAction({ server }: { server: PublicServerDirectoryItem }) {
   if (server.directoryAvailability !== "active") {
     return (
       <span className="inline-flex items-center rounded-full border border-dashed border-[var(--border)] px-3 py-1 text-xs font-medium text-[var(--muted)]">
-        Assistant unavailable
+        Помощник временно недоступен
       </span>
     );
   }
@@ -51,7 +51,7 @@ function AssistantAction({ server }: { server: PublicServerDirectoryItem }) {
       href={assistantHref}
       className="inline-flex items-center rounded-full border border-[var(--border)] px-3 py-1 text-xs font-medium text-[var(--foreground)] transition hover:bg-white/80"
     >
-      Assistant
+      Юридический помощник
     </Link>
   );
 }
@@ -60,9 +60,9 @@ export function PublicServerDirectory({ servers }: PublicServerDirectoryProps) {
   if (servers.length === 0) {
     return (
       <Card className="space-y-3">
-        <h1 className="text-2xl font-semibold">Серверы пока не добавлены</h1>
+        <h1 className="text-2xl font-semibold">Пока нет доступных серверов</h1>
         <p className="max-w-2xl text-sm leading-7 text-[var(--muted)]">
-          Публичный server directory уже готов, но для него пока не заведены серверные карточки.
+          Список серверов появится здесь позже.
         </p>
       </Card>
     );
@@ -82,23 +82,17 @@ export function PublicServerDirectory({ servers }: PublicServerDirectoryProps) {
               <Badge className="bg-[rgba(32,99,69,0.12)] text-[#206345]">
                 {availabilityUi.label}
               </Badge>
-              <span className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">
-                {server.code}
-              </span>
             </div>
 
             <div className="space-y-2">
               <h2 className="text-2xl font-semibold">{server.name}</h2>
-              <p className="text-sm leading-7 text-[var(--muted)]">
-                Server slug: <span className="font-medium text-[var(--foreground)]">{server.slug}</span>
-              </p>
               <p className="text-sm leading-7 text-[var(--muted)]">{availabilityUi.description}</p>
             </div>
 
             <div className="grid gap-3 md:grid-cols-2">
               <div className="rounded-2xl border border-[var(--border)] bg-white/50 p-4">
                 <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">
-                  Assistant
+                  Юридический помощник
                 </p>
                 <p className="mt-2 text-sm font-medium">{assistantUi.label}</p>
                 <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
@@ -108,7 +102,7 @@ export function PublicServerDirectory({ servers }: PublicServerDirectoryProps) {
 
               <div className="rounded-2xl border border-[var(--border)] bg-white/50 p-4">
                 <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">
-                  Documents
+                  Документы по серверу
                 </p>
                 <p className="mt-2 text-sm font-medium">{documentsUi.label}</p>
                 <p className="mt-2 text-sm leading-6 text-[var(--muted)]">

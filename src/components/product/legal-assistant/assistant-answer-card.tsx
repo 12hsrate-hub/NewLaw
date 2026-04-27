@@ -65,21 +65,17 @@ function readReferenceItems(metadata: Record<string, unknown> | null) {
   return Array.isArray(references) ? (references as ReferenceItem[]) : [];
 }
 
-function readCombinedRetrievalRevision(metadata: Record<string, unknown> | null) {
-  const snapshot =
-    metadata?.combinedRetrievalRevision ??
-    metadata?.corpusSnapshot;
-
-  if (!snapshot || typeof snapshot !== "object") {
-    return null;
+function formatPrecedentValidityLabel(status: string) {
+  switch (status) {
+    case "applicable":
+      return "Подходит для использования";
+    case "limited":
+      return "Нужно применять с оговорками";
+    case "obsolete":
+      return "Требует особенно внимательной проверки";
+    default:
+      return "Требует проверки";
   }
-
-  return snapshot as {
-    combinedCorpusSnapshotHash?: string;
-    corpusSnapshotHash?: string;
-    lawCorpusSnapshotHash?: string;
-    precedentCorpusSnapshotHash?: string;
-  };
 }
 
 function renderSourcePosts(
@@ -110,27 +106,29 @@ function renderSourcePosts(
 
 export function AssistantAnswerCard({ answer }: AssistantAnswerCardProps) {
   const references = readReferenceItems(answer.metadata);
-  const retrievalRevision = readCombinedRetrievalRevision(answer.metadata);
   const lawReferences = references.filter(
     (reference): reference is LawReferenceItem => reference.sourceKind === "law",
   );
   const precedentReferences = references.filter(
     (reference): reference is PrecedentReferenceItem => reference.sourceKind === "precedent",
   );
-  const snapshotHash =
-    retrievalRevision?.combinedCorpusSnapshotHash ?? retrievalRevision?.corpusSnapshotHash ?? null;
 
   return (
     <Card className="space-y-6">
       <div className="space-y-3">
         <div className="flex flex-wrap items-center gap-3">
-          <Badge>{answer.status === "no_norms" ? "Подтверждённая опора не найдена" : "Ответ построен по corpus"}</Badge>
-          {snapshotHash ? (
-            <span className="text-xs leading-6 text-[var(--muted)]">
-              corpus snapshot: <code>{snapshotHash}</code>
-            </span>
-          ) : null}
+          <Badge>
+            {answer.status === "no_norms"
+              ? "Проверьте ответ перед использованием"
+              : "Ответ основан на найденных правовых источниках"}
+          </Badge>
         </div>
+        {answer.status === "no_norms" ? (
+          <p className="text-sm leading-6 text-[var(--muted)]">
+            Часть выводов не подтверждена прямыми правовыми источниками. Перед использованием
+            проверьте формулировки вручную.
+          </p>
+        ) : null}
         <div className="space-y-1">
           <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">Вопрос</p>
           <p className="text-sm leading-6">{answer.question}</p>
@@ -166,11 +164,12 @@ export function AssistantAnswerCard({ answer }: AssistantAnswerCardProps) {
       </div>
 
       <section className="space-y-4">
-        <h2 className="text-lg font-semibold">Использованные нормы / источники</h2>
+        <h2 className="text-lg font-semibold">Правовые источники</h2>
 
         {references.length === 0 ? (
           <p className="text-sm leading-6 text-[var(--muted)]">
-            В этом ответе нет подтвержденных блоков корпуса, на которые можно сослаться напрямую.
+            Для этого ответа не нашлось прямых подтверждённых источников, на которые можно
+            сослаться без дополнительной проверки.
           </p>
         ) : (
           <div className="space-y-5">
@@ -195,7 +194,7 @@ export function AssistantAnswerCard({ answer }: AssistantAnswerCardProps) {
                         <span className="text-xs leading-6 text-[var(--muted)]">
                           {reference.articleNumberNormalized
                             ? `Статья ${reference.articleNumberNormalized}`
-                            : `Блок ${reference.blockType} #${reference.blockOrder}`}
+                            : "Фрагмент закона"}
                         </span>
                       </div>
                       <p className="mt-3 text-sm leading-6">{reference.snippet}</p>
@@ -233,10 +232,10 @@ export function AssistantAnswerCard({ answer }: AssistantAnswerCardProps) {
                       <div className="flex flex-wrap items-center gap-2">
                         <Badge>{reference.precedentTitle}</Badge>
                         <Badge className="bg-[rgba(32,99,69,0.12)] text-[#206345]">
-                          {reference.validityStatus}
+                          {formatPrecedentValidityLabel(reference.validityStatus)}
                         </Badge>
                         <span className="text-xs leading-6 text-[var(--muted)]">
-                          Блок {reference.blockType} #{reference.blockOrder}
+                          Фрагмент судебного прецедента
                         </span>
                       </div>
                       <p className="mt-3 text-sm leading-6">{reference.snippet}</p>

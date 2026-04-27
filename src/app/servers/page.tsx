@@ -14,18 +14,17 @@ export default async function ServersDirectoryPage() {
         <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
           <Card className="space-y-4">
             <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">
-              Server Directory
+              Серверы
             </p>
-            <h1 className="text-4xl font-semibold">Публичный каталог серверов</h1>
+            <h1 className="text-4xl font-semibold">Серверы</h1>
             <p className="max-w-3xl text-sm leading-7 text-[var(--muted)]">
-              Это общая входная точка в server-scoped зону. Отсюда можно перейти в уже
-              существующий assistant или понять, готов ли documents flow для конкретного
-              сервера и текущего viewer.
+              Выберите сервер, чтобы перейти к юридическому помощнику или открыть документы по
+              этому серверу.
             </p>
             <p className="text-sm leading-7 text-[var(--muted)]">
               {context.viewer.isAuthenticated
-                ? "Ты авторизован, поэтому directory уже показывает, где documents доступны сразу, а где сначала нужен персонаж."
-                : "Без входа directory остаётся публичным: assistant можно открыть сразу, а documents честно помечаются как private route."}
+                ? "Если у вас уже есть доступ и персонаж, нужные разделы можно открыть сразу."
+                : "Без входа можно пользоваться юридическим помощником. Для документов по серверу понадобится вход в аккаунт."}
             </p>
           </Card>
 

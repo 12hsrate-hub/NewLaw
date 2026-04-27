@@ -32,10 +32,9 @@ describe("/servers page", () => {
     const html = renderToStaticMarkup(await ServersDirectoryPage());
 
     expect(getPublicServerDirectoryContext).toHaveBeenCalledWith();
-    expect(html).toContain("Публичный каталог серверов");
+    expect(html).toContain("Серверы");
     expect(html).toContain("Blackberry");
-    expect(html).toContain("blackberry");
-    expect(html).toContain("Assistant ready");
+    expect(html).toContain("Помощник доступен");
     expect(html).toContain("Нужен вход");
     expect(html).toContain("/assistant/blackberry");
     expect(html).not.toContain("/servers/blackberry/documents");
@@ -76,10 +75,10 @@ describe("/servers page", () => {
     const html = renderToStaticMarkup(await ServersDirectoryPage());
 
     expect(html).toContain("/servers/blackberry/documents");
-    expect(html).toContain("Documents доступны");
+    expect(html).toContain("Документы доступны");
     expect(html).toContain("Нужен персонаж");
     expect(html).toContain("Недоступен");
-    expect(html).toContain("Assistant disabled");
+    expect(html).toContain("Помощник временно недоступен");
     expect(html).not.toContain("discovery failure");
   });
 
@@ -94,6 +93,6 @@ describe("/servers page", () => {
 
     const html = renderToStaticMarkup(await ServersDirectoryPage());
 
-    expect(html).toContain("Серверы пока не добавлены");
+    expect(html).toContain("Пока нет доступных серверов");
   });
 });

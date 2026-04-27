@@ -88,12 +88,12 @@ export default async function AssistantServerPage({ params }: AssistantServerPag
           <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
             <Card className="space-y-3">
               <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">
-                Server Legal Assistant
+                Юридический помощник
               </p>
               <h1 className="text-3xl font-semibold">Сервер не найден</h1>
               <p className="text-sm leading-6 text-[var(--muted)]">
-                Такой `serverSlug` сейчас не найден среди доступных server context. Выбери сервер
-                вручную ниже.
+                Такой сервер сейчас не найден среди доступных для помощника. Выберите нужный
+                вариант вручную ниже.
               </p>
             </Card>
 
@@ -114,12 +114,12 @@ export default async function AssistantServerPage({ params }: AssistantServerPag
     <PageContainer>
       <main className="min-h-screen px-6 py-10">
         <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
-          <div className="flex flex-wrap items-center gap-3 text-sm leading-6 text-[var(--muted)]">
-            <Link className="text-[var(--accent)] underline" href="/assistant">
-              Все серверы assistant
-            </Link>
-            <span>Текущий serverSlug: {selectedServer.code}</span>
-          </div>
+        <div className="flex flex-wrap items-center gap-3 text-sm leading-6 text-[var(--muted)]">
+          <Link className="text-[var(--accent)] underline" href="/assistant">
+            Все серверы
+          </Link>
+          <span>Выбран сервер: {selectedServer.name}</span>
+        </div>
 
           <AssistantServerSelector
             currentServerCode={selectedServer.code}
@@ -130,9 +130,8 @@ export default async function AssistantServerPage({ params }: AssistantServerPag
             <Card className="space-y-3">
               <h1 className="text-3xl font-semibold">{selectedServer.name}</h1>
               <p className="text-sm leading-6 text-[var(--muted)]">
-                Для этого сервера пока нет подтвержденного usable corpus. Помощник не может честно
-                отвечать, пока не подготовлены current primary laws или подтверждённые судебные
-                прецеденты после review.
+                Для этого сервера пока недостаточно правовых материалов. Помощник временно
+                недоступен — выберите другой сервер или вернитесь позже.
               </p>
             </Card>
           ) : (

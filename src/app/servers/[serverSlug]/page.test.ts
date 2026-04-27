@@ -46,7 +46,7 @@ describe("/servers/[serverSlug] page", () => {
       serverSlug: "blackberry",
       nextPath: "/servers/blackberry",
     });
-    expect(html).toContain("Server Hub");
+    expect(html).toContain("Юридический помощник");
     expect(html).toContain("Blackberry");
     expect(html).toContain("/assistant/blackberry");
     expect(html).toContain("/servers/blackberry/documents");
@@ -74,7 +74,7 @@ describe("/servers/[serverSlug] page", () => {
     );
 
     expect(html).toContain("Сервер не найден");
-    expect(html).toContain("unknown");
+    expect(html).toContain("Вернуться к каталогу серверов");
   });
 
   it("показывает maintenance state и временно выключает module actions", async () => {
@@ -105,9 +105,9 @@ describe("/servers/[serverSlug] page", () => {
       }),
     );
 
-    expect(html).toContain("Server maintenance");
-    expect(html).toContain("Assistant временно недоступен");
-    expect(html).toContain("Documents временно недоступны");
+    expect(html).toContain("Технические работы");
+    expect(html).toContain("Помощник временно недоступен");
+    expect(html).toContain("Документы временно недоступны");
     expect(html).not.toContain("/assistant/blackberry");
     expect(html).not.toContain("/servers/blackberry/documents");
   });

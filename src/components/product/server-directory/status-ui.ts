@@ -9,17 +9,17 @@ export function resolveDirectoryAvailabilityUi(status: ServerDirectoryAvailabili
     case "active":
       return {
         label: "Доступен",
-        description: "Сервер открыт для user-facing модулей.",
+        description: "Сервер открыт для работы.",
       };
     case "maintenance":
       return {
-        label: "Maintenance",
-        description: "Сервер временно находится в обслуживании.",
+        label: "Технические работы",
+        description: "Сервер временно находится на обслуживании. Попробуйте открыть его позже.",
       };
     case "unavailable":
       return {
         label: "Недоступен",
-        description: "Сервер виден в каталоге, но user-facing вход сейчас закрыт.",
+        description: "Сервер временно недоступен. Можно выбрать другой сервер или вернуться позже.",
       };
   }
 }
@@ -28,33 +28,33 @@ export function resolveAssistantStatusUi(status: ServerAssistantStatus) {
   switch (status) {
     case "current_corpus_ready":
       return {
-        label: "Assistant ready",
-        description: "Подтверждённый corpus готов для работы assistant.",
+        label: "Помощник доступен",
+        description: "Для этого сервера доступны подтверждённые правовые материалы.",
       };
     case "corpus_bootstrap_incomplete":
       return {
-        label: "Assistant limited",
-        description: "Corpus уже собран частично, но ещё не считается полностью готовым.",
+        label: "Помощник работает с ограничениями",
+        description: "Часть правовых материалов уже доступна, но ответы могут быть менее полными.",
       };
     case "corpus_stale":
       return {
-        label: "Assistant limited",
-        description: "Corpus требует внимания, поэтому ответы лучше проверять особенно внимательно.",
+        label: "Помощник работает с ограничениями",
+        description: "Часть правовых материалов требует обновления. Ответы лучше проверять особенно внимательно.",
       };
     case "assistant_disabled":
       return {
-        label: "Assistant disabled",
-        description: "Assistant для этого сервера сейчас недоступен.",
+        label: "Помощник временно недоступен",
+        description: "Для этого сервера помощник сейчас не открыт.",
       };
     case "maintenance_mode":
       return {
-        label: "Server maintenance",
-        description: "Обычный assistant flow временно выключен из-за обслуживания сервера.",
+        label: "Раздел временно недоступен",
+        description: "Помощник для этого сервера временно отключён на время работ.",
       };
     case "no_corpus":
       return {
-        label: "Assistant unavailable",
-        description: "Подтверждённого corpus для assistant пока нет.",
+        label: "Помощник временно недоступен",
+        description: "Для этого сервера пока не хватает подтверждённых правовых материалов.",
       };
   }
 }
@@ -63,8 +63,8 @@ export function resolveDocumentsAvailabilityUi(status: ServerDocumentsAvailabili
   switch (status) {
     case "available":
       return {
-        label: "Documents доступны",
-        description: "Можно открыть server-scoped document area по этому серверу.",
+        label: "Документы доступны",
+        description: "Можно открыть документы по выбранному серверу.",
       };
     case "needs_character":
       return {
@@ -73,13 +73,13 @@ export function resolveDocumentsAvailabilityUi(status: ServerDocumentsAvailabili
       };
     case "unavailable":
       return {
-        label: "Documents недоступны",
-        description: "Пока сервер недоступен, document area тоже закрыта.",
+        label: "Документы временно недоступны",
+        description: "Раздел документов откроется после восстановления доступа к серверу.",
       };
     case "requires_auth":
       return {
         label: "Нужен вход",
-        description: "Documents остаются private route и открываются только после входа.",
+        description: "Чтобы открыть документы по серверу, сначала войдите в аккаунт.",
       };
   }
 }

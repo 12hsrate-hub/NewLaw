@@ -51,18 +51,17 @@ export function AssistantQuestionForm({
       <Card className="space-y-5">
         <div className="space-y-2">
           <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">
-            Server Legal Assistant
+            Юридический помощник
           </p>
           <h1 className="text-3xl font-semibold">{serverName}</h1>
           <p className="text-sm leading-6 text-[var(--muted)]">
-            Помощник отвечает только по подтвержденному corpus выбранного сервера: current primary
-            laws и, где это уместно, reviewed judicial precedents. Знания вне корпуса не
-            используются.
+            Помощник отвечает по подтверждённым правовым материалам выбранного сервера. Если части
+            материалов не хватает, это будет отражено в ответе.
           </p>
           <p className="text-sm leading-6 text-[var(--muted)]">
             {isAuthenticated
-              ? "Ты вошёл в аккаунт. В этом шаге отдельный лимит для зарегистрированного пользователя не действует."
-              : "Гостю доступен только 1 тестовый вопрос. После первого ответа старый ответ останется видимым, а новый вопрос попросит вход или регистрацию."}
+              ? "Вы вошли в аккаунт. Для зарегистрированного пользователя отдельный гостевой лимит здесь не действует."
+              : "Гостю доступен только 1 тестовый вопрос. После первого ответа старый ответ останется видимым, а для нового вопроса понадобится вход или регистрация."}
           </p>
         </div>
 
@@ -84,14 +83,14 @@ export function AssistantQuestionForm({
               <option value="representative_for_trustor">Действую в интересах доверителя</option>
             </select>
             <p className="text-sm leading-6 text-[var(--muted)]">
-              Это влияет на рамку анализа и формулировки ответа, но не расширяет правовую опору за
-              пределы законодательства выбранного сервера.
+              Это помогает выбрать рамку анализа и стиль ответа, но не меняет правовую базу,
+              по которой разбирается вопрос.
             </p>
           </div>
 
           <div className="space-y-2">
             <label className="text-sm font-medium" htmlFor="question">
-              Вопрос по законодательной базе сервера
+              Вопрос по законам сервера
             </label>
             <Textarea
               defaultValue={safeState.answer?.question ?? ""}

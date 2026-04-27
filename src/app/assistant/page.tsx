@@ -18,17 +18,16 @@ export default async function AssistantLandingPage() {
         <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
           <Card className="space-y-4">
             <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">
-              Server Legal Assistant
+              Юридический помощник
             </p>
-            <h1 className="text-4xl font-semibold">Юридический помощник по законам сервера</h1>
+            <h1 className="text-4xl font-semibold">Юридический помощник по законодательству сервера</h1>
             <p className="max-w-3xl text-sm leading-7 text-[var(--muted)]">
-              Это отдельный публичный модуль, который отвечает только по current версиям
-              primary laws выбранного сервера. Помощник не использует знания вне
-              подтвержденного law corpus и не связан с document flow.
+              Выберите сервер, чтобы задать вопрос по его законодательству и судебной практике.
+              Если части материалов не хватает, помощник предупредит об этом в ответе.
             </p>
             <p className="text-sm leading-7 text-[var(--muted)]">
               {viewer.isAuthenticated
-                ? `Ты вошёл как ${viewer.account?.login ?? "аккаунт"}. Гостевой лимит тебя не ограничивает.`
+                ? `Вы вошли как ${viewer.account?.login ?? "аккаунт"}. Гостевой лимит на вас не распространяется.`
                 : "Без входа доступен 1 тестовый вопрос. После этого старый ответ останется доступным, а для нового вопроса понадобится вход или регистрация."}
             </p>
           </Card>

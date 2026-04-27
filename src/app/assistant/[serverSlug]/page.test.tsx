@@ -82,7 +82,7 @@ describe("/assistant/[serverSlug] page", () => {
     expect(html).toContain("assistant-form:blackberry:Blackberry");
   });
 
-  it("показывает unavailable state, если у сервера нет current corpus", async () => {
+  it("показывает unavailable state, если у сервера не хватает подтверждённых материалов", async () => {
     vi.mocked(listAssistantServers).mockResolvedValue([
       {
         id: "server-1",
@@ -130,6 +130,6 @@ describe("/assistant/[serverSlug] page", () => {
       }),
     );
 
-    expect(html).toContain("пока нет подтвержденного usable corpus");
+    expect(html).toContain("пока недостаточно правовых материалов");
   });
 });
