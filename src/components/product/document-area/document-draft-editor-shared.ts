@@ -14,6 +14,9 @@ import {
   type OgpForumSyncState,
 } from "@/schemas/document";
 import type {
+  ComplaintNarrativeImprovementUsageMeta,
+  ComplaintNarrativeLegalBasisUsed,
+  ComplaintNarrativeRiskFlag,
   DocumentFieldRewriteUsageMeta,
   GroundedDocumentFieldRewriteUsageMeta,
   GroundedDocumentReference,
@@ -132,6 +135,19 @@ export type OgpGroundedRewriteSuggestionState = {
   usageMeta: GroundedDocumentFieldRewriteUsageMeta;
 };
 
+export type OgpComplaintNarrativeImprovementSuggestionState = {
+  sourceText: string;
+  improvedText: string;
+  basedOnUpdatedAt: string;
+  legalBasisUsed: ComplaintNarrativeLegalBasisUsed[];
+  usedFacts: string[];
+  missingFacts: string[];
+  reviewNotes: string[];
+  riskFlags: ComplaintNarrativeRiskFlag[];
+  shouldSendToReview: boolean;
+  usageMeta: ComplaintNarrativeImprovementUsageMeta;
+};
+
 export const evidenceTemplateLabels: Record<(typeof ogpComplaintEvidenceTemplateKeys)[number], string> = {
   legal_services_contract: "Договор на оказание юридических услуг",
   attorney_request: "Адвокатский запрос",
@@ -241,6 +257,49 @@ export function formatDraftStatus(status: OgpComplaintGenerationState["status"])
   }
 
   return "опубликован";
+}
+
+export function applyComplaintNarrativeImprovementSuggestion(
+  payload: OgpComplaintDraftPayload,
+  improvedText: string,
+): OgpComplaintDraftPayload {
+  return {
+    ...payload,
+    situationDescription: improvedText,
+  };
+}
+
+export function formatComplaintNarrativeRiskFlagLabel(flag: ComplaintNarrativeRiskFlag) {
+  switch (flag) {
+    case "insufficient_facts":
+      return "Недостаточно фактов";
+    case "weak_legal_context":
+      return "Слабый правовой контекст";
+    case "missing_evidence":
+      return "Не хватает доказательств";
+    case "unclear_roles":
+      return "Нужно уточнить роли";
+    case "unclear_timeline":
+      return "Нужно уточнить хронологию";
+    case "ambiguous_date_time":
+      return "Неясная дата/время";
+    case "possible_overclaiming":
+      return "Проверьте категоричность";
+    case "legal_basis_not_found":
+      return "Норма не подтверждена";
+  }
+}
+
+export function formatComplaintNarrativeBlockedMessage(reasons: string[]) {
+  const normalizedReasons = reasons
+    .map((reason) => reason.trim().replace(/[.。]+$/u, ""))
+    .filter((reason) => reason.length > 0);
+
+  if (normalizedReasons.length === 0) {
+    return "Для улучшения описания заполните обязательные поля жалобы.";
+  }
+
+  return `Для улучшения описания заполните обязательные поля: ${normalizedReasons.join("; ")}.`;
 }
 
 export function buildEmptyEvidenceItem(sortOrder: number): OgpComplaintEvidenceItem {

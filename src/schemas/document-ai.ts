@@ -228,6 +228,9 @@ export type ComplaintNarrativeImprovementRuntimeInput = z.infer<
 export type ComplaintNarrativeImprovementResult = z.infer<
   typeof complaintNarrativeImprovementResultSchema
 >;
+export type ComplaintNarrativeLegalBasisUsed = z.infer<
+  typeof complaintNarrativeLegalBasisUsedSchema
+>;
 export type ComplaintNarrativeImprovementUsageMeta = z.infer<
   typeof complaintNarrativeImprovementUsageMetaSchema
 >;

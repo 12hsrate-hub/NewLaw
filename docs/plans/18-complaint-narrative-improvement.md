@@ -72,6 +72,39 @@
 - BBCode integration
 - Prisma/schema changes
 
+## Текущий implemented checkpoint по `18.4`
+
+`18.4` реализован как UI integration slice без изменения backend contract и без изменения `BBCode`.
+
+Что уже входит:
+
+- кнопка `Улучшить описание` внутри OGP complaint editor рядом с полем `Подробное описание ситуации`
+- вызов existing owner-only backend action по `documentId` без повторной сборки input на клиенте
+- preview-before-apply поведение:
+  - показ `improved_text`
+  - показ `missing_facts`
+  - показ `review_notes`
+  - показ `risk_flags`
+  - показ `legal_basis_used`
+  - warning при `should_send_to_review = true`
+- safe UI branches для:
+  - `rewrite-blocked`
+  - `unsupported-document-type`
+  - `invalid-draft`
+  - `rewrite-unavailable`
+  - `invalid-output`
+- применение только в `situation_description` без автозамены других полей
+- deterministic UI/helper tests без real AI calls
+
+Что intentionally ещё не входит:
+
+- persistence AI result history
+- отдельная review panel с richer UX
+- analytics / cost tracking per feature
+- richer legal basis display
+- BBCode integration
+- Prisma/schema changes
+
 ## Назначение линии
 
 `Complaint Narrative Improvement v1` — это отдельный AI-flow для `ogp_complaint`, который улучшает только поле `Подробное описание ситуации`.
@@ -553,7 +586,7 @@ Implementation должен покрыть:
 - partially implemented в `18.2` + `18.3`
 - owner-only action + AI invocation уже есть
 - draft adapter для реального `ogp_complaint` backend context уже есть
-- wiring в complaint wizard backend без UI и без apply-in-editor остаётся следующим безопасным slice
+- wiring в complaint wizard backend без UI и без apply-in-editor закрыт через `18.3`
 
 ### Slice E — future UI
 
@@ -562,15 +595,25 @@ Implementation должен покрыть:
 - показ `missing_facts` и `review_notes`
 - кнопка `Применить текст`
 
+Статус:
+
+- minimally implemented через `18.4`
+- UI теперь умеет:
+  - запросить улучшение narrative
+  - показать preview и review data
+  - применить только `situation_description`
+- richer UX и history/persistence AI results остаются future
+
 ## Future UI integration
 
-UI не входит в docs-only этап, но целевая интеграция должна быть узкой:
+UI уже минимально подключён и должен оставаться узким:
 
 - только внутри OGP complaint editor
 - только для поля `situation_description`
 - без изменения структуры остальных шагов wizard
 - без redesign всего editor shell
 - без влияния на `BBCode` renderer
+- без автоприменения improved text без подтверждения пользователя
 
 ## Что модуль не должен ломать
 
@@ -599,8 +642,9 @@ UI не входит в docs-only этап, но целевая интеграц
 
 ## Practical next step
 
-Следующий безопасный инженерный шаг после этого docs-only плана:
+Следующий безопасный инженерный шаг после `18.4`:
 
-- `Slice B` как backend-only implementation
-- без deploy на docs стадии
+- richer review UX без изменения backend contract
+- optional apply/persist flow refinement внутри wizard
+- feature-level analytics / cost tracking
 - без изменения `BBCode` generation contract

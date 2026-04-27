@@ -8,6 +8,7 @@ import {
   getOgpRewriteSectionText,
   isGroundedRewriteSectionSupportedForDocumentType,
 } from "@/document-ai/sections";
+import { ComplaintNarrativeImprovementPanel } from "@/components/product/document-area/complaint-narrative-improvement-panel";
 import { DocumentFieldRewritePanel } from "@/components/product/document-area/document-field-rewrite-panel";
 import { DocumentTrustorRegistryPrefill } from "@/components/product/document-area/document-trustor-registry-prefill";
 import { Badge } from "@/components/ui/badge";
@@ -23,6 +24,7 @@ import {
 import {
   createOgpComplaintDraftAction,
   generateOgpComplaintBbcodeAction,
+  improveComplaintNarrativeAction,
   publishOgpComplaintCreateAction,
   publishOgpComplaintUpdateAction,
   refreshOgpComplaintAuthorSnapshotAction,
@@ -42,10 +44,12 @@ import {
 } from "@/schemas/document";
 import {
   areStatesEqual,
+  applyComplaintNarrativeImprovementSuggestion,
   buildEmptyEvidenceItem,
   buildEmptyOgpComplaintPayload,
   buildEmptyTrustorSnapshot,
   buildGenerationBlockState,
+  formatComplaintNarrativeBlockedMessage,
   createEditorState,
   createGenerationState,
   evidenceTemplateLabels,
@@ -59,6 +63,7 @@ import {
   type OgpComplaintDraftEditorClientProps,
   type OgpComplaintEditorState,
   type OgpComplaintGenerationState,
+  type OgpComplaintNarrativeImprovementSuggestionState,
   type OgpGroundedRewriteSuggestionState,
   type OgpRewriteSuggestionState,
 } from "@/components/product/document-area/document-draft-editor-shared";
@@ -850,6 +855,10 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
   } | null>(null);
   const [rewritePendingSectionKey, setRewritePendingSectionKey] =
     useState<OgpDocumentRewriteSectionKey | null>(null);
+  const [complaintNarrativeSuggestion, setComplaintNarrativeSuggestion] =
+    useState<OgpComplaintNarrativeImprovementSuggestionState | null>(null);
+  const [complaintNarrativeFeedback, setComplaintNarrativeFeedback] = useState<string | null>(null);
+  const [isComplaintNarrativePending, setIsComplaintNarrativePending] = useState(false);
   const [groundedRewriteSuggestion, setGroundedRewriteSuggestion] =
     useState<OgpGroundedRewriteSuggestionState | null>(null);
   const [groundedRewriteFeedback, setGroundedRewriteFeedback] = useState<{
@@ -913,6 +922,16 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
       setGroundedRewriteSuggestion(null);
     }
   }, [editorState.payload, groundedRewriteSuggestion]);
+
+  useEffect(() => {
+    if (!complaintNarrativeSuggestion) {
+      return;
+    }
+
+    if (editorState.payload.situationDescription !== complaintNarrativeSuggestion.sourceText) {
+      setComplaintNarrativeSuggestion(null);
+    }
+  }, [complaintNarrativeSuggestion, editorState.payload.situationDescription]);
 
   const isDirty = !areStatesEqual(editorState, savedState);
   const canGenerateFromPersistedState = !isDirty;
@@ -1392,6 +1411,121 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
     }
   }, [groundedRewriteSuggestion]);
 
+  const handleComplaintNarrativeImproveRequest = useCallback(async () => {
+    if (isDirty) {
+      setComplaintNarrativeFeedback(
+        "Сначала сохраните черновик. Улучшение описания строится только по сохранённой версии документа.",
+      );
+      setComplaintNarrativeSuggestion(null);
+      return;
+    }
+
+    setIsComplaintNarrativePending(true);
+    setComplaintNarrativeFeedback(null);
+
+    try {
+      const result = await improveComplaintNarrativeAction({
+        documentId: props.documentId,
+        lengthMode: "normal",
+      });
+
+      if (!result.ok) {
+        if (result.error === "rewrite-blocked") {
+          setComplaintNarrativeFeedback(
+            formatComplaintNarrativeBlockedMessage(result.reasons),
+          );
+          setComplaintNarrativeSuggestion(null);
+          return;
+        }
+
+        if (result.error === "unsupported-document-type") {
+          setComplaintNarrativeFeedback(
+            "Улучшение описания доступно только для жалобы в ОГП.",
+          );
+          setComplaintNarrativeSuggestion(null);
+          return;
+        }
+
+        if (result.error === "invalid-draft") {
+          setComplaintNarrativeFeedback(
+            "Не удалось подготовить описание: в черновике жалобы есть некорректные данные. Проверьте заполненные поля и сохраните документ ещё раз.",
+          );
+          setComplaintNarrativeSuggestion(null);
+          return;
+        }
+
+        if (result.error === "rewrite-unavailable") {
+          setComplaintNarrativeFeedback(result.message);
+          setComplaintNarrativeSuggestion(null);
+          return;
+        }
+
+        if (result.error === "invalid-output") {
+          setComplaintNarrativeFeedback(
+            "AI вернул некорректный результат. Попробуйте запросить улучшение ещё раз.",
+          );
+          setComplaintNarrativeSuggestion(null);
+          return;
+        }
+
+        setComplaintNarrativeFeedback(
+          "Не удалось улучшить описание. Проверьте доступ к черновику и попробуйте снова. Код: OGP_NARRATIVE_IMPROVEMENT_FAILED.",
+        );
+        setComplaintNarrativeSuggestion(null);
+        return;
+      }
+
+      setRewriteSuggestion((current) =>
+        current?.sectionKey === "situation_description" ? null : current,
+      );
+      setComplaintNarrativeSuggestion({
+        sourceText: result.sourceText,
+        improvedText: result.improvedText,
+        basedOnUpdatedAt: result.basedOnUpdatedAt,
+        legalBasisUsed: result.legalBasisUsed,
+        usedFacts: result.usedFacts,
+        missingFacts: result.missingFacts,
+        reviewNotes: result.reviewNotes,
+        riskFlags: result.riskFlags,
+        shouldSendToReview: result.shouldSendToReview,
+        usageMeta: result.usageMeta,
+      });
+    } finally {
+      setIsComplaintNarrativePending(false);
+    }
+  }, [isDirty, props.documentId]);
+
+  const handleComplaintNarrativeApply = useCallback(() => {
+    if (!complaintNarrativeSuggestion) {
+      return;
+    }
+
+    setEditorState((current) => ({
+      ...current,
+      payload: applyComplaintNarrativeImprovementSuggestion(
+        current.payload,
+        complaintNarrativeSuggestion.improvedText,
+      ),
+    }));
+    setComplaintNarrativeFeedback(
+      "Предложенный текст применён в редакторе. Сохраните черновик или дождитесь автосохранения.",
+    );
+    setComplaintNarrativeSuggestion(null);
+  }, [complaintNarrativeSuggestion]);
+
+  const handleComplaintNarrativeCopy = useCallback(async () => {
+    if (!complaintNarrativeSuggestion) {
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(complaintNarrativeSuggestion.improvedText);
+      setComplaintNarrativeFeedback("Предложенный текст скопирован в буфер обмена.");
+    } catch {
+      setComplaintNarrativeFeedback("Не удалось скопировать предложенный текст автоматически.");
+    }
+  }, [complaintNarrativeSuggestion]);
+
   const renderRewriteControls = useCallback(
     (input: {
       sectionKey: OgpDocumentRewriteSectionKey;
@@ -1410,12 +1544,39 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
           : null;
       const activeGroundedSuggestion =
         groundedRewriteSuggestion?.sectionKey === input.sectionKey ? groundedRewriteSuggestion : null;
+      const supportsNarrativeImprovement = input.sectionKey === "situation_description";
+      const activeComplaintNarrativeSuggestion = supportsNarrativeImprovement
+        ? complaintNarrativeSuggestion
+        : null;
+      const complaintNarrativeSectionFeedback = supportsNarrativeImprovement
+        ? complaintNarrativeFeedback
+        : null;
 
       return (
         <div className="space-y-3">
           <div className="flex flex-wrap items-center gap-3">
+            {supportsNarrativeImprovement ? (
+              <Button
+                disabled={
+                  rewritePendingSectionKey !== null ||
+                  groundedRewritePendingSectionKey !== null ||
+                  isComplaintNarrativePending
+                }
+                onClick={() => {
+                  void handleComplaintNarrativeImproveRequest();
+                }}
+                type="button"
+                variant="secondary"
+              >
+                {isComplaintNarrativePending ? "Готовим описание..." : "Улучшить описание"}
+              </Button>
+            ) : null}
             <Button
-              disabled={rewritePendingSectionKey !== null || groundedRewritePendingSectionKey !== null}
+              disabled={
+                rewritePendingSectionKey !== null ||
+                groundedRewritePendingSectionKey !== null ||
+                isComplaintNarrativePending
+              }
               onClick={() => {
                 void handleRewriteRequest(input.sectionKey, input.sectionLabel);
               }}
@@ -1426,7 +1587,11 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
             </Button>
             {supportsGrounded ? (
               <Button
-                disabled={rewritePendingSectionKey !== null || groundedRewritePendingSectionKey !== null}
+                disabled={
+                  rewritePendingSectionKey !== null ||
+                  groundedRewritePendingSectionKey !== null ||
+                  isComplaintNarrativePending
+                }
                 onClick={() => {
                   void handleGroundedRewriteRequest(
                     input.sectionKey as GroundedOgpDocumentRewriteSectionKey,
@@ -1445,9 +1610,24 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
               Помощник использует только последнюю сохранённую версию этого раздела.
             </span>
           </div>
+          {complaintNarrativeSectionFeedback ? (
+            <p className="text-sm text-[var(--muted)]">{complaintNarrativeSectionFeedback}</p>
+          ) : null}
           {sectionFeedback ? <p className="text-sm text-[var(--muted)]">{sectionFeedback}</p> : null}
           {groundedSectionFeedback ? (
             <p className="text-sm text-[var(--muted)]">{groundedSectionFeedback}</p>
+          ) : null}
+          {activeComplaintNarrativeSuggestion ? (
+            <ComplaintNarrativeImprovementPanel
+              onApply={handleComplaintNarrativeApply}
+              onCopy={() => {
+                void handleComplaintNarrativeCopy();
+              }}
+              onDismiss={() => {
+                setComplaintNarrativeSuggestion(null);
+              }}
+              suggestion={activeComplaintNarrativeSuggestion}
+            />
           ) : null}
           {activeSuggestion ? (
             <DocumentFieldRewritePanel
@@ -1488,14 +1668,20 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
       );
     },
     [
+      complaintNarrativeFeedback,
+      complaintNarrativeSuggestion,
       groundedRewriteFeedback,
       groundedRewritePendingSectionKey,
       groundedRewriteSuggestion,
+      handleComplaintNarrativeApply,
+      handleComplaintNarrativeCopy,
+      handleComplaintNarrativeImproveRequest,
       handleGroundedRewriteApply,
       handleGroundedRewriteCopy,
       handleGroundedRewriteRequest,
       handleRewriteApply,
       handleRewriteCopy,
+      isComplaintNarrativePending,
       handleRewriteRequest,
       rewriteFeedback,
       rewritePendingSectionKey,

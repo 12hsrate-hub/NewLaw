@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("@/server/actions/documents", () => ({
   createOgpComplaintDraftAction: vi.fn(),
   generateOgpComplaintBbcodeAction: vi.fn(),
+  improveComplaintNarrativeAction: vi.fn(),
   publishOgpComplaintCreateAction: vi.fn(),
   publishOgpComplaintUpdateAction: vi.fn(),
   refreshOgpComplaintAuthorSnapshotAction: vi.fn(),
@@ -78,6 +79,7 @@ describe("OGP document editor rewrite affordances", () => {
       }),
     );
 
+    expect(html.match(/Улучшить описание/g)?.length).toBe(1);
     expect(html.match(/Улучшить текст/g)?.length).toBe(2);
     expect(html.match(/Улучшить с опорой на нормы/g)?.length).toBe(1);
     expect(html).toContain("Подробное описание ситуации");
@@ -85,6 +87,9 @@ describe("OGP document editor rewrite affordances", () => {
     expect(html).toContain("Публикация на форуме");
     expect(html).toContain("Очистить форму жалобы");
     expect(html).toContain("Обновить данные профиля в жалобе");
+    expect(html).toContain(
+      "Помощник использует только последнюю сохранённую версию этого раздела.",
+    );
     expect(html).not.toContain("AI-предложение для секции Working notes");
   });
 
