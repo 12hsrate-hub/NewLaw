@@ -6,6 +6,7 @@ import { useActionState } from "react";
 import { AssistantAnswerCard } from "@/components/product/legal-assistant/assistant-answer-card";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { EmbeddedCard } from "@/components/ui/embedded-card";
 import { Textarea } from "@/components/ui/textarea";
 import {
   submitAssistantQuestionAction,
@@ -73,7 +74,7 @@ export function AssistantQuestionForm({
               Контекст вопроса
             </label>
             <select
-              className="w-full rounded-2xl border border-[var(--border)] bg-white px-4 py-3 text-sm"
+              className="w-full rounded-2xl border border-[var(--border)] bg-[var(--surface-embedded)] px-4 py-3 text-sm text-[var(--foreground)] outline-none transition focus:border-[var(--accent)] focus:bg-[var(--surface-raised)]"
               defaultValue={selectedActorContext}
               id="actorContext"
               name="actorContext"
@@ -100,7 +101,7 @@ export function AssistantQuestionForm({
               required
             />
             {safeState.fieldErrors.question ? (
-              <p className="text-sm leading-6 text-[#8a2d1d]">{safeState.fieldErrors.question}</p>
+              <p className="text-sm leading-6 text-[#f2b8ad]">{safeState.fieldErrors.question}</p>
             ) : null}
           </div>
 
@@ -110,11 +111,11 @@ export function AssistantQuestionForm({
         </form>
 
         {safeState.errorMessage ? (
-          <p className="text-sm leading-6 text-[#8a2d1d]">{safeState.errorMessage}</p>
+          <p className="text-sm leading-6 text-[#f2b8ad]">{safeState.errorMessage}</p>
         ) : null}
 
         {safeState.requiresAuthCta ? (
-          <div className="rounded-2xl border border-[var(--border)] bg-white/60 p-4 text-sm leading-6 text-[var(--muted)]">
+          <EmbeddedCard className="p-4 text-sm leading-6 text-[var(--muted)]">
             <p>Чтобы задать новый вопрос, войди в аккаунт или зарегистрируйся.</p>
             <div className="mt-3 flex flex-wrap gap-3">
               <Link className="text-[var(--accent)] underline" href={`/sign-in?next=/assistant/${serverSlug}`}>
@@ -124,7 +125,7 @@ export function AssistantQuestionForm({
                 Зарегистрироваться
               </Link>
             </div>
-          </div>
+          </EmbeddedCard>
         ) : null}
       </Card>
 

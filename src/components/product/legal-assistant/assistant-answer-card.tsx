@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import { StatusBadge } from "@/components/ui/status-badge";
 
 type AssistantAnswerCardProps = {
   answer: {
@@ -187,7 +188,7 @@ export function AssistantAnswerCard({ answer }: AssistantAnswerCardProps) {
                   {lawReferences.map((reference) => (
                     <div
                       key={reference.lawBlockId}
-                      className="rounded-2xl border border-[var(--border)] bg-white/60 p-4"
+                      className="rounded-2xl border border-[var(--border)] bg-[var(--surface-embedded)] p-4"
                     >
                       <div className="flex flex-wrap items-center gap-2">
                         <Badge>{reference.lawTitle}</Badge>
@@ -227,13 +228,13 @@ export function AssistantAnswerCard({ answer }: AssistantAnswerCardProps) {
                   {precedentReferences.map((reference) => (
                     <div
                       key={reference.precedentBlockId}
-                      className="rounded-2xl border border-[var(--border)] bg-white/60 p-4"
+                      className="rounded-2xl border border-[var(--border)] bg-[var(--surface-embedded)] p-4"
                     >
                       <div className="flex flex-wrap items-center gap-2">
                         <Badge>{reference.precedentTitle}</Badge>
-                        <Badge className="bg-[rgba(32,99,69,0.12)] text-[#206345]">
+                        <StatusBadge tone="success">
                           {formatPrecedentValidityLabel(reference.validityStatus)}
-                        </Badge>
+                        </StatusBadge>
                         <span className="text-xs leading-6 text-[var(--muted)]">
                           Фрагмент судебного прецедента
                         </span>
