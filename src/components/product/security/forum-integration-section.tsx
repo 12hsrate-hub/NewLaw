@@ -4,6 +4,8 @@ import { useActionState, useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { EmbeddedCard } from "@/components/ui/embedded-card";
+import { SectionHeader } from "@/components/ui/section-header";
 import { Textarea } from "@/components/ui/textarea";
 import {
   disableForumConnectionAction,
@@ -69,18 +71,13 @@ export function ForumIntegrationSection({
 
   return (
     <Card className="space-y-5">
-      <div className="space-y-2">
-        <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">
-          Подключение форума
-        </p>
-        <h2 className="text-2xl font-semibold">Подключение форума для жалоб в ОГП</h2>
-        <p className="text-sm leading-6 text-[var(--muted)]">
-          Здесь можно подключить форумный аккаунт для публикации жалоб в ОГП. Сырые cookie после
-          сохранения больше не показываются в интерфейсе.
-        </p>
-      </div>
+      <SectionHeader
+        description="Здесь можно подключить форумный аккаунт для публикации жалоб в ОГП. Сырые cookie после сохранения больше не показываются в интерфейсе."
+        eyebrow="Подключение форума"
+        title="Подключение форума для жалоб в ОГП"
+      />
 
-      <div className="rounded-2xl border border-[var(--border)] bg-[rgba(255,255,255,0.7)] px-4 py-3 text-sm leading-6 text-[var(--muted)]">
+      <EmbeddedCard className="space-y-3 text-sm leading-6 text-[var(--muted)]">
         <p>
           Форум: <span className="font-medium text-[var(--foreground)]">{formatForumProviderLabel(forumConnection.providerKey)}</span>
         </p>
@@ -102,11 +99,11 @@ export function ForumIntegrationSection({
           </span>
         </p>
         {forumConnection.lastValidationError ? (
-          <p className="mt-2 text-[#8a2d1d]">
+          <p className="text-[#f2b8ad]">
             Подключение к форуму не подтверждено. Обновите данные форума и повторите проверку.
           </p>
         ) : null}
-      </div>
+      </EmbeddedCard>
 
       <form action={saveAction} className="space-y-4">
         <div className="space-y-2">
@@ -128,7 +125,7 @@ export function ForumIntegrationSection({
             показаны в интерфейсе.
           </p>
           {saveState?.fieldErrors.rawSessionInput ? (
-            <p className="text-sm leading-6 text-[#8a2d1d]">
+            <p className="text-sm leading-6 text-[#f2b8ad]">
               {getSafeForumFieldError(saveState.fieldErrors.rawSessionInput)}
             </p>
           ) : null}
@@ -140,12 +137,14 @@ export function ForumIntegrationSection({
       </form>
 
       {saveState?.errorMessage ? (
-        <p className="text-sm leading-6 text-[#8a2d1d]">
-          {getSafeForumIntegrationMessage(saveState.errorMessage)}
-        </p>
+        <EmbeddedCard className="border-[rgba(200,112,92,0.35)] bg-[rgba(116,48,33,0.2)] text-[#f2b8ad]">
+          <p className="text-sm leading-6">{getSafeForumIntegrationMessage(saveState.errorMessage)}</p>
+        </EmbeddedCard>
       ) : null}
       {saveState?.successMessage ? (
-        <p className="text-sm leading-6 text-[var(--muted)]">{saveState.successMessage}</p>
+        <EmbeddedCard className="border-[rgba(74,138,104,0.3)] bg-[rgba(49,87,64,0.2)] text-[#9ed8b3]">
+          <p className="text-sm leading-6">{saveState.successMessage}</p>
+        </EmbeddedCard>
       ) : null}
 
       <div className="flex flex-wrap gap-3">
@@ -179,20 +178,24 @@ export function ForumIntegrationSection({
       </div>
 
       {validateState?.errorMessage ? (
-        <p className="text-sm leading-6 text-[#8a2d1d]">
-          {getSafeForumIntegrationMessage(validateState.errorMessage)}
-        </p>
+        <EmbeddedCard className="border-[rgba(200,112,92,0.35)] bg-[rgba(116,48,33,0.2)] text-[#f2b8ad]">
+          <p className="text-sm leading-6">{getSafeForumIntegrationMessage(validateState.errorMessage)}</p>
+        </EmbeddedCard>
       ) : null}
       {validateState?.successMessage ? (
-        <p className="text-sm leading-6 text-[var(--muted)]">{validateState.successMessage}</p>
+        <EmbeddedCard className="border-[rgba(74,138,104,0.3)] bg-[rgba(49,87,64,0.2)] text-[#9ed8b3]">
+          <p className="text-sm leading-6">{validateState.successMessage}</p>
+        </EmbeddedCard>
       ) : null}
       {disableState?.errorMessage ? (
-        <p className="text-sm leading-6 text-[#8a2d1d]">
-          {getSafeForumIntegrationMessage(disableState.errorMessage)}
-        </p>
+        <EmbeddedCard className="border-[rgba(200,112,92,0.35)] bg-[rgba(116,48,33,0.2)] text-[#f2b8ad]">
+          <p className="text-sm leading-6">{getSafeForumIntegrationMessage(disableState.errorMessage)}</p>
+        </EmbeddedCard>
       ) : null}
       {disableState?.successMessage ? (
-        <p className="text-sm leading-6 text-[var(--muted)]">{disableState.successMessage}</p>
+        <EmbeddedCard className="border-[rgba(74,138,104,0.3)] bg-[rgba(49,87,64,0.2)] text-[#9ed8b3]">
+          <p className="text-sm leading-6">{disableState.successMessage}</p>
+        </EmbeddedCard>
       ) : null}
     </Card>
   );

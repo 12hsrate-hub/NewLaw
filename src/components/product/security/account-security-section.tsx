@@ -1,6 +1,9 @@
 import { ChangeEmailForm } from "@/components/product/security/change-email-form";
 import { ChangePasswordForm } from "@/components/product/security/change-password-form";
 import { Card } from "@/components/ui/card";
+import { EmbeddedCard } from "@/components/ui/embedded-card";
+import { SectionHeader } from "@/components/ui/section-header";
+import { StatusBadge } from "@/components/ui/status-badge";
 
 type AccountSecuritySectionProps = {
   accountEmail: string;
@@ -33,36 +36,33 @@ export function AccountSecuritySection({
   return (
     <section className="space-y-6">
       {statusMessage ? (
-        <div className="rounded-2xl border border-[var(--border)] bg-white/70 px-4 py-3 text-sm leading-6">
-          {statusMessage}
-        </div>
+        <EmbeddedCard className="border-[rgba(184,135,57,0.3)] bg-[rgba(122,88,34,0.18)] text-[#f0d4a0]">
+          <p className="text-sm leading-6">{statusMessage}</p>
+        </EmbeddedCard>
       ) : null}
 
       <Card className="space-y-4">
-        <div className="space-y-2">
-          <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">Безопасность аккаунта</p>
-          <h1 className="text-3xl font-semibold">Настройки аккаунта</h1>
-          <p className="text-sm leading-6 text-[var(--muted)]">
-            Здесь можно сменить пароль, обновить email и проверить данные для входа. Логин пока
-            нельзя изменить.
-          </p>
-        </div>
+        <SectionHeader
+          description="Здесь можно сменить пароль, обновить email и проверить данные для входа. Логин пока нельзя изменить."
+          eyebrow="Безопасность аккаунта"
+          title="Настройки аккаунта"
+        />
 
         <div className="grid gap-4 lg:grid-cols-2">
-          <div className="rounded-2xl border border-[var(--border)] bg-[rgba(255,255,255,0.7)] px-4 py-3">
-            <p className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">Подтверждённый email</p>
-            <p className="mt-2 text-lg font-medium">{accountEmail}</p>
-          </div>
-          <div className="rounded-2xl border border-[var(--border)] bg-[rgba(255,255,255,0.7)] px-4 py-3">
-            <p className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">Логин</p>
-            <p className="mt-2 text-lg font-medium">{accountLogin}</p>
-          </div>
+          <EmbeddedCard className="space-y-2">
+            <StatusBadge tone="neutral">Подтверждённый email</StatusBadge>
+            <p className="text-lg font-medium">{accountEmail}</p>
+          </EmbeddedCard>
+          <EmbeddedCard className="space-y-2">
+            <StatusBadge tone="neutral">Логин</StatusBadge>
+            <p className="text-lg font-medium">{accountLogin}</p>
+          </EmbeddedCard>
         </div>
 
         {pendingEmail ? (
-          <div className="rounded-2xl border border-[#d7c4b6] bg-[#fff5eb] px-4 py-3 text-sm leading-6 text-[#7a3f1d]">
+          <EmbeddedCard className="border-[rgba(184,135,57,0.3)] bg-[rgba(122,88,34,0.18)] text-[#f0d4a0]">
             Ожидается подтверждение нового email: <span className="font-medium">{pendingEmail}</span>. Пока подтверждение не завершено, вход и восстановление доступа работают через текущий email или логин.
-          </div>
+          </EmbeddedCard>
         ) : null}
       </Card>
 

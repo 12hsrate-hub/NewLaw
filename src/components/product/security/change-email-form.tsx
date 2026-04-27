@@ -4,6 +4,7 @@ import { useActionState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { EmbeddedCard } from "@/components/ui/embedded-card";
 import { Input } from "@/components/ui/input";
 import { changeEmailAction } from "@/server/actions/account-security";
 import { getSafeAccountSecurityMessage } from "@/components/product/security/account-security-copy";
@@ -37,14 +38,14 @@ export function ChangeEmailForm({
         </p>
       </div>
 
-      <div className="rounded-2xl border border-[var(--border)] bg-[rgba(255,255,255,0.7)] px-4 py-3 text-sm leading-6 text-[var(--muted)]">
+      <EmbeddedCard className="text-sm leading-6 text-[var(--muted)]">
         Текущий подтверждённый email: <span className="font-medium text-[var(--foreground)]">{currentEmail}</span>
-      </div>
+      </EmbeddedCard>
 
       {mustChangePassword ? (
-        <div className="rounded-2xl border border-[#d7c4b6] bg-[#fff5eb] px-4 py-3 text-sm leading-6 text-[#7a3f1d]">
+        <EmbeddedCard className="border-[rgba(184,135,57,0.3)] bg-[rgba(122,88,34,0.18)] text-[#f0d4a0]">
           Пока требуется смена пароля, обновление email временно недоступно.
-        </div>
+        </EmbeddedCard>
       ) : null}
 
       <form action={formAction} className="space-y-4">
@@ -63,7 +64,7 @@ export function ChangeEmailForm({
             type="email"
           />
           {safeState.fieldErrors.newEmail ? (
-            <p className="text-sm leading-6 text-[#8a2d1d]">{safeState.fieldErrors.newEmail}</p>
+            <p className="text-sm leading-6 text-[#f2b8ad]">{safeState.fieldErrors.newEmail}</p>
           ) : null}
         </div>
 
@@ -81,7 +82,7 @@ export function ChangeEmailForm({
             type="password"
           />
           {safeState.fieldErrors.currentPassword ? (
-            <p className="text-sm leading-6 text-[#8a2d1d]">{safeState.fieldErrors.currentPassword}</p>
+            <p className="text-sm leading-6 text-[#f2b8ad]">{safeState.fieldErrors.currentPassword}</p>
           ) : null}
         </div>
 
@@ -91,9 +92,9 @@ export function ChangeEmailForm({
       </form>
 
       {safeState.errorMessage ? (
-        <p className="text-sm leading-6 text-[#8a2d1d]">
-          {getSafeAccountSecurityMessage(safeState.errorMessage)}
-        </p>
+        <EmbeddedCard className="border-[rgba(200,112,92,0.35)] bg-[rgba(116,48,33,0.2)] text-[#f2b8ad]">
+          <p className="text-sm leading-6">{getSafeAccountSecurityMessage(safeState.errorMessage)}</p>
+        </EmbeddedCard>
       ) : null}
     </Card>
   );

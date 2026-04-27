@@ -1,6 +1,7 @@
 import { createCharacterAction, updateCharacterAction } from "@/server/actions/characters";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { EmbeddedCard } from "@/components/ui/embedded-card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -105,15 +106,15 @@ export function CharacterFormCard({
           </div>
         ) : null}
 
-        <fieldset className="space-y-3 rounded-2xl border border-[var(--border)] bg-white/40 p-4">
+        <fieldset className="space-y-3 rounded-2xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4">
           <legend className="px-1 text-sm font-medium">Компактный профиль персонажа</legend>
           <p className="text-xs leading-5 text-[var(--muted)]">
             Эти поля нужны для жалоб в ОГП и других документов.
           </p>
 
-          <div className="rounded-2xl border border-[var(--border)] bg-white/70 px-4 py-3 text-sm leading-6 text-[var(--muted)]">
+          <EmbeddedCard className="text-sm leading-6 text-[var(--muted)]">
             Система сама проверит, хватает ли данных для генерации жалобы в ОГП.
-          </div>
+          </EmbeddedCard>
 
           <div className="space-y-2">
             <label className="text-sm font-medium" htmlFor={`${mode}-position`}>
@@ -192,7 +193,7 @@ export function CharacterFormCard({
           </div>
 
           {mode === "create" ? (
-            <div className="rounded-2xl border border-dashed border-[var(--border)] bg-white/70 px-4 py-3 text-sm leading-6 text-[var(--muted)]">
+            <div className="rounded-2xl border border-dashed border-[var(--border)] bg-[var(--surface-embedded)] px-4 py-3 text-sm leading-6 text-[var(--muted)]">
               После создания карточки здесь же можно будет загрузить подпись для шаблонных
               документов.
             </div>

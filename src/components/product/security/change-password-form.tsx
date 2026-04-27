@@ -4,6 +4,7 @@ import { useActionState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { EmbeddedCard } from "@/components/ui/embedded-card";
 import { Input } from "@/components/ui/input";
 import { changePasswordAction } from "@/server/actions/account-security";
 import { getSafeAccountSecurityMessage } from "@/components/product/security/account-security-copy";
@@ -35,9 +36,9 @@ export function ChangePasswordForm({ mustChangePassword }: ChangePasswordFormPro
       </div>
 
       {mustChangePassword ? (
-        <div className="rounded-2xl border border-[#d7c4b6] bg-[#fff5eb] px-4 py-3 text-sm leading-6 text-[#7a3f1d]">
+        <EmbeddedCard className="border-[rgba(184,135,57,0.3)] bg-[rgba(122,88,34,0.18)] text-[#f0d4a0]">
           Для продолжения работы сначала смените пароль. До этого другие защищённые действия недоступны.
-        </div>
+        </EmbeddedCard>
       ) : null}
 
       <form action={formAction} className="space-y-4">
@@ -54,7 +55,7 @@ export function ChangePasswordForm({ mustChangePassword }: ChangePasswordFormPro
             type="password"
           />
           {safeState.fieldErrors.currentPassword ? (
-            <p className="text-sm leading-6 text-[#8a2d1d]">{safeState.fieldErrors.currentPassword}</p>
+            <p className="text-sm leading-6 text-[#f2b8ad]">{safeState.fieldErrors.currentPassword}</p>
           ) : null}
         </div>
 
@@ -71,7 +72,7 @@ export function ChangePasswordForm({ mustChangePassword }: ChangePasswordFormPro
             type="password"
           />
           {safeState.fieldErrors.newPassword ? (
-            <p className="text-sm leading-6 text-[#8a2d1d]">{safeState.fieldErrors.newPassword}</p>
+            <p className="text-sm leading-6 text-[#f2b8ad]">{safeState.fieldErrors.newPassword}</p>
           ) : null}
         </div>
 
@@ -88,7 +89,7 @@ export function ChangePasswordForm({ mustChangePassword }: ChangePasswordFormPro
             type="password"
           />
           {safeState.fieldErrors.confirmNewPassword ? (
-            <p className="text-sm leading-6 text-[#8a2d1d]">
+            <p className="text-sm leading-6 text-[#f2b8ad]">
               {safeState.fieldErrors.confirmNewPassword}
             </p>
           ) : null}
@@ -100,9 +101,9 @@ export function ChangePasswordForm({ mustChangePassword }: ChangePasswordFormPro
       </form>
 
       {safeState.errorMessage ? (
-        <p className="text-sm leading-6 text-[#8a2d1d]">
-          {getSafeAccountSecurityMessage(safeState.errorMessage)}
-        </p>
+        <EmbeddedCard className="border-[rgba(200,112,92,0.35)] bg-[rgba(116,48,33,0.2)] text-[#f2b8ad]">
+          <p className="text-sm leading-6">{getSafeAccountSecurityMessage(safeState.errorMessage)}</p>
+        </EmbeddedCard>
       ) : null}
     </Card>
   );

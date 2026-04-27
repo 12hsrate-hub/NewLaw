@@ -5,6 +5,7 @@ import { useActionState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { EmbeddedCard } from "@/components/ui/embedded-card";
 import { Input } from "@/components/ui/input";
 import {
   requestPasswordRecoveryAction,
@@ -52,7 +53,7 @@ export function ForgotPasswordForm({ nextPath }: ForgotPasswordFormProps) {
             type="text"
           />
           {safeState.fieldErrors.identifier ? (
-            <p className="text-sm leading-6 text-[#8a2d1d]">{safeState.fieldErrors.identifier}</p>
+            <p className="text-sm leading-6 text-[#f2b8ad]">{safeState.fieldErrors.identifier}</p>
           ) : null}
         </div>
 
@@ -62,7 +63,9 @@ export function ForgotPasswordForm({ nextPath }: ForgotPasswordFormProps) {
       </form>
 
       {safeState.errorMessage ? (
-        <p className="text-sm leading-6 text-[#8a2d1d]">{safeState.errorMessage}</p>
+        <EmbeddedCard className="border-[rgba(200,112,92,0.35)] bg-[rgba(116,48,33,0.2)] text-[#f2b8ad]">
+          <p className="text-sm leading-6">{safeState.errorMessage}</p>
+        </EmbeddedCard>
       ) : null}
 
       <div className="space-y-1 text-sm leading-6 text-[var(--muted)]">

@@ -1,6 +1,7 @@
 import { removeActiveCharacterSignatureAction, uploadCharacterSignatureAction } from "@/server/actions/characters";
-import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { EmbeddedCard } from "@/components/ui/embedded-card";
 
 type CharacterSignatureCardProps = {
   characterId: string;
@@ -27,7 +28,7 @@ export function CharacterSignatureCard(props: CharacterSignatureCardProps) {
   const hasSignature = props.activeSignature !== null;
 
   return (
-    <Card className="space-y-4 border border-[var(--border)] bg-white/50">
+    <Card className="space-y-4">
       <div className="space-y-2">
         <h4 className="text-lg font-semibold">Подпись для документов</h4>
         <p className="text-sm leading-6 text-[var(--muted)]">
@@ -42,17 +43,17 @@ export function CharacterSignatureCard(props: CharacterSignatureCardProps) {
       </div>
 
       {hasSignature ? (
-        <div className="space-y-3 rounded-2xl border border-[var(--border)] bg-white/70 p-4">
+        <EmbeddedCard className="space-y-3 p-4">
           <p className="text-sm font-medium">Активная подпись</p>
           {props.activeSignature?.previewUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               alt="Предпросмотр подписи персонажа"
-              className="max-h-24 w-full rounded-xl border border-[var(--border)] bg-white object-contain p-3"
+              className="max-h-24 w-full rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] object-contain p-3"
               src={props.activeSignature.previewUrl}
             />
           ) : (
-            <div className="rounded-xl border border-dashed border-[var(--border)] bg-white/80 px-4 py-6 text-sm leading-6 text-[var(--muted)]">
+            <div className="rounded-xl border border-dashed border-[var(--border)] bg-[var(--surface-raised)] px-4 py-6 text-sm leading-6 text-[var(--muted)]">
               Предпросмотр сейчас недоступен, но сама подпись остаётся привязанной к персонажу.
             </div>
           )}
@@ -60,9 +61,9 @@ export function CharacterSignatureCard(props: CharacterSignatureCardProps) {
             Формат: {props.activeSignature?.mimeType}. Размер: {props.activeSignature?.width}×
             {props.activeSignature?.height} px, {formatFileSize(props.activeSignature?.fileSize ?? 0)}.
           </p>
-        </div>
+        </EmbeddedCard>
       ) : (
-        <div className="rounded-2xl border border-dashed border-[var(--border)] bg-white/70 px-4 py-4 text-sm leading-6 text-[var(--muted)]">
+        <div className="rounded-2xl border border-dashed border-[var(--border)] bg-[var(--surface-embedded)] px-4 py-4 text-sm leading-6 text-[var(--muted)]">
           Подпись пока не загружена. Черновики документов можно создавать без неё, но финальная
           генерация шаблонных документов будет недоступна.
         </div>

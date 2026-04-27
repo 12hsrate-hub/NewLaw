@@ -11,6 +11,7 @@ import {
 import { createBrowserSupabaseClient } from "@/lib/supabase/browser";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { EmbeddedCard } from "@/components/ui/embedded-card";
 import { Input } from "@/components/ui/input";
 
 type SignUpFormProps = {
@@ -150,8 +151,16 @@ export function SignUpForm({ nextPath }: SignUpFormProps) {
         </Button>
       </form>
 
-      {message ? <p className="text-sm leading-6 text-[var(--foreground)]">{message}</p> : null}
-      {errorMessage ? <p className="text-sm leading-6 text-[#8a2d1d]">{errorMessage}</p> : null}
+      {message ? (
+        <EmbeddedCard className="border-[rgba(74,138,104,0.3)] bg-[rgba(49,87,64,0.2)] text-[#9ed8b3]">
+          <p className="text-sm leading-6">{message}</p>
+        </EmbeddedCard>
+      ) : null}
+      {errorMessage ? (
+        <EmbeddedCard className="border-[rgba(200,112,92,0.35)] bg-[rgba(116,48,33,0.2)] text-[#f2b8ad]">
+          <p className="text-sm leading-6">{errorMessage}</p>
+        </EmbeddedCard>
+      ) : null}
 
       <p className="text-sm leading-6 text-[var(--muted)]">
         Уже есть аккаунт?{" "}

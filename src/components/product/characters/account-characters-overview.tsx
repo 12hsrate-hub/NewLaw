@@ -5,10 +5,15 @@ import type {
   AccountCharactersServerGroup,
 } from "@/server/account-zone/characters";
 import { createCharacterAccessRequestAction } from "@/server/actions/characters";
+import { Button } from "@/components/ui/button";
+import { EmbeddedCard } from "@/components/ui/embedded-card";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { CharacterFormCard } from "@/components/product/characters/character-form-card";
 import { CharacterSignatureCard } from "@/components/product/characters/character-signature-card";
+import { SectionHeader } from "@/components/ui/section-header";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { Textarea } from "@/components/ui/textarea";
 
 const roleLabels: Record<string, string> = {
   citizen: "Гражданин",
@@ -90,7 +95,7 @@ function CharacterGroup(props: { group: AccountCharactersServerGroup }) {
           <div className="flex flex-wrap items-center gap-2">
             <Badge>{group.server.name}</Badge>
             {group.isFocused ? (
-              <Badge className="bg-[#e9efe0] text-[#35501c]">Выбранный сервер</Badge>
+              <StatusBadge tone="success">Выбранный сервер</StatusBadge>
             ) : null}
           </div>
           <p className="text-sm leading-6 text-[var(--muted)]">
@@ -107,7 +112,7 @@ function CharacterGroup(props: { group: AccountCharactersServerGroup }) {
 
         <div className="flex flex-wrap gap-3">
           <Link
-            className="inline-flex items-center rounded-2xl border border-[var(--border)] bg-white/70 px-4 py-2 text-sm font-medium transition hover:bg-white"
+            className="inline-flex items-center rounded-2xl border border-[var(--border)] bg-[var(--surface-subtle)] px-4 py-2 text-sm font-medium transition hover:bg-[var(--surface-hover)]"
             href={group.createBridgeHref}
           >
             Создать персонажа
@@ -116,7 +121,7 @@ function CharacterGroup(props: { group: AccountCharactersServerGroup }) {
       </div>
 
       <details
-        className="rounded-2xl border border-[var(--border)] bg-white/40 p-4"
+        className="rounded-2xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4"
         id={createDetailsId}
         open={group.isFocused}
       >
@@ -133,7 +138,7 @@ function CharacterGroup(props: { group: AccountCharactersServerGroup }) {
       </details>
 
       {!group.characters.length ? (
-        <div className="space-y-3 rounded-2xl border border-dashed border-[var(--border)] bg-white/50 p-4">
+        <div className="space-y-3 rounded-2xl border border-dashed border-[var(--border)] bg-[var(--surface-embedded)] p-4">
           <h3 className="text-lg font-semibold">Персонажей пока нет</h3>
           <p className="text-sm leading-6 text-[var(--muted)]">
             Добавьте персонажа прямо в этой группе сервера. После этого он сможет использоваться
@@ -143,15 +148,15 @@ function CharacterGroup(props: { group: AccountCharactersServerGroup }) {
       ) : (
         <div className="grid gap-4 xl:grid-cols-2">
           {group.characters.map((character) => (
-            <Card key={character.id} className="space-y-3 border border-[var(--border)] bg-white/60">
+            <Card key={character.id} className="space-y-3 bg-[var(--surface-embedded)]">
               <div className="flex flex-wrap items-center gap-2">
                 <Badge>{character.fullName}</Badge>
                 {character.isDefaultForServer ? (
-                  <Badge className="bg-[#dfead9] text-[#285c2d]">По умолчанию для сервера</Badge>
+                  <StatusBadge tone="success">По умолчанию для сервера</StatusBadge>
                 ) : null}
-                <Badge className="bg-white/70 text-[var(--foreground)]">
+                <StatusBadge tone="neutral">
                   {character.isProfileComplete ? "Профиль заполнен" : "Профиль не заполнен"}
-                </Badge>
+                </StatusBadge>
               </div>
 
               <div className="space-y-2 text-sm leading-6 text-[var(--muted)]">
@@ -259,7 +264,7 @@ function CharacterGroup(props: { group: AccountCharactersServerGroup }) {
               {character.advocateAccessRequest.canSubmit ? (
                 <form
                   action={createCharacterAccessRequestAction}
-                  className="space-y-3 rounded-2xl border border-[var(--border)] bg-white/50 p-4"
+                  className="space-y-3 rounded-2xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4"
                 >
                   <input name="redirectTo" type="hidden" value={accountRedirectTo} />
                   <input name="characterId" type="hidden" value={character.id} />
@@ -274,22 +279,19 @@ function CharacterGroup(props: { group: AccountCharactersServerGroup }) {
                     <span className="font-medium text-[var(--foreground)]">
                       Комментарий или основание
                     </span>
-                    <textarea
-                      className="min-h-24 rounded-2xl border border-[var(--border)] bg-white px-4 py-3 outline-none transition focus:border-[var(--accent)]"
+                    <Textarea
+                      className="min-h-24"
                       name="requestComment"
                       placeholder="Кратко опиши, зачем этому персонажу нужен адвокатский доступ."
                     />
                   </label>
-                  <button
-                    className="inline-flex items-center rounded-2xl bg-[var(--accent)] px-4 py-2.5 text-sm font-medium text-white"
-                    type="submit"
-                  >
+                  <Button type="submit">
                     Отправить заявку
-                  </button>
+                  </Button>
                 </form>
               ) : null}
 
-              <details className="rounded-2xl border border-[var(--border)] bg-white/50 p-4">
+              <details className="rounded-2xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4">
                 <summary className="cursor-pointer text-sm font-medium">
                   Редактировать персонажа
                 </summary>
@@ -338,37 +340,32 @@ export function AccountCharactersOverview(props: {
   return (
     <section className="space-y-6">
       <Card className="space-y-3">
-        <div className="space-y-2">
-          <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">
-            Персонажи
-          </p>
-          <h1 className="text-3xl font-semibold">Мои персонажи</h1>
-          <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
-            Здесь персонажи собраны по серверам. Документы и юридический помощник открываются
-            из раздела конкретного сервера.
-          </p>
-        </div>
+        <SectionHeader
+          description="Здесь персонажи собраны по серверам. Документы и юридический помощник открываются из раздела конкретного сервера."
+          eyebrow="Персонажи"
+          title="Мои персонажи"
+        />
 
         {props.context.focusedServerCode ? (
-          <p className="rounded-2xl border border-[var(--border)] bg-white/60 px-4 py-3 text-sm leading-6 text-[var(--muted)]">
+          <EmbeddedCard className="text-sm leading-6 text-[var(--muted)]">
             Показана группа выбранного сервера. Данные персонажей не меняются.
-          </p>
+          </EmbeddedCard>
         ) : null}
 
         {props.status && statusLabels[props.status] ? (
-          <p className="rounded-2xl border border-[var(--border)] bg-white/60 px-4 py-3 text-sm leading-6 text-[var(--foreground)]">
+          <EmbeddedCard className="text-sm leading-6 text-[var(--foreground)]">
             {statusLabels[props.status]}
-          </p>
+          </EmbeddedCard>
         ) : null}
       </Card>
 
       {props.context.serverGroups.length === 0 ? (
-        <Card className="space-y-3">
+        <EmbeddedCard className="space-y-3">
           <h2 className="text-2xl font-semibold">Серверы пока не найдены</h2>
           <p className="text-sm leading-6 text-[var(--muted)]">
             Пока у аккаунта нет доступных серверов, список персонажей будет пустым.
           </p>
-        </Card>
+        </EmbeddedCard>
       ) : (
         <div className="space-y-4">
           {props.context.serverGroups.map((group) => (

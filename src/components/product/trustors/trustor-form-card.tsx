@@ -36,7 +36,7 @@ export function TrustorFormCard({
       : "Изменения применятся только к этой карточке. Уже созданные документы не изменятся автоматически.";
 
   return (
-    <Card className="space-y-5 border border-[var(--border)] bg-white/50">
+    <Card className="space-y-5">
       <div className="space-y-2">
         <h3 className="text-xl font-semibold">{title}</h3>
         <p className="text-sm leading-6 text-[var(--muted)]">{description}</p>

@@ -8,6 +8,9 @@ import { softDeleteTrustorAction } from "@/server/actions/trustors";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { EmbeddedCard } from "@/components/ui/embedded-card";
+import { SectionHeader } from "@/components/ui/section-header";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { TrustorFormCard } from "@/components/product/trustors/trustor-form-card";
 import { formatDocumentStatus } from "@/components/product/document-area/document-persistence-shared";
 
@@ -33,7 +36,7 @@ function TrustorGroup(props: { group: AccountTrustorsServerGroup }) {
           <div className="flex flex-wrap items-center gap-2">
             <Badge>{group.server.name}</Badge>
             {group.isFocused ? (
-              <Badge className="bg-[#e9efe0] text-[#35501c]">Выбранный сервер</Badge>
+              <StatusBadge tone="success">Выбранный сервер</StatusBadge>
             ) : null}
           </div>
           <p className="text-sm leading-6 text-[var(--muted)]">
@@ -45,14 +48,14 @@ function TrustorGroup(props: { group: AccountTrustorsServerGroup }) {
         <div className="flex flex-wrap gap-3">
           {!group.isFocused ? (
             <Link
-              className="inline-flex items-center rounded-2xl border border-[var(--border)] bg-white/70 px-4 py-2 text-sm font-medium transition hover:bg-white"
+              className="inline-flex items-center rounded-2xl border border-[var(--border)] bg-[var(--surface-subtle)] px-4 py-2 text-sm font-medium transition hover:bg-[var(--surface-hover)]"
               href={group.focusHref}
             >
               Показать этот сервер
             </Link>
           ) : null}
           <Link
-            className="inline-flex items-center rounded-2xl border border-[var(--border)] bg-white/70 px-4 py-2 text-sm font-medium transition hover:bg-white"
+            className="inline-flex items-center rounded-2xl border border-[var(--border)] bg-[var(--surface-subtle)] px-4 py-2 text-sm font-medium transition hover:bg-[var(--surface-hover)]"
             href={group.createBridgeHref}
           >
             Добавить доверителя
@@ -61,7 +64,7 @@ function TrustorGroup(props: { group: AccountTrustorsServerGroup }) {
       </div>
 
       <details
-        className="rounded-2xl border border-[var(--border)] bg-white/40 p-4"
+        className="rounded-2xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4"
         id={createDetailsId}
         open={group.isFocused}
       >
@@ -78,7 +81,7 @@ function TrustorGroup(props: { group: AccountTrustorsServerGroup }) {
       </details>
 
       {!group.trustors.length ? (
-        <div className="space-y-3 rounded-2xl border border-dashed border-[var(--border)] bg-white/50 p-4">
+        <div className="space-y-3 rounded-2xl border border-dashed border-[var(--border)] bg-[var(--surface-embedded)] p-4">
           <h3 className="text-lg font-semibold">Пока нет доверителей</h3>
           <p className="text-sm leading-6 text-[var(--muted)]">
             Здесь можно хранить данные доверителей для этого сервера. Уже созданные документы от
@@ -88,14 +91,14 @@ function TrustorGroup(props: { group: AccountTrustorsServerGroup }) {
       ) : (
         <div className="grid gap-4 xl:grid-cols-2">
           {group.trustors.map((trustor) => (
-            <Card key={trustor.id} className="space-y-3 border border-[var(--border)] bg-white/60">
+            <Card key={trustor.id} className="space-y-3 bg-[var(--surface-embedded)]">
               <div className="flex flex-wrap items-center gap-2">
                 <Badge>{trustor.fullName.trim().length > 0 ? trustor.fullName : "Без имени"}</Badge>
-                <Badge className="bg-white/70 text-[var(--foreground)]">
+                <StatusBadge tone="neutral">
                   {trustor.isRepresentativeReady
                     ? "Готов для подачи через представителя"
                     : "Нужны обязательные поля"}
-                </Badge>
+                </StatusBadge>
               </div>
 
               <div className="space-y-2 text-sm leading-6 text-[var(--muted)]">
@@ -135,7 +138,7 @@ function TrustorGroup(props: { group: AccountTrustorsServerGroup }) {
                 ) : null}
               </div>
 
-              <div className="space-y-3 rounded-2xl border border-[var(--border)] bg-white/50 p-4">
+              <div className="space-y-3 rounded-2xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="space-y-1">
                     <h4 className="text-sm font-semibold">Адвокатские запросы</h4>
@@ -144,7 +147,7 @@ function TrustorGroup(props: { group: AccountTrustorsServerGroup }) {
                     </p>
                   </div>
                   <Link
-                    className="inline-flex items-center rounded-2xl border border-[var(--border)] bg-white/70 px-4 py-2 text-sm font-medium transition hover:bg-white"
+                    className="inline-flex items-center rounded-2xl border border-[var(--border)] bg-[var(--surface-embedded)] px-4 py-2 text-sm font-medium transition hover:bg-[var(--surface-hover)]"
                     href={`/servers/${group.server.code}/documents/attorney-requests/new?trustorId=${trustor.id}`}
                   >
                     Создать запрос
@@ -172,7 +175,7 @@ function TrustorGroup(props: { group: AccountTrustorsServerGroup }) {
                 )}
               </div>
 
-              <details className="rounded-2xl border border-[var(--border)] bg-white/50 p-4">
+              <details className="rounded-2xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4">
                 <summary className="cursor-pointer text-sm font-medium">
                   Редактировать доверителя
                 </summary>
@@ -216,38 +219,33 @@ export function AccountTrustorsOverview(props: {
   return (
     <section className="space-y-6">
       <Card className="space-y-3">
-        <div className="space-y-2">
-          <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">
-            Доверители
-          </p>
-          <h1 className="text-3xl font-semibold">Доверители аккаунта</h1>
-          <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
-            Здесь можно вести список доверителей по серверам. Эти данные удобно подставлять в
-            новые документы, но уже созданные жалобы остаются независимыми от карточек в списке.
-          </p>
-        </div>
+        <SectionHeader
+          description="Здесь можно вести список доверителей по серверам. Эти данные удобно подставлять в новые документы, но уже созданные жалобы остаются независимыми от карточек в списке."
+          eyebrow="Доверители"
+          title="Доверители аккаунта"
+        />
 
         {props.context.focusedServerCode ? (
-          <p className="rounded-2xl border border-[var(--border)] bg-white/60 px-4 py-3 text-sm leading-6 text-[var(--muted)]">
+          <EmbeddedCard className="text-sm leading-6 text-[var(--muted)]">
             Показана группа выбранного сервера, чтобы быстрее найти доверителей и связанные
             документы.
-          </p>
+          </EmbeddedCard>
         ) : null}
 
         {props.status && statusLabels[props.status] ? (
-          <p className="rounded-2xl border border-[var(--border)] bg-white/60 px-4 py-3 text-sm leading-6 text-[var(--foreground)]">
+          <EmbeddedCard className="text-sm leading-6 text-[var(--foreground)]">
             {statusLabels[props.status]}
-          </p>
+          </EmbeddedCard>
         ) : null}
       </Card>
 
       {props.context.serverGroups.length === 0 ? (
-        <Card className="space-y-3">
+        <EmbeddedCard className="space-y-3">
           <h2 className="text-2xl font-semibold">Серверы пока не найдены</h2>
           <p className="text-sm leading-6 text-[var(--muted)]">
             Пока нет активных серверов, для которых можно добавить доверителей.
           </p>
-        </Card>
+        </EmbeddedCard>
       ) : (
         <div className="space-y-4">
           {props.context.serverGroups.map((group) => (
