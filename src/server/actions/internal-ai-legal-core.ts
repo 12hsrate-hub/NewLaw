@@ -109,6 +109,37 @@ export type InternalAILegalCoreTestRunResult = {
     diagnostics: {
       applicability_diagnostics: unknown[];
       grounding_diagnostics: Record<string, unknown> | null;
+      norm_bundle_diagnostics: {
+        companion_relation_types: string[];
+        missing_expected_companion: string[];
+        included_article_segments: Array<{
+          law_id: string | null;
+          law_family: string | null;
+          article_number: string | null;
+          marker: string | null;
+          part_number: string | null;
+          relation_type: string | null;
+          reason_code: string | null;
+        }>;
+        excluded_article_segments: Array<{
+          law_id: string | null;
+          law_family: string | null;
+          article_number: string | null;
+          marker: string | null;
+          part_number: string | null;
+          relation_type: string | null;
+          reason_code: string | null;
+        }>;
+        bundle_projection_excluded_items: Array<{
+          law_id: string | null;
+          law_family: string | null;
+          article_number: string | null;
+          marker: string | null;
+          part_number: string | null;
+          relation_type: string | null;
+          reason_code: string | null;
+        }>;
+      } | null;
     } | null;
     stage_usage: Record<string, unknown> | null;
   } | null;
@@ -328,6 +359,72 @@ function readCoreSnapshot(input: {
   const applicabilityDiagnostics = readArray(requestPayload?.applicability_diagnostics)
     .map((entry) => readJsonObject(entry))
     .filter((entry): entry is Record<string, unknown> => Boolean(entry));
+  const usedSources = readArray(responsePayload?.used_sources ?? requestPayload?.used_sources);
+  const articleNumberByLawId = new Map<string, string | null>();
+  const lawFamilyByLawId = new Map<string, string | null>();
+
+  for (const source of usedSources) {
+    const safeSource = readJsonObject(source);
+    const lawId = readString(safeSource?.law_id);
+
+    if (!lawId) {
+      continue;
+    }
+
+    articleNumberByLawId.set(lawId, readString(safeSource?.article_number));
+  }
+
+  for (const selected of selectedNormRoles) {
+    const safeSelected = readJsonObject(selected);
+    const lawId = readString(safeSelected?.law_id);
+
+    if (!lawId) {
+      continue;
+    }
+
+    lawFamilyByLawId.set(lawId, readString(safeSelected?.law_family));
+  }
+
+  function readNormBundleSegmentDecisionArray(value: unknown) {
+    return readArray(value)
+      .map((entry) => readJsonObject(entry))
+      .filter((entry): entry is Record<string, unknown> => Boolean(entry))
+      .map((entry) => {
+        const lawId = readString(entry.law_id);
+
+        return {
+          law_id: lawId,
+          law_family: lawId ? (lawFamilyByLawId.get(lawId) ?? null) : null,
+          article_number: lawId ? (articleNumberByLawId.get(lawId) ?? null) : null,
+          marker: readString(entry.marker),
+          part_number: readString(entry.part_number),
+          relation_type: readString(entry.relation_type),
+          reason_code: readString(entry.reason_code),
+        };
+      });
+  }
+
+  function readProjectionExcludedItems(value: unknown) {
+    return readArray(value).flatMap((entry) => {
+      const safeEntry = readJsonObject(entry);
+      const lawId = readString(safeEntry?.law_id);
+      const articleNumber = lawId ? (articleNumberByLawId.get(lawId) ?? null) : null;
+      const lawFamily = lawId ? (lawFamilyByLawId.get(lawId) ?? null) : null;
+
+      return readArray(safeEntry?.items)
+        .map((item) => readJsonObject(item))
+        .filter((item): item is Record<string, unknown> => Boolean(item))
+        .map((item) => ({
+          law_id: lawId,
+          law_family: lawFamily,
+          article_number: articleNumber,
+          marker: readString(item.marker),
+          part_number: readString(item.part_number),
+          relation_type: readString(item.relation_type),
+          reason_code: readString(item.reason_code),
+        }));
+    });
+  }
   const selectedPrimaryBasisEligibility = applicabilityDiagnostics
     .filter((entry) =>
       selectedNormRoles.some((selected) => {
@@ -364,10 +461,35 @@ function readCoreSnapshot(input: {
     selected_norm_roles: selectedNormRoles,
     primary_basis_eligibility: selectedPrimaryBasisEligibility,
     direct_basis_status: readString(requestPayload?.direct_basis_status),
-    used_sources: readArray(responsePayload?.used_sources ?? requestPayload?.used_sources),
+    used_sources: usedSources,
     diagnostics: {
       applicability_diagnostics: applicabilityDiagnostics,
       grounding_diagnostics: readJsonObject(requestPayload?.grounding_diagnostics),
+      norm_bundle_diagnostics: {
+        companion_relation_types: readArray(requestPayload?.companion_relation_types).flatMap((entry) => {
+          const safeEntry = readJsonObject(entry);
+
+          if (!safeEntry) {
+            return [];
+          }
+
+          return readArray(safeEntry.relation_types).filter(
+            (value): value is string => typeof value === "string",
+          );
+        }),
+        missing_expected_companion: readArray(requestPayload?.missing_expected_companion).filter(
+          (value): value is string => typeof value === "string",
+        ),
+        included_article_segments: readNormBundleSegmentDecisionArray(
+          requestPayload?.included_article_segments,
+        ),
+        excluded_article_segments: readNormBundleSegmentDecisionArray(
+          requestPayload?.excluded_article_segments,
+        ),
+        bundle_projection_excluded_items: readProjectionExcludedItems(
+          requestPayload?.bundle_projection_excluded_items,
+        ),
+      },
     },
     stage_usage: readJsonObject(responsePayload?.stage_usage),
   };
@@ -496,6 +618,7 @@ function buildExpectationEvaluationForScenario(input: {
         latencyMs: input.technical.latencyMs,
       },
       stage_usage: input.coreSnapshot.stage_usage,
+      norm_bundle_diagnostics: input.coreSnapshot.diagnostics?.norm_bundle_diagnostics ?? null,
     },
   });
 }

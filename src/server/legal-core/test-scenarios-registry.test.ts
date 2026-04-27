@@ -139,6 +139,12 @@ describe("ai legal core test scenarios registry", () => {
     const attorneyRequestScenario = getAILegalCoreTestScenarioById(
       "general-no-response-to-attorney-request",
     );
+    const attorneyRequestDeadlineScenario = getAILegalCoreTestScenarioById(
+      "alt-attorney-request-deadline",
+    );
+    const attorneyRequestHallucinationScenario = getAILegalCoreTestScenarioById(
+      "hallucination-attorney-request-crime",
+    );
     const detentionScenario = getAILegalCoreTestScenarioById("general-when-detention-allowed");
     const slangScenario = getAILegalCoreTestScenarioById("slang-took-me-for-nothing");
     const otherServerScenario = getAILegalCoreTestScenarioById("general-attorney-request-other-server");
@@ -188,10 +194,49 @@ describe("ai legal core test scenarios registry", () => {
       expectationProfile: expect.objectContaining({
         requiredLawFamilies: ["advocacy_law"],
         requiredNormRoles: ["primary_basis"],
+        activateCompanionChecks: true,
+        requiredCompanionRelations: ["procedure_companion", "sanction_companion"],
+        requiredCompanionTargets: expect.arrayContaining([
+          expect.objectContaining({
+            relationType: "procedure_companion",
+            articleNumber: "5",
+            partNumber: "2",
+          }),
+          expect.objectContaining({
+            relationType: "sanction_companion",
+            articleNumber: "5",
+            partNumber: "5",
+          }),
+        ]),
         forbiddenPrimaryBasis: expect.arrayContaining([
           expect.objectContaining({ lawFamily: "ethics_code" }),
           expect.objectContaining({ lawFamily: "government_code" }),
         ]),
+        forbiddenCompanionAsPrimary: ["sanction_companion", "exception"],
+      }),
+    });
+
+    expect(attorneyRequestDeadlineScenario).toMatchObject({
+      suiteGroup: "attorney_request",
+      expectationProfile: expect.objectContaining({
+        activateCompanionChecks: true,
+        requiredCompanionRelations: ["procedure_companion"],
+        requiredCompanionTargets: [
+          expect.objectContaining({
+            relationType: "procedure_companion",
+            articleNumber: "5",
+            partNumber: "2",
+            allowCoveredByPrimaryExcerpt: true,
+          }),
+        ],
+      }),
+    });
+
+    expect(attorneyRequestHallucinationScenario).toMatchObject({
+      suiteGroup: "attorney_request",
+      expectationProfile: expect.objectContaining({
+        activateCompanionChecks: true,
+        requiredCompanionRelations: ["procedure_companion", "sanction_companion"],
       }),
     });
 
@@ -230,12 +275,13 @@ describe("ai legal core test scenarios registry", () => {
     expect(maskScenario?.expectationProfile?.expectedNormBundle).toBeUndefined();
   });
 
-  it("future companion fields могут присутствовать в expectation profile без обязательной runtime реализации", () => {
+  it("companion expectation fields вне attorney_request могут оставаться future-oriented без активации checks", () => {
     const scenario = getAILegalCoreTestScenarioById("general-mask-detention");
 
     expect(scenario?.expectationProfile).toMatchObject({
       requiredCompanionRelations: ["procedure_companion"],
     });
+    expect(scenario?.expectationProfile?.activateCompanionChecks).toBeUndefined();
   });
 
   it("деактивированные сценарии сохраняют compatibility по id, но не попадают в active suite selection", () => {

@@ -66,6 +66,15 @@ export type AILegalCoreScenarioFutureCompanionRelation =
   | "evidence_companion"
   | "server_specific_override";
 
+export type AILegalCoreScenarioExpectedCompanionTarget = {
+  relationType: AILegalCoreScenarioFutureCompanionRelation;
+  lawFamily?: LawFamily;
+  articleNumber?: string;
+  partNumber?: string;
+  marker?: string;
+  allowCoveredByPrimaryExcerpt?: boolean;
+};
+
 export type AILegalCoreScenarioExpectationProfile = {
   requiredLawFamilies?: LawFamily[];
   requiredNormRoles?: NormRole[];
@@ -77,10 +86,14 @@ export type AILegalCoreScenarioExpectationProfile = {
   maxTokens?: number;
   maxLatency?: number;
   notesForReview?: string[];
+  activateCompanionChecks?: boolean;
   requiredCompanionRelations?: AILegalCoreScenarioFutureCompanionRelation[];
+  requiredCompanionTargets?: AILegalCoreScenarioExpectedCompanionTarget[];
   expectedNormBundle?: string[];
   forbiddenCompanionAsPrimary?: string[];
   missingCompanionWarning?: boolean;
+  failIfSanctionWithoutBaseRule?: boolean;
+  failIfExceptionWithoutBaseRule?: boolean;
 };
 
 export type AILegalCoreTestScenario = {
@@ -1215,7 +1228,43 @@ function buildExpectationProfileForScenario(
           "АК, УК и Этический кодекс могут быть sanction или supporting, но не должны подменять норму об адвокатском запросе.",
           "Прямая норма об адвокатском запросе должна иметь приоритет над общими sanction или supporting нормами.",
         ],
-        forbiddenCompanionAsPrimary: ["sanction_companion"],
+        activateCompanionChecks: true,
+        requiredCompanionRelations:
+          scenario.id === "alt-attorney-request-deadline"
+            ? ["procedure_companion"]
+            : ["procedure_companion", "sanction_companion"],
+        requiredCompanionTargets:
+          scenario.id === "alt-attorney-request-deadline"
+            ? [
+                {
+                  relationType: "procedure_companion",
+                  lawFamily: "advocacy_law",
+                  articleNumber: "5",
+                  partNumber: "2",
+                  marker: "ч. 2",
+                  allowCoveredByPrimaryExcerpt: true,
+                },
+              ]
+            : [
+                {
+                  relationType: "procedure_companion",
+                  lawFamily: "advocacy_law",
+                  articleNumber: "5",
+                  partNumber: "2",
+                  marker: "ч. 2",
+                  allowCoveredByPrimaryExcerpt: true,
+                },
+                {
+                  relationType: "sanction_companion",
+                  lawFamily: "advocacy_law",
+                  articleNumber: "5",
+                  partNumber: "5",
+                  marker: "ч. 5",
+                },
+              ],
+        forbiddenCompanionAsPrimary: ["sanction_companion", "exception"],
+        failIfSanctionWithoutBaseRule: true,
+        failIfExceptionWithoutBaseRule: true,
       };
     case "detention_procedure":
       return {
