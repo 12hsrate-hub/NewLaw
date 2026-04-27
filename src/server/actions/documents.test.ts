@@ -68,11 +68,59 @@ vi.mock("@/server/document-ai/grounded-rewrite", () => ({
   rewriteOwnedGroundedDocumentField: vi.fn(),
 }));
 
+vi.mock("@/server/document-ai/complaint-narrative-improvement", () => ({
+  ComplaintNarrativeImprovementBlockedError: class ComplaintNarrativeImprovementBlockedError extends Error {
+    constructor(
+      public readonly reasons: Array<
+        | "missing_server_id"
+        | "missing_active_character"
+        | "missing_applicant_role"
+        | "missing_organization"
+        | "missing_subject_name"
+        | "missing_victim_or_trustor_mode"
+        | "missing_trustor_name"
+        | "missing_raw_situation_description"
+        | "missing_date_time"
+      >,
+    ) {
+      super("Complaint narrative improvement blocked.");
+      this.name = "ComplaintNarrativeImprovementBlockedError";
+    }
+  },
+  ComplaintNarrativeImprovementUnavailableError: class ComplaintNarrativeImprovementUnavailableError extends Error {
+    constructor(message: string) {
+      super(message);
+      this.name = "ComplaintNarrativeImprovementUnavailableError";
+    }
+  },
+  ComplaintNarrativeImprovementInvalidOutputError: class ComplaintNarrativeImprovementInvalidOutputError extends Error {
+    constructor(message: string) {
+      super(message);
+      this.name = "ComplaintNarrativeImprovementInvalidOutputError";
+    }
+  },
+  mapComplaintNarrativeImprovementBlockingReasonsToMessages: vi.fn((reasons: string[]) =>
+    reasons.map((reason) =>
+      reason === "missing_trustor_name"
+        ? "Для представительской жалобы нужно указать ФИО доверителя."
+        : "Не заполнены обязательные поля complaint narrative improvement.",
+    ),
+  ),
+  improveOwnedComplaintNarrative: vi.fn(),
+}));
+
 import { requireProtectedAccountContext } from "@/server/auth/protected";
 import {
+  improveComplaintNarrativeAction,
   rewriteDocumentFieldAction,
   rewriteGroundedDocumentFieldAction,
 } from "@/server/actions/documents";
+import {
+  ComplaintNarrativeImprovementBlockedError,
+  ComplaintNarrativeImprovementInvalidOutputError,
+  ComplaintNarrativeImprovementUnavailableError,
+  improveOwnedComplaintNarrative,
+} from "@/server/document-ai/complaint-narrative-improvement";
 import {
   GroundedDocumentFieldRewriteBlockedError,
   GroundedDocumentFieldRewriteInsufficientCorpusError,
@@ -305,6 +353,143 @@ describe("document rewrite action", () => {
       ok: false,
       error: "rewrite-unavailable",
       message: "Grounded AI rewrite сейчас недоступен. Попробуйте ещё раз позже.",
+    });
+  });
+
+  it("возвращает structured complaint narrative improvement result", async () => {
+    vi.mocked(improveOwnedComplaintNarrative).mockResolvedValue({
+      sourceText: "Сырой текст ситуации",
+      runtimeInput: {
+        server_id: "server-1",
+        law_version: null,
+        active_character: {
+          full_name: "Игорь Юристов",
+          role_label: "Адвокат",
+        },
+        applicant_role: "representative_advocate",
+        representative_mode: "representative",
+        victim_or_trustor_mode: "trustor",
+        victim_or_trustor_name: "Пётр Доверитель",
+        organization: "LSPD",
+        subject_name: "Officer Smoke",
+        date_time: "2026-04-22T10:15",
+        raw_situation_description: "Сырой текст ситуации",
+        evidence_list: [],
+        attorney_request_context: null,
+        arrest_or_bodycam_context: null,
+        selected_legal_context: null,
+        length_mode: "normal",
+      },
+      result: {
+        improved_text: "Улучшенный narrative-текст.",
+        legal_basis_used: [],
+        used_facts: ["Факт 1"],
+        missing_facts: ["Факт 2"],
+        review_notes: ["Нужно проверить дату события."],
+        risk_flags: ["ambiguous_date_time"],
+        should_send_to_review: true,
+      },
+      basedOnUpdatedAt: "2026-04-22T10:00:00.000Z",
+      usageMeta: {
+        featureKey: "complaint_narrative_improvement",
+        providerKey: "openai_compatible",
+        proxyKey: "primary",
+        model: "gpt-5.4-mini",
+        latencyMs: 850,
+        finishReason: "stop",
+        attemptedProxyKeys: ["primary"],
+        improvedTextLength: 27,
+        lengthMode: "normal",
+      },
+    });
+
+    const result = await improveComplaintNarrativeAction({
+      documentId: "document-1",
+      lengthMode: "normal",
+    });
+
+    expect(improveOwnedComplaintNarrative).toHaveBeenCalledWith({
+      accountId: "account-1",
+      documentId: "document-1",
+      lengthMode: "normal",
+    });
+    expect(result).toEqual({
+      ok: true,
+      sourceText: "Сырой текст ситуации",
+      improvedText: "Улучшенный narrative-текст.",
+      legalBasisUsed: [],
+      usedFacts: ["Факт 1"],
+      missingFacts: ["Факт 2"],
+      reviewNotes: ["Нужно проверить дату события."],
+      riskFlags: ["ambiguous_date_time"],
+      shouldSendToReview: true,
+      basedOnUpdatedAt: "2026-04-22T10:00:00.000Z",
+      usageMeta: {
+        featureKey: "complaint_narrative_improvement",
+        providerKey: "openai_compatible",
+        proxyKey: "primary",
+        model: "gpt-5.4-mini",
+        latencyMs: 850,
+        finishReason: "stop",
+        attemptedProxyKeys: ["primary"],
+        improvedTextLength: 27,
+        lengthMode: "normal",
+      },
+    });
+  });
+
+  it("безопасно блокирует complaint narrative improvement по preflight причинам", async () => {
+    vi.mocked(improveOwnedComplaintNarrative).mockRejectedValue(
+      new ComplaintNarrativeImprovementBlockedError(["missing_trustor_name"]),
+    );
+
+    const result = await improveComplaintNarrativeAction({
+      documentId: "document-1",
+      lengthMode: "normal",
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      error: "rewrite-blocked",
+      reasons: ["Для представительской жалобы нужно указать ФИО доверителя."],
+    });
+  });
+
+  it("возвращает safe unavailable для complaint narrative improvement", async () => {
+    vi.mocked(improveOwnedComplaintNarrative).mockRejectedValue(
+      new ComplaintNarrativeImprovementUnavailableError(
+        "AI improvement сейчас недоступен. Попробуйте ещё раз позже.",
+      ),
+    );
+
+    const result = await improveComplaintNarrativeAction({
+      documentId: "document-1",
+      lengthMode: "short",
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      error: "rewrite-unavailable",
+      message: "AI improvement сейчас недоступен. Попробуйте ещё раз позже.",
+    });
+  });
+
+  it("возвращает invalid-output branch для complaint narrative improvement", async () => {
+    vi.mocked(improveOwnedComplaintNarrative).mockRejectedValue(
+      new ComplaintNarrativeImprovementInvalidOutputError(
+        "AI вернул невалидный structured output. Попробуйте ещё раз позже.",
+      ),
+    );
+
+    const result = await improveComplaintNarrativeAction({
+      documentId: "document-1",
+      lengthMode: "detailed",
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      error: "invalid-output",
+      message: "AI вернул невалидный structured output. Попробуйте ещё раз позже.",
     });
   });
 });

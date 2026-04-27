@@ -21,6 +21,7 @@ import {
   updateDocumentPublicationMetadataActionImpl,
 } from "@/server/actions/documents-generation";
 import {
+  improveComplaintNarrativeActionImpl,
   rewriteDocumentFieldActionImpl,
   rewriteGroundedDocumentFieldActionImpl,
 } from "@/server/actions/documents-rewrite";
@@ -228,4 +229,11 @@ export async function rewriteGroundedDocumentFieldAction(input: {
   sectionKey: string;
 }) {
   return rewriteGroundedDocumentFieldActionImpl(input);
+}
+
+export async function improveComplaintNarrativeAction(input: {
+  documentId: string;
+  lengthMode?: string;
+}) {
+  return improveComplaintNarrativeActionImpl(input);
 }

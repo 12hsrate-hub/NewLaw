@@ -2,6 +2,8 @@ export const LEGAL_ASSISTANT_PROMPT_VERSION = "server_legal_assistant_legal_core
 export const DOCUMENT_FIELD_REWRITE_PROMPT_VERSION = "document_field_rewrite_legal_core_v1";
 export const GROUNDED_DOCUMENT_FIELD_REWRITE_PROMPT_VERSION =
   "document_field_rewrite_grounded_legal_core_v1";
+export const COMPLAINT_NARRATIVE_IMPROVEMENT_PROMPT_VERSION =
+  "complaint_narrative_improvement_v1";
 
 export type ProxyUsageMetrics = {
   prompt_tokens: number | null;

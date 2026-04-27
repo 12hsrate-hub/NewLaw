@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   complaintNarrativeImprovementActionInputSchema,
@@ -9,20 +9,26 @@ import {
 import {
   __complaintNarrativeImprovementInternals,
   ComplaintNarrativeImprovementBlockedError,
+  ComplaintNarrativeImprovementInvalidOutputError,
+  ComplaintNarrativeImprovementUnavailableError,
   ComplaintNarrativeImprovementValidationError,
   assertComplaintNarrativeImprovementPreflight,
   buildComplaintNarrativeImprovementRuntimeInput,
   buildComplaintNarrativeImprovementSystemPrompt,
   buildComplaintNarrativeImprovementUserPrompt,
+  improveOwnedComplaintNarrative,
   mapComplaintNarrativeImprovementBlockingReasonsToMessages,
   parseComplaintNarrativeImprovementResult,
   validateComplaintNarrativeImprovementPreflight,
 } from "@/server/document-ai/complaint-narrative-improvement";
+import { DocumentAccessDeniedError } from "@/server/document-area/persistence";
 
 function createBaseDocument(input?: {
   payload?: Record<string, unknown>;
 }) {
   return {
+    id: "document-1",
+    updatedAt: new Date("2026-04-27T10:10:00.000Z"),
     documentType: "ogp_complaint" as const,
     serverId: "server-1",
     authorSnapshotJson: {
@@ -74,6 +80,11 @@ function createBaseDocument(input?: {
         },
       ],
       ...input?.payload,
+    },
+    server: {
+      id: "server-1",
+      code: "blackberry",
+      name: "Blackberry",
     },
   };
 }
@@ -325,5 +336,209 @@ describe("complaint narrative improvement contract", () => {
       __complaintNarrativeImprovementInternals.MISSING_EVIDENCE_REVIEW_NOTE,
     );
     expect(parsed.should_send_to_review).toBe(true);
+  });
+
+  it("запускает owner-only improvement через mock AI provider и пишет safe ai log", async () => {
+    const requestProxyCompletion = vi.fn().mockResolvedValue({
+      status: "success",
+      content: JSON.stringify({
+        improved_text:
+          "Я, действуя как представитель доверителя, излагаю обстоятельства задержания и последующего непредоставления материалов, что требует проверки со стороны ОГП.",
+        legal_basis_used: [],
+        used_facts: ["Задержание", "Непредоставление видеозаписи"],
+        missing_facts: ["Кто именно отказал в предоставлении материалов"],
+        review_notes: ["Следует уточнить, каким образом был оформлен отказ."],
+        risk_flags: ["insufficient_facts", "ambiguous_date_time"],
+        should_send_to_review: true,
+      }),
+      proxyKey: "primary",
+      providerKey: "openai_compatible",
+      model: "gpt-5.4-mini",
+      attemptedProxyKeys: ["primary"],
+      attempts: [],
+      responsePayloadJson: {
+        choices: [{ finish_reason: "stop" }],
+        usage: {
+          prompt_tokens: 200,
+          completion_tokens: 160,
+          total_tokens: 360,
+          cost_usd: 0.01,
+        },
+      },
+    });
+    const createAIRequest = vi.fn().mockResolvedValue({ id: "ai-request-1" });
+
+    const result = await improveOwnedComplaintNarrative(
+      {
+        accountId: "account-1",
+        documentId: "document-1",
+        lengthMode: "normal",
+      },
+      {
+        getDocumentByIdForAccount: vi.fn().mockResolvedValue(createBaseDocument()),
+        requestProxyCompletion,
+        createAIRequest,
+        now: vi
+          .fn()
+          .mockReturnValueOnce(new Date("2026-04-27T10:15:00.000Z"))
+          .mockReturnValueOnce(new Date("2026-04-27T10:15:01.100Z")),
+      },
+    );
+
+    expect(result.sourceText).toContain("не предоставили видеозапись");
+    expect(result.result.improved_text).toContain("требует проверки со стороны ОГП");
+    expect(result.basedOnUpdatedAt).toBe("2026-04-27T10:10:00.000Z");
+    expect(result.usageMeta.featureKey).toBe("complaint_narrative_improvement");
+    expect(result.usageMeta.lengthMode).toBe("normal");
+
+    expect(requestProxyCompletion).toHaveBeenCalledWith(
+      expect.objectContaining({
+        requestMetadata: expect.objectContaining({
+          featureKey: "complaint_narrative_improvement",
+          documentId: "document-1",
+          documentType: "ogp_complaint",
+          intent: "complaint_narrative_improvement",
+          response_mode: "document_ready",
+          prompt_version: "complaint_narrative_improvement_v1",
+          length_mode: "normal",
+          evidence_count: 1,
+          has_legal_context: false,
+        }),
+      }),
+    );
+
+    expect(createAIRequest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        featureKey: "complaint_narrative_improvement",
+        status: "success",
+        requestPayloadJson: expect.objectContaining({
+          documentId: "document-1",
+          documentType: "ogp_complaint",
+          intent: "complaint_narrative_improvement",
+          prompt_version: "complaint_narrative_improvement_v1",
+          runtime_input: expect.objectContaining({
+            server_id: "server-1",
+            organization: "LSPD",
+          }),
+        }),
+        responsePayloadJson: expect.objectContaining({
+          statusBranch: "success",
+          improved_text_length: expect.any(Number),
+          risk_flags: ["insufficient_facts", "ambiguous_date_time"],
+          should_send_to_review: true,
+          output_trace: expect.objectContaining({
+            output_kind: "complaint_narrative_structured_json",
+          }),
+        }),
+      }),
+    );
+  });
+
+  it("возвращает safe unavailable branch при недоступном AI provider", async () => {
+    const createAIRequest = vi.fn().mockResolvedValue({ id: "ai-request-2" });
+
+    await expect(
+      improveOwnedComplaintNarrative(
+        {
+          accountId: "account-1",
+          documentId: "document-1",
+        },
+        {
+          getDocumentByIdForAccount: vi.fn().mockResolvedValue(createBaseDocument()),
+          requestProxyCompletion: vi.fn().mockResolvedValue({
+            status: "unavailable",
+            message: "AI proxy не настроен для текущего окружения.",
+            attemptedProxyKeys: [],
+            attempts: [],
+          }),
+          createAIRequest,
+          now: vi
+            .fn()
+            .mockReturnValueOnce(new Date("2026-04-27T10:15:00.000Z"))
+            .mockReturnValueOnce(new Date("2026-04-27T10:15:00.050Z")),
+        },
+      ),
+    ).rejects.toBeInstanceOf(ComplaintNarrativeImprovementUnavailableError);
+
+    expect(createAIRequest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        featureKey: "complaint_narrative_improvement",
+        status: "unavailable",
+        errorMessage: "AI proxy не настроен для текущего окружения.",
+        responsePayloadJson: expect.objectContaining({
+          statusBranch: "unavailable",
+          output_trace: null,
+        }),
+      }),
+    );
+  });
+
+  it("безопасно помечает invalid structured output", async () => {
+    const createAIRequest = vi.fn().mockResolvedValue({ id: "ai-request-3" });
+
+    await expect(
+      improveOwnedComplaintNarrative(
+        {
+          accountId: "account-1",
+          documentId: "document-1",
+        },
+        {
+          getDocumentByIdForAccount: vi.fn().mockResolvedValue(createBaseDocument()),
+          requestProxyCompletion: vi.fn().mockResolvedValue({
+            status: "success",
+            content: '{"improved_text":"Текст","risk_flags":["not_allowed"]}',
+            proxyKey: "primary",
+            providerKey: "openai_compatible",
+            model: "gpt-5.4-mini",
+            attemptedProxyKeys: ["primary"],
+            attempts: [],
+            responsePayloadJson: {
+              choices: [{ finish_reason: "stop" }],
+              usage: {
+                prompt_tokens: 180,
+                completion_tokens: 90,
+                total_tokens: 270,
+                cost_usd: 0.008,
+              },
+            },
+          }),
+          createAIRequest,
+          now: vi
+            .fn()
+            .mockReturnValueOnce(new Date("2026-04-27T10:15:00.000Z"))
+            .mockReturnValueOnce(new Date("2026-04-27T10:15:00.700Z")),
+        },
+      ),
+    ).rejects.toBeInstanceOf(ComplaintNarrativeImprovementInvalidOutputError);
+
+    expect(createAIRequest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        featureKey: "complaint_narrative_improvement",
+        status: "failure",
+        responsePayloadJson: expect.objectContaining({
+          statusBranch: "invalid_output",
+          output_trace: expect.objectContaining({
+            output_kind: "complaint_narrative_structured_json",
+          }),
+        }),
+      }),
+    );
+  });
+
+  it("не даёт запускать improvement для чужого или неподходящего документа", async () => {
+    await expect(
+      improveOwnedComplaintNarrative(
+        {
+          accountId: "account-1",
+          documentId: "document-404",
+        },
+        {
+          getDocumentByIdForAccount: vi.fn().mockResolvedValue(null),
+          requestProxyCompletion: vi.fn(),
+          createAIRequest: vi.fn(),
+          now: () => new Date("2026-04-27T10:15:00.000Z"),
+        },
+      ),
+    ).rejects.toBeInstanceOf(DocumentAccessDeniedError);
   });
 });

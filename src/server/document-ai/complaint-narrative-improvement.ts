@@ -1,19 +1,47 @@
 import {
+  complaintNarrativeImprovementUsageMetaSchema,
   complaintNarrativeImprovementResultSchema,
   complaintNarrativeImprovementRuntimeInputSchema,
   type ComplaintNarrativeImprovementResult,
   type ComplaintNarrativeImprovementRuntimeInput,
   type ComplaintNarrativeLengthMode,
   type ComplaintNarrativeRiskFlag,
+  type ComplaintNarrativeImprovementUsageMeta,
 } from "@/schemas/document-ai";
 import type { DocumentAuthorSnapshot } from "@/schemas/document";
-import { readDocumentAuthorSnapshot, readOgpComplaintDraftPayload } from "@/server/document-area/persistence";
+import { createAIRequest } from "@/db/repositories/ai-request.repository";
+import { getDocumentByIdForAccount } from "@/db/repositories/document.repository";
+import { requestAssistantProxyCompletion } from "@/server/legal-assistant/ai-proxy";
+import {
+  COMPLAINT_NARRATIVE_IMPROVEMENT_PROMPT_VERSION,
+  extractProxyUsageMetrics,
+} from "@/server/legal-core/observability";
+import {
+  DocumentAccessDeniedError,
+  readDocumentAuthorSnapshot,
+  readOgpComplaintDraftPayload,
+} from "@/server/document-area/persistence";
 
 const NARRATIVE_FEATURE_KEY = "complaint_narrative_improvement";
 const AMBIGUOUS_DATE_TIME_REVIEW_NOTE =
   "Необходимо проверить, к какому именно событию относится указанная дата/время.";
 const MISSING_EVIDENCE_REVIEW_NOTE =
   "В raw_situation_description упомянуто доказательство, но в evidence list оно не подтверждено.";
+const MAX_IMPROVED_TEXT_PREVIEW_LENGTH = 240;
+
+type ComplaintNarrativeImprovementDependencies = {
+  getDocumentByIdForAccount: typeof getDocumentByIdForAccount;
+  requestProxyCompletion: typeof requestAssistantProxyCompletion;
+  createAIRequest: typeof createAIRequest;
+  now: () => Date;
+};
+
+const defaultDependencies: ComplaintNarrativeImprovementDependencies = {
+  getDocumentByIdForAccount,
+  requestProxyCompletion: requestAssistantProxyCompletion,
+  createAIRequest,
+  now: () => new Date(),
+};
 
 export type ComplaintNarrativeImprovementBlockedReason =
   | "missing_server_id"
@@ -37,6 +65,20 @@ export class ComplaintNarrativeImprovementValidationError extends Error {
   constructor(message: string) {
     super(message);
     this.name = "ComplaintNarrativeImprovementValidationError";
+  }
+}
+
+export class ComplaintNarrativeImprovementUnavailableError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ComplaintNarrativeImprovementUnavailableError";
+  }
+}
+
+export class ComplaintNarrativeImprovementInvalidOutputError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ComplaintNarrativeImprovementInvalidOutputError";
   }
 }
 
@@ -409,6 +451,38 @@ function rawTextMentionsEvidenceWithoutList(input: ComplaintNarrativeImprovement
   );
 }
 
+function extractFinishReason(payload: Record<string, unknown> | null | undefined) {
+  if (!payload) {
+    return null;
+  }
+
+  const choices = payload.choices;
+
+  if (!Array.isArray(choices) || choices.length === 0) {
+    return null;
+  }
+
+  const firstChoice = choices[0];
+
+  if (!firstChoice || typeof firstChoice !== "object") {
+    return null;
+  }
+
+  const finishReason = "finish_reason" in firstChoice ? firstChoice.finish_reason : null;
+
+  return typeof finishReason === "string" && finishReason.trim().length > 0
+    ? finishReason.trim()
+    : null;
+}
+
+function parseProxyStructuredJson(content: string) {
+  const trimmed = content.trim();
+  const fencedMatch = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
+  const jsonText = fencedMatch ? fencedMatch[1].trim() : trimmed;
+
+  return JSON.parse(jsonText) as unknown;
+}
+
 export function parseComplaintNarrativeImprovementResult(input: {
   runtimeInput: ComplaintNarrativeImprovementRuntimeInput;
   rawResult: unknown;
@@ -477,6 +551,224 @@ export function mapComplaintNarrativeImprovementBlockingReasonsToMessages(
   });
 }
 
+export async function improveOwnedComplaintNarrative(
+  input: {
+    accountId: string;
+    documentId: string;
+    lengthMode?: ComplaintNarrativeLengthMode;
+  },
+  dependencies: ComplaintNarrativeImprovementDependencies = defaultDependencies,
+): Promise<{
+  sourceText: string;
+  runtimeInput: ComplaintNarrativeImprovementRuntimeInput;
+  result: ComplaintNarrativeImprovementResult;
+  basedOnUpdatedAt: string;
+  usageMeta: ComplaintNarrativeImprovementUsageMeta;
+}> {
+  const document = await dependencies.getDocumentByIdForAccount({
+    accountId: input.accountId,
+    documentId: input.documentId,
+  });
+
+  if (!document || document.documentType !== "ogp_complaint") {
+    throw new DocumentAccessDeniedError();
+  }
+
+  const runtimeInput = buildComplaintNarrativeImprovementRuntimeInput({
+    document: {
+      documentType: "ogp_complaint",
+      serverId: document.serverId,
+      authorSnapshotJson: document.authorSnapshotJson,
+      formPayloadJson: document.formPayloadJson,
+    },
+    lengthMode: input.lengthMode,
+  });
+
+  assertComplaintNarrativeImprovementPreflight(runtimeInput);
+
+  const systemPrompt = buildComplaintNarrativeImprovementSystemPrompt();
+  const userPrompt = buildComplaintNarrativeImprovementUserPrompt(runtimeInput);
+  const startedAt = dependencies.now();
+  const proxyResponse = await dependencies.requestProxyCompletion({
+    systemPrompt,
+    userPrompt,
+    temperature: 0.1,
+    maxOutputTokens: 2_800,
+    requestMetadata: {
+      featureKey: NARRATIVE_FEATURE_KEY,
+      documentId: document.id,
+      documentType: document.documentType,
+      intent: "complaint_narrative_improvement",
+      response_mode: "document_ready",
+      prompt_version: COMPLAINT_NARRATIVE_IMPROVEMENT_PROMPT_VERSION,
+      server_id: runtimeInput.server_id,
+      representative_mode: runtimeInput.representative_mode,
+      victim_or_trustor_mode: runtimeInput.victim_or_trustor_mode,
+      length_mode: runtimeInput.length_mode,
+      has_legal_context: Boolean(
+        runtimeInput.selected_legal_context &&
+          (runtimeInput.selected_legal_context.laws.length > 0 ||
+            runtimeInput.selected_legal_context.precedents.length > 0),
+      ),
+      evidence_count: runtimeInput.evidence_list.length,
+      raw_input: runtimeInput.raw_situation_description,
+    },
+  });
+  const finishedAt = dependencies.now();
+  const latencyMs = Math.max(0, finishedAt.getTime() - startedAt.getTime());
+  const usageMetrics = extractProxyUsageMetrics(
+    "responsePayloadJson" in proxyResponse ? proxyResponse.responsePayloadJson ?? null : null,
+  );
+  const requestPayloadBase = {
+    documentId: document.id,
+    documentType: document.documentType,
+    updatedAt: document.updatedAt.toISOString(),
+    intent: "complaint_narrative_improvement",
+    response_mode: "document_ready",
+    prompt_version: COMPLAINT_NARRATIVE_IMPROVEMENT_PROMPT_VERSION,
+    length_mode: runtimeInput.length_mode,
+    raw_input: runtimeInput.raw_situation_description,
+    server_id: runtimeInput.server_id,
+    evidence_count: runtimeInput.evidence_list.length,
+    has_legal_context: Boolean(
+      runtimeInput.selected_legal_context &&
+        (runtimeInput.selected_legal_context.laws.length > 0 ||
+          runtimeInput.selected_legal_context.precedents.length > 0),
+    ),
+    runtime_input: runtimeInput,
+  };
+
+  if (proxyResponse.status !== "success") {
+    await dependencies.createAIRequest({
+      accountId: input.accountId,
+      serverId: document.serverId,
+      featureKey: NARRATIVE_FEATURE_KEY,
+      providerKey: "providerKey" in proxyResponse ? proxyResponse.providerKey ?? null : null,
+      proxyKey: "proxyKey" in proxyResponse ? proxyResponse.proxyKey ?? null : null,
+      model: "model" in proxyResponse ? proxyResponse.model ?? null : null,
+      requestPayloadJson: requestPayloadBase,
+      responsePayloadJson: {
+        statusBranch: "unavailable",
+        latencyMs,
+        attemptedProxyKeys: proxyResponse.attemptedProxyKeys,
+        prompt_tokens: usageMetrics.prompt_tokens,
+        completion_tokens: usageMetrics.completion_tokens,
+        total_tokens: usageMetrics.total_tokens,
+        cost_usd: usageMetrics.cost_usd,
+        output_trace: null,
+      },
+      status: proxyResponse.status,
+      errorMessage: proxyResponse.message,
+    });
+
+    throw new ComplaintNarrativeImprovementUnavailableError(
+      "AI improvement сейчас недоступен. Попробуйте ещё раз позже.",
+    );
+  }
+
+  const finishReason = extractFinishReason(proxyResponse.responsePayloadJson ?? null);
+
+  let parsedResult: ComplaintNarrativeImprovementResult;
+
+  try {
+    parsedResult = parseComplaintNarrativeImprovementResult({
+      runtimeInput,
+      rawResult: parseProxyStructuredJson(proxyResponse.content),
+    });
+  } catch (error) {
+    await dependencies.createAIRequest({
+      accountId: input.accountId,
+      serverId: document.serverId,
+      featureKey: NARRATIVE_FEATURE_KEY,
+      providerKey: proxyResponse.providerKey ?? null,
+      proxyKey: proxyResponse.proxyKey ?? null,
+      model: proxyResponse.model ?? null,
+      requestPayloadJson: requestPayloadBase,
+      responsePayloadJson: {
+        statusBranch: "invalid_output",
+        latencyMs,
+        finishReason,
+        attemptedProxyKeys: proxyResponse.attemptedProxyKeys,
+        output_trace: {
+          output_kind: "complaint_narrative_structured_json",
+          output_preview: clampText(proxyResponse.content, MAX_IMPROVED_TEXT_PREVIEW_LENGTH),
+          output_length: proxyResponse.content.length,
+          finish_reason: finishReason,
+        },
+        prompt_tokens: usageMetrics.prompt_tokens,
+        completion_tokens: usageMetrics.completion_tokens,
+        total_tokens: usageMetrics.total_tokens,
+        cost_usd: usageMetrics.cost_usd,
+      },
+      status: "failure",
+      errorMessage:
+        error instanceof Error
+          ? error.message
+          : "AI вернул невалидный structured output.",
+    });
+
+    throw new ComplaintNarrativeImprovementInvalidOutputError(
+      "AI вернул невалидный structured output. Попробуйте ещё раз позже.",
+    );
+  }
+
+  const usageMeta = complaintNarrativeImprovementUsageMetaSchema.parse({
+    featureKey: NARRATIVE_FEATURE_KEY,
+    providerKey: proxyResponse.providerKey ?? null,
+    proxyKey: proxyResponse.proxyKey ?? null,
+    model: proxyResponse.model ?? null,
+    latencyMs,
+    finishReason,
+    attemptedProxyKeys: proxyResponse.attemptedProxyKeys,
+    improvedTextLength: parsedResult.improved_text.length,
+    lengthMode: runtimeInput.length_mode,
+  });
+
+  await dependencies.createAIRequest({
+    accountId: input.accountId,
+    serverId: document.serverId,
+    featureKey: NARRATIVE_FEATURE_KEY,
+    providerKey: usageMeta.providerKey,
+    proxyKey: usageMeta.proxyKey,
+    model: usageMeta.model,
+    requestPayloadJson: requestPayloadBase,
+    responsePayloadJson: {
+      statusBranch: "success",
+      improved_text_preview: parsedResult.improved_text.slice(0, MAX_IMPROVED_TEXT_PREVIEW_LENGTH),
+      improved_text_length: parsedResult.improved_text.length,
+      legal_basis_used: parsedResult.legal_basis_used,
+      used_facts_count: parsedResult.used_facts.length,
+      missing_facts_count: parsedResult.missing_facts.length,
+      review_notes: parsedResult.review_notes,
+      risk_flags: parsedResult.risk_flags,
+      should_send_to_review: parsedResult.should_send_to_review,
+      latencyMs: usageMeta.latencyMs,
+      finishReason: usageMeta.finishReason,
+      attemptedProxyKeys: usageMeta.attemptedProxyKeys,
+      prompt_tokens: usageMetrics.prompt_tokens,
+      completion_tokens: usageMetrics.completion_tokens,
+      total_tokens: usageMetrics.total_tokens,
+      cost_usd: usageMetrics.cost_usd,
+      output_trace: {
+        output_kind: "complaint_narrative_structured_json",
+        output_preview: parsedResult.improved_text.slice(0, MAX_IMPROVED_TEXT_PREVIEW_LENGTH),
+        output_length: parsedResult.improved_text.length,
+        finish_reason: usageMeta.finishReason,
+      },
+    },
+    status: "success",
+    errorMessage: null,
+  });
+
+  return {
+    sourceText: runtimeInput.raw_situation_description,
+    runtimeInput,
+    result: parsedResult,
+    basedOnUpdatedAt: document.updatedAt.toISOString(),
+    usageMeta,
+  };
+}
+
 export const __complaintNarrativeImprovementInternals = {
   AMBIGUOUS_DATE_TIME_REVIEW_NOTE,
   MISSING_EVIDENCE_REVIEW_NOTE,
@@ -486,5 +778,7 @@ export const __complaintNarrativeImprovementInternals = {
   buildComplaintNarrativeImprovementSystemPrompt,
   buildComplaintNarrativeImprovementUserPrompt,
   parseComplaintNarrativeImprovementResult,
+  parseProxyStructuredJson,
+  extractFinishReason,
   rawTextMentionsEvidenceWithoutList,
 };

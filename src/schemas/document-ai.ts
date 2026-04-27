@@ -135,6 +135,18 @@ export const complaintNarrativeImprovementResultSchema = z.object({
   should_send_to_review: z.boolean(),
 });
 
+export const complaintNarrativeImprovementUsageMetaSchema = z.object({
+  featureKey: z.literal("complaint_narrative_improvement"),
+  providerKey: z.string().trim().min(1).nullable(),
+  proxyKey: z.string().trim().min(1).nullable(),
+  model: z.string().trim().min(1).nullable(),
+  latencyMs: z.number().int().nonnegative(),
+  finishReason: z.string().trim().min(1).nullable(),
+  attemptedProxyKeys: z.array(z.string().trim().min(1)).max(16),
+  improvedTextLength: z.number().int().nonnegative(),
+  lengthMode: complaintNarrativeLengthModeSchema,
+});
+
 export const documentFieldRewriteUsageMetaSchema = z.object({
   featureKey: z.literal("document_field_rewrite"),
   providerKey: z.string().trim().min(1).nullable(),
@@ -215,4 +227,7 @@ export type ComplaintNarrativeImprovementRuntimeInput = z.infer<
 >;
 export type ComplaintNarrativeImprovementResult = z.infer<
   typeof complaintNarrativeImprovementResultSchema
+>;
+export type ComplaintNarrativeImprovementUsageMeta = z.infer<
+  typeof complaintNarrativeImprovementUsageMetaSchema
 >;

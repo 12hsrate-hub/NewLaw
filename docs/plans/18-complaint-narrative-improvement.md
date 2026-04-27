@@ -25,6 +25,28 @@
 - persistence нового результата в draft editor
 - full review workflow вокруг этого модуля
 
+## Текущий implemented checkpoint по `18.2`
+
+`18.2` реализован как backend integration slice без UI wiring.
+
+Что уже входит:
+
+- owner-only server action / internal handler для запуска improvement flow
+- AI invocation через существующий `document-ai` backend contour
+- structured output parse из proxy response
+- safe error handling для `blocked / unavailable / invalid_output`
+- deterministic tests с mock AI provider
+- AI request logging через существующий backend request log
+
+Что intentionally ещё не входит:
+
+- wiring в complaint wizard UI
+- кнопка `Улучшить описание`
+- сохранение improved narrative обратно в draft editor
+- BBCode integration
+- Prisma/schema changes
+- deploy/runtime rollout
+
 ## Назначение линии
 
 `Complaint Narrative Improvement v1` — это отдельный AI-flow для `ogp_complaint`, который улучшает только поле `Подробное описание ситуации`.
@@ -485,8 +507,7 @@ Implementation должен покрыть:
 
 Статус:
 
-- partially implemented в `18.1`
-- full AI action invocation остаётся следующим безопасным slice
+- implemented через `18.1` + `18.2`
 
 ### Slice C — tests
 
@@ -504,7 +525,9 @@ Implementation должен покрыть:
 
 Статус:
 
-- future
+- partially implemented в `18.2`
+- owner-only action + AI invocation уже есть
+- wiring в complaint wizard backend без UI остаётся следующим безопасным slice
 
 ### Slice E — future UI
 

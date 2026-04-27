@@ -302,7 +302,7 @@
 
 ### `18-complaint-narrative-improvement`
 
-Статус: `post-MVP / planned`
+Статус: `post-MVP / active / partial`
 
 Это отдельная post-MVP линия document AI для `ogp_complaint`, но не часть `AI Legal Core`.
 
@@ -317,6 +317,8 @@
 - вводить отдельный backend contract, style profile, validation rules и output schema
 - держать legal caution и factual grounding как обязательные инварианты
 - готовить future backend integration в complaint wizard без UI redesign на первом implementation slice
+- зафиксировать `18.1` как backend-only contract slice без UI integration
+- зафиксировать `18.2` как owner-only backend action + AI invocation slice без UI, BBCode и Prisma/schema changes
 
 Границы:
 
