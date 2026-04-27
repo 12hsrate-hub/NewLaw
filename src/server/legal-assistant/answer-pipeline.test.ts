@@ -403,6 +403,92 @@ describe("answer pipeline", () => {
     });
   });
 
+  it("сохраняет explanation_only contract для явного explanation phrasing по Закону об адвокатуре", async () => {
+    const createAIRequest = vi.fn();
+    const requestAssistantProxyCompletion = vi.fn().mockResolvedValue({
+      status: "success",
+      content: [
+        "## Краткий вывод",
+        "Это explanatory ответ по cited норме.",
+        "",
+        "## Что прямо следует из норм закона",
+        "Норма описывает рамку права и пределы отказа.",
+        "",
+        "## Что подтверждается судебными прецедентами",
+        "Подтверждённые precedents здесь не меняют explanatory режим.",
+        "",
+        "## Вывод / интерпретация",
+        "Для применения к конкретной ситуации нужны дополнительные факты.",
+        "",
+        "## Использованные нормы / источники",
+        "Закон об адвокатуре — статья 5.",
+      ].join("\n"),
+      proxyKey: "primary",
+      providerKey: "openai_compatible",
+      model: "gpt-5.4",
+      responsePayloadJson: {
+        usage: {
+          prompt_tokens: 130,
+          completion_tokens: 100,
+          total_tokens: 230,
+          cost_usd: 0.01,
+        },
+      },
+    });
+
+    await generateServerLegalAssistantAnswer(
+      {
+        serverId: "server-1",
+        serverCode: "blackberry",
+        serverName: "Blackberry",
+        question: "что означает 5 ч.4 Закона об адвокатуре",
+      },
+      {
+        searchAssistantCorpus: vi.fn().mockResolvedValue(
+          createAssistantRetrieval({
+            lawResults: [
+              createLawResult({
+                lawId: "law-advocacy-5",
+                lawKey: "advocacy_law",
+                lawTitle: "Закон об адвокатуре и адвокатской деятельности",
+                articleNumberNormalized: "5",
+                blockText:
+                  "Статья 5. Ответ на адвокатский запрос предоставляется в установленном порядке, если нет прямо названных оснований для отказа.",
+              }),
+            ],
+            retrievalDebug: {
+              candidate_pool_before_filters_count: 1,
+              candidate_pool_after_filters_count: 1,
+              citation_resolution: [],
+              citation_target_count: 1,
+              citation_companion_count: 0,
+              citation_unresolved_count: 0,
+              citation_partially_supported_count: 0,
+              semantic_retrieval_allowed_as_companion_only: false,
+            },
+          }),
+        ),
+        normalizeInputText: vi.fn().mockResolvedValue(
+          createNormalizationResult("что означает 5 ч.4 Закона об адвокатуре"),
+        ),
+        requestAssistantProxyCompletion,
+        createAIRequest,
+        now: () => new Date("2026-04-26T10:05:00.000Z"),
+      },
+    );
+
+    const proxyCall = requestAssistantProxyCompletion.mock.calls[0]?.[0];
+    expect(proxyCall.userPrompt).toContain("Citation behavior mode: explanation_only");
+    expect(proxyCall.userPrompt).toContain("Не делай applied conclusion по фактам");
+
+    const aiRequestPayload = createAIRequest.mock.calls[0]?.[0];
+    expect(aiRequestPayload.requestPayloadJson.citation_behavior_mode).toBe("explanation_only");
+    expect(aiRequestPayload.requestPayloadJson.legal_query_plan).toMatchObject({
+      primaryLegalIssueType: "citation_explanation",
+      citationBehaviorMode: "explanation_only",
+    });
+  });
+
   it("прокидывает application_with_insufficient_facts contract в prompt для thin citation application", async () => {
     const createAIRequest = vi.fn();
     const requestAssistantProxyCompletion = vi.fn().mockResolvedValue({
@@ -478,6 +564,94 @@ describe("answer pipeline", () => {
     );
   });
 
+  it("прокидывает application contract в prompt для factual citation application без automatic categorical conclusion", async () => {
+    const createAIRequest = vi.fn();
+    const requestAssistantProxyCompletion = vi.fn().mockResolvedValue({
+      status: "success",
+      content: [
+        "## Краткий вывод",
+        "Норма может применяться только при подтверждении обстоятельств нарушения.",
+        "",
+        "## Что прямо следует из норм закона",
+        "Статья задаёт состав и пределы ответственности.",
+        "",
+        "## Что подтверждается судебными прецедентами",
+        "Подтверждённые precedents здесь не отменяют need for factual assessment.",
+        "",
+        "## Вывод / интерпретация",
+        "Вывод по ситуации остаётся условным и зависит от состава фактов.",
+        "",
+        "## Использованные нормы / источники",
+        "Административный кодекс — статья 22.",
+      ].join("\n"),
+      proxyKey: "primary",
+      providerKey: "openai_compatible",
+      model: "gpt-5.4",
+      responsePayloadJson: {
+        usage: {
+          prompt_tokens: 150,
+          completion_tokens: 110,
+          total_tokens: 260,
+          cost_usd: 0.012,
+        },
+      },
+    });
+
+    await generateServerLegalAssistantAnswer(
+      {
+        serverId: "server-1",
+        serverCode: "blackberry",
+        serverName: "Blackberry",
+        question: "можно ли по 22 ч.1 АК привлечь за танцы в больнице",
+      },
+      {
+        searchAssistantCorpus: vi.fn().mockResolvedValue(
+          createAssistantRetrieval({
+            lawResults: [
+              createLawResult({
+                lawId: "law-ak-22",
+                lawKey: "administrative_code",
+                lawTitle: "Административный кодекс",
+                articleNumberNormalized: "22",
+                blockText:
+                  "Статья 22. Незаконное проникновение или нахождение в определённых местах влечёт ответственность.",
+              }),
+            ],
+            retrievalDebug: {
+              candidate_pool_before_filters_count: 1,
+              candidate_pool_after_filters_count: 1,
+              citation_resolution: [],
+              citation_target_count: 1,
+              citation_companion_count: 0,
+              citation_unresolved_count: 0,
+              citation_partially_supported_count: 0,
+              semantic_retrieval_allowed_as_companion_only: false,
+            },
+          }),
+        ),
+        normalizeInputText: vi.fn().mockResolvedValue(
+          createNormalizationResult("можно ли по 22 ч.1 АК привлечь за танцы в больнице"),
+        ),
+        requestAssistantProxyCompletion,
+        createAIRequest,
+        now: () => new Date("2026-04-26T10:10:00.000Z"),
+      },
+    );
+
+    const proxyCall = requestAssistantProxyCompletion.mock.calls[0]?.[0];
+    expect(proxyCall.userPrompt).toContain("Citation behavior mode: application");
+    expect(proxyCall.userPrompt).toContain(
+      "не делай автоматический категоричный вывод без достаточных фактов",
+    );
+
+    const aiRequestPayload = createAIRequest.mock.calls[0]?.[0];
+    expect(aiRequestPayload.requestPayloadJson.citation_behavior_mode).toBe("application");
+    expect(aiRequestPayload.requestPayloadJson.legal_query_plan).toMatchObject({
+      primaryLegalIssueType: "citation_application",
+      citationBehaviorMode: "application",
+    });
+  });
+
   it("прокидывает unresolved_citation contract в request payload, если explicit citation не resolved", async () => {
     const createAIRequest = vi.fn();
 
@@ -529,6 +703,151 @@ describe("answer pipeline", () => {
       primaryLegalIssueType: "citation_explanation",
       citationBehaviorMode: "explanation_only",
     });
+  });
+
+  it("для mixed_or_unclear прокидывает explanation-first contract и не сваливается в automatic application", async () => {
+    const createAIRequest = vi.fn();
+    const requestAssistantProxyCompletion = vi.fn().mockResolvedValue({
+      status: "success",
+      content: [
+        "## Краткий вывод",
+        "Сначала нужно объяснить cited норму, а затем только условно оценивать применение.",
+        "",
+        "## Что прямо следует из норм закона",
+        "Норма задаёт состав, но её применение зависит от обстоятельств.",
+        "",
+        "## Что подтверждается судебными прецедентами",
+        "Прецеденты не отменяют need for missing facts.",
+        "",
+        "## Вывод / интерпретация",
+        "Без дополнительных фактов категоричный вывод делать нельзя.",
+        "",
+        "## Использованные нормы / источники",
+        "Административный кодекс — статья 22.",
+      ].join("\n"),
+      proxyKey: "primary",
+      providerKey: "openai_compatible",
+      model: "gpt-5.4",
+      responsePayloadJson: {
+        usage: {
+          prompt_tokens: 160,
+          completion_tokens: 120,
+          total_tokens: 280,
+          cost_usd: 0.013,
+        },
+      },
+    });
+
+    await generateServerLegalAssistantAnswer(
+      {
+        serverId: "server-1",
+        serverCode: "blackberry",
+        serverName: "Blackberry",
+        question: "22 ч.1 АК, это вообще про что и можно ли по ней привлечь в такой ситуации",
+      },
+      {
+        searchAssistantCorpus: vi.fn().mockResolvedValue(
+          createAssistantRetrieval({
+            lawResults: [
+              createLawResult({
+                lawId: "law-ak-22",
+                lawKey: "administrative_code",
+                lawTitle: "Административный кодекс",
+                articleNumberNormalized: "22",
+                blockText:
+                  "Статья 22. Незаконное проникновение или нахождение влечёт ответственность при наличии состава нарушения.",
+              }),
+            ],
+            retrievalDebug: {
+              candidate_pool_before_filters_count: 1,
+              candidate_pool_after_filters_count: 1,
+              citation_resolution: [],
+              citation_target_count: 1,
+              citation_companion_count: 0,
+              citation_unresolved_count: 0,
+              citation_partially_supported_count: 0,
+              semantic_retrieval_allowed_as_companion_only: false,
+            },
+          }),
+        ),
+        normalizeInputText: vi.fn().mockResolvedValue(
+          createNormalizationResult(
+            "22 ч.1 АК, это вообще про что и можно ли по ней привлечь в такой ситуации",
+          ),
+        ),
+        requestAssistantProxyCompletion,
+        createAIRequest,
+        now: () => new Date("2026-04-26T10:15:00.000Z"),
+      },
+    );
+
+    const proxyCall = requestAssistantProxyCompletion.mock.calls[0]?.[0];
+    expect(proxyCall.userPrompt).toContain("Citation behavior mode: mixed_or_unclear");
+    expect(proxyCall.userPrompt).toContain("Сначала коротко объясни cited норму");
+    expect(proxyCall.userPrompt).toContain("явно перечисли missing facts");
+
+    const aiRequestPayload = createAIRequest.mock.calls[0]?.[0];
+    expect(aiRequestPayload.requestPayloadJson.citation_behavior_mode).toBe("mixed_or_unclear");
+    expect(aiRequestPayload.requestPayloadJson.legal_query_plan).toMatchObject({
+      citationBehaviorMode: "mixed_or_unclear",
+    });
+  });
+
+  it("сохраняет unresolved_citation для application wording и fallback не звучит как найденная точная норма", async () => {
+    const createAIRequest = vi.fn();
+
+    const result = await generateServerLegalAssistantAnswer(
+      {
+        serverId: "server-1",
+        serverCode: "blackberry",
+        serverName: "Blackberry",
+        question: "можно ли по 999 УК привлечь",
+      },
+      {
+        searchAssistantCorpus: vi.fn().mockResolvedValue(
+          createAssistantRetrieval({
+            hasCurrentLawCorpus: true,
+            hasUsablePrecedentCorpus: false,
+            retrievalDebug: {
+              candidate_pool_before_filters_count: 0,
+              candidate_pool_after_filters_count: 0,
+              citation_resolution: [
+                {
+                  raw_citation: "по 999 УК",
+                  law_family: "criminal_code",
+                  article_number: "999",
+                  part_number: null,
+                  point_number: null,
+                  resolution_status: "unresolved",
+                  resolution_reason: "no_article",
+                },
+              ],
+              citation_target_count: 0,
+              citation_companion_count: 0,
+              citation_unresolved_count: 1,
+              citation_partially_supported_count: 0,
+              semantic_retrieval_allowed_as_companion_only: false,
+            },
+          }),
+        ),
+        normalizeInputText: vi.fn().mockResolvedValue(
+          createNormalizationResult("можно ли по 999 УК привлечь"),
+        ),
+        requestAssistantProxyCompletion: vi.fn(),
+        createAIRequest,
+        now: () => new Date("2026-04-26T10:20:00.000Z"),
+      },
+    );
+
+    expect(result.status).toBe("no_norms");
+    if (result.status === "no_norms") {
+      expect(result.answerMarkdown).toContain("Подтверждённые нормы и прямые ссылки на источники в этом ответе не использовались");
+      expect(result.answerMarkdown).not.toContain("Статья 999");
+    }
+
+    const aiRequestPayload = createAIRequest.mock.calls[0]?.[0];
+    expect(aiRequestPayload.requestPayloadJson.citation_behavior_mode).toBe("unresolved_citation");
+    expect(aiRequestPayload.requestPayloadJson.citation_target_count).toBe(0);
   });
 
   it("строит laws-first ответ и grounded metadata для законов и precedents", async () => {

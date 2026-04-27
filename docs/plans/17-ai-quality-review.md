@@ -730,6 +730,17 @@ Gate readiness применяется только если:
 - следующий крупный AI Legal Core этап нужно выбирать отдельно
 - шаг `17` не должен автоматически расширяться в global gate, UI или full review platform без нового отдельного решения
 
+### Связь с broader citation behavior scenario suite
+
+После закрытия текущего этапа `17` citation-focused suite expansion выполнен на стороне `Step 16` tests и docs:
+
+- без новых review flags
+- без новых gate modes
+- без расширения blocking policy
+- без изменения deterministic internal contour
+
+Это важно, потому что broader citation behavior coverage нужен как evidence layer для возможного future runtime hardening, а не как причина автоматически расширять `Step 17`.
+
 ## `law_basis_issue`
 
 В шаге `17` должен быть отдельный класс проблем `law_basis_issue`.

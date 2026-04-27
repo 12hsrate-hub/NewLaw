@@ -418,6 +418,30 @@ describe("legal query plan legal issue diagnostics", () => {
     expect(plan.citationBehaviorMode).toBe("explanation_only");
   });
 
+  it("сохраняет explanation_only для явных explanation phrasing по административной и адвокатской норме", () => {
+    const administrativePlan = buildLegalQueryPlan({
+      originalInput: "что значит 22 ч.1 АК",
+      normalizedInput: "что значит 22 ч.1 АК",
+      intent: "law_explanation",
+      actorContext: "general_question",
+      responseMode: "normal",
+      serverId: "server-1",
+    });
+    const advocacyPlan = buildLegalQueryPlan({
+      originalInput: "что означает 5 ч.4 Закона об адвокатуре",
+      normalizedInput: "что означает 5 ч.4 Закона об адвокатуре",
+      intent: "law_explanation",
+      actorContext: "general_question",
+      responseMode: "normal",
+      serverId: "server-1",
+    });
+
+    expect(administrativePlan.primaryLegalIssueType).toBe("citation_explanation");
+    expect(administrativePlan.citationBehaviorMode).toBe("explanation_only");
+    expect(advocacyPlan.primaryLegalIssueType).toBe("citation_explanation");
+    expect(advocacyPlan.citationBehaviorMode).toBe("explanation_only");
+  });
+
   it("классифицирует bare citation short alias input как citation_explanation", () => {
     const administrativePlan = buildLegalQueryPlan({
       originalInput: "22 ч.1 АК",
@@ -478,11 +502,49 @@ describe("legal query plan legal issue diagnostics", () => {
     expect(criminalPlan.citationBehaviorMode).toBe("application_with_insufficient_facts");
   });
 
+  it("классифицирует thin citation applications без factual contour как application_with_insufficient_facts", () => {
+    const administrativePlan = buildLegalQueryPlan({
+      originalInput: "можно ли привлечь по 22 ч.1 АК",
+      normalizedInput: "можно ли привлечь по 22 ч.1 АК",
+      intent: "qualification_check",
+      actorContext: "general_question",
+      responseMode: "normal",
+      serverId: "server-1",
+    });
+    const advocacyPlan = buildLegalQueryPlan({
+      originalInput: "подходит ли 5 ч.4 Закона об адвокатуре",
+      normalizedInput: "подходит ли 5 ч.4 Закона об адвокатуре",
+      intent: "law_explanation",
+      actorContext: "general_question",
+      responseMode: "normal",
+      serverId: "server-1",
+    });
+
+    expect(administrativePlan.primaryLegalIssueType).toBe("citation_application");
+    expect(administrativePlan.citationBehaviorMode).toBe("application_with_insufficient_facts");
+    expect(advocacyPlan.primaryLegalIssueType).toBe("citation_application");
+    expect(advocacyPlan.citationBehaviorMode).toBe("application_with_insufficient_facts");
+  });
+
   it("даёт application mode при explicit citation и достаточном фактическом контуре", () => {
     const plan = buildLegalQueryPlan({
       originalInput: "можно ли по 22 ч.1 АК привлечь за танцы в больнице",
       normalizedInput: "можно ли по 22 ч.1 АК привлечь за танцы в больнице",
       intent: "qualification_check",
+      actorContext: "general_question",
+      responseMode: "normal",
+      serverId: "server-1",
+    });
+
+    expect(plan.primaryLegalIssueType).toBe("citation_application");
+    expect(plan.citationBehaviorMode).toBe("application");
+  });
+
+  it("даёт application mode для explicit citation с factual contour по процедуре задержания", () => {
+    const plan = buildLegalQueryPlan({
+      originalInput: "применима ли 23.1 ПК к задержанию без объяснения причины",
+      normalizedInput: "применима ли 23.1 ПК к задержанию без объяснения причины",
+      intent: "situation_analysis",
       actorContext: "general_question",
       responseMode: "normal",
       serverId: "server-1",
@@ -517,6 +579,20 @@ describe("legal query plan legal issue diagnostics", () => {
 
     expect(plan.explicitLegalCitations).toHaveLength(1);
     expect(plan.citationBehaviorMode).toBe("mixed_or_unclear");
+  });
+
+  it("не теряет citation anchor для advocacy mixed prompt с explanation и follow-up action", () => {
+    const plan = buildLegalQueryPlan({
+      originalInput: "5 ч.4 Закона об адвокатуре — объясни и что делать если отказали",
+      normalizedInput: "5 ч.4 Закона об адвокатуре — объясни и что делать если отказали",
+      intent: "law_explanation",
+      actorContext: "general_question",
+      responseMode: "normal",
+      serverId: "server-1",
+    });
+
+    expect(plan.explicitLegalCitations).toHaveLength(1);
+    expect(["mixed_or_unclear", "application"]).toContain(plan.citationBehaviorMode);
   });
 
   it("не переопределяет substantive issue bare citation override при полном фактическом контексте", () => {

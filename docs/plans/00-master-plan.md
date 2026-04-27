@@ -249,6 +249,7 @@
 - зафиксировать, что `16.3` на текущем уровне считается `stabilised / partial-complete line`, а следующий крупный AI Legal Core шаг лучше искать вне дальнейшего companion expansion
 - зафиксировать implemented `citation behavior contract v1`, который различает `citation_explanation`, `citation_application`, thin-facts application и `unresolved_citation` без изменения `Step 17` gate policy
 - зафиксировать production deploy `citation behavior contract v1` на release `af7f4f6` с успешным targeted citation smoke и правилом `node --env-file`, без `bash source`
+- зафиксировать implemented broader citation behavior scenario suite как suite/test expansion поверх `citation behavior contract v1`, без runtime hardening v1.1 и без новых expectation fields в scenario/evaluator layer
 
 Границы:
 
@@ -286,7 +287,7 @@
 - зафиксировать `17.2` как narrow internal-only opt-in gate readiness только для `sanction_or_exception_used_as_primary`, без изменения suite result и без изменения runtime/public behavior
 - зафиксировать `17.2a` как usage validation и runbook для internal-only opt-in law basis gate без расширения blocking scope
 - зафиксировать, что текущий этап `16` закрыт как runtime legal grounding foundation, а текущий этап `17` закрыт как internal deterministic quality review / gate-readiness contour
-- зафиксировать, что broader regression gate, expanded blocking flags, review UI, Prisma/schema для review history, AI reviewer, cross-run analytics/trends, broad answer quality rewrite, anti-hallucination line и broader citation behavior suite остаются отдельными future линиями
+- зафиксировать, что broader regression gate, expanded blocking flags, review UI, Prisma/schema для review history, AI reviewer, cross-run analytics/trends, broad answer quality rewrite, anti-hallucination line и future runtime hardening для citation behavior остаются отдельными future линиями
 - зафиксировать, что следующий крупный AI Legal Core этап должен выбираться отдельно, а не через автоматическое расширение `16/17`
 
 Границы:

@@ -1127,7 +1127,6 @@ node --env-file=/srv/newlaw/app/shared/.env.production ...
 
 Что intentionally остаётся future вне этого checkpoint:
 
-- broader citation behavior scenario suite beyond текущие targeted cases
 - broad answer quality rewrite
 - anti-hallucination / guard-discipline line
 - дальнейшее companion expansion без отдельного нового analysis-first шага
@@ -1137,6 +1136,42 @@ node --env-file=/srv/newlaw/app/shared/.env.production ...
 
 - следующий крупный AI Legal Core этап нужно выбирать отдельно
 - шаг `16` не должен расширяться дальше автоматически “по инерции”
+
+## Текущий implemented checkpoint по broader citation behavior scenario suite
+
+После production-stable `citation behavior contract v1` следующий citation-focused шаг выполнен как suite/test expansion, а не как runtime hardening.
+
+Что входит в этот checkpoint:
+
+- unit-level coverage в `legal-query-plan.test.ts` расширена по behavior classes:
+  - `explanation_only`
+  - `application`
+  - `application_with_insufficient_facts`
+  - `mixed_or_unclear`
+- pipeline-level coverage в `answer-pipeline.test.ts` расширена по runtime contract:
+  - mode попадает в request payload, diagnostics и prompt instructions
+  - explanation-only не даёт applied overclaim
+  - thin application требует `missing facts`
+  - unresolved citation не создаёт fake primary
+  - mixed/unclear остаётся explanation-first и conditional
+- regression coverage по explicit citation anchor уже сохраняется в `legal-selection.test.ts`
+- scenario/evaluator слой сознательно не расширялся новыми expectation fields, потому что текущие expectation profiles заточены под grounding / companion checks, а не под text-level citation behavior contract
+
+Практический итог:
+
+- citation behavior contract v1 теперь покрыт шире, чем `5` targeted smoke cases
+- следующий runtime шаг нельзя обосновывать только единичными ручными кейсами
+- future `citation behavior v1.1` допустим только если именно expanded suite покажет устойчивые gaps
+
+Что intentionally не менялось в этом шаге:
+
+- runtime behavior
+- `answer-pipeline` generation logic
+- `legal-query-plan` heuristics
+- broad retrieval scoring
+- `Step 17` gate / review policy
+- unrelated `NormBundle` logic
+- companion-aware expectation layer
 
 ## Как использовать test runner
 
