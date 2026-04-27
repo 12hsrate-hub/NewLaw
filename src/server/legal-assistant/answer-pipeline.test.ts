@@ -99,6 +99,43 @@ function createAssistantRetrieval(overrides?: Partial<{
   };
 }
 
+function createLawResult(overrides?: Partial<Record<string, unknown>>) {
+  return {
+    serverId: "server-1",
+    lawId: "law-1",
+    lawKey: "procedural_code",
+    lawTitle: "Процессуальный кодекс",
+    lawVersionId: "law-version-1",
+    lawVersionStatus: "current",
+    lawBlockId: "law-block-1",
+    blockType: "article",
+    blockOrder: 1,
+    articleNumberNormalized: "23.1",
+    snippet: "Статья 23.1. Порядок привлечения к ответственности зависит от обстоятельств дела.",
+    blockText: "Статья 23.1. Порядок привлечения к ответственности зависит от обстоятельств дела.",
+    sourceTopicUrl: "https://forum.gta5rp.com/threads/100001/",
+    sourcePosts: [
+      {
+        postExternalId: "post-1",
+        postUrl: "https://forum.gta5rp.com/posts/1001",
+        postOrder: 1,
+      },
+    ],
+    metadata: {
+      sourceSnapshotHash: "law-source-hash",
+      normalizedTextHash: "law-normalized-hash",
+      corpusSnapshotHash: "law-snapshot-hash",
+      citation: {
+        source_channel: "citation_target",
+        citation_resolution_status: "resolved",
+        citation_resolution_reason: null,
+        citation_match_strength: "exact_article",
+      },
+    },
+    ...overrides,
+  };
+}
+
 describe("answer pipeline", () => {
   it("обогащает retrieval query для маски и задержания до вызова corpus search", async () => {
     const searchAssistantCorpus = vi.fn().mockResolvedValue(
@@ -277,6 +314,220 @@ describe("answer pipeline", () => {
         citation_merge_strategy: "raw_preferred",
         citation_normalization_drift_detected: true,
       }),
+    });
+    expect(aiRequestPayload.requestPayloadJson.citation_behavior_mode).toBe(
+      "application_with_insufficient_facts",
+    );
+  });
+
+  it("прокидывает explanation_only contract в prompt и request payload для bare explicit citation", async () => {
+    const createAIRequest = vi.fn();
+    const requestAssistantProxyCompletion = vi.fn().mockResolvedValue({
+      status: "success",
+      content: [
+        "## Краткий вывод",
+        "Это норма про общий состав административного нарушения.",
+        "",
+        "## Что прямо следует из норм закона",
+        "Статья описывает состав и пределы применения нормы.",
+        "",
+        "## Что подтверждается судебными прецедентами",
+        "Подтверждённые precedents для этого вопроса не добавлены.",
+        "",
+        "## Вывод / интерпретация",
+        "Для применения к конкретной ситуации нужны факты.",
+        "",
+        "## Использованные нормы / источники",
+        "Административный кодекс — статья 22.",
+      ].join("\n"),
+      proxyKey: "primary",
+      providerKey: "openai_compatible",
+      model: "gpt-5.4",
+      responsePayloadJson: {
+        usage: {
+          prompt_tokens: 120,
+          completion_tokens: 90,
+          total_tokens: 210,
+          cost_usd: 0.01,
+        },
+      },
+    });
+
+    await generateServerLegalAssistantAnswer(
+      {
+        serverId: "server-1",
+        serverCode: "blackberry",
+        serverName: "Blackberry",
+        question: "22 ч.1 АК",
+      },
+      {
+        searchAssistantCorpus: vi.fn().mockResolvedValue(
+          createAssistantRetrieval({
+            lawResults: [
+              createLawResult({
+                lawId: "law-ak-22",
+                lawKey: "administrative_code",
+                lawTitle: "Административный кодекс",
+                articleNumberNormalized: "22",
+                blockText: "Статья 22. Нарушение установленного порядка влечёт ответственность.",
+              }),
+            ],
+            retrievalDebug: {
+              candidate_pool_before_filters_count: 1,
+              candidate_pool_after_filters_count: 1,
+              citation_resolution: [],
+              citation_target_count: 1,
+              citation_companion_count: 0,
+              citation_unresolved_count: 0,
+              citation_partially_supported_count: 0,
+              semantic_retrieval_allowed_as_companion_only: false,
+            },
+          }),
+        ),
+        normalizeInputText: vi.fn().mockResolvedValue(createNormalizationResult("22 ч.1 АК")),
+        requestAssistantProxyCompletion,
+        createAIRequest,
+        now: () => new Date("2026-04-26T10:00:00.000Z"),
+      },
+    );
+
+    const proxyCall = requestAssistantProxyCompletion.mock.calls[0]?.[0];
+    expect(proxyCall.userPrompt).toContain("Citation behavior mode: explanation_only");
+    expect(proxyCall.userPrompt).toContain("Не делай applied conclusion по фактам");
+
+    const aiRequestPayload = createAIRequest.mock.calls[0]?.[0];
+    expect(aiRequestPayload.requestPayloadJson.citation_behavior_mode).toBe("explanation_only");
+    expect(aiRequestPayload.requestPayloadJson.legal_query_plan).toMatchObject({
+      primaryLegalIssueType: "citation_explanation",
+      citationBehaviorMode: "explanation_only",
+    });
+  });
+
+  it("прокидывает application_with_insufficient_facts contract в prompt для thin citation application", async () => {
+    const createAIRequest = vi.fn();
+    const requestAssistantProxyCompletion = vi.fn().mockResolvedValue({
+      status: "success",
+      content: [
+        "## Краткий вывод",
+        "Оценка зависит от фактических обстоятельств.",
+        "",
+        "## Что прямо следует из норм закона",
+        "Норма задаёт рамку, но не заменяет анализ фактов.",
+        "",
+        "## Что подтверждается судебными прецедентами",
+        "Подтверждённые precedents не меняют need for facts.",
+        "",
+        "## Вывод / интерпретация",
+        "Для вывода нужны дополнительные обстоятельства.",
+        "",
+        "## Использованные нормы / источники",
+        "Процессуальный кодекс — статья 23.1.",
+      ].join("\n"),
+      proxyKey: "primary",
+      providerKey: "openai_compatible",
+      model: "gpt-5.4",
+      responsePayloadJson: {
+        usage: {
+          prompt_tokens: 120,
+          completion_tokens: 90,
+          total_tokens: 210,
+          cost_usd: 0.01,
+        },
+      },
+    });
+
+    await generateServerLegalAssistantAnswer(
+      {
+        serverId: "server-1",
+        serverCode: "blackberry",
+        serverName: "Blackberry",
+        question: "можно ли по 23.1 ПК",
+      },
+      {
+        searchAssistantCorpus: vi.fn().mockResolvedValue(
+          createAssistantRetrieval({
+            lawResults: [createLawResult()],
+            retrievalDebug: {
+              candidate_pool_before_filters_count: 1,
+              candidate_pool_after_filters_count: 1,
+              citation_resolution: [],
+              citation_target_count: 1,
+              citation_companion_count: 0,
+              citation_unresolved_count: 0,
+              citation_partially_supported_count: 0,
+              semantic_retrieval_allowed_as_companion_only: false,
+            },
+          }),
+        ),
+        normalizeInputText: vi.fn().mockResolvedValue(createNormalizationResult("можно ли по 23.1 ПК")),
+        requestAssistantProxyCompletion,
+        createAIRequest,
+        now: () => new Date("2026-04-26T10:00:00.000Z"),
+      },
+    );
+
+    const proxyCall = requestAssistantProxyCompletion.mock.calls[0]?.[0];
+    expect(proxyCall.userPrompt).toContain(
+      "Citation behavior mode: application_with_insufficient_facts",
+    );
+    expect(proxyCall.userPrompt).toContain("явно назови, каких фактов не хватает");
+
+    const aiRequestPayload = createAIRequest.mock.calls[0]?.[0];
+    expect(aiRequestPayload.requestPayloadJson.citation_behavior_mode).toBe(
+      "application_with_insufficient_facts",
+    );
+  });
+
+  it("прокидывает unresolved_citation contract в request payload, если explicit citation не resolved", async () => {
+    const createAIRequest = vi.fn();
+
+    const result = await generateServerLegalAssistantAnswer(
+      {
+        serverId: "server-1",
+        serverCode: "blackberry",
+        serverName: "Blackberry",
+        question: "999 УК",
+      },
+      {
+        searchAssistantCorpus: vi.fn().mockResolvedValue(
+          createAssistantRetrieval({
+            hasCurrentLawCorpus: true,
+            hasUsablePrecedentCorpus: false,
+            retrievalDebug: {
+              candidate_pool_before_filters_count: 0,
+              candidate_pool_after_filters_count: 0,
+              citation_resolution: [
+                {
+                  raw_citation: "999 УК",
+                  law_family: "criminal_code",
+                  article_number: "999",
+                  part_number: null,
+                  point_number: null,
+                  resolution_status: "unresolved",
+                  resolution_reason: "no_article",
+                },
+              ],
+              citation_target_count: 0,
+              citation_companion_count: 0,
+              citation_unresolved_count: 1,
+              citation_partially_supported_count: 0,
+              semantic_retrieval_allowed_as_companion_only: false,
+            },
+          }),
+        ),
+        normalizeInputText: vi.fn().mockResolvedValue(createNormalizationResult("999 УК")),
+        requestAssistantProxyCompletion: vi.fn(),
+        createAIRequest,
+        now: () => new Date("2026-04-26T10:00:00.000Z"),
+      },
+    );
+
+    expect(result.status).toBe("no_norms");
+    const aiRequestPayload = createAIRequest.mock.calls[0]?.[0];
+    expect(aiRequestPayload.requestPayloadJson.citation_behavior_mode).toBe("unresolved_citation");
+    expect(aiRequestPayload.requestPayloadJson.legal_query_plan).toMatchObject({
+      primaryLegalIssueType: "citation_explanation",
+      citationBehaviorMode: "explanation_only",
     });
   });
 

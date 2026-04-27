@@ -17,7 +17,12 @@ import { selectQuestionAwareSourceExcerpt } from "@/server/legal-assistant/sourc
 import { buildAssistantRetrievalQuery } from "@/server/legal-core/assistant-retrieval-query";
 import { buildLegalGroundingDiagnostics } from "@/server/legal-core/legal-diagnostics";
 import { normalizeLegalInputText } from "@/server/legal-core/input-normalization";
-import { buildLegalQueryPlan, type LegalQueryPlan } from "@/server/legal-core/legal-query-plan";
+import {
+  buildLegalQueryPlan,
+  deriveCitationBehaviorMode,
+  type CitationBehaviorMode,
+  type LegalQueryPlan,
+} from "@/server/legal-core/legal-query-plan";
 import {
   selectStructuredLegalContext,
   type SelectedNormRole,
@@ -1664,6 +1669,7 @@ function buildAssistantUserPrompt(input: {
   internalExecutionMode: AssistantInternalExecutionMode;
   generationContext: AssistantGenerationContext;
   lawSelection: AssistantLawSelection;
+  citationBehaviorMode: CitationBehaviorMode | null;
 }) {
   return [
     `Сервер: ${input.serverName}`,
@@ -1672,11 +1678,13 @@ function buildAssistantUserPrompt(input: {
     `Response mode: ${input.responseMode}`,
     `Execution mode: ${input.internalExecutionMode}`,
     `Direct basis status: ${input.lawSelection.direct_basis_status}`,
+    `Citation behavior mode: ${input.citationBehaviorMode ?? "none"}`,
     buildAssistantResponseModeInstruction({
       responseMode: input.responseMode,
       internalExecutionMode: input.internalExecutionMode,
     }),
     buildDirectBasisInstruction(input.lawSelection.direct_basis_status),
+    buildCitationBehaviorInstruction(input.citationBehaviorMode),
     "Законы (используй только этот grounded layer, если он есть):",
     input.generationContext.law_context_text || "Подходящие current primary laws по запросу не найдены.",
     "Судебные прецеденты (используй только этот grounded layer, если он есть):",
@@ -1695,6 +1703,23 @@ function buildDirectBasisInstruction(directBasisStatus: AssistantLawSelection["d
       return "Если direct basis частичный, делай вывод только через условия и явно отделяй прямую норму от интерпретации.";
     default:
       return "Если direct basis отсутствует, ответ должен быть строго условным, без категоричных формулировок и без подмены прямой нормы интерпретацией.";
+  }
+}
+
+function buildCitationBehaviorInstruction(citationBehaviorMode: CitationBehaviorMode | null) {
+  switch (citationBehaviorMode) {
+    case "explanation_only":
+      return "Citation behavior: explanation_only. Объясни смысл cited нормы и её рамку. Не делай applied conclusion по фактам. Допустима только короткая оговорка, что для применения к ситуации нужны факты.";
+    case "application":
+      return "Citation behavior: application. Разрешён conditional analysis применимости cited нормы к описанной ситуации. Даже при direct_basis_present не делай автоматический категоричный вывод без достаточных фактов.";
+    case "application_with_insufficient_facts":
+      return "Citation behavior: application_with_insufficient_facts. Дай только предварительную рамку применения cited нормы, явно назови, каких фактов не хватает, и не делай categorical conclusion.";
+    case "unresolved_citation":
+      return "Citation behavior: unresolved_citation. Не создавай fake primary basis и не подменяй exact cited norm semantic fallback-ом. Если citation не подтверждена в корпусе, прямо скажи об этом и не делай applied conclusion.";
+    case "mixed_or_unclear":
+      return "Citation behavior: mixed_or_unclear. Сначала коротко объясни cited норму, затем только ограниченно и условно обсуди применение. Если фактов мало, явно перечисли missing facts.";
+    default:
+      return "Citation behavior: no special citation contract. Следуй обычным grounded rules без выдумывания norm application.";
   }
 }
 
@@ -2461,6 +2486,20 @@ export async function generateServerLegalAssistantAnswer(
     semantic_retrieval_allowed_as_companion_only:
       retrieval.retrievalDebug?.semantic_retrieval_allowed_as_companion_only ?? false,
   };
+  const effectiveCitationBehaviorMode = deriveCitationBehaviorMode({
+    normalizedInput: legalQueryPlan.normalized_input,
+    originalInput: normalizedInput.raw_input,
+    explicitCitations: legalQueryPlan.explicitLegalCitations,
+    primaryLegalIssueType: legalQueryPlan.primaryLegalIssueType,
+    citationResolutionStats: {
+      citationTargetCount: retrieval.retrievalDebug?.citation_target_count ?? 0,
+      citationUnresolvedCount: retrieval.retrievalDebug?.citation_unresolved_count ?? 0,
+    },
+  });
+  const effectiveGroundingDiagnostics = {
+    ...groundingDiagnostics.grounding_diagnostics,
+    citation_behavior_mode: effectiveCitationBehaviorMode,
+  };
   const payloadProfile = getAssistantAIPayloadProfile({
     testRunContext: input.testRunContext,
     internalExecutionMode,
@@ -2571,10 +2610,11 @@ export async function generateServerLegalAssistantAnswer(
     normalization_prompt_version: normalizedInput.normalization_prompt_version,
     normalization_changed: normalizedInput.normalization_changed,
     legal_query_plan: legalQueryPlan,
+    citation_behavior_mode: effectiveCitationBehaviorMode,
     selected_norm_roles: lawSelection.selected_norm_roles,
     direct_basis_status: lawSelection.direct_basis_status,
     applicability_diagnostics: groundingDiagnostics.candidate_diagnostics,
-    grounding_diagnostics: groundingDiagnostics.grounding_diagnostics,
+    grounding_diagnostics: effectiveGroundingDiagnostics,
     retrieval_query: retrievalQuery,
     used_sources: usedSources,
     source_ledger: sourceLedger,
@@ -2619,10 +2659,11 @@ export async function generateServerLegalAssistantAnswer(
       normalization_prompt_version: normalizedInput.normalization_prompt_version,
       normalization_changed: normalizedInput.normalization_changed,
       legal_query_plan: legalQueryPlan,
+      citation_behavior_mode: effectiveCitationBehaviorMode,
       selected_norm_roles: lawSelection.selected_norm_roles,
       direct_basis_status: lawSelection.direct_basis_status,
       applicability_diagnostics: groundingDiagnostics.candidate_diagnostics,
-      grounding_diagnostics: groundingDiagnostics.grounding_diagnostics,
+      grounding_diagnostics: effectiveGroundingDiagnostics,
       retrieval_query: retrievalQuery,
       ...retrievalDebugPayload,
       input_trace: inputTrace,
@@ -2744,10 +2785,11 @@ export async function generateServerLegalAssistantAnswer(
       normalization_prompt_version: normalizedInput.normalization_prompt_version,
       normalization_changed: normalizedInput.normalization_changed,
       legal_query_plan: legalQueryPlan,
+      citation_behavior_mode: effectiveCitationBehaviorMode,
       selected_norm_roles: lawSelection.selected_norm_roles,
       direct_basis_status: lawSelection.direct_basis_status,
       applicability_diagnostics: groundingDiagnostics.candidate_diagnostics,
-      grounding_diagnostics: groundingDiagnostics.grounding_diagnostics,
+      grounding_diagnostics: effectiveGroundingDiagnostics,
       retrieval_query: retrievalQuery,
       ...retrievalDebugPayload,
       input_trace: inputTrace,
@@ -2871,10 +2913,11 @@ export async function generateServerLegalAssistantAnswer(
     normalization_prompt_version: normalizedInput.normalization_prompt_version,
     normalization_changed: normalizedInput.normalization_changed,
     legal_query_plan: legalQueryPlan,
+    citation_behavior_mode: effectiveCitationBehaviorMode,
     selected_norm_roles: lawSelection.selected_norm_roles,
     direct_basis_status: lawSelection.direct_basis_status,
     applicability_diagnostics: groundingDiagnostics.candidate_diagnostics,
-    grounding_diagnostics: groundingDiagnostics.grounding_diagnostics,
+    grounding_diagnostics: effectiveGroundingDiagnostics,
     retrieval_query: retrievalQuery,
     ...retrievalDebugPayload,
     input_trace: inputTrace,
@@ -2997,6 +3040,7 @@ export async function generateServerLegalAssistantAnswer(
       internalExecutionMode,
       generationContext,
       lawSelection,
+      citationBehaviorMode: effectiveCitationBehaviorMode,
     }),
     maxOutputTokens: generationContext.answer_mode_effective_budget.max_output_tokens ?? undefined,
     requestMetadata: {

@@ -167,6 +167,7 @@ describe("legal query plan legal issue diagnostics", () => {
         }),
       ]),
     );
+    expect(plan.citationBehaviorMode).toBe("explanation_only");
   });
 
   it("возвращает unclear для короткого ambiguous input", () => {
@@ -414,6 +415,7 @@ describe("legal query plan legal issue diagnostics", () => {
 
     expect(plan.explicitLegalCitations).toHaveLength(1);
     expect(plan.primaryLegalIssueType).toBe("citation_explanation");
+    expect(plan.citationBehaviorMode).toBe("explanation_only");
   });
 
   it("классифицирует bare citation short alias input как citation_explanation", () => {
@@ -443,9 +445,12 @@ describe("legal query plan legal issue diagnostics", () => {
     });
 
     expect(administrativePlan.primaryLegalIssueType).toBe("citation_explanation");
+    expect(administrativePlan.citationBehaviorMode).toBe("explanation_only");
     expect(criminalPlan.primaryLegalIssueType).toBe("citation_explanation");
     expect(criminalPlan.secondaryLegalIssueTypes).toContain("sanction_question");
+    expect(criminalPlan.citationBehaviorMode).toBe("explanation_only");
     expect(proceduralPlan.primaryLegalIssueType).toBe("citation_explanation");
+    expect(proceduralPlan.citationBehaviorMode).toBe("explanation_only");
   });
 
   it("сохраняет application wording как citation_application", () => {
@@ -467,8 +472,51 @@ describe("legal query plan legal issue diagnostics", () => {
     });
 
     expect(proceduralPlan.primaryLegalIssueType).toBe("citation_application");
+    expect(proceduralPlan.citationBehaviorMode).toBe("application_with_insufficient_facts");
     expect(criminalPlan.primaryLegalIssueType).toBe("citation_application");
     expect(criminalPlan.secondaryLegalIssueTypes).toContain("sanction_question");
+    expect(criminalPlan.citationBehaviorMode).toBe("application_with_insufficient_facts");
+  });
+
+  it("даёт application mode при explicit citation и достаточном фактическом контуре", () => {
+    const plan = buildLegalQueryPlan({
+      originalInput: "можно ли по 22 ч.1 АК привлечь за танцы в больнице",
+      normalizedInput: "можно ли по 22 ч.1 АК привлечь за танцы в больнице",
+      intent: "qualification_check",
+      actorContext: "general_question",
+      responseMode: "normal",
+      serverId: "server-1",
+    });
+
+    expect(plan.primaryLegalIssueType).toBe("citation_application");
+    expect(plan.citationBehaviorMode).toBe("application");
+  });
+
+  it("сохраняет application mode для citation-сценария с отказом руководства", () => {
+    const plan = buildLegalQueryPlan({
+      originalInput: "что если руководство отказало по 5 ч.4 Закона об адвокатуре",
+      normalizedInput: "что если руководство отказало по 5 ч.4 Закона об адвокатуре",
+      intent: "situation_analysis",
+      actorContext: "general_question",
+      responseMode: "normal",
+      serverId: "server-1",
+    });
+
+    expect(plan.citationBehaviorMode).toBe("application");
+  });
+
+  it("делает mixed_or_unclear, если explicit citation одновременно просит explanation и application", () => {
+    const plan = buildLegalQueryPlan({
+      originalInput: "22 ч.1 АК, это вообще про что и можно ли по ней привлечь в такой ситуации",
+      normalizedInput: "22 ч.1 АК, это вообще про что и можно ли по ней привлечь в такой ситуации",
+      intent: "law_explanation",
+      actorContext: "general_question",
+      responseMode: "normal",
+      serverId: "server-1",
+    });
+
+    expect(plan.explicitLegalCitations).toHaveLength(1);
+    expect(plan.citationBehaviorMode).toBe("mixed_or_unclear");
   });
 
   it("не переопределяет substantive issue bare citation override при полном фактическом контексте", () => {

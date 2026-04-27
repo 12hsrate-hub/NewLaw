@@ -48,9 +48,17 @@ export const legalIssueTypes = [
 ] as const;
 
 export const legalIssueConfidences = ["high", "medium", "low"] as const;
+export const citationBehaviorModes = [
+  "explanation_only",
+  "application",
+  "application_with_insufficient_facts",
+  "unresolved_citation",
+  "mixed_or_unclear",
+] as const;
 
 export type LegalIssueType = (typeof legalIssueTypes)[number];
 export type LegalIssueConfidence = (typeof legalIssueConfidences)[number];
+export type CitationBehaviorMode = (typeof citationBehaviorModes)[number];
 
 export const legalIssueSignalSources = [
   "normalized_input",
@@ -92,6 +100,7 @@ export type LegalQueryPlan = {
   explicitLegalCitations: ExplicitLegalCitation[];
   citationConstraints: CitationConstraints;
   citationDiagnostics: CitationDiagnostics;
+  citationBehaviorMode?: CitationBehaviorMode | null;
   primaryLegalIssueType: LegalIssueType;
   secondaryLegalIssueTypes: Exclude<LegalIssueType, "unclear">[];
   legalIssueConfidence: LegalIssueConfidence;
@@ -201,6 +210,111 @@ function hasStrongSubstantiveIssueSignal(source: string) {
     "меня задержали",
     "если руководство",
   ]);
+}
+
+function hasCitationExplanationPhrasing(source: string) {
+  return hasKeyword(source, [
+    "что значит",
+    "что означает",
+    "что написано в",
+    "как понимать",
+    "это вообще про что",
+  ]);
+}
+
+function hasCitationApplicationPhrasing(source: string) {
+  return hasKeyword(source, [
+    "можно ли по",
+    "применима ли",
+    "подходит ли",
+    "квалифицируется ли по",
+    "привлечь по",
+  ]);
+}
+
+function hasSpecificCitationFactContour(source: string) {
+  return (
+    hasStrongSubstantiveIssueSignal(source) ||
+    hasKeyword(source, [
+      "руководство",
+      "отказал",
+      "отказало",
+      "отказали",
+      "отказ",
+      "не ответ",
+      "не дали",
+      "задерж",
+      "танц",
+      "больниц",
+      "при задержании",
+      "в больнице",
+      "в такой ситуации",
+      "в этой ситуации",
+    ])
+  );
+}
+
+export function deriveCitationBehaviorMode(input: {
+  normalizedInput: string;
+  originalInput?: string;
+  explicitCitations: ExplicitLegalCitation[];
+  primaryLegalIssueType: LegalIssueType;
+  citationResolutionStats?: {
+    citationTargetCount?: number | null;
+    citationUnresolvedCount?: number | null;
+  };
+}) {
+  if (input.explicitCitations.length === 0) {
+    return null;
+  }
+
+  const behaviorSource = normalizeQuestion(
+    [input.originalInput ?? "", input.normalizedInput]
+      .filter((value) => value.trim().length > 0)
+      .join(" "),
+  );
+  const explanationPhrasing = hasCitationExplanationPhrasing(behaviorSource);
+  const applicationPhrasing = hasCitationApplicationPhrasing(behaviorSource);
+  const hasFactContour = hasSpecificCitationFactContour(behaviorSource);
+  const bareCitationReference =
+    input.explicitCitations.length > 0 &&
+    !explanationPhrasing &&
+    !applicationPhrasing &&
+    !hasStrongSubstantiveIssueSignal(behaviorSource);
+  const unresolvedCitation =
+    (input.citationResolutionStats?.citationUnresolvedCount ?? 0) > 0 &&
+    (input.citationResolutionStats?.citationTargetCount ?? 0) === 0;
+
+  if (unresolvedCitation) {
+    return "unresolved_citation" as const;
+  }
+
+  if (
+    explanationPhrasing &&
+    (applicationPhrasing || input.primaryLegalIssueType === "citation_application")
+  ) {
+    return "mixed_or_unclear" as const;
+  }
+
+  if (applicationPhrasing || input.primaryLegalIssueType === "citation_application") {
+    return hasFactContour
+      ? ("application" as const)
+      : ("application_with_insufficient_facts" as const);
+  }
+
+  if (
+    input.primaryLegalIssueType === "citation_explanation" ||
+    explanationPhrasing ||
+    bareCitationReference
+  ) {
+    return "explanation_only" as const;
+  }
+
+  if (hasFactContour) {
+    return "application" as const;
+  }
+
+  return "mixed_or_unclear" as const;
 }
 
 function isExplicitPhrase(signal: string) {
@@ -994,6 +1108,12 @@ export function buildLegalQueryPlan(input: {
     legalAnchors,
     explicitCitations: explicitLegalCitations,
   });
+  const citationBehaviorMode = deriveCitationBehaviorMode({
+    normalizedInput: input.normalizedInput,
+    originalInput: input.originalInput,
+    explicitCitations: explicitLegalCitations,
+    primaryLegalIssueType: legalIssueClassification.primaryLegalIssueType,
+  });
   const retrievalQuery = buildAssistantRetrievalQuery({
     normalized_input: input.normalizedInput,
     intent: input.intent,
@@ -1020,6 +1140,7 @@ export function buildLegalQueryPlan(input: {
     explicitLegalCitations,
     citationConstraints,
     citationDiagnostics,
+    citationBehaviorMode,
     primaryLegalIssueType: legalIssueClassification.primaryLegalIssueType,
     secondaryLegalIssueTypes: legalIssueClassification.secondaryLegalIssueTypes,
     legalIssueConfidence: legalIssueClassification.legalIssueConfidence,

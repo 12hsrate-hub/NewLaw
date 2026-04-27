@@ -915,6 +915,91 @@ Prod model:
 - acceptance/evaluator часть `16.3` закрыта до достаточно широкого и безопасного coverage через `5d`-`5d.3`
 - следующий крупный шаг AI Legal Core лучше искать вне companion expectations / `16.3` acceptance expansion
 
+## Текущий implemented checkpoint по citation behavior contract v1
+
+После stabilisation checkpoint по `16.3` в runtime AI Legal Core добавлен отдельный behavior-layer для explicit citation questions.
+
+Это runtime slice внутри шага `16`, а не новый review slice шага `17`.
+
+Что именно добавлено:
+
+- `citationBehaviorMode` в `LegalQueryPlan`
+- effective runtime `citation_behavior_mode` в request diagnostics после retrieval/citation resolution
+- узкий generation contract для explicit citation behavior без broad prompt rewrite
+
+Поддерживаемые modes:
+
+- `explanation_only`
+- `application`
+- `application_with_insufficient_facts`
+- `unresolved_citation`
+- `mixed_or_unclear`
+
+### Зачем нужен `citation_behavior_mode`
+
+Этот слой нужен, чтобы корректно различать:
+
+- вопрос, где пользователь просит только объяснить норму
+- вопрос, где пользователь просит применить норму к ситуации
+- вопрос, где citation распознана, но facts ещё слишком тонкие для applied conclusion
+- вопрос, где citation не подтвердилась в корпусе
+- mixed-cases, где explanation и application сигналы смешаны
+
+Главный принцип:
+
+- resolved explicit citation не равна automatic applied conclusion
+
+### Что означает каждый mode
+
+`explanation_only`
+
+- AI объясняет смысл нормы
+- не делает applied conclusion по фактам
+- допускается только короткая оговорка, что для применения к ситуации нужны facts
+
+`application`
+
+- AI может анализировать применимость cited нормы
+- даже при `direct_basis_present` вывод остаётся conditional, если facts не исчерпывающие
+- companions могут пояснять процедуру, исключения и последствия, но не подменяют base rule
+
+`application_with_insufficient_facts`
+
+- AI даёт только предварительную рамку применения
+- явно называет missing facts
+- не делает categorical conclusion
+
+`unresolved_citation`
+
+- AI не создаёт fake primary basis
+- semantic fallback не должен звучать как exact cited norm
+- applied conclusion запрещён
+
+`mixed_or_unclear`
+
+- AI сначала кратко объясняет cited норму
+- application допускается только ограниченно и условно
+- при thin facts нужно явно перечислить missing facts
+
+### Как это связано с `direct_basis_status`
+
+Важно:
+
+- `direct_basis_present` больше не трактуется как automatic permission на categorical applied conclusion
+- citation behavior contract стоит поверх already existing grounding rules и сужает generation behavior для explicit citation questions
+- `sanction`, `exception` и `procedure` companions не могут сами по себе становиться applied basis
+
+### Что intentionally не менялось
+
+Не менялось:
+
+- broad retrieval scoring
+- selection / `PrimaryBasisEligibility`
+- unrelated `NormBundle` runtime behavior
+- companion-aware expectation layer
+- `Step 17` gate / review policy
+- public assistant actions contract шире узкого citation behavior slice
+
 Источник данных для evaluator не менялся:
 
 - `selected_norm_roles`
