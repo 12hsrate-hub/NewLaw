@@ -5,6 +5,10 @@ import { getAIQualityReviewUsageSince } from "@/db/repositories/ai-request.repos
 import { getAIQualityReviewRuntimeEnv } from "@/schemas/env";
 import { requestAssistantProxyCompletion } from "@/server/legal-assistant/ai-proxy";
 import type {
+  AILegalCoreScenarioExpectationProfile,
+  AILegalCoreScenarioExpectedCompanionTarget,
+} from "@/server/legal-core/test-scenarios-registry";
+import type {
   LegalCoreAnswerConfidence,
   LegalCoreRiskLevel,
 } from "@/server/legal-core/metadata";
@@ -51,6 +55,38 @@ type SelfRiskSignals = {
   future_review_priority: LegalCoreRiskLevel;
   future_review_flags: string[];
   future_review_reason_codes: string[];
+};
+
+type ReviewFlagSeverity = "pass" | "warn" | "fail";
+
+export type DeterministicLawBasisReviewFlagCode =
+  | "missing_primary_basis_norm"
+  | "law_family_mismatch"
+  | "weak_direct_basis"
+  | "sanction_or_exception_used_as_primary"
+  | "missing_required_companion_context"
+  | "unresolved_explicit_citation_used_as_basis";
+
+export type DeterministicLawBasisReviewFlag = {
+  code: DeterministicLawBasisReviewFlagCode;
+  severity: ReviewFlagSeverity;
+  short_reason: string;
+  evidence: Record<string, unknown>;
+};
+
+export type DeterministicLawBasisReviewResult = {
+  overall_status: ReviewFlagSeverity;
+  flags: DeterministicLawBasisReviewFlag[];
+  summary: {
+    pass: number;
+    warn: number;
+    fail: number;
+  };
+};
+
+export type DeterministicLawBasisReviewContext = {
+  expectationProfile?: AILegalCoreScenarioExpectationProfile | null;
+  expectedLawFamilies?: string[] | null;
 };
 
 type NormalizationReview = {
@@ -118,6 +154,7 @@ type DeterministicAIQualityReviewSnapshot = {
     deterministic_checks: {
       status: "completed";
       normalization_review: NormalizationReview;
+      law_basis_review: DeterministicLawBasisReviewResult;
       checks: string[];
     };
     ai_reviewer:
@@ -194,6 +231,26 @@ function readUnknownArray(source: Record<string, unknown>, key: string) {
   return Array.isArray(value) ? value : [];
 }
 
+function readRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function readStringValue(value: unknown) {
+  return typeof value === "string" && value.trim().length > 0 ? value : null;
+}
+
+function readStringArrayValue(value: unknown) {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+    : [];
+}
+
+function uniqueStrings(values: Array<string | null | undefined>) {
+  return Array.from(new Set(values.filter((value): value is string => typeof value === "string")));
+}
+
 function normalizeComparableText(value: string) {
   return value
     .toLowerCase()
@@ -232,6 +289,616 @@ function extractLegalKeywords(value: string) {
   const normalized = normalizeComparableText(value);
 
   return keywords.filter((keyword) => normalized.includes(keyword));
+}
+
+function normalizeMarker(value: string | null | undefined) {
+  return typeof value === "string" ? value.replace(/\s+/g, " ").trim().toLowerCase() : null;
+}
+
+function buildLawBasisFlag(input: DeterministicLawBasisReviewFlag) {
+  return input;
+}
+
+function countEligiblePrimaryBasisNorms(input: {
+  selectedNormRoles: Array<Record<string, unknown>>;
+  primaryBasisEligibility: Array<Record<string, unknown>>;
+}) {
+  const primaryBasisEntries = input.selectedNormRoles.filter(
+    (entry) => readStringValue(entry.norm_role) === "primary_basis",
+  );
+
+  if (input.primaryBasisEligibility.length === 0) {
+    return primaryBasisEntries.length;
+  }
+
+  return primaryBasisEntries.filter((entry) =>
+    input.primaryBasisEligibility.some(
+      (eligibility) =>
+        readStringValue(eligibility.law_id) === readStringValue(entry.law_id) &&
+        readStringValue(eligibility.law_version) === readStringValue(entry.law_version) &&
+        readStringValue(eligibility.law_block_id) === readStringValue(entry.law_block_id) &&
+        readStringValue(eligibility.primary_basis_eligibility) === "eligible",
+    ),
+  ).length;
+}
+
+function matchesCompanionTarget(
+  target: AILegalCoreScenarioExpectedCompanionTarget,
+  candidate: {
+    law_family: string | null;
+    article_number: string | null;
+    marker: string | null;
+    part_number: string | null;
+    relation_type: string | null;
+  },
+) {
+  if (candidate.relation_type !== target.relationType) {
+    return false;
+  }
+
+  if (target.lawFamily && target.lawFamily !== candidate.law_family) {
+    return false;
+  }
+
+  if (target.articleNumber && target.articleNumber !== candidate.article_number) {
+    return false;
+  }
+
+  if (target.partNumber && target.partNumber !== candidate.part_number) {
+    return false;
+  }
+
+  if (target.marker) {
+    return normalizeMarker(target.marker) === candidate.marker;
+  }
+
+  return true;
+}
+
+function buildCompanionCoverage(input: {
+  requestPayloadJson: Record<string, unknown>;
+  responsePayloadJson: Record<string, unknown>;
+}) {
+  const selectedCandidateDiagnostics = readUnknownArray(input.requestPayloadJson, "selected_candidate_diagnostics")
+    .map((entry) => readRecord(entry))
+    .filter((entry): entry is Record<string, unknown> => Boolean(entry));
+  const lawFamilyById = new Map<string, string | null>();
+  const articleNumberById = new Map<string, string | null>();
+
+  for (const entry of selectedCandidateDiagnostics) {
+    const lawId = readStringValue(entry.law_id);
+
+    if (!lawId) {
+      continue;
+    }
+
+    lawFamilyById.set(lawId, readStringValue(entry.law_family));
+    articleNumberById.set(lawId, readStringValue(entry.article_number));
+  }
+
+  const includedSegments = readUnknownArray(input.requestPayloadJson, "included_article_segments")
+    .map((entry) => readRecord(entry))
+    .filter((entry): entry is Record<string, unknown> => Boolean(entry))
+    .map((entry) => {
+      const lawId = readStringValue(entry.law_id);
+
+      return {
+        law_id: lawId,
+        law_family: lawId ? (lawFamilyById.get(lawId) ?? null) : null,
+        article_number: lawId ? (articleNumberById.get(lawId) ?? null) : null,
+        marker: normalizeMarker(readStringValue(entry.marker)),
+        part_number: readStringValue(entry.part_number),
+        relation_type: readStringValue(entry.relation_type),
+        reason_code: readStringValue(entry.reason_code),
+      };
+    });
+  const projectionExcluded = readUnknownArray(input.requestPayloadJson, "bundle_projection_excluded_items").flatMap(
+    (entry) => {
+      const safeEntry = readRecord(entry);
+      const lawId = readStringValue(safeEntry?.law_id);
+      const lawFamily = lawId ? (lawFamilyById.get(lawId) ?? null) : null;
+      const articleNumber = lawId ? (articleNumberById.get(lawId) ?? null) : null;
+
+      return readUnknownArray(safeEntry ?? {}, "items")
+        .map((item) => readRecord(item))
+        .filter((item): item is Record<string, unknown> => Boolean(item))
+        .map((item) => ({
+          law_id: lawId,
+          law_family: lawFamily,
+          article_number: articleNumber,
+          marker: normalizeMarker(readStringValue(item.marker)),
+          part_number: readStringValue(item.part_number),
+          relation_type: readStringValue(item.relation_type),
+          reason_code: readStringValue(item.reason_code),
+        }));
+    },
+  );
+  const relationTypes = uniqueStrings([
+    ...readUnknownArray(input.requestPayloadJson, "companion_relation_types").flatMap((entry) => {
+      const safeEntry = readRecord(entry);
+      return readStringArrayValue(safeEntry?.relation_types);
+    }),
+    ...includedSegments.map((entry) => entry.relation_type),
+    ...projectionExcluded
+      .filter((entry) => entry.reason_code === "duplicate_of_primary_excerpt")
+      .map((entry) => entry.relation_type),
+  ]);
+
+  return {
+    includedSegments,
+    projectionExcluded,
+    relationTypes,
+    missingExpectedCompanion: readStringArrayValue(
+      input.requestPayloadJson.missing_expected_companion,
+    ),
+  };
+}
+
+function deriveLawBasisReviewRiskLevel(result: DeterministicLawBasisReviewResult): LegalCoreRiskLevel {
+  if (result.summary.fail > 0) {
+    return "high";
+  }
+
+  if (result.summary.warn > 0) {
+    return "medium";
+  }
+
+  return "low";
+}
+
+export function buildDeterministicLawBasisReviewResult(input: {
+  requestPayloadJson?: Record<string, unknown> | null;
+  responsePayloadJson?: Record<string, unknown> | null;
+  reviewContext?: DeterministicLawBasisReviewContext | null;
+}): DeterministicLawBasisReviewResult {
+  const requestPayloadJson = input.requestPayloadJson ?? {};
+  const responsePayloadJson = input.responsePayloadJson ?? {};
+  const reviewContext = input.reviewContext ?? null;
+  const selectedNormRoles = readUnknownArray(requestPayloadJson, "selected_norm_roles")
+    .map((entry) => readRecord(entry))
+    .filter((entry): entry is Record<string, unknown> => Boolean(entry));
+  const primaryBasisEligibility = readUnknownArray(requestPayloadJson, "primary_basis_eligibility")
+    .map((entry) => readRecord(entry))
+    .filter((entry): entry is Record<string, unknown> => Boolean(entry));
+  const selectedCandidateDiagnostics = readUnknownArray(requestPayloadJson, "selected_candidate_diagnostics")
+    .map((entry) => readRecord(entry))
+    .filter((entry): entry is Record<string, unknown> => Boolean(entry));
+  const directBasisStatus = readString(requestPayloadJson, "direct_basis_status");
+  const selectedLawFamilies = uniqueStrings(
+    selectedNormRoles.map((entry) => readStringValue(entry.law_family)),
+  );
+  const eligiblePrimaryBasisNormCount = countEligiblePrimaryBasisNorms({
+    selectedNormRoles,
+    primaryBasisEligibility,
+  });
+  const primaryBasisEntries = selectedNormRoles.filter(
+    (entry) => readStringValue(entry.norm_role) === "primary_basis",
+  );
+  const primaryLawFamilies = uniqueStrings(
+    primaryBasisEntries.map((entry) => readStringValue(entry.law_family)),
+  );
+  const expectedLawFamilies = uniqueStrings([
+    ...(reviewContext?.expectedLawFamilies ?? []),
+    ...((reviewContext?.expectationProfile?.requiredLawFamilies as string[] | undefined) ?? []),
+    ...readUnknownArray(requestPayloadJson, "citation_resolution")
+      .map((entry) => readRecord(entry))
+      .filter((entry): entry is Record<string, unknown> => Boolean(entry))
+      .filter((entry) => readStringValue(entry.resolution_status) === "resolved")
+      .map((entry) => readStringValue(entry.law_family)),
+  ]);
+  const companionCoverage = buildCompanionCoverage({
+    requestPayloadJson,
+    responsePayloadJson,
+  });
+  const citations = readUnknownArray(requestPayloadJson, "citation_resolution")
+    .map((entry) => readRecord(entry))
+    .filter((entry): entry is Record<string, unknown> => Boolean(entry));
+  const unresolvedExplicitCitationCount =
+    typeof requestPayloadJson.citation_unresolved_count === "number"
+      ? requestPayloadJson.citation_unresolved_count
+      : citations.filter((entry) => readStringValue(entry.resolution_status) === "unresolved").length;
+  const hasCitationDrivenPrimary = selectedCandidateDiagnostics.some(
+    (entry) =>
+      readStringValue(entry.norm_role) === "primary_basis" &&
+      readStringValue(entry.source_channel) === "citation_target" &&
+      readStringValue(entry.citation_resolution_status) === "unresolved",
+  );
+  const sanctionOrExceptionReasons = primaryBasisEligibility.filter((entry) => {
+    const reason = readStringValue(entry.primary_basis_eligibility_reason);
+    return (
+      reason === "ineligible_due_to_sanction_only" ||
+      reason === "ineligible_due_to_exception_without_base"
+    );
+  });
+  const sanctionOrExceptionWithoutBase =
+    eligiblePrimaryBasisNormCount === 0 &&
+    selectedNormRoles.some((entry) => {
+      const role = readStringValue(entry.norm_role);
+      return role === "sanction" || role === "exception";
+    });
+  const expectationProfile = reviewContext?.expectationProfile ?? null;
+  const companionChecksActive = expectationProfile?.activateCompanionChecks === true;
+  const requiredCompanionRelations = companionChecksActive
+    ? expectationProfile?.requiredCompanionRelations ?? []
+    : [];
+  const requiredCompanionTargets = companionChecksActive
+    ? expectationProfile?.requiredCompanionTargets ?? []
+    : [];
+
+  const missingPrimaryBasisFlag = (() => {
+    if (directBasisStatus === "direct_basis_present" && eligiblePrimaryBasisNormCount > 0) {
+      return buildLawBasisFlag({
+        code: "missing_primary_basis_norm",
+        severity: "pass",
+        short_reason: "Eligible primary basis присутствует.",
+        evidence: {
+          direct_basis_status: directBasisStatus,
+          eligible_primary_basis_norm_count: eligiblePrimaryBasisNormCount,
+        },
+      });
+    }
+
+    if (directBasisStatus === "partial_basis_only") {
+      return buildLawBasisFlag({
+        code: "missing_primary_basis_norm",
+        severity: "warn",
+        short_reason: "Контекст собран только как partial basis.",
+        evidence: {
+          direct_basis_status: directBasisStatus,
+          eligible_primary_basis_norm_count: eligiblePrimaryBasisNormCount,
+        },
+      });
+    }
+
+    if (
+      expectationProfile?.expectedDirectBasisStatus === "direct_basis_present" &&
+      eligiblePrimaryBasisNormCount === 0
+    ) {
+      return buildLawBasisFlag({
+        code: "missing_primary_basis_norm",
+        severity: "fail",
+        short_reason: "Ожидалась прямая база, но eligible primary basis отсутствует.",
+        evidence: {
+          direct_basis_status: directBasisStatus,
+          expected_direct_basis_status: expectationProfile.expectedDirectBasisStatus,
+          eligible_primary_basis_norm_count: eligiblePrimaryBasisNormCount,
+        },
+      });
+    }
+
+    return buildLawBasisFlag({
+      code: "missing_primary_basis_norm",
+      severity: eligiblePrimaryBasisNormCount > 0 ? "pass" : "warn",
+      short_reason:
+        eligiblePrimaryBasisNormCount > 0
+          ? "Primary basis candidate присутствует."
+          : "Прямая primary basis норма не подтверждена для этого контекста.",
+      evidence: {
+        direct_basis_status: directBasisStatus,
+        eligible_primary_basis_norm_count: eligiblePrimaryBasisNormCount,
+      },
+    });
+  })();
+
+  const lawFamilyMismatchFlag = (() => {
+    if (expectedLawFamilies.length === 0) {
+      return buildLawBasisFlag({
+        code: "law_family_mismatch",
+        severity: "pass",
+        short_reason: "Явного expected law family constraint нет.",
+        evidence: {
+          selected_law_families: selectedLawFamilies,
+        },
+      });
+    }
+
+    const primaryMatches = primaryLawFamilies.some((family) => expectedLawFamilies.includes(family));
+
+    if (!primaryMatches) {
+      return buildLawBasisFlag({
+        code: "law_family_mismatch",
+        severity: "fail",
+        short_reason: "Primary law family конфликтует с expected family constraint.",
+        evidence: {
+          expected_law_families: expectedLawFamilies,
+          primary_law_families: primaryLawFamilies,
+          selected_law_families: selectedLawFamilies,
+        },
+      });
+    }
+
+    const offFamilyNoise = selectedLawFamilies.filter((family) => !expectedLawFamilies.includes(family));
+
+    if (offFamilyNoise.length > 0) {
+      return buildLawBasisFlag({
+        code: "law_family_mismatch",
+        severity: "warn",
+        short_reason: "В selected context есть off-family noise при корректной primary family.",
+        evidence: {
+          expected_law_families: expectedLawFamilies,
+          primary_law_families: primaryLawFamilies,
+          off_family_noise: offFamilyNoise,
+        },
+      });
+    }
+
+    return buildLawBasisFlag({
+      code: "law_family_mismatch",
+      severity: "pass",
+      short_reason: "Law family соответствует expected constraint.",
+      evidence: {
+        expected_law_families: expectedLawFamilies,
+        primary_law_families: primaryLawFamilies,
+      },
+    });
+  })();
+
+  const weakDirectBasisFlag = (() => {
+    if (directBasisStatus === "direct_basis_present") {
+      return buildLawBasisFlag({
+        code: "weak_direct_basis",
+        severity: "pass",
+        short_reason: "Direct basis присутствует.",
+        evidence: {
+          direct_basis_status: directBasisStatus,
+        },
+      });
+    }
+
+    if (
+      directBasisStatus === "no_direct_basis" &&
+      expectationProfile?.expectedDirectBasisStatus === "direct_basis_present"
+    ) {
+      return buildLawBasisFlag({
+        code: "weak_direct_basis",
+        severity: "fail",
+        short_reason: "Ожидалась прямая база, но context остался без direct basis.",
+        evidence: {
+          direct_basis_status: directBasisStatus,
+          expected_direct_basis_status: expectationProfile.expectedDirectBasisStatus,
+        },
+      });
+    }
+
+    if (directBasisStatus === "partial_basis_only" || directBasisStatus === "no_direct_basis") {
+      return buildLawBasisFlag({
+        code: "weak_direct_basis",
+        severity: "warn",
+        short_reason:
+          directBasisStatus === "partial_basis_only"
+            ? "Контекст собран только как partial basis."
+            : "Контекст остался без direct basis.",
+        evidence: {
+          direct_basis_status: directBasisStatus,
+        },
+      });
+    }
+
+    return buildLawBasisFlag({
+      code: "weak_direct_basis",
+      severity: "pass",
+      short_reason: "Direct basis status не указывает на ослабленную базу.",
+      evidence: {
+        direct_basis_status: directBasisStatus,
+      },
+    });
+  })();
+
+  const sanctionOrExceptionUsedAsPrimaryFlag = (() => {
+    if (sanctionOrExceptionReasons.length > 0 || sanctionOrExceptionWithoutBase) {
+      return buildLawBasisFlag({
+        code: "sanction_or_exception_used_as_primary",
+        severity: "fail",
+        short_reason: "Sanction/exception норма пытается выступать как primary basis.",
+        evidence: {
+          primary_basis_eligibility: sanctionOrExceptionReasons.map((entry) => ({
+            law_id: readStringValue(entry.law_id),
+            primary_basis_eligibility_reason: readStringValue(entry.primary_basis_eligibility_reason),
+          })),
+          eligible_primary_basis_norm_count: eligiblePrimaryBasisNormCount,
+          selected_norm_roles: selectedNormRoles.map((entry) => ({
+            law_id: readStringValue(entry.law_id),
+            law_family: readStringValue(entry.law_family),
+            norm_role: readStringValue(entry.norm_role),
+          })),
+        },
+      });
+    }
+
+    const dominantCompanionNoise =
+      eligiblePrimaryBasisNormCount > 0 &&
+      (companionCoverage.relationTypes.includes("sanction_companion") ||
+        companionCoverage.relationTypes.includes("exception")) &&
+      primaryLawFamilies.length === 0;
+
+    if (dominantCompanionNoise) {
+      return buildLawBasisFlag({
+        code: "sanction_or_exception_used_as_primary",
+        severity: "warn",
+        short_reason: "Sanction/exception companion доминирует сильнее, чем ожидается для base rule.",
+        evidence: {
+          companion_relation_types: companionCoverage.relationTypes,
+          eligible_primary_basis_norm_count: eligiblePrimaryBasisNormCount,
+        },
+      });
+    }
+
+    return buildLawBasisFlag({
+      code: "sanction_or_exception_used_as_primary",
+      severity: "pass",
+      short_reason: "Sanction/exception остаются companion или secondary context.",
+      evidence: {
+        companion_relation_types: companionCoverage.relationTypes,
+        eligible_primary_basis_norm_count: eligiblePrimaryBasisNormCount,
+      },
+    });
+  })();
+
+  const missingRequiredCompanionContextFlag = (() => {
+    if (!companionChecksActive) {
+      return buildLawBasisFlag({
+        code: "missing_required_companion_context",
+        severity: "pass",
+        short_reason: "Companion checks не активированы для этого review context.",
+        evidence: {
+          activate_companion_checks: false,
+        },
+      });
+    }
+
+    const missingRelations = requiredCompanionRelations.filter(
+      (relation) => !companionCoverage.relationTypes.includes(relation),
+    );
+    const duplicateCoveredRelations = requiredCompanionRelations.filter((relation) =>
+      companionCoverage.projectionExcluded.some(
+        (entry) =>
+          entry.reason_code === "duplicate_of_primary_excerpt" && entry.relation_type === relation,
+      ),
+    );
+    const duplicateCoveredTargets = requiredCompanionTargets.filter((target) =>
+      companionCoverage.projectionExcluded.some(
+        (entry) =>
+          entry.reason_code === "duplicate_of_primary_excerpt" &&
+          matchesCompanionTarget(target, entry),
+      ),
+    );
+    const missingTargets = requiredCompanionTargets.filter((target) => {
+      const included = companionCoverage.includedSegments.some((entry) =>
+        matchesCompanionTarget(target, entry),
+      );
+      const duplicateCovered = companionCoverage.projectionExcluded.some(
+        (entry) =>
+          entry.reason_code === "duplicate_of_primary_excerpt" &&
+          matchesCompanionTarget(target, entry),
+      );
+
+      return !included && !duplicateCovered;
+    });
+
+    if (missingRelations.length > 0 || missingTargets.length > 0) {
+      return buildLawBasisFlag({
+        code: "missing_required_companion_context",
+        severity: "fail",
+        short_reason: "Не хватает обязательного companion context для activated scenario.",
+        evidence: {
+          required_companion_relations: requiredCompanionRelations,
+          missing_companion_relations: missingRelations,
+          required_companion_targets: requiredCompanionTargets,
+          missing_companion_targets: missingTargets.map((target) => ({
+            relation_type: target.relationType,
+            law_family: target.lawFamily ?? null,
+            article_number: target.articleNumber ?? null,
+            part_number: target.partNumber ?? null,
+            marker: target.marker ?? null,
+          })),
+          missing_expected_companion: companionCoverage.missingExpectedCompanion,
+        },
+      });
+    }
+
+    if (duplicateCoveredRelations.length > 0 || duplicateCoveredTargets.length > 0) {
+      return buildLawBasisFlag({
+        code: "missing_required_companion_context",
+        severity: "warn",
+        short_reason: "Часть required companion context покрыта только через duplicate_of_primary_excerpt.",
+        evidence: {
+          duplicate_covered_relations: duplicateCoveredRelations,
+          duplicate_covered_targets: duplicateCoveredTargets.map((target) => ({
+            relation_type: target.relationType,
+            law_family: target.lawFamily ?? null,
+            article_number: target.articleNumber ?? null,
+            part_number: target.partNumber ?? null,
+            marker: target.marker ?? null,
+          })),
+        },
+      });
+    }
+
+    return buildLawBasisFlag({
+      code: "missing_required_companion_context",
+      severity: "pass",
+      short_reason: "Required companion context присутствует.",
+      evidence: {
+        required_companion_relations: requiredCompanionRelations,
+        required_companion_targets: requiredCompanionTargets,
+      },
+    });
+  })();
+
+  const unresolvedExplicitCitationFlag = (() => {
+    if (citations.length === 0) {
+      return buildLawBasisFlag({
+        code: "unresolved_explicit_citation_used_as_basis",
+        severity: "pass",
+        short_reason: "Explicit citation diagnostics отсутствуют.",
+        evidence: {
+          citation_count: 0,
+        },
+      });
+    }
+
+    if (unresolvedExplicitCitationCount > 0 && (hasCitationDrivenPrimary || directBasisStatus === "direct_basis_present")) {
+      return buildLawBasisFlag({
+        code: "unresolved_explicit_citation_used_as_basis",
+        severity: hasCitationDrivenPrimary ? "fail" : "warn",
+        short_reason:
+          hasCitationDrivenPrimary
+            ? "Unresolved explicit citation не должна создавать fake citation-target basis."
+            : "Unresolved explicit citation обработана, но direct basis остался сильным и требует ручной проверки.",
+        evidence: {
+          citation_unresolved_count: unresolvedExplicitCitationCount,
+          selected_candidate_diagnostics: selectedCandidateDiagnostics.map((entry) => ({
+            law_id: readStringValue(entry.law_id),
+            norm_role: readStringValue(entry.norm_role),
+            source_channel: readStringValue(entry.source_channel),
+            citation_resolution_status: readStringValue(entry.citation_resolution_status),
+          })),
+          direct_basis_status: directBasisStatus,
+        },
+      });
+    }
+
+    if (unresolvedExplicitCitationCount > 0) {
+      return buildLawBasisFlag({
+        code: "unresolved_explicit_citation_used_as_basis",
+        severity: "warn",
+        short_reason: "Explicit citation unresolved, но fake primary basis не сформировалась.",
+        evidence: {
+          citation_unresolved_count: unresolvedExplicitCitationCount,
+          direct_basis_status: directBasisStatus,
+        },
+      });
+    }
+
+    return buildLawBasisFlag({
+      code: "unresolved_explicit_citation_used_as_basis",
+      severity: "pass",
+      short_reason: "Explicit citation либо resolved, либо не влияет на basis.",
+      evidence: {
+        citation_unresolved_count: unresolvedExplicitCitationCount,
+      },
+    });
+  })();
+
+  const flags = [
+    missingPrimaryBasisFlag,
+    lawFamilyMismatchFlag,
+    weakDirectBasisFlag,
+    sanctionOrExceptionUsedAsPrimaryFlag,
+    missingRequiredCompanionContextFlag,
+    unresolvedExplicitCitationFlag,
+  ];
+  const summary = {
+    pass: flags.filter((flag) => flag.severity === "pass").length,
+    warn: flags.filter((flag) => flag.severity === "warn").length,
+    fail: flags.filter((flag) => flag.severity === "fail").length,
+  };
+
+  return {
+    overall_status: summary.fail > 0 ? "fail" : summary.warn > 0 ? "warn" : "pass",
+    flags,
+    summary,
+  };
 }
 
 function buildNormalizationReview(input: {
@@ -378,9 +1045,18 @@ function deriveRootCause(input: {
   flags: string[];
   selfRiskSignals: SelfRiskSignals;
   inputQuality: LegalCoreRiskLevel;
+  lawBasisReview: DeterministicLawBasisReviewResult;
 }): ReviewRootCause {
   if (input.flags.some((flag) => flag.startsWith("normalization_"))) {
     return "normalization_issue";
+  }
+
+  if (
+    input.lawBasisReview.flags.some(
+      (flag) => flag.severity !== "pass" && flag.code !== "unresolved_explicit_citation_used_as_basis",
+    )
+  ) {
+    return "law_basis_issue";
   }
 
   if (
@@ -432,8 +1108,13 @@ function deriveFixTarget(input: { rootCause: ReviewRootCause; flags: string[] })
 function deriveReviewConfidence(input: {
   flags: string[];
   selfRiskSignals: SelfRiskSignals;
+  lawBasisReview: DeterministicLawBasisReviewResult;
 }): LegalCoreAnswerConfidence {
   if (input.flags.some((flag) => flag.startsWith("normalization_"))) {
+    return "high";
+  }
+
+  if (input.lawBasisReview.summary.fail > 0 || input.lawBasisReview.summary.warn > 0) {
     return "high";
   }
 
@@ -724,6 +1405,7 @@ export function buildDeterministicAIQualityReviewSnapshot(input: {
   requestPayloadJson?: Record<string, unknown> | null;
   responsePayloadJson?: Record<string, unknown> | null;
   usageToday?: AIQualityReviewUsageSnapshot;
+  reviewContext?: DeterministicLawBasisReviewContext | null;
 }, dependencies: {
   getRuntimeEnv: typeof getAIQualityReviewRuntimeEnv;
 } = {
@@ -752,14 +1434,28 @@ export function buildDeterministicAIQualityReviewSnapshot(input: {
     future_review_reason_codes: readStringArray(responsePayloadJson, "future_review_reason_codes"),
   };
   const normalizationCheck = buildNormalizationReview({ requestPayloadJson });
+  const lawBasisReview = buildDeterministicLawBasisReviewResult({
+    requestPayloadJson,
+    responsePayloadJson,
+    reviewContext: input.reviewContext ?? null,
+  });
+  const lawBasisFlags = lawBasisReview.flags
+    .filter((flag) => flag.severity !== "pass")
+    .map((flag) => flag.code);
   const flags = Array.from(
-    new Set([...selfRiskSignals.future_review_flags, ...normalizationCheck.flags]),
+    new Set([...selfRiskSignals.future_review_flags, ...normalizationCheck.flags, ...lawBasisFlags]),
   );
   const inputQuality = deriveInputQuality(requestPayloadJson);
+  const derivedLawBasisRiskLevel = deriveLawBasisReviewRiskLevel(lawBasisReview);
+  const mergedDeterministicRiskLevel = maxRiskLevel(
+    selfRiskSignals.future_review_priority,
+    derivedLawBasisRiskLevel,
+  );
   const rootCause = deriveRootCause({
     flags,
     selfRiskSignals,
     inputQuality,
+    lawBasisReview,
   });
   const fixTarget = deriveFixTarget({
     rootCause,
@@ -768,6 +1464,7 @@ export function buildDeterministicAIQualityReviewSnapshot(input: {
   const confidence = deriveReviewConfidence({
     flags,
     selfRiskSignals,
+    lawBasisReview,
   });
   const queueForSuperAdmin =
     controls.mode === "full" &&
@@ -798,6 +1495,9 @@ export function buildDeterministicAIQualityReviewSnapshot(input: {
   const reviewItems = Array.from(
     new Set([
       ...normalizationCheck.reviewItems,
+      ...lawBasisReview.flags
+        .filter((flag) => flag.severity !== "pass")
+        .map((flag) => flag.short_reason),
       ...selfRiskSignals.future_review_reason_codes.map(
         (reasonCode) => `Self-risk signal from legal core: ${reasonCode}.`,
       ),
@@ -814,11 +1514,11 @@ export function buildDeterministicAIQualityReviewSnapshot(input: {
     },
     queue_for_super_admin: queueForSuperAdmin,
     quality_score: deriveQualityScore({
-      riskLevel: selfRiskSignals.future_review_priority,
+      riskLevel: mergedDeterministicRiskLevel,
       flags,
       queueForSuperAdmin,
     }),
-    risk_level: selfRiskSignals.future_review_priority,
+    risk_level: mergedDeterministicRiskLevel,
     confidence,
     flags,
     review_items: reviewItems,
@@ -831,6 +1531,7 @@ export function buildDeterministicAIQualityReviewSnapshot(input: {
       deterministic_checks: {
         status: "completed",
         normalization_review: normalizationCheck.review,
+        law_basis_review: lawBasisReview,
         checks: reviewItems,
       },
       ai_reviewer: {

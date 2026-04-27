@@ -115,6 +115,69 @@ Post-MVP. Не входит в MVP.
 - `AI reviewer`
 - self-risk сигналов из шага `16`
 
+## Текущий implemented checkpoint по `17.1a`
+
+`17.1a` реализован как первый deterministic review kernel.
+
+Это именно internal review layer:
+
+- без AI reviewer как обязательного ядра
+- без review UI
+- без Prisma/schema changes
+- без queue workflow как обязательного runtime-path
+- без public assistant actions
+- без изменения production answer generation
+- без изменения runtime `Step 16`
+
+Что уже делает `17.1a`:
+
+- строит structured deterministic review result по legal grounding snapshot
+- возвращает `overall_status: pass | warn | fail`
+- возвращает structured flags с:
+  - `code`
+  - `severity`
+  - `short_reason`
+  - compact `evidence`
+- возвращает summary по `pass / warn / fail`
+
+Источник данных для `17.1a`:
+
+- `raw_input`
+- `normalized_input`
+- `selected_norm_roles`
+- `direct_basis_status`
+- `primary_basis_eligibility`
+- selected `LawFamily`
+- `NormBundle / projection diagnostics`
+- explicit citation diagnostics, если они уже есть в snapshot
+- scenario expectation context, если review запускается в internal test-run
+
+Реализованные deterministic flags первого slice:
+
+- `missing_primary_basis_norm`
+- `law_family_mismatch`
+- `weak_direct_basis`
+- `sanction_or_exception_used_as_primary`
+- `missing_required_companion_context`
+- `unresolved_explicit_citation_used_as_basis`
+
+Важно:
+
+- `missing_required_companion_context` делает `fail` только в activated scenario/test-run context
+- duplicate companion, покрытый через `duplicate_of_primary_excerpt`, не считается missing companion
+- deterministic kernel пока не делает broad semantic review итогового ответа
+
+Что остаётся future после `17.1a`:
+
+- broad `answer_claim_exceeds_selected_norms`
+- `explicit_citation_ignored`
+- `explicit_citation_misresolved`
+- `semantic_search_overrode_explicit_citation`
+- `answer_ignores_exception`
+- `answer_ignores_article_note`
+- `cross_reference_unresolved`
+- `normalization_changed_meaning` как отдельный расширенный review lane beyond current bootstrap semantics
+
 ## `law_basis_issue`
 
 В шаге `17` должен быть отдельный класс проблем `law_basis_issue`.

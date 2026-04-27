@@ -276,6 +276,7 @@
 - учитывать `server_id + law_version` как обязательный review-контекст
 - в future expansion проверять не только `selected norms`, но и ошибки `NormBundle / companion context`, не подменяя `AI Legal Core`
 - в future expansion проверять citation-related flags, не превращая шаг `17` в citation resolver
+- зафиксировать `17.1a` как implemented deterministic review kernel для `law-basis / grounding issues` без изменения runtime `Step 16`
 
 Границы:
 
