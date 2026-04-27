@@ -511,6 +511,260 @@ function hasHint(segment: ArticleSegment, hint: ArticleSegmentRelationHint) {
   return segment.relationHints.includes(hint);
 }
 
+function hasAttorneyRequestPrimaryContext(input: { plan: LegalQueryPlan; lawFamily: LawFamily | null }) {
+  return input.lawFamily === "advocacy_law" && input.plan.legal_anchors.includes("attorney_request");
+}
+
+function buildSegmentSearchText(segment: ArticleSegment) {
+  return normalizeText(segment.text);
+}
+
+function hasDeadlineAnswerSignal(segment: ArticleSegment) {
+  const text = buildSegmentSearchText(segment);
+
+  return hasNormalizedKeyword(text, [
+    "должны дать",
+    "дать на него ответ",
+    "ответ в течение",
+    "срок ответа",
+    "календарного дня",
+    "в течение",
+  ]);
+}
+
+function hasRefusalGroundSignal(segment: ArticleSegment) {
+  const text = buildSegmentSearchText(segment);
+
+  return hasNormalizedKeyword(text, [
+    "может быть отказано",
+    "не располагает",
+    "тайна",
+    "основания отказа",
+    "отказано",
+  ]);
+}
+
+function hasConsequenceSignal(segment: ArticleSegment) {
+  const text = buildSegmentSearchText(segment);
+
+  return hasNormalizedKeyword(text, [
+    "влекут ответственность",
+    "влечет ответственность",
+    "нарушение сроков",
+    "неправомерный отказ",
+    "ответственность",
+  ]);
+}
+
+function requiresMaterialRetentionContext(segment: ArticleSegment) {
+  const text = buildSegmentSearchText(segment);
+
+  return hasNormalizedKeyword(text, [
+    "срок давности",
+    "уничтож",
+    "не вправе уничтожать",
+    "видеозаписи",
+    "аудиозаписи",
+  ]);
+}
+
+function requiresSubordinateNotificationContext(segment: ArticleSegment) {
+  const text = buildSegmentSearchText(segment);
+
+  return hasNormalizedKeyword(text, ["руководител", "подчиненн", "уведом"]);
+}
+
+function requiresOgpCaseFileContext(segment: ArticleSegment) {
+  const text = buildSegmentSearchText(segment);
+
+  return hasNormalizedKeyword(text, [
+    "делопроизводств",
+    "офиса генерального прокурора",
+    "судебное разбирательство",
+    "ходатайств",
+  ]);
+}
+
+function hasMaterialRetentionContext(plan: LegalQueryPlan) {
+  const normalizedInput = normalizeText(plan.normalized_input);
+
+  return hasEvidenceSignal(plan) || hasNormalizedKeyword(normalizedInput, [
+    "срок давности",
+    "уничтож",
+    "хранен",
+    "видеозап",
+    "аудиозап",
+    "материал",
+  ]);
+}
+
+function hasSubordinateNotificationContext(plan: LegalQueryPlan) {
+  const normalizedInput = normalizeText(plan.normalized_input);
+
+  return hasNormalizedKeyword(normalizedInput, ["руководител", "подчиненн", "уведом"]);
+}
+
+function hasOgpCaseFileContext(plan: LegalQueryPlan) {
+  const normalizedInput = normalizeText(plan.normalized_input);
+
+  return hasNormalizedKeyword(normalizedInput, [
+    "огп",
+    "генерального прокурора",
+    "делопроизводств",
+    "материал дела",
+    "ходатайств",
+  ]);
+}
+
+function inferAttorneyRequestExclusionReason(input: {
+  segment: ArticleSegment;
+  plan: LegalQueryPlan;
+}) {
+  if (requiresMaterialRetentionContext(input.segment) && !hasMaterialRetentionContext(input.plan)) {
+    return "article_segment_requires_material_retention_context";
+  }
+
+  if (
+    requiresSubordinateNotificationContext(input.segment) &&
+    !hasSubordinateNotificationContext(input.plan)
+  ) {
+    return "article_segment_requires_subordinate_notification_context";
+  }
+
+  if (requiresOgpCaseFileContext(input.segment) && !hasOgpCaseFileContext(input.plan)) {
+    return "article_segment_requires_ogp_case_file_context";
+  }
+
+  if (
+    input.plan.primaryLegalIssueType === "deadline_question" &&
+    (hasHint(input.segment, "procedure") || hasHint(input.segment, "deadline")) &&
+    !hasDeadlineAnswerSignal(input.segment)
+  ) {
+    return "article_segment_procedure_not_relevant_for_deadline";
+  }
+
+  return "article_segment_not_relevant_for_issue";
+}
+
+function inferAttorneyRequestSegmentRelation(input: {
+  segment: ArticleSegment;
+  plan: LegalQueryPlan;
+}):
+  | {
+      relationType: Exclude<NormBundleRelationType, "primary" | "unresolved_reference">;
+      relationReason: string;
+      priority: number;
+      shouldIncludeInGenerationContext: boolean;
+    }
+  | {
+      exclusionReason: string;
+    } {
+  const isDeadlineQuestion = input.plan.primaryLegalIssueType === "deadline_question";
+  const isRefusalQuestion =
+    input.plan.primaryLegalIssueType === "refusal_question" ||
+    input.plan.secondaryLegalIssueTypes.includes("refusal_question");
+  const isSanctionQuestion =
+    input.plan.primaryLegalIssueType === "sanction_question" ||
+    input.plan.secondaryLegalIssueTypes.includes("sanction_question");
+  const hasNoResponseContext =
+    isRefusalQuestion &&
+    hasNormalizedKeyword(normalizeText(input.plan.normalized_input), [
+      "не ответ",
+      "нарушение срока",
+      "неисполн",
+      "неправомерный отказ",
+      "ответственност",
+    ]);
+
+  if (input.segment.segmentType === "note") {
+    if (hasProcedureSignal(input.plan) || hasEvidenceSignal(input.plan)) {
+      return {
+        relationType: "article_note",
+        relationReason: "article_segment_note_relevant",
+        priority: 18,
+        shouldIncludeInGenerationContext: false,
+      };
+    }
+
+    return { exclusionReason: inferAttorneyRequestExclusionReason(input) };
+  }
+
+  if (hasConsequenceSignal(input.segment)) {
+    if (isSanctionQuestion || hasNoResponseContext || hasViolationOrSanctionSignal(input.plan)) {
+      return {
+        relationType: "sanction_companion",
+        relationReason: "article_segment_consequence_signal",
+        priority: 45,
+        shouldIncludeInGenerationContext: false,
+      };
+    }
+
+    return { exclusionReason: inferAttorneyRequestExclusionReason(input) };
+  }
+
+  if (hasRefusalGroundSignal(input.segment)) {
+    if (isRefusalQuestion || (isSanctionQuestion && hasNoResponseContext)) {
+      return {
+        relationType: "exception",
+        relationReason: "article_segment_refusal_ground_signal",
+        priority: 42,
+        shouldIncludeInGenerationContext: false,
+      };
+    }
+
+    return { exclusionReason: inferAttorneyRequestExclusionReason(input) };
+  }
+
+  if (hasDeadlineAnswerSignal(input.segment)) {
+    if (isDeadlineQuestion) {
+      return {
+        relationType: "procedure_companion",
+        relationReason: "article_segment_deadline_answer_signal",
+        priority: 40,
+        shouldIncludeInGenerationContext: false,
+      };
+    }
+
+    if (isRefusalQuestion && (hasTimingSignal(input.plan) || hasNoResponseContext)) {
+      return {
+        relationType: "procedure_companion",
+        relationReason: "article_segment_relevant_to_no_response",
+        priority: 38,
+        shouldIncludeInGenerationContext: false,
+      };
+    }
+
+    if (isSanctionQuestion) {
+      return {
+        relationType: "procedure_companion",
+        relationReason: "article_segment_deadline_answer_signal",
+        priority: 34,
+        shouldIncludeInGenerationContext: false,
+      };
+    }
+
+    if (hasProcedureSignal(input.plan)) {
+      return {
+        relationType: "procedure_companion",
+        relationReason: "article_segment_deadline_answer_signal",
+        priority: 34,
+        shouldIncludeInGenerationContext: false,
+      };
+    }
+  }
+
+  if (hasHint(input.segment, "evidence") && hasMaterialRetentionContext(input.plan)) {
+    return {
+      relationType: "evidence_companion",
+      relationReason: "article_segment_evidence_signal",
+      priority: 38,
+      shouldIncludeInGenerationContext: false,
+    };
+  }
+
+  return { exclusionReason: inferAttorneyRequestExclusionReason(input) };
+}
+
 function inferArticleSegmentRelation(input: {
   segment: ArticleSegment;
   plan: LegalQueryPlan;
@@ -522,9 +776,15 @@ function inferArticleSegmentRelation(input: {
       priority: number;
       shouldIncludeInGenerationContext: boolean;
     }
+  | {
+      exclusionReason: string;
+    }
   | null {
-  if (input.segment.segmentType === "article_heading") {
-    return null;
+  if (hasAttorneyRequestPrimaryContext({ plan: input.plan, lawFamily: input.lawFamily })) {
+    return inferAttorneyRequestSegmentRelation({
+      segment: input.segment,
+      plan: input.plan,
+    });
   }
 
   if (input.segment.segmentType === "note") {
@@ -537,7 +797,9 @@ function inferArticleSegmentRelation(input: {
       };
     }
 
-    return null;
+    return {
+      exclusionReason: "article_segment_not_relevant_for_issue",
+    };
   }
 
   if (
@@ -562,7 +824,9 @@ function inferArticleSegmentRelation(input: {
       };
     }
 
-    return null;
+    return {
+      exclusionReason: "article_segment_not_relevant_for_issue",
+    };
   }
 
   if (hasHint(input.segment, "exception")) {
@@ -579,7 +843,9 @@ function inferArticleSegmentRelation(input: {
       };
     }
 
-    return null;
+    return {
+      exclusionReason: "article_segment_not_relevant_for_issue",
+    };
   }
 
   if (
@@ -622,7 +888,9 @@ function inferArticleSegmentRelation(input: {
     };
   }
 
-  return null;
+  return {
+    exclusionReason: "article_segment_not_relevant_for_issue",
+  };
 }
 
 export function buildNormBundle<TCandidate extends CompanionLikeCandidate>(
@@ -700,7 +968,7 @@ export function buildNormBundle<TCandidate extends CompanionLikeCandidate>(
         lawFamily: scoredCandidate?.law_family ?? null,
       });
 
-      if (!relation) {
+      if (!relation || "exclusionReason" in relation) {
         excludedArticleSegments.push({
           law_id: primaryCandidate.lawId,
           law_version: primaryCandidate.lawVersionId,
@@ -708,7 +976,10 @@ export function buildNormBundle<TCandidate extends CompanionLikeCandidate>(
           marker: segment.marker,
           part_number: segment.partNumber,
           relation_type: segment.segmentType === "note" ? "article_note" : "same_article_part",
-          reason_code: "article_segment_not_relevant_for_issue",
+          reason_code:
+            relation && "exclusionReason" in relation
+              ? relation.exclusionReason
+              : "article_segment_not_relevant_for_issue",
         });
         continue;
       }

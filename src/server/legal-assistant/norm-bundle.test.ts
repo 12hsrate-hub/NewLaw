@@ -91,8 +91,11 @@ describe("norm bundle", () => {
         "ч. 1 Адвокат вправе направлять официальный адвокатский запрос (далее - адвокатский запрос).",
         "Примечание: Перед направлением запроса необходимо соблюсти установленный порядок публикации.",
         "ч. 2 Органы и организации должны дать на него ответ в течение одного календарного дня.",
+        "ч. 3 Если запрашиваемые материалы имеют срок давности, они не подлежат уничтожению до представления адвокату.",
         "ч. 4 В предоставлении сведений может быть отказано, если адресат не располагает сведениями.",
         "ч. 5 Неправомерный отказ и нарушение сроков влекут ответственность.",
+        "ч. 6 Руководитель обязан уведомить подчинённого об адвокатском запросе.",
+        "ч. 8 Запрос делопроизводств офиса генерального прокурора не может происходить в рамках адвокатского запроса.",
       ].join("\n"),
       articleNumberNormalized: "5",
       blockOrder: 5,
@@ -189,11 +192,26 @@ describe("norm bundle", () => {
         expect.objectContaining({
           marker: "ч. 2",
           relation_type: "procedure_companion",
+          reason_code: "article_segment_deadline_answer_signal",
         }),
       ]),
     );
-    expect(bundle.bundle_diagnostics.included_article_segments).not.toEqual(
-      expect.arrayContaining([expect.objectContaining({ marker: "ч. 4" })]),
+    expect(bundle.bundle_diagnostics.included_article_segments).toHaveLength(1);
+    expect(bundle.bundle_diagnostics.excluded_article_segments).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          marker: "ч. 3",
+          reason_code: "article_segment_requires_material_retention_context",
+        }),
+        expect.objectContaining({
+          marker: "ч. 6",
+          reason_code: "article_segment_requires_subordinate_notification_context",
+        }),
+        expect.objectContaining({
+          marker: "ч. 8",
+          reason_code: "article_segment_requires_ogp_case_file_context",
+        }),
+      ]),
     );
     expect(bundle.primary_basis_norms).not.toEqual(
       expect.arrayContaining([expect.objectContaining({ law_id: "law-criminal" })]),
@@ -336,8 +354,11 @@ describe("norm bundle", () => {
         "Статья 5. Адвокатский запрос",
         "ч. 1 Адвокат вправе направлять официальный адвокатский запрос (далее - адвокатский запрос).",
         "ч. 2 Органы и организации должны дать на него ответ в течение одного календарного дня.",
+        "ч. 3 Если запрашиваемые материалы имеют срок давности, они не подлежат уничтожению до представления адвокату.",
         "ч. 4 В предоставлении сведений может быть отказано, если адресат не располагает сведениями или информация покрывается тайной.",
         "ч. 5 Неправомерный отказ и нарушение сроков влекут ответственность.",
+        "ч. 6 Руководитель обязан уведомить подчинённого об адвокатском запросе.",
+        "ч. 8 Запрос делопроизводств офиса генерального прокурора не может происходить в рамках адвокатского запроса.",
       ].join("\n"),
       articleNumberNormalized: "5",
       blockOrder: 5,
@@ -390,6 +411,22 @@ describe("norm bundle", () => {
         expect.objectContaining({ marker: "ч. 5", relation_type: "sanction_companion" }),
       ]),
     );
+    expect(bundle.bundle_diagnostics.excluded_article_segments).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          marker: "ч. 3",
+          reason_code: "article_segment_requires_material_retention_context",
+        }),
+        expect.objectContaining({
+          marker: "ч. 6",
+          reason_code: "article_segment_requires_subordinate_notification_context",
+        }),
+        expect.objectContaining({
+          marker: "ч. 8",
+          reason_code: "article_segment_requires_ogp_case_file_context",
+        }),
+      ]),
+    );
   });
 
   it("для sanction_question включает ч. 5 как sanction_companion и не повышает сегменты до primary", () => {
@@ -408,7 +445,11 @@ describe("norm bundle", () => {
       blockText: [
         "Статья 5. Адвокатский запрос",
         "ч. 1 Адвокат вправе направлять официальный адвокатский запрос.",
+        "ч. 2 Органы и организации должны дать на него ответ в течение одного календарного дня.",
+        "ч. 3 Если запрашиваемые материалы имеют срок давности, они не подлежат уничтожению до представления адвокату.",
+        "ч. 4 В предоставлении сведений может быть отказано, если адресат не располагает сведениями.",
         "ч. 5 Неправомерный отказ и нарушение сроков влекут ответственность.",
+        "ч. 6 Руководитель обязан уведомить подчинённого об адвокатском запросе.",
       ].join("\n"),
       articleNumberNormalized: "5",
       blockOrder: 5,
@@ -451,6 +492,14 @@ describe("norm bundle", () => {
       expect.arrayContaining([
         expect.objectContaining({ marker: "ч. 5", relation_type: "sanction_companion" }),
       ]),
+    );
+    expect(bundle.procedure_companions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ marker: "ч. 2", relation_type: "procedure_companion" }),
+      ]),
+    );
+    expect(bundle.bundle_diagnostics.included_article_segments).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ marker: "ч. 3" })]),
     );
     expect(bundle.primary_basis_norms).toEqual([
       expect.objectContaining({
@@ -663,5 +712,73 @@ describe("norm bundle", () => {
     expect(bundle.bundle_diagnostics.included_companions).toEqual([]);
     expect(bundle.bundle_diagnostics.included_article_segments).toEqual([]);
     expect(JSON.stringify(bundle.bundle_diagnostics)).not.toContain("Официальный адвокатский запрос направляется");
+  });
+
+  it("исключает generic procedure-like segment без issue alignment и не меняет selection invariants", () => {
+    const plan = buildLegalQueryPlan({
+      normalizedInput: "какой срок ответа на адвокатский запрос",
+      intent: "law_explanation",
+      actorContext: "general_question",
+      responseMode: "normal",
+      serverId: "server-1",
+    });
+    const advocacyCandidate = createCandidate({
+      lawId: "law-advocacy",
+      lawKey: "advocacy_law",
+      lawTitle: "Закон об адвокатуре и адвокатской деятельности",
+      lawBlockId: "block-advocacy",
+      blockText: [
+        "Статья 5. Адвокатский запрос",
+        "ч. 6 Руководитель обязан уведомить подчинённого об адвокатском запросе.",
+      ].join("\n"),
+      articleNumberNormalized: "5",
+      blockOrder: 5,
+    });
+    const selection = createSelection({
+      scored_candidates: [
+        createScoredCandidate(advocacyCandidate, {
+          law_family: "advocacy_law",
+          norm_role: "primary_basis",
+          applicability_score: 9,
+          primary_basis_eligibility: "eligible",
+          primary_basis_eligibility_reason: "eligible_due_to_attorney_request_primary_rule",
+          matched_anchors: ["attorney_request"],
+        }),
+      ],
+      primary_basis_norms: [advocacyCandidate],
+      selected_norms: [advocacyCandidate],
+      selected_norm_roles: [
+        {
+          server_id: "server-1",
+          law_id: "law-advocacy",
+          law_version: "version-1",
+          law_block_id: "block-advocacy",
+          law_family: "advocacy_law",
+          norm_role: "primary_basis",
+          applicability_score: 9,
+        },
+      ],
+      direct_basis_status: "direct_basis_present",
+    });
+    const originalSelectedNormRoles = JSON.parse(JSON.stringify(selection.selected_norm_roles));
+    const originalDirectBasisStatus = selection.direct_basis_status;
+
+    const bundle = buildNormBundle({
+      plan,
+      selection,
+      retrievalResults: [advocacyCandidate],
+    });
+
+    expect(bundle.procedure_companions).toEqual([]);
+    expect(bundle.bundle_diagnostics.excluded_article_segments).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          marker: "ч. 6",
+          reason_code: "article_segment_requires_subordinate_notification_context",
+        }),
+      ]),
+    );
+    expect(selection.selected_norm_roles).toEqual(originalSelectedNormRoles);
+    expect(selection.direct_basis_status).toBe(originalDirectBasisStatus);
   });
 });
