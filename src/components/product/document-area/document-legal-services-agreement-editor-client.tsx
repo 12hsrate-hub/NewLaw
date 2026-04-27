@@ -4,8 +4,10 @@ import { useMemo, useState, type ReactNode } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { EmbeddedCard } from "@/components/ui/embedded-card";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { Textarea } from "@/components/ui/textarea";
 import {
   createLegalServicesAgreementDraftAction,
@@ -159,9 +161,13 @@ export function LegalServicesAgreementDraftCreateClient(
       </div>
 
       <div className="flex flex-wrap items-center gap-2 text-sm text-[var(--muted)]">
-        <Badge>Сервер: {props.server.name}</Badge>
-        {selectedCharacter ? <Badge>Персонаж: {selectedCharacter.fullName}</Badge> : null}
-        <Badge>{props.trustorRegistry.length > 0 ? "доверитель выбран" : "нужен доверитель"}</Badge>
+        <StatusBadge tone="info">Сервер: {props.server.name}</StatusBadge>
+        {selectedCharacter ? (
+          <StatusBadge tone="neutral">Персонаж: {selectedCharacter.fullName}</StatusBadge>
+        ) : null}
+        <StatusBadge tone={props.trustorRegistry.length > 0 ? "success" : "warning"}>
+          {props.trustorRegistry.length > 0 ? "доверитель выбран" : "нужен доверитель"}
+        </StatusBadge>
       </div>
 
       <Button disabled={props.trustorRegistry.length === 0} type="submit">
@@ -263,10 +269,10 @@ export function LegalServicesAgreementEditorClient(
 
   return (
     <div className="space-y-6">
-      <div className="rounded-2xl border border-[var(--border)] bg-white/60 px-4 py-3 text-sm leading-6 text-[var(--muted)]">
+      <EmbeddedCard className="border-[#5e82ac]/30 bg-[#24384d]/22 px-4 py-3 text-sm leading-6 text-[#b8d1eb]">
         Основной текст договора формируется по утверждённому шаблону. Подписи персонажа и
         доверителя подставляются автоматически по сохранённым данным документа.
-      </div>
+      </EmbeddedCard>
 
       <div className="grid gap-4 md:grid-cols-2">
         <label className="space-y-2 md:col-span-2">
@@ -300,7 +306,7 @@ export function LegalServicesAgreementEditorClient(
         ))}
       </div>
 
-      <section className="space-y-3 rounded-3xl border border-[var(--border)] bg-white/70 p-4">
+      <section className="space-y-3 rounded-3xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4">
         <div className="flex flex-wrap items-center gap-2">
           <h3 className="text-xl font-semibold">Зафиксированный доверитель</h3>
           <Badge>{editorState.payload.trustorSnapshot.fullName}</Badge>
@@ -345,14 +351,14 @@ export function LegalServicesAgreementEditorClient(
         <p className="text-sm leading-6 text-[var(--muted)]">{generationMessage}</p>
       ) : null}
       {generationErrors.length > 0 ? (
-        <div className="rounded-2xl border border-[var(--border)] bg-white/60 px-4 py-3 text-sm leading-6 text-[var(--muted)]">
+        <EmbeddedCard className="border-[#b78739]/30 bg-[#7a5822]/18 px-4 py-3 text-sm leading-6 text-[#f0d4a0]">
           {generationErrors.map((reason) => (
             <p key={reason}>{reason}</p>
           ))}
-        </div>
+        </EmbeddedCard>
       ) : null}
 
-      <section className="space-y-3 rounded-3xl border border-[var(--border)] bg-white/70 p-4">
+      <section className="space-y-3 rounded-3xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4">
         <div className="flex flex-wrap items-center gap-2">
           <h3 className="text-xl font-semibold">Результат генерации</h3>
           {generatedAt ? <Badge>{new Date(generatedAt).toLocaleString("ru-RU")}</Badge> : null}
@@ -372,7 +378,7 @@ export function LegalServicesAgreementEditorClient(
               ))}
             </div>
             <div
-              className="overflow-x-auto rounded-2xl border border-[var(--border)] bg-white p-4 text-sm leading-6"
+              className="overflow-x-auto rounded-2xl border border-[var(--border)] bg-[var(--surface-raised)] p-4 text-sm leading-6"
               dangerouslySetInnerHTML={{ __html: generatedArtifact.previewHtml }}
             />
           </div>

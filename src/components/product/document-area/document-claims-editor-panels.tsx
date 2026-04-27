@@ -53,7 +53,7 @@ export function ClaimsEditorPreviewPanels(props: {
 }) {
   return (
     <>
-      <div className="space-y-4 rounded-3xl border border-[var(--border)] bg-white/70 p-4">
+      <div className="space-y-4 rounded-3xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4">
         <div className="space-y-1">
           <h3 className="text-lg font-semibold">Сведения о сборке</h3>
           <ClaimsFieldHint>
@@ -91,7 +91,7 @@ export function ClaimsEditorPreviewPanels(props: {
         </ul>
       </div>
 
-      <div className="space-y-4 rounded-3xl border border-[var(--border)] bg-white/70 p-4">
+      <div className="space-y-4 rounded-3xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4">
         <div className="space-y-1">
           <h3 className="text-lg font-semibold">Предпросмотр документа</h3>
           <ClaimsFieldHint>Здесь показывается текст, который будет использован в итоговой версии документа.</ClaimsFieldHint>
@@ -99,7 +99,10 @@ export function ClaimsEditorPreviewPanels(props: {
         {props.previewState ? (
           <div className="space-y-4">
             {props.previewState.sections.map((section) => (
-              <div className="space-y-2 rounded-2xl border border-[var(--border)] bg-white/80 p-4" key={section.key}>
+              <div
+                className="space-y-2 rounded-2xl border border-[var(--border)] bg-[var(--surface-raised)] p-4"
+                key={section.key}
+              >
                 <h4 className="text-sm font-semibold text-[var(--foreground)]">{section.title}</h4>
                 <pre className="whitespace-pre-wrap text-sm leading-6 text-[var(--muted)]">{section.body}</pre>
               </div>
@@ -112,7 +115,7 @@ export function ClaimsEditorPreviewPanels(props: {
         )}
       </div>
 
-      <div className="space-y-4 rounded-3xl border border-[var(--border)] bg-white/70 p-4">
+      <div className="space-y-4 rounded-3xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4">
         <div className="space-y-1">
           <h3 className="text-lg font-semibold">Текст для копирования</h3>
           <ClaimsFieldHint>Этот текст можно использовать для просмотра и дальнейшей ручной работы с документом.</ClaimsFieldHint>

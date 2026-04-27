@@ -92,7 +92,7 @@ function GenerationChecklistSection(props: {
   }
 
   return (
-    <div className="space-y-2 rounded-2xl border border-[var(--border)] bg-white/80 p-4">
+    <div className="space-y-2 rounded-2xl border border-[var(--border)] bg-[var(--surface-raised)] p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h4 className="text-sm font-semibold text-[var(--foreground)]">{props.title}</h4>
         {props.href && props.hrefLabel ? (
@@ -143,7 +143,10 @@ function EvidenceItemsEditor(props: {
       ) : null}
 
       {items.map((item, itemIndex) => (
-        <div className="space-y-4 rounded-3xl border border-[var(--border)] bg-white/70 p-4" key={item.id}>
+        <div
+          className="space-y-4 rounded-3xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4"
+          key={item.id}
+        >
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="space-y-1">
               <p className="text-sm font-medium text-[var(--foreground)]">
@@ -302,7 +305,7 @@ function ComplaintFormFields(props: {
         ) : null}
       </div>
 
-      <div className="rounded-3xl border border-[var(--border)] bg-white/70 p-4 text-sm leading-6 text-[var(--muted)]">
+      <div className="rounded-3xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4 text-sm leading-6 text-[var(--muted)]">
         <p>Сервер и персонаж уже показаны явно. Персонаж: {props.characterLabel}.</p>
         {!props.profileComplete ? (
           <p className="mt-2 text-[var(--accent)]">
@@ -504,7 +507,10 @@ function ComplaintFormFields(props: {
       </div>
 
       {payload.filingMode === "representative" ? (
-        <div className="space-y-4 rounded-3xl border border-[var(--border)] bg-white/70 p-4" id="trustor-snapshot-section">
+        <div
+          className="space-y-4 rounded-3xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4"
+          id="trustor-snapshot-section"
+        >
           <div className="space-y-1">
             <h3 className="text-lg font-semibold">Данные доверителя</h3>
             <ComplaintFieldHint>
@@ -695,7 +701,10 @@ function ComplaintFormFields(props: {
         </div>
       ) : null}
 
-      <div className="space-y-4 rounded-3xl border border-[var(--border)] bg-white/70 p-4" id="evidence-links-section">
+      <div
+        className="space-y-4 rounded-3xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4"
+        id="evidence-links-section"
+      >
         <div className="space-y-1">
           <h3 className="text-lg font-semibold">Доказательства</h3>
           <ComplaintFieldHint>
@@ -1904,7 +1913,7 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
       {saveMessage ? <p className="text-sm text-[var(--muted)]">{saveMessage}</p> : null}
       {generationMessage ? <p className="text-sm text-[var(--muted)]">{generationMessage}</p> : null}
 
-      <div className="space-y-4 rounded-3xl border border-[var(--border)] bg-white/70 p-4">
+      <div className="space-y-4 rounded-3xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4">
         <div className="space-y-1">
           <h3 className="text-lg font-semibold">Проверка перед генерацией</h3>
           <ComplaintFieldHint>
@@ -1919,7 +1928,7 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
           </span>
         </p>
         {persistedGenerationBlockState.readyState === "generation_ready" ? (
-          <div className="rounded-2xl border border-[var(--border)] bg-white/80 p-4 text-sm leading-6 text-[var(--muted)]">
+          <div className="rounded-2xl border border-[#4a8a68]/30 bg-[#4a8a68]/15 p-4 text-sm leading-6 text-[#9ed8b3]">
             Сохранённые данные готовы к генерации. Генератор возьмёт данные персонажа,
             доверителя и жалобы из текущего документа.
           </div>
@@ -1930,7 +1939,7 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
           issues={persistedGenerationBlockState.characterIssues}
           title="Что исправить в профиле персонажа"
         />
-        <div className="rounded-2xl border border-[var(--border)] bg-white/80 p-4 text-sm leading-6 text-[var(--muted)]">
+        <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-raised)] p-4 text-sm leading-6 text-[var(--muted)]">
           <p>
             Если профиль персонажа уже исправлен в личном кабинете, обновите данные профиля в
             этой жалобе. Генератор всё равно будет использовать только данные, сохранённые в документе.
@@ -1975,7 +1984,7 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
         />
       </div>
 
-      <div className="space-y-4 rounded-3xl border border-[var(--border)] bg-white/70 p-4">
+      <div className="space-y-4 rounded-3xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4">
         <div className="space-y-1">
           <h3 className="text-lg font-semibold">Сведения о сборке</h3>
           <ComplaintFieldHint>
@@ -2005,7 +2014,7 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
         </ul>
       </div>
 
-      <div className="space-y-4 rounded-3xl border border-[var(--border)] bg-white/70 p-4">
+      <div className="space-y-4 rounded-3xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="space-y-1">
             <h3 className="text-lg font-semibold">Готовый текст для форума</h3>
@@ -2033,14 +2042,14 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
         />
       </div>
 
-      <div className="space-y-4 rounded-3xl border border-[var(--border)] bg-white/70 p-4">
+      <div className="space-y-4 rounded-3xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4">
         <div className="space-y-1">
           <h3 className="text-lg font-semibold">Публикация на форуме</h3>
           <ComplaintFieldHint>
             Здесь можно сохранить ссылку на тему форума или опубликовать жалобу через подключение форума.
           </ComplaintFieldHint>
         </div>
-        <div className="rounded-2xl border border-[var(--border)] bg-white/80 px-4 py-3 text-sm leading-6 text-[var(--muted)]">
+        <div className="rounded-2xl border border-[#5e82ac]/30 bg-[#24384d]/22 px-4 py-3 text-sm leading-6 text-[#b8d1eb]">
           <p>
             Подключение форума:{" "}
             <span className="font-medium text-[var(--foreground)]">
@@ -2062,13 +2071,13 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
             </span>
           </p>
           {props.forumConnection.lastValidationError ? (
-            <p className="mt-2 text-[#8a2d1d]">
+            <p className="mt-2 text-[#f2b8ad]">
               Подключение требует повторной проверки в настройках аккаунта.
             </p>
           ) : null}
           <p className="mt-2">Подключение форума управляется в настройках аккаунта.</p>
         </div>
-        <div className="rounded-2xl border border-[var(--border)] bg-white/80 px-4 py-3 text-sm leading-6 text-[var(--muted)]">
+        <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-raised)] px-4 py-3 text-sm leading-6 text-[var(--muted)]">
           <p>
             Готовность к публикации:{" "}
             <span className="font-medium text-[var(--foreground)]">
@@ -2098,7 +2107,7 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
             </span>
           </p>
           {generationState.forumLastSyncError ? (
-            <p className="mt-2 text-[#8a2d1d]">
+            <p className="mt-2 text-[#f2b8ad]">
               Не удалось подтвердить последнюю публикацию. Проверьте подключение форума и попробуйте ещё раз.
             </p>
           ) : null}

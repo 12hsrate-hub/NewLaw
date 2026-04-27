@@ -7,7 +7,9 @@ import Link from "next/link";
 import type { TrustorRegistryPrefillOption } from "@/lib/trustors/registry-prefill";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { EmbeddedCard } from "@/components/ui/embedded-card";
 import { Select } from "@/components/ui/select";
+import { StatusBadge } from "@/components/ui/status-badge";
 
 export function DocumentTrustorRegistryPrefill(props: {
   items: TrustorRegistryPrefillOption[];
@@ -21,23 +23,23 @@ export function DocumentTrustorRegistryPrefill(props: {
 
   if (!props.items.length) {
     return (
-      <div className="space-y-2 rounded-2xl border border-dashed border-[var(--border)] bg-white/60 p-4">
+      <EmbeddedCard className="space-y-2 border-dashed bg-[var(--surface-embedded)]">
         <p className="text-sm leading-6 text-[var(--muted)]">
           На этом сервере пока нет сохранённых доверителей. Можно заполнить данные доверителя
           вручную прямо в документе.
         </p>
         <Link
-          className="inline-flex items-center rounded-2xl border border-[var(--border)] bg-white/70 px-4 py-2 text-sm font-medium transition hover:bg-white"
+          className="inline-flex items-center rounded-2xl border border-[var(--border)] bg-[var(--surface-subtle)] px-4 py-2 text-sm font-medium transition hover:bg-[var(--surface-hover)]"
           href={manageHref}
         >
           Открыть список доверителей
         </Link>
-      </div>
+      </EmbeddedCard>
     );
   }
 
   return (
-    <div className="space-y-3 rounded-2xl border border-[var(--border)] bg-white/60 p-4">
+    <EmbeddedCard className="space-y-3">
       <div className="space-y-1">
         <h4 className="text-sm font-semibold">Подставить доверителя из списка</h4>
         <p className="text-sm leading-6 text-[var(--muted)]">
@@ -79,7 +81,7 @@ export function DocumentTrustorRegistryPrefill(props: {
           Подставить в документ
         </Button>
         <Link
-          className="inline-flex items-center rounded-2xl border border-[var(--border)] bg-white/70 px-4 py-2 text-sm font-medium transition hover:bg-white"
+          className="inline-flex items-center rounded-2xl border border-[var(--border)] bg-[var(--surface-subtle)] px-4 py-2 text-sm font-medium transition hover:bg-[var(--surface-hover)]"
           href={manageHref}
         >
           Открыть список
@@ -87,14 +89,14 @@ export function DocumentTrustorRegistryPrefill(props: {
       </div>
 
       {selectedTrustor ? (
-        <div className="space-y-2 rounded-2xl border border-[var(--border)] bg-white/80 p-4 text-sm leading-6 text-[var(--muted)]">
+        <EmbeddedCard className="space-y-2 bg-[var(--surface-subtle)] text-sm leading-6 text-[var(--muted)]">
           <div className="flex flex-wrap items-center gap-2">
             <Badge>{selectedTrustor.fullName}</Badge>
-            <Badge className="bg-white/70 text-[var(--foreground)]">
+            <StatusBadge tone={selectedTrustor.isRepresentativeReady ? "success" : "warning"}>
               {selectedTrustor.isRepresentativeReady
                 ? "Готов для подачи через представителя"
                 : "Нужны обязательные поля"}
-            </Badge>
+            </StatusBadge>
           </div>
           <p>
             Паспорт:{" "}
@@ -134,8 +136,8 @@ export function DocumentTrustorRegistryPrefill(props: {
               </span>
             </p>
           ) : null}
-        </div>
+        </EmbeddedCard>
       ) : null}
-    </div>
+    </EmbeddedCard>
   );
 }

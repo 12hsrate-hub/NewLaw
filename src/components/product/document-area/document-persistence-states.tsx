@@ -1,8 +1,9 @@
-import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
+import { AccessBlockedCard } from "@/components/product/foundation/access-blocked-card";
+import { EmptyStateCard } from "@/components/product/foundation/empty-state-card";
+import { EmbeddedCard } from "@/components/ui/embedded-card";
+import { StatusBadge } from "@/components/ui/status-badge";
 
 import {
-  DocumentLink,
   formatDocumentStatus,
 } from "@/components/product/document-area/document-persistence-shared";
 
@@ -19,31 +20,21 @@ export function OwnedDocumentUnavailableState(props: {
   const familyLabel = props.familyLabel ?? "сохранённым документам";
 
   return (
-    <div className="space-y-6">
-      <Card className="space-y-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">
-            Документ
-          </p>
-          <Badge>только для владельца</Badge>
-        </div>
-        <h1 className="text-3xl font-semibold">Документ недоступен</h1>
-        <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
-          Не удалось открыть документ. Он не найден на этом сервере или недоступен для текущего
-          аккаунта.
-        </p>
-        <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
-          Ваши данные не удалены. Можно вернуться к списку документов и открыть другой черновик
-          или готовый документ.
-        </p>
-        <div className="flex flex-wrap gap-3">
-          <DocumentLink href={familyHref}>
-            Вернуться к {familyLabel}
-          </DocumentLink>
-          <DocumentLink href="/account/documents">Открыть общий обзор документов</DocumentLink>
-        </div>
-      </Card>
-    </div>
+    <AccessBlockedCard
+      badges={[`Сервер: ${props.server.name}`, "Только для владельца"]}
+      description="Не удалось открыть документ. Он не найден на этом сервере или недоступен для текущего аккаунта."
+      eyebrow="Документ"
+      helperText="Ваши данные не удалены. Можно вернуться к списку документов и открыть другой черновик или готовый документ."
+      primaryAction={{
+        href: familyHref,
+        label: `Вернуться к ${familyLabel}`,
+      }}
+      secondaryAction={{
+        href: "/account/documents",
+        label: "Открыть общий обзор документов",
+      }}
+      title="Документ недоступен"
+    />
   );
 }
 
@@ -65,34 +56,32 @@ export function InvalidDocumentDataState(props: {
 }) {
   return (
     <div className="space-y-6">
-      <Card className="space-y-3">
+      <EmptyStateCard
+        badges={["Требует восстановления", `Статус: ${formatDocumentStatus(props.document.status)}`]}
+        description="Не удалось безопасно прочитать данные этого документа. Сам документ не удалён, но его содержимое требует проверки или восстановления."
+        eyebrow="Документ"
+        helperText="Попробуйте открыть другой документ или вернуться позже. Если проблема повторяется, понадобится помощь администратора."
+        primaryAction={{
+          href: props.familyHref,
+          label: `Вернуться к ${props.familyLabel}`,
+        }}
+        secondaryAction={{
+          href: "/account/documents",
+          label: "Открыть общий обзор документов",
+        }}
+        title={props.document.title}
+      />
+
+      <EmbeddedCard className="space-y-3">
         <div className="flex flex-wrap items-center gap-2">
-          <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">
-            Документ
-          </p>
-          <Badge className="bg-[#f6d6d0] text-[#8a2d1d]">Требует восстановления</Badge>
+          <StatusBadge tone="warning">Требует восстановления</StatusBadge>
         </div>
-        <h1 className="text-3xl font-semibold">{props.document.title}</h1>
-        <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
-          Не удалось безопасно прочитать данные этого документа. Сам документ не удалён, но его
-          содержимое требует проверки или восстановления.
-        </p>
         <div className="space-y-1 text-sm leading-6 text-[var(--muted)]">
           <p>Статус: {formatDocumentStatus(props.document.status)}.</p>
           <p>Сохранено: {new Date(props.document.snapshotCapturedAt).toLocaleString("ru-RU")}.</p>
           <p>Последнее обновление: {new Date(props.document.updatedAt).toLocaleString("ru-RU")}.</p>
         </div>
-        <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
-          Попробуйте открыть другой документ или вернуться позже. Если проблема повторяется,
-          понадобится помощь администратора.
-        </p>
-        <div className="flex flex-wrap gap-3">
-          <DocumentLink href={props.familyHref}>
-            Вернуться к {props.familyLabel}
-          </DocumentLink>
-          <DocumentLink href="/account/documents">Открыть общий обзор документов</DocumentLink>
-        </div>
-      </Card>
+      </EmbeddedCard>
     </div>
   );
 }

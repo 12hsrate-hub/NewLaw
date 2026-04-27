@@ -1,5 +1,10 @@
+import { AccessBlockedCard } from "@/components/product/foundation/access-blocked-card";
+import { EmptyStateCard } from "@/components/product/foundation/empty-state-card";
+import { WorkspaceCard } from "@/components/product/foundation/workspace-card";
 import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
+import { EmbeddedCard } from "@/components/ui/embedded-card";
+import { SectionHeader } from "@/components/ui/section-header";
+import { StatusBadge } from "@/components/ui/status-badge";
 import {
   buildDocumentEditorHref,
   getDocumentFamilyLabel,
@@ -29,52 +34,61 @@ function PersistedDocumentList(props: {
 }) {
   if (props.documents.length === 0) {
     return (
-      <Card className="space-y-3">
-        <h2 className="text-2xl font-semibold">Пока нет документов</h2>
-        <p className="text-sm leading-6 text-[var(--muted)]">
-          Созданные черновики и собранные документы появятся здесь.
-        </p>
-      </Card>
+      <EmptyStateCard
+        description="Созданные черновики и собранные документы появятся здесь."
+        title="Пока нет документов"
+      />
     );
   }
 
   return (
     <div className="space-y-4">
       {props.documents.map((document) => (
-        <Card className="space-y-4" key={document.id}>
-          <div className="space-y-2">
-            <div className="flex flex-wrap items-center gap-2">
+        <WorkspaceCard
+          actions={[
+            {
+              href: buildDocumentEditorHref({
+                serverCode: document.server.code,
+                documentId: document.id,
+                documentType: document.documentType,
+              }),
+              label: getDocumentOpenActionLabel(document.documentType),
+            },
+          ]}
+          description={`Персонаж: ${document.authorSnapshot.fullName}, паспорт ${document.authorSnapshot.passportNumber}. Данные сохранены: ${new Date(document.snapshotCapturedAt).toLocaleString("ru-RU")}.`}
+          eyebrow="Документ"
+          key={document.id}
+          meta={
+            <>
               <Badge>{getDocumentFamilyLabel(document.documentType)}</Badge>
               {formatDocumentSubtype(document.documentType) ? (
                 <Badge>{formatDocumentSubtype(document.documentType)}</Badge>
               ) : (
                 <Badge>{getDocumentTypeLabel(document.documentType)}</Badge>
               )}
-              <Badge>{formatDocumentStatus(document.status)}</Badge>
+              <StatusBadge tone="info">{formatDocumentStatus(document.status)}</StatusBadge>
               {document.dataHealth === "invalid_payload" ? (
-                <Badge className="bg-[#f6d6d0] text-[#8a2d1d]">Требует восстановления</Badge>
+                <StatusBadge tone="warning">Требует восстановления</StatusBadge>
               ) : null}
               {document.documentType === "ogp_complaint" && formatForumSyncState(document.forumSyncState) ? (
-                <Badge>Форум: {formatForumSyncState(document.forumSyncState)}</Badge>
+                <StatusBadge tone="neutral">Форум: {formatForumSyncState(document.forumSyncState)}</StatusBadge>
               ) : null}
               {formatFilingMode(document.filingMode) ? (
-                <Badge>Подача: {formatFilingMode(document.filingMode)}</Badge>
+                <StatusBadge tone="neutral">Подача: {formatFilingMode(document.filingMode)}</StatusBadge>
               ) : null}
               <span className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
                 {document.server.name}
               </span>
-            </div>
-            <h3 className="text-xl font-semibold">{document.title}</h3>
-            <p className="text-sm leading-6 text-[var(--muted)]">
-              Персонаж: {document.authorSnapshot.fullName}, паспорт{" "}
-              {document.authorSnapshot.passportNumber}. Данные сохранены:{" "}
-              {new Date(document.snapshotCapturedAt).toLocaleString("ru-RU")}.
-            </p>
+            </>
+          }
+          title={document.title}
+        >
+          <div className="space-y-2">
             {document.dataHealth === "invalid_payload" ? (
-              <p className="text-sm leading-6 text-[#8a2d1d]">
+              <EmbeddedCard className="border-[rgba(184,135,57,0.3)] bg-[rgba(122,88,34,0.18)] text-[#f0d4a0]">
                 Документ требует восстановления данных. Карточка открыта в безопасном режиме, часть
                 полей скрыта до ручной проверки.
-              </p>
+              </EmbeddedCard>
             ) : null}
             {document.documentType === "ogp_complaint" &&
             document.dataHealth === "ok" &&
@@ -119,9 +133,9 @@ function PersistedDocumentList(props: {
               </p>
             ) : null}
             {document.documentType === "ogp_complaint" && document.forumLastSyncError ? (
-              <p className="text-sm leading-6 text-[#8a2d1d]">
+              <EmbeddedCard className="border-[rgba(200,112,92,0.35)] bg-[rgba(116,48,33,0.2)] text-[#f2b8ad]">
                 Не удалось подтвердить последнюю публикацию. Проверьте ссылку и попробуйте ещё раз.
-              </p>
+              </EmbeddedCard>
             ) : null}
             {document.workingNotesPreview ? (
               <p className="text-sm leading-6 text-[var(--muted)]">
@@ -129,18 +143,7 @@ function PersistedDocumentList(props: {
               </p>
             ) : null}
           </div>
-          <div className="flex flex-wrap gap-3">
-            <DocumentLink
-              href={buildDocumentEditorHref({
-                serverCode: document.server.code,
-                documentId: document.id,
-                documentType: document.documentType,
-              })}
-            >
-              {getDocumentOpenActionLabel(document.documentType)}
-            </DocumentLink>
-          </div>
-        </Card>
+        </WorkspaceCard>
       ))}
     </div>
   );
@@ -152,24 +155,24 @@ export function AccountDocumentsPersistedOverview(props: {
 }) {
   return (
     <div className="space-y-6">
-      <Card className="space-y-3">
-        <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">
-          Документы
-        </p>
-        <h1 className="text-3xl font-semibold">Мои документы</h1>
-        <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
-          Здесь собраны ваши сохранённые документы по всем серверам. Создание и редактирование
-          открываются из раздела конкретного сервера.
-        </p>
-      </Card>
+      <EmbeddedCard className="space-y-3">
+        <SectionHeader
+          description="Здесь собраны ваши сохранённые документы по всем серверам. Создание и редактирование открываются из раздела конкретного сервера."
+          eyebrow="Документы"
+          title="Мои документы"
+        />
+      </EmbeddedCard>
 
       <PersistedDocumentList documents={props.documents} />
 
-      <Card className="space-y-4">
-        <h2 className="text-2xl font-semibold">Документы по серверам</h2>
+      <WorkspaceCard
+        description="Откройте нужный сервер, чтобы перейти к документам этого рабочего контекста."
+        eyebrow="Навигация"
+        title="Документы по серверам"
+      >
         <div className="grid gap-4 md:grid-cols-2">
           {props.servers.map((server) => (
-            <Card className="space-y-3" key={server.id}>
+            <EmbeddedCard className="space-y-3" key={server.id}>
               <div className="space-y-2">
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge>{server.name}</Badge>
@@ -188,10 +191,41 @@ export function AccountDocumentsPersistedOverview(props: {
                   Открыть документы сервера
                 </DocumentLink>
               </div>
-            </Card>
+            </EmbeddedCard>
           ))}
         </div>
-      </Card>
+      </WorkspaceCard>
+    </div>
+  );
+}
+
+function buildFamilyMeta(props: {
+  serverName: string;
+  selectedCharacter:
+    | {
+        fullName: string;
+        passportNumber: string;
+        source: "last_used" | "first_available";
+      }
+    | null;
+  extra?: string | null;
+  unavailableLabel?: string;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-2 text-sm leading-6 text-[var(--muted)]">
+      <StatusBadge tone="warning">Сервер: {props.serverName}</StatusBadge>
+      {props.selectedCharacter ? (
+        <>
+          <StatusBadge tone="warning">Персонаж: {props.selectedCharacter.fullName}</StatusBadge>
+          <span>
+            Выбор:{" "}
+            {props.selectedCharacter.source === "last_used" ? "последний использованный" : "первый доступный"}
+          </span>
+        </>
+      ) : (
+        <StatusBadge tone="neutral">{props.unavailableLabel ?? "Создание недоступно: на сервере нет персонажей"}</StatusBadge>
+      )}
+      {props.extra ? <span>{props.extra}</span> : null}
     </div>
   );
 }
@@ -213,51 +247,39 @@ export function OgpComplaintFamilyPersistedList(props: {
 }) {
   return (
     <div className="space-y-6">
-      <Card className="space-y-3">
-        <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">
-          Жалобы в ОГП
-        </p>
-        <h1 className="text-3xl font-semibold">Жалобы в ОГП</h1>
-        <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
-          Здесь отображаются сохранённые жалобы в ОГП на выбранном сервере.
-        </p>
-        <div className="flex flex-wrap items-center gap-2 text-sm leading-6 text-[var(--muted)]">
-          <Badge>Сервер: {props.server.name}</Badge>
-          {props.selectedCharacter ? (
-            <>
-              <Badge>Персонаж: {props.selectedCharacter.fullName}</Badge>
-              <span>
-                Выбор:{" "}
-                {props.selectedCharacter.source === "last_used" ? "последний использованный" : "первый доступный"}
-              </span>
-              <span>
-                Может подавать как представитель: {props.selectedCharacter.canUseRepresentative ? "да" : "нет"}
-              </span>
-            </>
-          ) : (
-            <Badge>Создание недоступно: на сервере нет персонажей</Badge>
-          )}
-        </div>
-        <div className="flex flex-wrap gap-3">
-          {props.canCreateDocuments ? (
-            <DocumentLink href={`/servers/${props.server.code}/documents/ogp-complaints/new`}>
-              Создать черновик
-            </DocumentLink>
-          ) : null}
-          <DocumentLink href={`/servers/${props.server.code}/documents`}>
-            Вернуться к документам сервера
-          </DocumentLink>
-        </div>
-      </Card>
+      <WorkspaceCard
+        actions={[
+          ...(props.canCreateDocuments
+            ? [
+                {
+                  href: `/servers/${props.server.code}/documents/ogp-complaints/new`,
+                  label: "Создать черновик",
+                },
+              ]
+            : []),
+          {
+            href: `/servers/${props.server.code}/documents`,
+            label: "Вернуться к документам сервера",
+          },
+        ]}
+        description="Здесь отображаются сохранённые жалобы в ОГП на выбранном сервере."
+        eyebrow="Жалобы в ОГП"
+        meta={buildFamilyMeta({
+          serverName: props.server.name,
+          selectedCharacter: props.selectedCharacter,
+          extra: props.selectedCharacter
+            ? `Может подавать как представитель: ${props.selectedCharacter.canUseRepresentative ? "да" : "нет"}`
+            : null,
+        })}
+        title="Жалобы в ОГП"
+      />
 
       {!props.canCreateDocuments ? (
-        <Card className="space-y-3">
-          <h2 className="text-2xl font-semibold">Создание временно недоступно</h2>
-          <p className="text-sm leading-6 text-[var(--muted)]">
-            На сервере сейчас нет доступных персонажей, поэтому новую жалобу создать нельзя.
-            Уже сохранённые черновики остаются доступны.
-          </p>
-        </Card>
+        <AccessBlockedCard
+          description="На сервере сейчас нет доступных персонажей, поэтому новую жалобу создать нельзя."
+          helperText="Уже сохранённые черновики остаются доступны."
+          title="Создание временно недоступно"
+        />
       ) : null}
 
       <PersistedDocumentList documents={props.documents} />
@@ -283,49 +305,37 @@ export function AttorneyRequestFamilyPersistedList(props: {
 }) {
   return (
     <div className="space-y-6">
-      <Card className="space-y-3">
-        <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">
-          Адвокатские запросы
-        </p>
-        <h1 className="text-3xl font-semibold">Адвокатские запросы</h1>
-        <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
-          Здесь отображаются сохранённые адвокатские запросы на выбранном сервере. Каждый
-          запрос фиксируется за конкретным доверителем при первом сохранении.
-        </p>
-        <div className="flex flex-wrap items-center gap-2 text-sm leading-6 text-[var(--muted)]">
-          <Badge>Сервер: {props.server.name}</Badge>
-          {props.selectedCharacter ? (
-            <>
-              <Badge>Персонаж: {props.selectedCharacter.fullName}</Badge>
-              <span>
-                Роль адвоката: {props.selectedCharacter.canCreateAttorneyRequest ? "есть" : "нет"}
-              </span>
-            </>
-          ) : (
-            <Badge>Создание недоступно: на сервере нет персонажей</Badge>
-          )}
-          <span>Доверителей на сервере: {props.trustorRegistry.length}</span>
-        </div>
-        <div className="flex flex-wrap gap-3">
-          {props.canCreateDocuments ? (
-            <DocumentLink href={`/servers/${props.server.code}/documents/attorney-requests/new`}>
-              Создать адвокатский запрос
-            </DocumentLink>
-          ) : null}
-          <DocumentLink href={`/servers/${props.server.code}/documents`}>
-            Вернуться к документам сервера
-          </DocumentLink>
-        </div>
-      </Card>
+      <WorkspaceCard
+        actions={[
+          ...(props.canCreateDocuments
+            ? [
+                {
+                  href: `/servers/${props.server.code}/documents/attorney-requests/new`,
+                  label: "Создать адвокатский запрос",
+                },
+              ]
+            : []),
+          {
+            href: `/servers/${props.server.code}/documents`,
+            label: "Вернуться к документам сервера",
+          },
+        ]}
+        description="Здесь отображаются сохранённые адвокатские запросы на выбранном сервере. Каждый запрос фиксируется за конкретным доверителем при первом сохранении."
+        eyebrow="Адвокатские запросы"
+        meta={buildFamilyMeta({
+          serverName: props.server.name,
+          selectedCharacter: props.selectedCharacter,
+          extra: `${props.selectedCharacter ? `Роль адвоката: ${props.selectedCharacter.canCreateAttorneyRequest ? "есть" : "нет"}. ` : ""}Доверителей на сервере: ${props.trustorRegistry.length}`,
+        })}
+        title="Адвокатские запросы"
+      />
 
       {!props.canCreateDocuments ? (
-        <Card className="space-y-3">
-          <h2 className="text-2xl font-semibold">Создание пока недоступно</h2>
-          <p className="text-sm leading-6 text-[var(--muted)]">
-            Для создания нужен персонаж с ролью адвоката и хотя бы один доверитель на этом
-            сервере. Сохранённые запросы при этом остаются доступны.
-          </p>
-        </Card>
+        <AccessBlockedCard
+          description="Для создания нужен персонаж с ролью адвоката и хотя бы один доверитель на этом сервере."
+          helperText="Сохранённые запросы при этом остаются доступны."
+          title="Создание пока недоступно"
+        />
       ) : null}
 
       <PersistedDocumentList documents={props.documents} />
@@ -351,46 +361,37 @@ export function LegalServicesAgreementFamilyPersistedList(props: {
 }) {
   return (
     <div className="space-y-6">
-      <Card className="space-y-3">
-        <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">
-          Договоры на оказание юридических услуг
-        </p>
-        <h1 className="text-3xl font-semibold">Договоры на оказание юридических услуг</h1>
-        <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
-          Здесь отображаются сохранённые договоры. После заполнения данных можно собрать готовые
-          страницы договора для проверки и скачивания.
-        </p>
-        <div className="flex flex-wrap items-center gap-2 text-sm leading-6 text-[var(--muted)]">
-          <Badge>Сервер: {props.server.name}</Badge>
-          {props.selectedCharacter ? (
-            <>
-              <Badge>Персонаж: {props.selectedCharacter.fullName}</Badge>
-            </>
-          ) : (
-            <Badge>Создание недоступно: на сервере нет персонажей</Badge>
-          )}
-          <span>Доверителей на сервере: {props.trustorRegistry.length}</span>
-        </div>
-        <div className="flex flex-wrap gap-3">
-          {props.canCreateDocuments ? (
-            <DocumentLink href={`/servers/${props.server.code}/documents/legal-services-agreements/new`}>
-              Создать договор
-            </DocumentLink>
-          ) : null}
-          <DocumentLink href={`/servers/${props.server.code}/documents`}>
-            Вернуться к документам сервера
-          </DocumentLink>
-        </div>
-      </Card>
+      <WorkspaceCard
+        actions={[
+          ...(props.canCreateDocuments
+            ? [
+                {
+                  href: `/servers/${props.server.code}/documents/legal-services-agreements/new`,
+                  label: "Создать договор",
+                },
+              ]
+            : []),
+          {
+            href: `/servers/${props.server.code}/documents`,
+            label: "Вернуться к документам сервера",
+          },
+        ]}
+        description="Здесь отображаются сохранённые договоры. После заполнения данных можно собрать готовые страницы договора для проверки и скачивания."
+        eyebrow="Договоры на оказание юридических услуг"
+        meta={buildFamilyMeta({
+          serverName: props.server.name,
+          selectedCharacter: props.selectedCharacter,
+          extra: `Доверителей на сервере: ${props.trustorRegistry.length}`,
+        })}
+        title="Договоры на оказание юридических услуг"
+      />
 
       {!props.canCreateDocuments ? (
-        <Card className="space-y-3">
-          <h2 className="text-2xl font-semibold">Создание пока недоступно</h2>
-          <p className="text-sm leading-6 text-[var(--muted)]">
-            Для создания нужен хотя бы один персонаж и хотя бы один доверитель на этом сервере.
-            Уже сохранённые договоры остаются доступны.
-          </p>
-        </Card>
+        <AccessBlockedCard
+          description="Для создания нужен хотя бы один персонаж и хотя бы один доверитель на этом сервере."
+          helperText="Уже сохранённые договоры остаются доступны."
+          title="Создание пока недоступно"
+        />
       ) : null}
 
       <PersistedDocumentList documents={props.documents} />
@@ -414,47 +415,37 @@ export function ClaimsFamilyPersistedList(props: {
 }) {
   return (
     <div className="space-y-6">
-      <Card className="space-y-3">
-        <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">Иски</p>
-        <h1 className="text-3xl font-semibold">Иски</h1>
-        <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
-          Здесь отображаются сохранённые документы из раздела исков. Вид документа выбирается при
-          создании черновика и дальше уже не меняется автоматически.
-        </p>
-        <div className="flex flex-wrap items-center gap-2 text-sm leading-6 text-[var(--muted)]">
-          <Badge>Сервер: {props.server.name}</Badge>
-          {props.selectedCharacter ? (
-            <>
-              <Badge>Персонаж: {props.selectedCharacter.fullName}</Badge>
-              <span>
-                Сейчас выбран{" "}
-                {props.selectedCharacter.source === "last_used" ? "последний использованный" : "первый доступный"} персонаж
-              </span>
-            </>
-          ) : (
-            <Badge>Создание недоступно: на сервере нет персонажей</Badge>
-          )}
-        </div>
-        <div className="flex flex-wrap gap-3">
-          {props.canCreateDocuments ? (
-            <DocumentLink href={`/servers/${props.server.code}/documents/claims/new`}>
-              Создать черновик
-            </DocumentLink>
-          ) : null}
-          <DocumentLink href={`/servers/${props.server.code}/documents`}>
-            Вернуться к документам сервера
-          </DocumentLink>
-        </div>
-      </Card>
+      <WorkspaceCard
+        actions={[
+          ...(props.canCreateDocuments
+            ? [
+                {
+                  href: `/servers/${props.server.code}/documents/claims/new`,
+                  label: "Создать черновик",
+                },
+              ]
+            : []),
+          {
+            href: `/servers/${props.server.code}/documents`,
+            label: "Вернуться к документам сервера",
+          },
+        ]}
+        description="Здесь отображаются сохранённые документы из раздела исков. Вид документа выбирается при создании черновика и дальше уже не меняется автоматически."
+        eyebrow="Иски"
+        meta={buildFamilyMeta({
+          serverName: props.server.name,
+          selectedCharacter: props.selectedCharacter,
+          unavailableLabel: "Создание недоступно: на сервере нет персонажей",
+        })}
+        title="Иски"
+      />
 
       {!props.canCreateDocuments ? (
-        <Card className="space-y-3">
-          <h2 className="text-2xl font-semibold">Создание временно недоступно</h2>
-          <p className="text-sm leading-6 text-[var(--muted)]">
-            На сервере сейчас нет доступных персонажей, поэтому новый документ из раздела исков
-            создать нельзя. Уже сохранённые черновики при этом остаются доступны.
-          </p>
-        </Card>
+        <AccessBlockedCard
+          description="На сервере сейчас нет доступных персонажей, поэтому новый документ из раздела исков создать нельзя."
+          helperText="Уже сохранённые черновики при этом остаются доступны."
+          title="Создание временно недоступно"
+        />
       ) : null}
 
       <PersistedDocumentList documents={props.documents} />

@@ -46,7 +46,10 @@ function EvidenceGroupsEditor(props: {
       ) : null}
 
       {groups.map((group, groupIndex) => (
-        <div className="space-y-4 rounded-3xl border border-[var(--border)] bg-white/70 p-4" key={group.id}>
+        <div
+          className="space-y-4 rounded-3xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4"
+          key={group.id}
+        >
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="space-y-1">
               <p className="text-sm font-medium text-[var(--foreground)]">Группа доказательств {groupIndex + 1}</p>
@@ -85,7 +88,10 @@ function EvidenceGroupsEditor(props: {
 
           <div className="space-y-3">
             {group.rows.map((row, rowIndex) => (
-              <div className="space-y-3 rounded-2xl border border-[var(--border)] bg-white/80 p-4" key={row.id}>
+              <div
+                className="space-y-3 rounded-2xl border border-[var(--border)] bg-[var(--surface-raised)] p-4"
+                key={row.id}
+              >
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <p className="text-sm font-medium text-[var(--foreground)]">Ссылка {rowIndex + 1}</p>
                   <Button
@@ -257,7 +263,7 @@ export function ClaimsFormFields(props: {
         {props.draftStatusLabel ? <Badge>Статус: {props.draftStatusLabel}</Badge> : null}
       </div>
 
-      <div className="rounded-3xl border border-[var(--border)] bg-white/70 p-4 text-sm leading-6 text-[var(--muted)]">
+      <div className="rounded-3xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4 text-sm leading-6 text-[var(--muted)]">
         <p>Сервер и персонаж уже показаны явно. Персонаж: {props.characterLabel}.</p>
         {!props.profileComplete ? (
           <p className="mt-2 text-[var(--accent)]">
@@ -363,7 +369,7 @@ export function ClaimsFormFields(props: {
       </div>
 
       {props.documentType === "rehabilitation" ? (
-        <div className="space-y-4 rounded-3xl border border-[var(--border)] bg-white/70 p-4">
+        <div className="space-y-4 rounded-3xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4">
           <div className="space-y-1">
             <h3 className="text-lg font-semibold">Поля для реабилитации</h3>
             <ClaimsFieldHint>
@@ -444,7 +450,7 @@ export function ClaimsFormFields(props: {
           </div>
         </div>
       ) : (
-        <div className="space-y-4 rounded-3xl border border-[var(--border)] bg-white/70 p-4">
+        <div className="space-y-4 rounded-3xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4">
           <div className="space-y-1">
             <h3 className="text-lg font-semibold">Поля для искового заявления</h3>
             <ClaimsFieldHint>
@@ -617,7 +623,7 @@ export function ClaimsFormFields(props: {
       </div>
 
       {payload.filingMode === "representative" ? (
-        <div className="space-y-4 rounded-3xl border border-[var(--border)] bg-white/70 p-4">
+        <div className="space-y-4 rounded-3xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4">
           <div className="space-y-1">
             <h3 className="text-lg font-semibold">Данные доверителя</h3>
             <ClaimsFieldHint>
@@ -713,7 +719,7 @@ export function ClaimsFormFields(props: {
         </div>
       ) : null}
 
-      <div className="space-y-4 rounded-3xl border border-[var(--border)] bg-white/70 p-4">
+      <div className="space-y-4 rounded-3xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4">
         <div className="space-y-1">
             <h3 className="text-lg font-semibold">Доказательства и ссылки</h3>
             <ClaimsFieldHint>

@@ -1,3 +1,4 @@
+import { EmbeddedCard } from "@/components/ui/embedded-card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -15,7 +16,7 @@ type DocumentFieldRewritePanelProps = {
 
 export function DocumentFieldRewritePanel(props: DocumentFieldRewritePanelProps) {
   return (
-    <div className="space-y-4 rounded-2xl border border-[var(--border)] bg-white/80 p-4">
+    <EmbeddedCard className="space-y-4 p-4">
       <div className="space-y-1">
         <p className="text-sm font-medium text-[var(--foreground)]">
           {props.titlePrefix ?? "Обновлённая формулировка"} для раздела «{props.sectionLabel}»
@@ -54,6 +55,6 @@ export function DocumentFieldRewritePanel(props: DocumentFieldRewritePanelProps)
           Скопировать вариант
         </Button>
       </div>
-    </div>
+    </EmbeddedCard>
   );
 }

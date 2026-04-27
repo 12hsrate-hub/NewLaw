@@ -1,7 +1,8 @@
 "use client";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { EmbeddedCard } from "@/components/ui/embedded-card";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { Textarea } from "@/components/ui/textarea";
 import { resolveComplaintNarrativeReviewStatus } from "@/components/product/document-area/document-ai-review-copy";
 import {
@@ -36,13 +37,13 @@ export function ComplaintNarrativeImprovementPanel(
   });
   const reviewToneClassName =
     reviewStatus.tone === "ready"
-      ? "bg-[rgba(32,99,69,0.08)]"
+      ? "border-[#4a8a68]/30 bg-[#4a8a68]/15 text-[#9ed8b3]"
       : reviewStatus.tone === "rework"
-        ? "bg-[rgba(141,79,49,0.12)]"
-        : "bg-[rgba(141,79,49,0.08)]";
+        ? "border-[#b78739]/30 bg-[#b78739]/18 text-[#f0d4a0]"
+        : "border-[#b78739]/24 bg-[#7a5822]/16 text-[#ecd6ac]";
 
   return (
-    <div className="space-y-4 rounded-2xl border border-[var(--border)] bg-white/80 p-4">
+    <EmbeddedCard className="space-y-4 p-4">
       <div className="space-y-1">
         <p className="text-sm font-medium text-[var(--foreground)]">Предложенный улучшенный текст</p>
         <p className="text-xs leading-5 text-[var(--muted)]">
@@ -55,7 +56,7 @@ export function ComplaintNarrativeImprovementPanel(
       </div>
 
       <div
-        className={`space-y-1 rounded-2xl border border-[var(--border)] p-3 text-sm leading-6 text-[var(--foreground)] ${reviewToneClassName}`}
+        className={`space-y-1 rounded-2xl border p-3 text-sm leading-6 ${reviewToneClassName}`}
       >
         <p className="font-medium">{reviewStatus.title}</p>
         <p>{reviewStatus.description}</p>
@@ -113,7 +114,9 @@ export function ComplaintNarrativeImprovementPanel(
           <p className="text-sm font-medium text-[var(--foreground)]">На что обратить внимание</p>
           <div className="flex flex-wrap gap-2">
             {suggestion.riskFlags.map((flag) => (
-              <Badge key={flag}>{formatComplaintNarrativeRiskFlagLabel(flag)}</Badge>
+              <StatusBadge key={flag} tone="warning">
+                {formatComplaintNarrativeRiskFlagLabel(flag)}
+              </StatusBadge>
             ))}
           </div>
         </div>
@@ -150,6 +153,6 @@ export function ComplaintNarrativeImprovementPanel(
           Скопировать вариант
         </Button>
       </div>
-    </div>
+    </EmbeddedCard>
   );
 }

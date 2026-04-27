@@ -4,8 +4,10 @@ import { useMemo, useState, type ReactNode } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { EmbeddedCard } from "@/components/ui/embedded-card";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { Textarea } from "@/components/ui/textarea";
 import {
   attorneyRequestAddresseePresetKeys,
@@ -178,21 +180,27 @@ export function AttorneyRequestDraftCreateClient(props: AttorneyRequestCreateCli
       </div>
 
       <div className="flex flex-wrap items-center gap-2 text-sm text-[var(--muted)]">
-        <Badge>Сервер: {props.server.name}</Badge>
+        <StatusBadge tone="info">Сервер: {props.server.name}</StatusBadge>
         {selectedCharacter ? (
-          <Badge>{selectedCharacter.canCreateAttorneyRequest ? "роль адвоката есть" : "нет роли адвоката"}</Badge>
+          <StatusBadge tone={selectedCharacter.canCreateAttorneyRequest ? "success" : "warning"}>
+            {selectedCharacter.canCreateAttorneyRequest ? "роль адвоката есть" : "нет роли адвоката"}
+          </StatusBadge>
         ) : null}
-        <Badge>{props.trustorRegistry.length > 0 ? "доверитель выбран" : "нужен доверитель"}</Badge>
+        <StatusBadge tone={props.trustorRegistry.length > 0 ? "success" : "warning"}>
+          {props.trustorRegistry.length > 0 ? "доверитель выбран" : "нужен доверитель"}
+        </StatusBadge>
         {selectedCharacter ? (
-          <Badge>{selectedCharacter.hasActiveSignature ? "подпись загружена" : "подпись не загружена"}</Badge>
+          <StatusBadge tone={selectedCharacter.hasActiveSignature ? "success" : "warning"}>
+            {selectedCharacter.hasActiveSignature ? "подпись загружена" : "подпись не загружена"}
+          </StatusBadge>
         ) : null}
       </div>
 
       {selectedCharacter && !selectedCharacter.hasActiveSignature ? (
-        <div className="rounded-2xl border border-[var(--border)] bg-white/60 px-4 py-3 text-sm leading-6 text-[var(--muted)]">
+        <EmbeddedCard className="border-[#b78739]/30 bg-[#7a5822]/18 px-4 py-3 text-sm leading-6 text-[#f0d4a0]">
           У выбранного персонажа не загружена подпись. Черновик можно создать, но финальная
           генерация документа будет недоступна.
-        </div>
+        </EmbeddedCard>
       ) : null}
 
       <Button
@@ -286,10 +294,10 @@ export function AttorneyRequestEditorClient(props: AttorneyRequestEditorClientPr
   return (
     <div className="space-y-6">
       {!props.hasSignatureSnapshot && !props.hasActiveCharacterSignature ? (
-        <div className="rounded-2xl border border-[var(--border)] bg-white/60 px-4 py-3 text-sm leading-6 text-[var(--muted)]">
+        <EmbeddedCard className="border-[#b78739]/30 bg-[#7a5822]/18 px-4 py-3 text-sm leading-6 text-[#f0d4a0]">
           У выбранного персонажа не загружена подпись. Черновик можно редактировать и сохранять,
           но финальная генерация документа будет недоступна.
-        </div>
+        </EmbeddedCard>
       ) : null}
 
       <div className="grid gap-4 md:grid-cols-2">
@@ -382,7 +390,7 @@ export function AttorneyRequestEditorClient(props: AttorneyRequestEditorClientPr
         </div>
       </div>
 
-      <section className="space-y-3 rounded-3xl border border-[var(--border)] bg-white/70 p-4">
+      <section className="space-y-3 rounded-3xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4">
         <div className="flex flex-wrap items-center gap-2">
           <h3 className="text-xl font-semibold">Раздел 1</h3>
           <Badge>предзаполнен, можно редактировать</Badge>
@@ -398,7 +406,7 @@ export function AttorneyRequestEditorClient(props: AttorneyRequestEditorClientPr
         ))}
       </section>
 
-      <section className="space-y-3 rounded-3xl border border-[var(--border)] bg-white/70 p-4">
+      <section className="space-y-3 rounded-3xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4">
         <div className="flex flex-wrap items-center gap-2">
           <h3 className="text-xl font-semibold">Раздел 2</h3>
           <Badge>автоматически</Badge>
@@ -408,7 +416,7 @@ export function AttorneyRequestEditorClient(props: AttorneyRequestEditorClientPr
         </p>
       </section>
 
-      <section className="space-y-3 rounded-3xl border border-[var(--border)] bg-white/70 p-4">
+      <section className="space-y-3 rounded-3xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4">
         <div className="flex flex-wrap items-center gap-2">
           <h3 className="text-xl font-semibold">Раздел 3</h3>
           <Badge>предзаполнен, можно редактировать</Badge>
@@ -420,7 +428,7 @@ export function AttorneyRequestEditorClient(props: AttorneyRequestEditorClientPr
         <FieldHint>Выбранный адресат: {formatPresetLabel(editorState.payload.addresseePreset)}.</FieldHint>
       </section>
 
-      <section className="space-y-3 rounded-3xl border border-[var(--border)] bg-white/70 p-4">
+      <section className="space-y-3 rounded-3xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4">
         <div className="flex flex-wrap items-center gap-2">
           <h3 className="text-xl font-semibold">Раздел 4</h3>
           <Badge>автоматически</Badge>
@@ -455,7 +463,7 @@ export function AttorneyRequestEditorClient(props: AttorneyRequestEditorClientPr
         <p className="text-sm leading-6 text-[var(--muted)]">{generationMessage}</p>
       ) : null}
 
-      <section className="space-y-3 rounded-3xl border border-[var(--border)] bg-white/70 p-4">
+      <section className="space-y-3 rounded-3xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4">
         <div className="flex flex-wrap items-center gap-2">
           <h3 className="text-xl font-semibold">Результат генерации</h3>
           {generatedAt ? <Badge>{new Date(generatedAt).toLocaleString("ru-RU")}</Badge> : null}
@@ -463,26 +471,26 @@ export function AttorneyRequestEditorClient(props: AttorneyRequestEditorClientPr
         {generatedArtifact ? (
           <div className="space-y-3">
             <div
-              className="rounded-2xl border border-[var(--border)] bg-white p-4 text-sm leading-6"
+              className="rounded-2xl border border-[var(--border)] bg-[var(--surface-raised)] p-4 text-sm leading-6"
               dangerouslySetInnerHTML={{ __html: generatedArtifact.previewHtml }}
             />
             <div className="flex flex-wrap gap-3">
               <a
-                className="inline-flex rounded-2xl border border-[var(--border)] bg-white/80 px-4 py-2.5 text-sm font-medium"
+                className="inline-flex rounded-2xl border border-[var(--border)] bg-[var(--surface-embedded)] px-4 py-2.5 text-sm font-medium text-[var(--foreground)] transition hover:bg-[var(--surface-subtle)]"
                 download="attorney-request.pdf"
                 href={generatedArtifact.pdfDataUrl}
               >
                 Скачать PDF
               </a>
               <a
-                className="inline-flex rounded-2xl border border-[var(--border)] bg-white/80 px-4 py-2.5 text-sm font-medium"
+                className="inline-flex rounded-2xl border border-[var(--border)] bg-[var(--surface-embedded)] px-4 py-2.5 text-sm font-medium text-[var(--foreground)] transition hover:bg-[var(--surface-subtle)]"
                 download="attorney-request.png"
                 href={generatedArtifact.pngDataUrl}
               >
                 Скачать PNG
               </a>
               <a
-                className="inline-flex rounded-2xl border border-[var(--border)] bg-white/80 px-4 py-2.5 text-sm font-medium"
+                className="inline-flex rounded-2xl border border-[var(--border)] bg-[var(--surface-embedded)] px-4 py-2.5 text-sm font-medium text-[var(--foreground)] transition hover:bg-[var(--surface-subtle)]"
                 download="attorney-request.jpg"
                 href={generatedArtifact.jpgDataUrl}
               >
