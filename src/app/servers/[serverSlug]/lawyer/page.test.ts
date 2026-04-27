@@ -55,6 +55,7 @@ describe("/servers/[serverSlug]/lawyer page", () => {
       },
       compatibilityHrefs: {
         trustorsHref: "/account/trustors?server=blackberry",
+        trustorCreateHref: "/account/trustors?server=blackberry#create-trustor-blackberry",
         charactersHref: "/account/characters?server=blackberry",
         attorneyRequestsHref: "/servers/blackberry/documents/attorney-requests",
         attorneyRequestCreateHref: "/servers/blackberry/documents/attorney-requests/new",

@@ -8,7 +8,9 @@ export type HomeDashboardContext = {
   };
   quickActions: {
     assistantHref: string;
-    documentsHref: string | null;
+    documentsHref: string;
+    documentsHelperText: string | null;
+    lawyerWorkspaceHref: string | null;
     serversHref: string;
     accountHref: string;
     internalHref: string | null;
@@ -29,6 +31,9 @@ export type HomeDashboardContext = {
     account: {
       href: string;
     };
+    lawyer: {
+      href: string;
+    } | null;
     internal: {
       href: string;
     } | null;
@@ -153,6 +158,7 @@ export async function getHomeDashboardContext(input: {
     (activeServerContext.workspaceCapabilities?.canOpenDocumentsWorkspace ?? true);
   const documentsHref =
     activeServerSlug && canOpenDocuments ? `/servers/${activeServerSlug}/documents` : null;
+  const lawyerWorkspaceHref = shellContext.navigation.lawyerWorkspaceHref;
 
   return {
     activeServer: {
@@ -161,7 +167,11 @@ export async function getHomeDashboardContext(input: {
     },
     quickActions: {
       assistantHref: "/assistant",
-      documentsHref,
+      documentsHref: documentsHref ?? "/servers",
+      documentsHelperText: documentsHref
+        ? null
+        : "Сначала выберите сервер, чтобы открыть документы.",
+      lawyerWorkspaceHref,
       serversHref: "/servers",
       accountHref: "/account",
       internalHref: shellContext.navigation.internalHref,
@@ -182,6 +192,11 @@ export async function getHomeDashboardContext(input: {
       account: {
         href: "/account",
       },
+      lawyer: lawyerWorkspaceHref
+        ? {
+            href: lawyerWorkspaceHref,
+          }
+        : null,
       internal: shellContext.navigation.internalHref
         ? {
             href: shellContext.navigation.internalHref,

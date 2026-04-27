@@ -39,6 +39,7 @@ type LawyerWorkspaceSelectedCharacterSummary = {
 
 type LawyerWorkspaceCompatibilityHrefs = {
   trustorsHref: string;
+  trustorCreateHref: string;
   charactersHref: string;
   attorneyRequestsHref: string;
   attorneyRequestCreateHref: string;
@@ -145,6 +146,7 @@ function buildCompatibilityHrefs(server: {
 }): LawyerWorkspaceCompatibilityHrefs {
   return {
     trustorsHref: buildAccountTrustorsFocusHref(server.code),
+    trustorCreateHref: `${buildAccountTrustorsFocusHref(server.code)}#create-trustor-${server.code}`,
     charactersHref: buildAccountCharactersFocusHref(server.code),
     attorneyRequestsHref: `/servers/${server.slug}/documents/attorney-requests`,
     attorneyRequestCreateHref: `/servers/${server.slug}/documents/attorney-requests/new`,

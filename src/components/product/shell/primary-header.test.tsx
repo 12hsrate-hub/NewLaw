@@ -41,6 +41,7 @@ describe("primary header", () => {
           },
           navigation: {
             documentsHref: null,
+            lawyerWorkspaceHref: null,
             internalHref: null,
           },
         }}
@@ -91,6 +92,7 @@ describe("primary header", () => {
           },
           navigation: {
             documentsHref: "/servers/blackberry/documents",
+            lawyerWorkspaceHref: "/servers/blackberry/lawyer",
             internalHref: "/internal",
           },
         }}
@@ -106,6 +108,8 @@ describe("primary header", () => {
     expect(html).toContain('name="serverId"');
     expect(html).toContain('value="/account"');
     expect(html).toContain('href="/servers/blackberry/documents"');
+    expect(html).toContain('href="/servers/blackberry/lawyer"');
+    expect(html).toContain("Адвокатский кабинет");
     expect(html).toContain('href="/internal"');
     expect(html).toContain("Служебная зона");
   });
@@ -132,6 +136,7 @@ describe("primary header", () => {
           },
           navigation: {
             documentsHref: null,
+            lawyerWorkspaceHref: null,
             internalHref: null,
           },
         }}

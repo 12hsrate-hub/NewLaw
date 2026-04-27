@@ -9,6 +9,7 @@ describe("primary nav", () => {
       <PrimaryNav
         currentPath="/servers"
         documentsHref="/servers/blackberry/documents"
+        lawyerWorkspaceHref="/servers/blackberry/lawyer"
       />,
     );
 
@@ -19,11 +20,14 @@ describe("primary nav", () => {
     expect(html).toContain('href="/account"');
     expect(html).toContain('href="/servers/blackberry/documents"');
     expect(html).toContain("Документы");
+    expect(html).toContain('href="/servers/blackberry/lawyer"');
+    expect(html).toContain("Адвокатский кабинет");
   });
 
-  it("не показывает documents link без безопасного server context", () => {
+  it("не показывает documents и lawyer links без безопасного server context", () => {
     const html = renderToStaticMarkup(<PrimaryNav currentPath="/assistant" />);
 
     expect(html).not.toContain(">Документы<");
+    expect(html).not.toContain(">Адвокатский кабинет<");
   });
 });

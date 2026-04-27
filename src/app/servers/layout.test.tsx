@@ -54,6 +54,7 @@ describe("servers layout", () => {
       },
       navigation: {
         documentsHref: "/servers/blackberry/documents",
+        lawyerWorkspaceHref: "/servers/blackberry/lawyer",
         internalHref: null,
       },
     });
@@ -67,6 +68,7 @@ describe("servers layout", () => {
     });
     expect(html).toContain("Lawyer5RP");
     expect(html).toContain('href="/servers/blackberry/documents"');
+    expect(html).toContain('href="/servers/blackberry/lawyer"');
     expect(html).toContain(">Переключить<");
     expect(html).toContain("Servers child");
   });

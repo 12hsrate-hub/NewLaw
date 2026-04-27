@@ -5,6 +5,7 @@ import { cn } from "@/utils/cn";
 type PrimaryNavProps = {
   currentPath: string;
   documentsHref?: string | null;
+  lawyerWorkspaceHref?: string | null;
 };
 
 function isActive(currentPath: string, href: string) {
@@ -18,7 +19,11 @@ function isActive(currentPath: string, href: string) {
 const baseLinkClass =
   "inline-flex items-center justify-center rounded-2xl border px-4 py-2 text-sm font-medium transition";
 
-export function PrimaryNav({ currentPath, documentsHref = null }: PrimaryNavProps) {
+export function PrimaryNav({
+  currentPath,
+  documentsHref = null,
+  lawyerWorkspaceHref = null,
+}: PrimaryNavProps) {
   const items = [
     { href: "/", label: "Главная" },
     { href: "/assistant", label: "Юридический помощник" },
@@ -58,6 +63,20 @@ export function PrimaryNav({ currentPath, documentsHref = null }: PrimaryNavProp
           href={documentsHref}
         >
           Документы
+        </Link>
+      ) : null}
+
+      {lawyerWorkspaceHref ? (
+        <Link
+          className={cn(
+            baseLinkClass,
+            isActive(currentPath, lawyerWorkspaceHref)
+              ? "border-[var(--accent)] bg-[rgba(141,79,49,0.12)] text-[var(--foreground)]"
+              : "border-[var(--border)] bg-white/70 text-[var(--foreground)] hover:bg-white",
+          )}
+          href={lawyerWorkspaceHref}
+        >
+          Адвокатский кабинет
         </Link>
       ) : null}
     </nav>

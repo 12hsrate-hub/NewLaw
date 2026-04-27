@@ -56,6 +56,7 @@ describe("account layout", () => {
       },
       navigation: {
         documentsHref: "/servers/blackberry/documents",
+        lawyerWorkspaceHref: "/servers/blackberry/lawyer",
         internalHref: null,
       },
     });
@@ -88,6 +89,7 @@ describe("account layout", () => {
     expect(html).toContain('href="/account/documents"');
     expect(html).toContain('href="/account/trustors"');
     expect(html).toContain('href="/servers/blackberry/documents"');
+    expect(html).toContain('href="/servers/blackberry/lawyer"');
     expect(html).toContain(">Переключить<");
     expect(html).not.toContain("Кабинет адвоката");
     expect(html).not.toContain("Личный кабинет");
@@ -126,6 +128,7 @@ describe("account layout", () => {
       },
       navigation: {
         documentsHref: "/servers/blackberry/documents",
+        lawyerWorkspaceHref: "/servers/blackberry/lawyer",
         internalHref: "/internal",
       },
     });

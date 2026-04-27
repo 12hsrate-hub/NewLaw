@@ -31,6 +31,7 @@ describe("assistant layout", () => {
       },
       navigation: {
         documentsHref: null,
+        lawyerWorkspaceHref: null,
         internalHref: null,
       },
     });

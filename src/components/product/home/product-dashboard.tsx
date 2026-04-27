@@ -89,8 +89,11 @@ export function ProductDashboard(props: {
           <DashboardLink href={context.quickActions.assistantHref} variant="primary">
             Открыть юридический помощник
           </DashboardLink>
-          {context.quickActions.documentsHref ? (
-            <DashboardLink href={context.quickActions.documentsHref}>Открыть документы</DashboardLink>
+          <DashboardLink href={context.quickActions.documentsHref}>Создать документ</DashboardLink>
+          {context.quickActions.lawyerWorkspaceHref ? (
+            <DashboardLink href={context.quickActions.lawyerWorkspaceHref}>
+              Открыть адвокатский кабинет
+            </DashboardLink>
           ) : null}
           <DashboardLink href={context.quickActions.serversHref}>Открыть серверы</DashboardLink>
           <DashboardLink href={context.quickActions.accountHref}>Открыть настройки аккаунта</DashboardLink>
@@ -98,6 +101,11 @@ export function ProductDashboard(props: {
             <DashboardLink href={context.quickActions.internalHref}>Служебная зона</DashboardLink>
           ) : null}
         </div>
+        {context.quickActions.documentsHelperText ? (
+          <p className="text-sm leading-6 text-[var(--muted)]">
+            {context.quickActions.documentsHelperText}
+          </p>
+        ) : null}
       </Card>
 
       <div className="grid gap-4 lg:grid-cols-2">
@@ -111,11 +119,20 @@ export function ProductDashboard(props: {
 
         <ToolCard
           actionLabel={context.tools.documents.actionLabel}
-          description="Документы открываются в server-scoped модуле. Главная только помогает быстро попасть в нужный раздел."
+          description="Документы открываются по выбранному серверу. Главная только помогает быстро перейти в нужный раздел."
           helperText={context.tools.documents.helperText}
           href={context.tools.documents.href}
           title="Документы"
         />
+
+        {context.tools.lawyer ? (
+          <ToolCard
+            actionLabel="Открыть адвокатский кабинет"
+            description="Доверители, договоры, адвокатские запросы и работа в интересах доверителя."
+            href={context.tools.lawyer.href}
+            title="Адвокатский кабинет"
+          />
+        ) : null}
 
         <ToolCard
           actionLabel="Открыть серверы"

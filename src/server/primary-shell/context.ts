@@ -1,8 +1,10 @@
+import { getCharactersByServer } from "@/db/repositories/character.repository";
 import { getServers } from "@/db/repositories/server.repository";
 import { getUserServerStates } from "@/db/repositories/user-server-state.repository";
-import { resolveActiveServerId } from "@/server/app-shell/state";
+import { resolveActiveCharacterId, resolveActiveServerId } from "@/server/app-shell/state";
 import { syncAccountFromSupabaseUser } from "@/server/auth/account";
 import { getCurrentUser } from "@/server/auth/helpers";
+import { buildWorkspaceCapabilities } from "@/server/navigation/capabilities";
 
 type PrimaryShellProtectedContext = {
   user: {
@@ -37,6 +39,7 @@ export type PrimaryShellContext = {
   };
   navigation: {
     documentsHref: string | null;
+    lawyerWorkspaceHref: string | null;
     internalHref: string | null;
   };
 };
@@ -63,7 +66,69 @@ function buildGuestContext(currentPath: string): PrimaryShellContext {
     },
     navigation: {
       documentsHref: null,
+      lawyerWorkspaceHref: null,
       internalHref: null,
+    },
+  };
+}
+
+async function resolveShellNavigation(input: {
+  accountId: string;
+  servers: Awaited<ReturnType<typeof getServers>>;
+  serverStates: Awaited<ReturnType<typeof getUserServerStates>>;
+}) {
+  const activeServerId = resolveActiveServerId(input.servers, input.serverStates);
+  const activeServer = activeServerId
+    ? input.servers.find((server) => server.id === activeServerId) ?? null
+    : null;
+
+  if (!activeServer) {
+    return {
+      activeServer: {
+        id: null,
+        name: null,
+        slug: null,
+      },
+      navigation: {
+        documentsHref: null,
+        lawyerWorkspaceHref: null,
+      },
+    };
+  }
+
+  const characters = await getCharactersByServer({
+    accountId: input.accountId,
+    serverId: activeServer.id,
+  });
+  const activeCharacterId = resolveActiveCharacterId(
+    activeServer.id,
+    characters,
+    input.serverStates,
+  );
+  const selectedCharacter = activeCharacterId
+    ? characters.find((character) => character.id === activeCharacterId) ?? null
+    : characters[0] ?? null;
+  const hasAdvocateCharacter =
+    selectedCharacter?.accessFlags?.some((flag) => flag.flagKey === "advocate") === true;
+  const workspaceCapabilities = buildWorkspaceCapabilities({
+    isAuthenticated: true,
+    hasServer: true,
+    hasAssistantMaterials: true,
+    hasSelectedCharacter: selectedCharacter !== null,
+    hasAdvocateCharacter,
+  });
+
+  return {
+    activeServer: {
+      id: activeServer.id,
+      name: activeServer.name,
+      slug: activeServer.code,
+    },
+    navigation: {
+      documentsHref: `/servers/${activeServer.code}/documents`,
+      lawyerWorkspaceHref: workspaceCapabilities.canOpenLawyerWorkspace
+        ? `/servers/${activeServer.code}/lawyer`
+        : null,
     },
   };
 }
@@ -79,10 +144,11 @@ export async function getPrimaryShellContext(
       getServers(),
       getUserServerStates(account.id),
     ]);
-    const activeServerId = resolveActiveServerId(servers, serverStates);
-    const activeServer = activeServerId
-      ? servers.find((server) => server.id === activeServerId) ?? null
-      : null;
+    const shellNavigation = await resolveShellNavigation({
+      accountId: account.id,
+      servers,
+      serverStates,
+    });
 
     return {
       viewer: {
@@ -97,13 +163,10 @@ export async function getPrimaryShellContext(
         name: server.name,
         slug: server.code,
       })),
-      activeServer: {
-        id: activeServer?.id ?? null,
-        name: activeServer?.name ?? null,
-        slug: activeServer?.code ?? null,
-      },
+      activeServer: shellNavigation.activeServer,
       navigation: {
-        documentsHref: activeServer ? `/servers/${activeServer.code}/documents` : null,
+        documentsHref: shellNavigation.navigation.documentsHref,
+        lawyerWorkspaceHref: shellNavigation.navigation.lawyerWorkspaceHref,
         internalHref: account.isSuperAdmin ? "/internal" : null,
       },
     };
@@ -120,10 +183,11 @@ export async function getPrimaryShellContext(
     getServers(),
     getUserServerStates(account.id),
   ]);
-  const activeServerId = resolveActiveServerId(servers, serverStates);
-  const activeServer = activeServerId
-    ? servers.find((server) => server.id === activeServerId) ?? null
-    : null;
+  const shellNavigation = await resolveShellNavigation({
+    accountId: account.id,
+    servers,
+    serverStates,
+  });
 
   return {
     viewer: {
@@ -138,13 +202,10 @@ export async function getPrimaryShellContext(
       name: server.name,
       slug: server.code,
     })),
-    activeServer: {
-      id: activeServer?.id ?? null,
-      name: activeServer?.name ?? null,
-      slug: activeServer?.code ?? null,
-    },
+    activeServer: shellNavigation.activeServer,
     navigation: {
-      documentsHref: activeServer ? `/servers/${activeServer.code}/documents` : null,
+      documentsHref: shellNavigation.navigation.documentsHref,
+      lawyerWorkspaceHref: shellNavigation.navigation.lawyerWorkspaceHref,
       internalHref: account.isSuperAdmin ? "/internal" : null,
     },
   };

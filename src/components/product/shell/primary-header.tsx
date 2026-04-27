@@ -84,6 +84,7 @@ export function PrimaryHeader({ context }: PrimaryHeaderProps) {
       <PrimaryNav
         currentPath={context.currentPath}
         documentsHref={context.navigation.documentsHref}
+        lawyerWorkspaceHref={context.navigation.lawyerWorkspaceHref}
       />
     </Card>
   );

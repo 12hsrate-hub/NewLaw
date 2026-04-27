@@ -96,6 +96,7 @@ describe("/ page", () => {
       },
       navigation: {
         documentsHref: "/servers/blackberry/documents",
+        lawyerWorkspaceHref: "/servers/blackberry/lawyer",
         internalHref: "/internal",
       },
     });
@@ -107,6 +108,8 @@ describe("/ page", () => {
       quickActions: {
         assistantHref: "/assistant",
         documentsHref: "/servers/blackberry/documents",
+        documentsHelperText: null,
+        lawyerWorkspaceHref: "/servers/blackberry/lawyer",
         serversHref: "/servers",
         accountHref: "/account",
         internalHref: "/internal",
@@ -127,6 +130,9 @@ describe("/ page", () => {
         },
         account: {
           href: "/account",
+        },
+        lawyer: {
+          href: "/servers/blackberry/lawyer",
         },
         internal: {
           href: "/internal",
@@ -161,13 +167,15 @@ describe("/ page", () => {
     expect(html).toContain("Lawyer5RP");
     expect(html).toContain("Панель инструментов");
     expect(html).toContain("Открыть юридический помощник");
-    expect(html).toContain("Открыть документы");
+    expect(html).toContain("Создать документ");
+    expect(html).toContain("Открыть адвокатский кабинет");
     expect(html).toContain("Открыть серверы");
     expect(html).toContain("Открыть настройки аккаунта");
     expect(html).toContain("Служебная зона");
     expect(html).toContain("Требуется внимание");
     expect(html).toContain("Последняя активность");
     expect(html).toContain("Активный сервер: Blackberry");
+    expect(html).toContain("Доверители, договоры, адвокатские запросы и работа в интересах доверителя.");
   });
 
   it("для mustChangePassword пользователя сохраняет существующий security flow", async () => {

@@ -52,6 +52,7 @@ describe("lawyer workspace foundation", () => {
           },
           compatibilityHrefs: {
             trustorsHref: "/account/trustors?server=blackberry",
+            trustorCreateHref: "/account/trustors?server=blackberry#create-trustor-blackberry",
             charactersHref: "/account/characters?server=blackberry",
             attorneyRequestsHref: "/servers/blackberry/documents/attorney-requests",
             attorneyRequestCreateHref: "/servers/blackberry/documents/attorney-requests/new",
@@ -66,10 +67,14 @@ describe("lawyer workspace foundation", () => {
     expect(html).toContain("Сервер: Blackberry");
     expect(html).toContain("Персонаж: Игорь Юристов");
     expect(html).toContain('/account/trustors?server=blackberry');
+    expect(html).toContain('/account/trustors?server=blackberry#create-trustor-blackberry');
     expect(html).toContain("/servers/blackberry/documents/attorney-requests");
     expect(html).toContain("/servers/blackberry/documents/legal-services-agreements");
     expect(html).toContain("Документы в интересах доверителя");
     expect(html).toContain("Незавершённые действия");
+    expect(html).toContain("Доверителей на сервере: 2");
+    expect(html).not.toContain("совместимый маршрут");
+    expect(html).not.toContain("server-scoped");
   });
 
   it("показывает blocked state без персонажа", () => {
@@ -115,6 +120,7 @@ describe("lawyer workspace foundation", () => {
           },
           compatibilityHrefs: {
             trustorsHref: "/account/trustors?server=blackberry",
+            trustorCreateHref: "/account/trustors?server=blackberry#create-trustor-blackberry",
             charactersHref: "/account/characters?server=blackberry",
             attorneyRequestsHref: "/servers/blackberry/documents/attorney-requests",
             attorneyRequestCreateHref: "/servers/blackberry/documents/attorney-requests/new",
@@ -177,6 +183,7 @@ describe("lawyer workspace foundation", () => {
           },
           compatibilityHrefs: {
             trustorsHref: "/account/trustors?server=blackberry",
+            trustorCreateHref: "/account/trustors?server=blackberry#create-trustor-blackberry",
             charactersHref: "/account/characters?server=blackberry",
             attorneyRequestsHref: "/servers/blackberry/documents/attorney-requests",
             attorneyRequestCreateHref: "/servers/blackberry/documents/attorney-requests/new",
@@ -240,6 +247,7 @@ describe("lawyer workspace foundation", () => {
           },
           compatibilityHrefs: {
             trustorsHref: "/account/trustors?server=blackberry",
+            trustorCreateHref: "/account/trustors?server=blackberry#create-trustor-blackberry",
             charactersHref: "/account/characters?server=blackberry",
             attorneyRequestsHref: "/servers/blackberry/documents/attorney-requests",
             attorneyRequestCreateHref: "/servers/blackberry/documents/attorney-requests/new",
@@ -251,5 +259,6 @@ describe("lawyer workspace foundation", () => {
     );
 
     expect(html).toContain("В текущей версии для этого действия нужен сохранённый доверитель.");
+    expect(html).toContain("Доверителей пока нет. Добавьте доверителя перед созданием договора или адвокатского запроса.");
   });
 });

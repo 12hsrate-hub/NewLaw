@@ -156,8 +156,8 @@ export function LawyerWorkspaceFoundation(props: {
           <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">Адвокатский кабинет</p>
           <h1 className="text-3xl font-semibold">Адвокатский кабинет</h1>
           <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
-            Здесь собраны входы в адвокатские сценарии по выбранному серверу. В первой версии
-            кабинет использует уже существующие совместимые маршруты документов и доверителей.
+            Здесь собраны основные адвокатские действия по выбранному серверу: доверители,
+            договоры, запросы и работа в интересах доверителя.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2 text-sm leading-6 text-[var(--muted)]">
@@ -171,6 +171,14 @@ export function LawyerWorkspaceFoundation(props: {
               : "первый доступный"}
           </span>
         </div>
+        <div className="flex flex-wrap gap-3">
+          <WorkspaceLink href={context.compatibilityHrefs.trustorsHref}>
+            Открыть доверителей
+          </WorkspaceLink>
+          <WorkspaceLink href={context.compatibilityHrefs.trustorCreateHref}>
+            Добавить доверителя
+          </WorkspaceLink>
+        </div>
       </Card>
 
       <div className="grid gap-4 lg:grid-cols-2">
@@ -180,9 +188,17 @@ export function LawyerWorkspaceFoundation(props: {
               href: context.compatibilityHrefs.trustorsHref,
               label: "Открыть доверителей",
             },
+            {
+              href: context.compatibilityHrefs.trustorCreateHref,
+              label: "Добавить доверителя",
+            },
           ]}
-          description={`Сохранённых доверителей на этом сервере: ${context.trustorCount}. В текущей версии это совместимый маршрут аккаунта.`}
-          eyebrow="Совместимый маршрут"
+          description={
+            context.trustorCount > 0
+              ? `Доверителей на сервере: ${context.trustorCount}. Список доверителей пока открывается через раздел аккаунта, но относится к выбранному серверу.`
+              : "Доверителей пока нет. Добавьте доверителя перед созданием договора или адвокатского запроса."
+          }
+          eyebrow="Основное действие"
           title="Доверители"
         />
 
@@ -197,7 +213,7 @@ export function LawyerWorkspaceFoundation(props: {
               label: "Создать договор",
             },
           ]}
-          description="Работа с договорами пока открывается через уже существующий server-scoped documents route."
+          description="Договоры открываются через текущий раздел документов по выбранному серверу."
           helperText={
             showAgreementTrustorNote
               ? "В текущей версии для этого действия нужен сохранённый доверитель."
@@ -218,7 +234,7 @@ export function LawyerWorkspaceFoundation(props: {
               label: "Создать запрос",
             },
           ]}
-          description="Адвокатские запросы продолжают работать через существующие documents routes без переноса редакторов."
+          description="Адвокатские запросы открываются через текущий раздел документов по выбранному серверу."
           helperText={
             showAttorneyTrustorNote
               ? "В текущей версии для этого действия нужен сохранённый доверитель."
@@ -243,8 +259,8 @@ export function LawyerWorkspaceFoundation(props: {
               label: "Открыть запросы",
             },
           ]}
-          description="Пока отдельный route для документов в интересах доверителя не вводится. Для работы используйте доверителей, договоры и адвокатские запросы как текущие точки входа."
-          eyebrow="Текущая рабочая схема"
+          description="Для работы в интересах доверителя используйте список доверителей, договоры и адвокатские запросы как основные точки входа."
+          eyebrow="Работа с доверителем"
           title="Документы в интересах доверителя"
         />
 
