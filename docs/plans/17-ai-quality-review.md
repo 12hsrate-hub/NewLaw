@@ -325,6 +325,52 @@ Post-MVP. Не входит в MVP.
 - acceptance всё ещё определяется отдельно через `expectation_summary`
 - возможный regression gate по review flags допускается только в отдельном future slice после дополнительной калибровки
 
+## Текущий implemented checkpoint по `17.1d`
+
+`17.1d` реализован как non-blocking gate simulation для deterministic `law_basis_review`.
+
+Это по-прежнему internal-only reporting slice:
+
+- без настоящего regression gate
+- без suite blocking
+- без public assistant behavior changes
+- без UI / Prisma / queue workflow
+- без AI reviewer expansion
+- без runtime changes в `Step 16`
+
+Что именно добавляет `17.1d`:
+
+- рядом с per-scenario `law_basis_review` теперь доступен отдельный compact block `law_basis_gate_simulation`
+- он показывает:
+  - `would_fail_gate`
+  - `candidate_fail_flag_codes`
+  - `warn_only_flag_codes`
+  - `diagnostics_only_flag_codes`
+  - `status: pass | would_fail`
+  - `short_reason`
+- для всего test run теперь доступен aggregate dry-run summary:
+  - `scenarios_that_would_fail_law_basis_gate`
+  - `law_basis_gate_simulation_counts`
+  - `top_candidate_gate_flag_codes`
+  - `groups_with_candidate_gate_fails`
+
+### Что это значит practically
+
+На этапе `17.1d`:
+
+- `law_basis_gate_simulation` не меняет `expectation_summary`
+- `law_basis_gate_simulation` не меняет `scenario result status`
+- `law_basis_gate_simulation` не меняет suite pass/fail
+- acceptance-layer по-прежнему определяется отдельно через `expectation_summary`
+- gate simulation нужен только для dry-run наблюдения за шумностью `candidate_for_gate` flags
+
+### Что остаётся future после `17.1d`
+
+- настоящий blocking regression gate
+- policy, которая меняет suite outcome по review-layer сигналам
+- richer cross-run calibration analytics
+- public/internal UI exposure beyond current internal reporting
+
 ## `law_basis_issue`
 
 В шаге `17` должен быть отдельный класс проблем `law_basis_issue`.

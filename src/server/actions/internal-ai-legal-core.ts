@@ -179,6 +179,14 @@ export type InternalAILegalCoreTestRunResult = {
     failed_flag_codes: string[];
     warn_flag_codes: string[];
   };
+  law_basis_gate_simulation: {
+    would_fail_gate: boolean;
+    candidate_fail_flag_codes: string[];
+    warn_only_flag_codes: string[];
+    diagnostics_only_flag_codes: string[];
+    status: "pass" | "would_fail";
+    short_reason: string;
+  };
   comparison: AILegalCoreScenarioComparison | null;
 };
 
@@ -230,8 +238,30 @@ export type InternalAILegalCoreActionState = {
       count: number;
     }>;
   } | null;
+  law_basis_gate_simulation_summary?: {
+    scenarios_that_would_fail_law_basis_gate: string[];
+    law_basis_gate_simulation_counts: Record<string, number>;
+    top_candidate_gate_flag_codes: Array<{
+      code: string;
+      count: number;
+    }>;
+    groups_with_candidate_gate_fails: Array<{
+      scenario_group: string;
+      count: number;
+    }>;
+  } | null;
   results: InternalAILegalCoreTestRunResult[];
 };
+
+const candidateForGateFlagCodes = new Set([
+  "missing_primary_basis_norm",
+  "law_family_mismatch",
+  "sanction_or_exception_used_as_primary",
+]);
+
+const warnOnlyFlagCodes = new Set(["weak_direct_basis", "missing_required_companion_context"]);
+
+const diagnosticsOnlyFlagCodes = new Set(["unresolved_explicit_citation_used_as_basis"]);
 
 type InternalAILegalCoreActionDependencies = {
   requireSuperAdminAccountContext: typeof requireSuperAdminAccountContext;
@@ -600,6 +630,36 @@ function buildLawBasisReviewSummary(
   };
 }
 
+function buildLawBasisGateSimulation(
+  lawBasisReview: InternalAILegalCoreTestRunResult["law_basis_review"],
+) {
+  const candidateFailFlagCodes = lawBasisReview.failed_flag_codes.filter((flagCode) =>
+    candidateForGateFlagCodes.has(flagCode),
+  );
+  const warnOnlyFlagCodesForScenario = lawBasisReview.flag_codes.filter((flagCode) =>
+    warnOnlyFlagCodes.has(flagCode),
+  );
+  const diagnosticsOnlyFlagCodesForScenario = lawBasisReview.flag_codes.filter((flagCode) =>
+    diagnosticsOnlyFlagCodes.has(flagCode),
+  );
+  const wouldFailGate = candidateFailFlagCodes.length > 0;
+
+  return {
+    would_fail_gate: wouldFailGate,
+    candidate_fail_flag_codes: candidateFailFlagCodes,
+    warn_only_flag_codes: warnOnlyFlagCodesForScenario,
+    diagnostics_only_flag_codes: diagnosticsOnlyFlagCodesForScenario,
+    status: wouldFailGate ? ("would_fail" as const) : ("pass" as const),
+    short_reason: wouldFailGate
+      ? `candidate_for_gate: ${candidateFailFlagCodes.join(", ")}`
+      : warnOnlyFlagCodesForScenario.length > 0
+        ? `warn_only: ${warnOnlyFlagCodesForScenario.join(", ")}`
+        : diagnosticsOnlyFlagCodesForScenario.length > 0
+          ? `diagnostics_only: ${diagnosticsOnlyFlagCodesForScenario.join(", ")}`
+          : "gate candidates not detected",
+  };
+}
+
 function buildDirectBasisSummary(
   coreSnapshot: InternalAILegalCoreTestRunResult["coreSnapshot"],
 ) {
@@ -690,6 +750,7 @@ function attachInternalRunnerSummaries(input: {
     technical: input.result.technical,
     coreSnapshot: input.result.coreSnapshot,
   });
+  const lawBasisReview = buildLawBasisReviewSummary(input.result.coreSnapshot);
 
   return {
     ...input.result,
@@ -702,7 +763,8 @@ function attachInternalRunnerSummaries(input: {
       coreSnapshot: input.result.coreSnapshot,
     }),
     direct_basis_summary: buildDirectBasisSummary(input.result.coreSnapshot),
-    law_basis_review: buildLawBasisReviewSummary(input.result.coreSnapshot),
+    law_basis_review: lawBasisReview,
+    law_basis_gate_simulation: buildLawBasisGateSimulation(lawBasisReview),
   } satisfies InternalAILegalCoreTestRunResult;
 }
 
@@ -845,6 +907,61 @@ function buildAggregateLawBasisReviewSummary(results: InternalAILegalCoreTestRun
   };
 }
 
+function buildAggregateLawBasisGateSimulationSummary(results: InternalAILegalCoreTestRunResult[]) {
+  const gateCounts: Record<string, number> = {
+    pass: 0,
+    would_fail: 0,
+  };
+  const scenariosThatWouldFailLawBasisGate: string[] = [];
+  const candidateFlagCounts = new Map<string, number>();
+  const groupCounts = new Map<string, number>();
+
+  for (const result of results) {
+    const status = result.law_basis_gate_simulation.status;
+    gateCounts[status] = (gateCounts[status] ?? 0) + 1;
+
+    if (!result.law_basis_gate_simulation.would_fail_gate) {
+      continue;
+    }
+
+    scenariosThatWouldFailLawBasisGate.push(result.scenarioId);
+    groupCounts.set(
+      result.scenario_group_summary.scenario_group,
+      (groupCounts.get(result.scenario_group_summary.scenario_group) ?? 0) + 1,
+    );
+
+    for (const flagCode of result.law_basis_gate_simulation.candidate_fail_flag_codes) {
+      candidateFlagCounts.set(flagCode, (candidateFlagCounts.get(flagCode) ?? 0) + 1);
+    }
+  }
+
+  const topCandidateGateFlagCodes = Array.from(candidateFlagCounts.entries())
+    .map(([code, count]) => ({ code, count }))
+    .sort((left, right) => {
+      if (right.count !== left.count) {
+        return right.count - left.count;
+      }
+
+      return left.code.localeCompare(right.code);
+    });
+  const groupsWithCandidateGateFails = Array.from(groupCounts.entries())
+    .map(([scenario_group, count]) => ({ scenario_group, count }))
+    .sort((left, right) => {
+      if (right.count !== left.count) {
+        return right.count - left.count;
+      }
+
+      return left.scenario_group.localeCompare(right.scenario_group);
+    });
+
+  return {
+    scenarios_that_would_fail_law_basis_gate: scenariosThatWouldFailLawBasisGate,
+    law_basis_gate_simulation_counts: gateCounts,
+    top_candidate_gate_flag_codes: topCandidateGateFlagCodes,
+    groups_with_candidate_gate_fails: groupsWithCandidateGateFails,
+  };
+}
+
 function buildActionResultFromScenario(input: {
   scenario: AILegalCoreTestScenario;
   result: Awaited<ReturnType<typeof generateServerLegalAssistantAnswer>>;
@@ -902,6 +1019,14 @@ function buildActionResultFromScenario(input: {
         failed_flag_codes: [],
         warn_flag_codes: [],
       },
+      law_basis_gate_simulation: {
+        would_fail_gate: false,
+        candidate_fail_flag_codes: [],
+        warn_only_flag_codes: [],
+        diagnostics_only_flag_codes: [],
+        status: "pass",
+        short_reason: "gate candidates not detected",
+      },
     };
   }
 
@@ -952,6 +1077,14 @@ function buildActionResultFromScenario(input: {
         failed_flag_codes: [],
         warn_flag_codes: [],
       },
+      law_basis_gate_simulation: {
+        would_fail_gate: false,
+        candidate_fail_flag_codes: [],
+        warn_only_flag_codes: [],
+        diagnostics_only_flag_codes: [],
+        status: "pass",
+        short_reason: "gate candidates not detected",
+      },
     };
   }
 
@@ -1000,6 +1133,14 @@ function buildActionResultFromScenario(input: {
       flag_codes: [],
       failed_flag_codes: [],
       warn_flag_codes: [],
+    },
+    law_basis_gate_simulation: {
+      would_fail_gate: false,
+      candidate_fail_flag_codes: [],
+      warn_only_flag_codes: [],
+      diagnostics_only_flag_codes: [],
+      status: "pass",
+      short_reason: "gate candidates not detected",
     },
   };
 }
@@ -1059,6 +1200,14 @@ function buildRewriteResultFromScenario(input: {
         failed_flag_codes: [],
         warn_flag_codes: [],
       },
+      law_basis_gate_simulation: {
+        would_fail_gate: false,
+        candidate_fail_flag_codes: [],
+        warn_only_flag_codes: [],
+        diagnostics_only_flag_codes: [],
+        status: "pass",
+        short_reason: "gate candidates not detected",
+      },
     };
   }
 
@@ -1107,6 +1256,14 @@ function buildRewriteResultFromScenario(input: {
       flag_codes: [],
       failed_flag_codes: [],
       warn_flag_codes: [],
+    },
+    law_basis_gate_simulation: {
+      would_fail_gate: false,
+      candidate_fail_flag_codes: [],
+      warn_only_flag_codes: [],
+      diagnostics_only_flag_codes: [],
+      status: "pass",
+      short_reason: "gate candidates not detected",
     },
   };
 }
@@ -1169,6 +1326,14 @@ function buildErrorResultFromScenario(
       flag_codes: [],
       failed_flag_codes: [],
       warn_flag_codes: [],
+    },
+    law_basis_gate_simulation: {
+      would_fail_gate: false,
+      candidate_fail_flag_codes: [],
+      warn_only_flag_codes: [],
+      diagnostics_only_flag_codes: [],
+      status: "pass",
+      short_reason: "gate candidates not detected",
     },
   };
 }
@@ -1242,6 +1407,7 @@ export async function runInternalAILegalCoreScenariosAction(
         },
         runSummary: null,
         law_basis_review_summary: null,
+        law_basis_gate_simulation_summary: null,
         results: [],
       };
     }
@@ -1268,6 +1434,7 @@ export async function runInternalAILegalCoreScenariosAction(
         },
         runSummary: null,
         law_basis_review_summary: null,
+        law_basis_gate_simulation_summary: null,
         results: [],
       };
     }
@@ -1473,6 +1640,8 @@ export async function runInternalAILegalCoreScenariosAction(
       cost_summary: buildAggregateCostSummary(resultsWithComparisons),
       direct_basis_summary: buildAggregateDirectBasisSummary(resultsWithComparisons),
       law_basis_review_summary: buildAggregateLawBasisReviewSummary(resultsWithComparisons),
+      law_basis_gate_simulation_summary:
+        buildAggregateLawBasisGateSimulationSummary(resultsWithComparisons),
       results: resultsWithComparisons,
     };
   } catch (error) {
@@ -1492,6 +1661,7 @@ export async function runInternalAILegalCoreScenariosAction(
         cost_summary: null,
         direct_basis_summary: null,
         law_basis_review_summary: null,
+        law_basis_gate_simulation_summary: null,
         results: [],
       };
     }

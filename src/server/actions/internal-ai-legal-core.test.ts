@@ -167,6 +167,13 @@ describe("internal ai legal core action", () => {
         overall_status: "fail",
         failed_flag_codes: ["law_family_mismatch"],
       },
+      law_basis_gate_simulation: {
+        would_fail_gate: true,
+        candidate_fail_flag_codes: ["law_family_mismatch"],
+        warn_only_flag_codes: [],
+        diagnostics_only_flag_codes: [],
+        status: "would_fail",
+      },
     });
     expect(result.scenario_group_summary).toEqual({
       total_scenarios: 1,
@@ -197,6 +204,375 @@ describe("internal ai legal core action", () => {
           count: 1,
         },
       ],
+    });
+    expect(result.law_basis_gate_simulation_summary).toEqual({
+      scenarios_that_would_fail_law_basis_gate: ["general-mask-detention"],
+      law_basis_gate_simulation_counts: {
+        pass: 0,
+        would_fail: 1,
+      },
+      top_candidate_gate_flag_codes: [
+        {
+          code: "law_family_mismatch",
+          count: 1,
+        },
+      ],
+      groups_with_candidate_gate_fails: [
+        {
+          scenario_group: "mask_and_identity",
+          count: 1,
+        },
+      ],
+    });
+  });
+
+  it("раскладывает candidate, warn_only и diagnostics_only flags в non-blocking gate simulation без изменения suite result", async () => {
+    const formData = new FormData();
+    formData.set("serverSlug", "blackberry");
+    formData.set("lawVersionSelection", "current_snapshot_only");
+    formData.set("actorContext", "general_question");
+    formData.set("answerMode", "normal");
+    formData.set("executionMode", "compact_generation");
+    formData.set("scenarioGroup", "general_legal_questions");
+    formData.set("scenarioId", "general-no-bodycam");
+    formData.set("runTarget", "scenario");
+
+    const result = await runInternalAILegalCoreScenariosAction(
+      {
+        status: "idle",
+        errorMessage: null,
+        fieldErrors: {},
+        runSummary: null,
+        results: [],
+      },
+      formData,
+      {
+        requireSuperAdminAccountContext: vi.fn().mockResolvedValue({
+          account: {
+            id: "account-1",
+            isSuperAdmin: true,
+          },
+        }),
+        getServerByCode: vi.fn().mockResolvedValue({
+          id: "server-1",
+          code: "blackberry",
+          name: "Blackberry",
+        }),
+        generateServerLegalAssistantAnswer: vi.fn().mockResolvedValue({
+          status: "answered",
+          answerMarkdown:
+            "## Краткий вывод\nКраткий вывод.\n\n## Что прямо следует из норм закона\nПункт.\n\n## Что подтверждается судебными прецедентами\nНе использовались.\n\n## Вывод / интерпретация\nЧто делать: действовать по процедуре.",
+          sections: {
+            summary: "Краткий вывод.",
+            normativeAnalysis: "Пункт.",
+            precedentAnalysis: "Не использовались.",
+            interpretation: "Что делать: действовать по процедуре.",
+            sources: "АК 18.",
+          },
+          metadata: {
+            used_sources: [{ source_kind: "law", law_id: "law-1" }],
+            total_tokens: 180,
+            cost_usd: 0.004,
+            latency_ms: 140,
+            self_assessment: {
+              answer_confidence: "medium",
+              insufficient_data: false,
+            },
+            review_status: {
+              queue_for_future_ai_quality_review: false,
+              future_review_priority: "low",
+            },
+          },
+        }),
+        runInternalDocumentTextImprovementScenario: vi.fn(),
+        syncAITestScenarios: vi.fn().mockResolvedValue(undefined),
+        createAITestRun: vi.fn().mockResolvedValue(undefined),
+        completeAITestRun: vi.fn().mockResolvedValue(undefined),
+        createAITestRunResult: vi.fn().mockResolvedValue(undefined),
+        findLatestAIRequestByTestRunContext: vi.fn().mockResolvedValue({
+          id: "ai-request-gate-simulation-1",
+          requestPayloadJson: {
+            normalized_input: "Если сотрудник не вел бодикам это нарушение?",
+            legal_query_plan: {
+              normalized_input: "Если сотрудник не вел бодикам это нарушение?",
+            },
+            selected_norm_roles: [
+              {
+                law_id: "law-2",
+                law_version: "law-version-2",
+                law_block_id: "law-block-2",
+                law_family: "government_code",
+                norm_role: "primary_basis",
+                applicability_score: 6,
+              },
+            ],
+            applicability_diagnostics: [
+              {
+                law_id: "law-2",
+                law_version: "law-version-2",
+                law_block_id: "law-block-2",
+                primary_basis_eligibility: "weak",
+                primary_basis_eligibility_reason: "government_code_general_scope",
+                ineligible_primary_basis_reasons: [],
+                weak_primary_basis_reasons: ["government_code_general_scope"],
+              },
+            ],
+            grounding_diagnostics: {
+              direct_basis_status: "partial_basis_only",
+            },
+            direct_basis_status: "partial_basis_only",
+          },
+          responsePayloadJson: {
+            used_sources: [
+              {
+                source_kind: "law",
+                law_id: "law-2",
+                law_name: "Закон об ОГП",
+                article_number: "4",
+              },
+            ],
+            ai_quality_review: {
+              layers: {
+                deterministic_checks: {
+                  law_basis_review: {
+                    overall_status: "fail",
+                    flags: [
+                      {
+                        code: "law_family_mismatch",
+                        severity: "fail",
+                      },
+                      {
+                        code: "weak_direct_basis",
+                        severity: "warn",
+                      },
+                      {
+                        code: "unresolved_explicit_citation_used_as_basis",
+                        severity: "fail",
+                      },
+                    ],
+                    summary: {
+                      pass: 0,
+                      warn: 1,
+                      fail: 2,
+                    },
+                  },
+                },
+              },
+            },
+            stage_usage: {
+              normalization: {
+                model: "gpt-5.4-nano",
+                prompt_tokens: 8,
+                completion_tokens: 2,
+                total_tokens: 10,
+                estimated_cost_usd: 0.00001,
+                latency_ms: 100,
+              },
+              generation: {
+                model: "gpt-5.4-mini",
+                prompt_tokens: 70,
+                completion_tokens: 20,
+                total_tokens: 90,
+                estimated_cost_usd: 0.0015,
+                latency_ms: 140,
+              },
+            },
+          },
+        }),
+        getAILegalCoreScenarioComparisons: vi.fn().mockResolvedValue(new Map()),
+        now: () => new Date("2026-04-27T11:00:00.000Z"),
+        createId: () => "test-run-gate-simulation-1",
+      },
+    );
+
+    expect(result.status).toBe("success");
+    expect(result.results[0]).toMatchObject({
+      expectation_summary: {
+        failed: 1,
+      },
+      law_basis_gate_simulation: {
+        would_fail_gate: true,
+        candidate_fail_flag_codes: ["law_family_mismatch"],
+        warn_only_flag_codes: ["weak_direct_basis"],
+        diagnostics_only_flag_codes: ["unresolved_explicit_citation_used_as_basis"],
+        status: "would_fail",
+      },
+    });
+    expect(result.scenario_group_summary).toEqual({
+      total_scenarios: 1,
+      passed_scenarios: 0,
+      failed_scenarios: 1,
+      unresolved_scenarios: 0,
+      groups: [
+        {
+          scenario_group: "bodycam_and_recording",
+          total_scenarios: 1,
+          passed_scenarios: 0,
+          failed_scenarios: 1,
+          unresolved_scenarios: 0,
+        },
+      ],
+    });
+    expect(result.law_basis_gate_simulation_summary).toEqual({
+      scenarios_that_would_fail_law_basis_gate: ["general-no-bodycam"],
+      law_basis_gate_simulation_counts: {
+        pass: 0,
+        would_fail: 1,
+      },
+      top_candidate_gate_flag_codes: [
+        {
+          code: "law_family_mismatch",
+          count: 1,
+        },
+      ],
+      groups_with_candidate_gate_fails: [
+        {
+          scenario_group: "bodycam_and_recording",
+          count: 1,
+        },
+      ],
+    });
+  });
+
+  it("не переводит warn_only и diagnostics_only flags в would_fail gate", async () => {
+    const formData = new FormData();
+    formData.set("serverSlug", "blackberry");
+    formData.set("lawVersionSelection", "current_snapshot_only");
+    formData.set("actorContext", "general_question");
+    formData.set("answerMode", "normal");
+    formData.set("scenarioGroup", "general_legal_questions");
+    formData.set("scenarioId", "general-mask-detention");
+    formData.set("runTarget", "scenario");
+
+    const result = await runInternalAILegalCoreScenariosAction(
+      {
+        status: "idle",
+        errorMessage: null,
+        fieldErrors: {},
+        runSummary: null,
+        results: [],
+      },
+      formData,
+      {
+        requireSuperAdminAccountContext: vi.fn().mockResolvedValue({
+          account: {
+            id: "account-1",
+            isSuperAdmin: true,
+          },
+        }),
+        getServerByCode: vi.fn().mockResolvedValue({
+          id: "server-1",
+          code: "blackberry",
+          name: "Blackberry",
+        }),
+        generateServerLegalAssistantAnswer: vi.fn().mockResolvedValue({
+          status: "answered",
+          answerMarkdown:
+            "## Краткий вывод\nОтвет.\n\n## Что прямо следует из норм закона\nНорма.\n\n## Что подтверждается судебными прецедентами\nПрецедент.\n\n## Вывод / интерпретация\nИнтерпретация.",
+          sections: {
+            summary: "Ответ.",
+            normativeAnalysis: "Норма.",
+            precedentAnalysis: "Прецедент.",
+            interpretation: "Интерпретация.",
+            sources: "Источник.",
+          },
+          metadata: {
+            used_sources: [{ source_kind: "law", law_id: "law-1" }],
+            total_tokens: 220,
+            cost_usd: 0.005,
+            latency_ms: 150,
+            self_assessment: {
+              answer_confidence: "medium",
+              insufficient_data: false,
+            },
+            review_status: {
+              queue_for_future_ai_quality_review: false,
+              future_review_priority: "low",
+            },
+          },
+        }),
+        runInternalDocumentTextImprovementScenario: vi.fn(),
+        syncAITestScenarios: vi.fn().mockResolvedValue(undefined),
+        createAITestRun: vi.fn().mockResolvedValue(undefined),
+        completeAITestRun: vi.fn().mockResolvedValue(undefined),
+        createAITestRunResult: vi.fn().mockResolvedValue(undefined),
+        findLatestAIRequestByTestRunContext: vi.fn().mockResolvedValue({
+          id: "ai-request-gate-simulation-2",
+          requestPayloadJson: {
+            normalized_input: "Можно ли задержать человека за маску?",
+            direct_basis_status: "partial_basis_only",
+            selected_norm_roles: [],
+            applicability_diagnostics: [],
+            grounding_diagnostics: {
+              direct_basis_status: "partial_basis_only",
+            },
+          },
+          responsePayloadJson: {
+            used_sources: [],
+            ai_quality_review: {
+              layers: {
+                deterministic_checks: {
+                  law_basis_review: {
+                    overall_status: "warn",
+                    flags: [
+                      {
+                        code: "weak_direct_basis",
+                        severity: "warn",
+                      },
+                      {
+                        code: "missing_required_companion_context",
+                        severity: "warn",
+                      },
+                      {
+                        code: "unresolved_explicit_citation_used_as_basis",
+                        severity: "fail",
+                      },
+                    ],
+                    summary: {
+                      pass: 0,
+                      warn: 2,
+                      fail: 1,
+                    },
+                  },
+                },
+              },
+            },
+            stage_usage: {
+              generation: {
+                model: "gpt-5.4-mini",
+                prompt_tokens: 90,
+                completion_tokens: 25,
+                total_tokens: 115,
+                estimated_cost_usd: 0.002,
+                latency_ms: 150,
+              },
+            },
+          },
+        }),
+        getAILegalCoreScenarioComparisons: vi.fn().mockResolvedValue(new Map()),
+        now: () => new Date("2026-04-27T11:05:00.000Z"),
+        createId: () => "test-run-gate-simulation-2",
+      },
+    );
+
+    expect(result.status).toBe("success");
+    expect(result.results[0]).toMatchObject({
+      law_basis_gate_simulation: {
+        would_fail_gate: false,
+        candidate_fail_flag_codes: [],
+        warn_only_flag_codes: ["weak_direct_basis", "missing_required_companion_context"],
+        diagnostics_only_flag_codes: ["unresolved_explicit_citation_used_as_basis"],
+        status: "pass",
+      },
+    });
+    expect(result.law_basis_gate_simulation_summary).toEqual({
+      scenarios_that_would_fail_law_basis_gate: [],
+      law_basis_gate_simulation_counts: {
+        pass: 1,
+        would_fail: 0,
+      },
+      top_candidate_gate_flag_codes: [],
+      groups_with_candidate_gate_fails: [],
     });
   });
 
