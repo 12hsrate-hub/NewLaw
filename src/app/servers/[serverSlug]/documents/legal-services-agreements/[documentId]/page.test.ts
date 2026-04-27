@@ -114,7 +114,7 @@ describe("/servers/[serverSlug]/documents/legal-services-agreements/[documentId]
     expect(html).toContain('data-editor-main-column="true"');
     expect(html).toContain('data-editor-context-aside="true"');
     expect(html).toContain("Редактор договора");
-    expect(html).toContain("О договоре");
+    expect(html).toContain("О документе");
     expect(html).toContain("Готовность");
     expect(html).toContain("Следующие действия");
     expect(html).toContain("Паспорт персонажа");

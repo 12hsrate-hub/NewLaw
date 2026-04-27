@@ -125,6 +125,7 @@ const unspecifiedLabel = "Не указано";
 const noDataLabel = "Нет данных";
 const notBuiltLabel = "Не собрано";
 const savedDraftLabel = "Сохранён";
+const readyToDownloadLabel = "Готово к скачиванию";
 const forumPublishedLabel = "Опубликовано на форуме";
 const forumNotPublishedLabel = "Не опубликовано";
 
@@ -675,21 +676,14 @@ export function ClaimsPersistedEditor(props: {
   };
   status?: string;
 }) {
-  const lastGeneratedLabel = props.document.generatedAt
-    ? new Date(props.document.generatedAt).toLocaleString("ru-RU")
-    : "ещё не выполнялась";
-
-  const generatedOutputLabel = props.document.generatedOutputFormat
-    ? props.document.generatedOutputFormat.toUpperCase()
-    : "ещё не подготовлен";
+  const lastGeneratedLabel = formatDateTimeLabel(props.document.generatedAt, notBuiltLabel);
+  const generatedOutputLabel = props.document.generatedOutputFormat ? "Собрано" : notBuiltLabel;
 
   const evidenceGroupCount = props.document.payload.evidenceGroups.length;
   const trustorLabel =
     props.document.payload.filingMode === "representative"
-      ? props.document.payload.trustorSnapshot?.fullName ?? "пока не выбран"
-      : "не используется";
-
-  const publicationLabel = props.document.status === "published" ? "Зафиксирован" : "Не используется";
+      ? withFallback(props.document.payload.trustorSnapshot?.fullName)
+      : noDataLabel;
 
   return (
     <EditorWorkspaceLayout
@@ -718,7 +712,7 @@ export function ClaimsPersistedEditor(props: {
                 value: new Date(props.document.snapshotCapturedAt).toLocaleString("ru-RU"),
               },
             ]}
-            title="О документе"
+            title={editorMetaTitle}
           />
 
           <EditorProgressSummary
@@ -737,16 +731,11 @@ export function ClaimsPersistedEditor(props: {
               },
               {
                 label: "Изменения после сборки",
-                value: props.document.isModifiedAfterGeneration ? "Есть изменения" : "Не обнаружены",
+                value: formatModifiedAfterGenerationLabel(props.document.isModifiedAfterGeneration),
                 tone: props.document.isModifiedAfterGeneration ? "warning" : "success",
               },
-              {
-                label: "Публикация",
-                value: publicationLabel,
-                tone: "info",
-              },
             ]}
-            title="Готовность"
+            title={editorProgressTitle}
           />
 
           <EditorActionSummary
@@ -757,7 +746,7 @@ export function ClaimsPersistedEditor(props: {
                 : "После последней сборки документ не менялся."
             }
             items={[
-              { label: "Черновик", value: "Доступен" },
+              { label: "Черновик", value: savedDraftLabel },
               {
                 label: "Доверитель",
                 value: trustorLabel,
@@ -765,16 +754,16 @@ export function ClaimsPersistedEditor(props: {
               },
               {
                 label: "Группы доказательств",
-                value: evidenceGroupCount > 0 ? `${evidenceGroupCount}` : "Пока нет",
+                value: evidenceGroupCount > 0 ? `${evidenceGroupCount}` : noDataLabel,
                 tone: evidenceGroupCount > 0 ? "success" : "neutral",
               },
               {
                 label: "Следующий шаг",
-                value: props.document.generatedAt ? "Проверить результат" : "Собрать первый результат",
+                value: props.document.generatedAt ? "Проверить результат" : "Собрать результат",
                 tone: props.document.generatedAt ? "neutral" : "warning",
               },
             ]}
-            title="Следующие действия"
+            title={editorActionTitle}
           />
         </EditorContextAside>
       }
@@ -876,16 +865,14 @@ export function AttorneyRequestPersistedEditor(props: {
   };
   status?: string;
 }) {
-  const lastGeneratedLabel = props.document.generatedAt
-    ? new Date(props.document.generatedAt).toLocaleString("ru-RU")
-    : "ещё не выполнялась";
+  const lastGeneratedLabel = formatDateTimeLabel(props.document.generatedAt, notBuiltLabel);
 
   const addresseeLabel = props.document.payload.targetOfficerInput.trim().length
     ? props.document.payload.targetOfficerInput
     : props.document.payload.addresseePreset
       ? attorneyRequestAddresseePresets[props.document.payload.addresseePreset]?.label ??
         props.document.payload.addresseePreset
-      : "не указан";
+      : unspecifiedLabel;
 
   const signatureLabel = props.document.signatureSnapshot
     ? "Снимок подписи сохранён"
@@ -894,8 +881,8 @@ export function AttorneyRequestPersistedEditor(props: {
       : "Подпись не загружена";
 
   const generatedFilesLabel = props.document.generatedArtifact
-    ? "PDF, PNG и JPG готовы"
-    : "Ещё не собраны";
+      ? readyToDownloadLabel
+      : notBuiltLabel;
 
   return (
     <EditorWorkspaceLayout
@@ -915,28 +902,28 @@ export function AttorneyRequestPersistedEditor(props: {
               { label: "Сервер", value: props.document.server.name },
               { label: "Персонаж", value: props.document.authorSnapshot.fullName },
               { label: "Паспорт", value: props.document.authorSnapshot.passportNumber },
-              { label: "Доверитель", value: props.document.payload.trustorSnapshot.fullName || "не указан" },
+              { label: "Доверитель", value: withFallback(props.document.payload.trustorSnapshot.fullName) },
               {
                 label: "Номер запроса",
-                value: props.document.payload.requestNumberNormalized || "не указан",
+                value: withFallback(props.document.payload.requestNumberNormalized),
               },
-              { label: "Номер договора", value: props.document.payload.contractNumber || "не указан" },
+              { label: "Номер договора", value: withFallback(props.document.payload.contractNumber) },
               { label: "Адресат", value: addresseeLabel },
               {
                 label: "Должность в документе",
                 value:
                   props.document.payload.signerTitleSnapshot?.bodyRu ??
                   props.document.authorSnapshot.position ??
-                  "не указана",
+                  unspecifiedLabel,
               },
               { label: "Создано", value: new Date(props.document.createdAt).toLocaleString("ru-RU") },
               { label: "Обновлено", value: new Date(props.document.updatedAt).toLocaleString("ru-RU") },
               {
-                label: "Снимок данных",
+                label: "Данные автора зафиксированы",
                 value: new Date(props.document.snapshotCapturedAt).toLocaleString("ru-RU"),
               },
             ]}
-            title="О запросе"
+            title={editorMetaTitle}
           />
 
           <EditorProgressSummary
@@ -955,7 +942,7 @@ export function AttorneyRequestPersistedEditor(props: {
               },
               {
                 label: "Изменения после сборки",
-                value: props.document.isModifiedAfterGeneration ? "Есть изменения" : "Не обнаружены",
+                value: formatModifiedAfterGenerationLabel(props.document.isModifiedAfterGeneration),
                 tone: props.document.isModifiedAfterGeneration ? "warning" : "success",
               },
               {
@@ -968,7 +955,7 @@ export function AttorneyRequestPersistedEditor(props: {
                     : "warning",
               },
             ]}
-            title="Готовность"
+            title={editorProgressTitle}
           />
 
           <EditorActionSummary
@@ -979,24 +966,19 @@ export function AttorneyRequestPersistedEditor(props: {
                 : "После последней сборки документ не менялся."
             }
             items={[
-              { label: "Черновик", value: "Доступен" },
+              { label: "Черновик", value: savedDraftLabel },
               {
                 label: "Снимок данных",
-                value: new Date(props.document.snapshotCapturedAt).toLocaleString("ru-RU"),
+                value: formatDateTimeLabel(props.document.snapshotCapturedAt),
                 tone: "success",
               },
               {
                 label: "Следующий шаг",
-                value: props.document.generatedArtifact ? "Проверить и скачать файлы" : "Собрать первый результат",
+                value: props.document.generatedArtifact ? "Проверить результат" : "Собрать результат",
                 tone: props.document.generatedArtifact ? "neutral" : "warning",
               },
-              {
-                label: "Публикация",
-                value: "Не используется",
-                tone: "info",
-              },
             ]}
-            title="Следующие действия"
+            title={editorActionTitle}
           />
         </EditorContextAside>
       }
@@ -1084,13 +1066,11 @@ export function LegalServicesAgreementPersistedEditor(props: {
   };
   status?: string;
 }) {
-  const lastGeneratedLabel = props.document.generatedAt
-    ? new Date(props.document.generatedAt).toLocaleString("ru-RU")
-    : "ещё не выполнялась";
+  const lastGeneratedLabel = formatDateTimeLabel(props.document.generatedAt, notBuiltLabel);
 
   const generatedFilesLabel = props.document.generatedArtifact
-    ? `${props.document.generatedArtifact.pageCount} стр. готовы`
-    : "Ещё не собраны";
+    ? readyToDownloadLabel
+    : notBuiltLabel;
 
   const signatureLabel = props.document.generatedArtifact
     ? "Подставлены в собранных страницах"
@@ -1114,27 +1094,27 @@ export function LegalServicesAgreementPersistedEditor(props: {
               { label: "Сервер", value: props.document.server.name },
               { label: "Персонаж", value: props.document.authorSnapshot.fullName },
               { label: "Паспорт персонажа", value: props.document.authorSnapshot.passportNumber },
-              { label: "Доверитель", value: props.document.payload.trustorSnapshot.fullName || "не указан" },
+              { label: "Доверитель", value: withFallback(props.document.payload.trustorSnapshot.fullName) },
               {
                 label: "Паспорт доверителя",
-                value: props.document.payload.trustorSnapshot.passportNumber || "не указан",
+                value: withFallback(props.document.payload.trustorSnapshot.passportNumber),
               },
               {
                 label: "Номер договора",
-                value: props.document.payload.manualFields.agreementNumber || "не указан",
+                value: withFallback(props.document.payload.manualFields.agreementNumber),
               },
               {
                 label: "Дата договора",
-                value: props.document.payload.manualFields.agreementDate || "не указана",
+                value: withFallback(props.document.payload.manualFields.agreementDate),
               },
               { label: "Создано", value: new Date(props.document.createdAt).toLocaleString("ru-RU") },
               { label: "Обновлено", value: new Date(props.document.updatedAt).toLocaleString("ru-RU") },
               {
-                label: "Снимок данных",
+                label: "Данные автора зафиксированы",
                 value: new Date(props.document.snapshotCapturedAt).toLocaleString("ru-RU"),
               },
             ]}
-            title="О договоре"
+            title={editorMetaTitle}
           />
 
           <EditorProgressSummary
@@ -1169,11 +1149,11 @@ export function LegalServicesAgreementPersistedEditor(props: {
               },
               {
                 label: "Изменения после сборки",
-                value: props.document.isModifiedAfterGeneration ? "Есть изменения" : "Не обнаружены",
+                value: formatModifiedAfterGenerationLabel(props.document.isModifiedAfterGeneration),
                 tone: props.document.isModifiedAfterGeneration ? "warning" : "success",
               },
             ]}
-            title="Готовность"
+            title={editorProgressTitle}
           />
 
           <EditorActionSummary
@@ -1184,24 +1164,19 @@ export function LegalServicesAgreementPersistedEditor(props: {
                 : "После последней сборки документ не менялся."
             }
             items={[
-              { label: "Черновик", value: "Доступен" },
+              { label: "Черновик", value: savedDraftLabel },
               {
                 label: "Страниц в результате",
-                value: props.document.generatedArtifact ? `${props.document.generatedArtifact.pageCount}` : "Пока нет",
+                value: props.document.generatedArtifact ? `${props.document.generatedArtifact.pageCount}` : noDataLabel,
                 tone: props.document.generatedArtifact ? "success" : "neutral",
               },
               {
                 label: "Следующий шаг",
-                value: props.document.generatedArtifact ? "Проверить и скачать страницы" : "Собрать первый результат",
+                value: props.document.generatedArtifact ? "Проверить результат" : "Собрать результат",
                 tone: props.document.generatedArtifact ? "neutral" : "warning",
               },
-              {
-                label: "Публикация",
-                value: "Не используется",
-                tone: "info",
-              },
             ]}
-            title="Следующие действия"
+            title={editorActionTitle}
           />
         </EditorContextAside>
       }

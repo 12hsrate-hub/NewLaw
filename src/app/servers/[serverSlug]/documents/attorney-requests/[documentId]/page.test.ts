@@ -118,7 +118,7 @@ describe("/servers/[serverSlug]/documents/attorney-requests/[documentId] page", 
     expect(html).toContain('data-editor-main-column="true"');
     expect(html).toContain('data-editor-context-aside="true"');
     expect(html).toContain("Редактор адвокатского запроса");
-    expect(html).toContain("О запросе");
+    expect(html).toContain("О документе");
     expect(html).toContain("Готовность");
     expect(html).toContain("Следующие действия");
     expect(html).toContain("Павел Доверитель");
