@@ -106,6 +106,25 @@ describe("shell selection actions", () => {
     );
   });
 
+  it("без redirectTo у server switch использует новый fallback /servers", async () => {
+    vi.mocked(requireProtectedAccountContext).mockResolvedValue({
+      account: {
+        id: "21631886-7b4d-4be2-b6e9-95322d0dca41",
+      },
+    } as never);
+    vi.mocked(getServerById).mockResolvedValue({
+      id: "server-2",
+      code: "blackberry",
+      name: "Blackberry",
+    } as never);
+    vi.mocked(setActiveServerSelection).mockResolvedValue({} as never);
+
+    const formData = new FormData();
+    formData.set("serverId", "server-2");
+
+    await expectRedirect(selectActiveServerAction(formData), "/servers");
+  });
+
   it("для primary shell корректно перенаправляет server-scoped assistant route на новый сервер", async () => {
     vi.mocked(requireProtectedAccountContext).mockResolvedValue({
       account: {
@@ -203,5 +222,26 @@ describe("shell selection actions", () => {
     );
 
     expect(setActiveCharacterSelection).not.toHaveBeenCalled();
+  });
+
+  it("без redirectTo у character switch использует account characters fallback", async () => {
+    vi.mocked(getAppShellContext).mockResolvedValue({
+      account: {
+        id: "21631886-7b4d-4be2-b6e9-95322d0dca41",
+      },
+      activeServer: {
+        id: "server-1",
+      },
+    } as never);
+    vi.mocked(setActiveCharacterSelection).mockResolvedValue({} as never);
+
+    const formData = new FormData();
+    formData.set("serverId", "server-1");
+    formData.set("characterId", "character-1");
+
+    await expectRedirect(
+      selectActiveCharacterAction(formData),
+      "/account/characters",
+    );
   });
 });

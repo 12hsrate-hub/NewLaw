@@ -155,6 +155,25 @@ describe("character actions", () => {
     expect(setInitialDefaultCharacterIfMissing).not.toHaveBeenCalled();
   });
 
+  it("без redirectTo использует новый безопасный fallback account zone", async () => {
+    vi.mocked(createCharacterManually).mockResolvedValue({
+      id: "character-default",
+    } as never);
+    vi.mocked(setActiveServerSelection).mockResolvedValue({} as never);
+    vi.mocked(setActiveCharacterSelection).mockResolvedValue({} as never);
+    vi.mocked(countCharactersByServer).mockResolvedValue(1 as never);
+
+    const formData = new FormData();
+    formData.set("serverId", "server-1");
+    formData.set("fullName", "Fallback User");
+    formData.set("passportNumber", "F-001");
+
+    await expectRedirect(
+      createCharacterAction(formData),
+      "/account/characters?status=character-created",
+    );
+  });
+
   it("корректно показывает лимит персонажей", async () => {
     vi.mocked(createCharacterManually).mockRejectedValue(new CharacterLimitExceededError());
 
@@ -496,6 +515,18 @@ describe("character actions", () => {
     await expectRedirect(
       removeActiveCharacterSignatureAction(formData),
       "/account/characters?server=blackberry&status=character-signature-access-denied",
+    );
+  });
+
+  it("signature actions без redirectTo возвращают в account characters", async () => {
+    vi.mocked(detachActiveCharacterSignatureForCharacter).mockResolvedValue({} as never);
+
+    const formData = new FormData();
+    formData.set("characterId", "character-1");
+
+    await expectRedirect(
+      removeActiveCharacterSignatureAction(formData),
+      "/account/characters?status=character-signature-removed",
     );
   });
 });

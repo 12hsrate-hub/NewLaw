@@ -32,7 +32,7 @@ type CharacterFormCardProps = {
 export function CharacterFormCard({
   defaultValues,
   mode,
-  redirectTo = "/app",
+  redirectTo = "/account/characters",
   selectionBehavior = "app_shell",
   serverId,
   surface = "app_shell",

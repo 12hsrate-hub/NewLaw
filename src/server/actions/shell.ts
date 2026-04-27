@@ -26,14 +26,24 @@ import {
 import { ActiveCharacterSelectionError } from "@/server/app-shell/state";
 import { requireProtectedAccountContext } from "@/server/auth/protected";
 
-function getRedirectTarget(formData: FormData) {
+function getServerRedirectTarget(formData: FormData) {
   const redirectTo = formData.get("redirectTo");
 
   if (typeof redirectTo === "string" && redirectTo.startsWith("/")) {
     return redirectTo;
   }
 
-  return "/app";
+  return "/servers";
+}
+
+function getCharacterRedirectTarget(formData: FormData) {
+  const redirectTo = formData.get("redirectTo");
+
+  if (typeof redirectTo === "string" && redirectTo.startsWith("/")) {
+    return redirectTo;
+  }
+
+  return "/account/characters";
 }
 
 function buildStatusRedirect(path: string, status: string) {
@@ -48,7 +58,7 @@ function buildStatusRedirect(path: string, status: string) {
 }
 
 export async function selectActiveServerAction(formData: FormData) {
-  const redirectTo = getRedirectTarget(formData);
+  const redirectTo = getServerRedirectTarget(formData);
   const safeRedirectBase = getSafeServerSwitchRedirectBase(redirectTo);
   const { account } = await requireProtectedAccountContext(safeRedirectBase);
 
@@ -89,7 +99,7 @@ export async function selectActiveServerAction(formData: FormData) {
 }
 
 export async function selectActiveCharacterAction(formData: FormData) {
-  const redirectTo = getRedirectTarget(formData);
+  const redirectTo = getCharacterRedirectTarget(formData);
   const shellContext = await getAppShellContext(redirectTo);
 
   try {

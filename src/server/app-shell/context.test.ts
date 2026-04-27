@@ -135,4 +135,13 @@ describe("app shell context", () => {
     expect(result.characters).toEqual([]);
     expect(getCharactersByServer).not.toHaveBeenCalled();
   });
+
+  it("по умолчанию использует нейтральный currentPath, а не /app", async () => {
+    vi.mocked(getServers).mockResolvedValue([] as never);
+    vi.mocked(getUserServerStates).mockResolvedValue([] as never);
+
+    const result = await getAppShellContext();
+
+    expect(result.currentPath).toBe("/");
+  });
 });

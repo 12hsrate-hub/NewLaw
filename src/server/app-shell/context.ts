@@ -12,7 +12,7 @@ type AppShellContextOptions = {
 };
 
 export async function getAppShellContext(
-  nextPath = "/app",
+  nextPath = "/",
   options: AppShellContextOptions = {},
 ) {
   const { user, account } = await requireProtectedAccountContext(

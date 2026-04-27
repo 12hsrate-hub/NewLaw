@@ -9,6 +9,18 @@ vi.mock("@/server/actions/characters", () => ({
 import { CharacterFormCard } from "@/components/product/characters/character-form-card";
 
 describe("character form card", () => {
+  it("по умолчанию использует account-oriented redirect target", () => {
+    const html = renderToStaticMarkup(
+      <CharacterFormCard
+        mode="create"
+        serverId="server-1"
+      />,
+    );
+
+    expect(html).toContain('name="redirectTo"');
+    expect(html).toContain('value="/account/characters"');
+  });
+
   it("в edit-режиме не рендерит self-service roles и access flags", () => {
     const html = renderToStaticMarkup(
       <CharacterFormCard

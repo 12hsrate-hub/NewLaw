@@ -54,7 +54,7 @@ function getRedirectTarget(formData: FormData) {
     return redirectTo;
   }
 
-  return "/app";
+  return "/account/characters";
 }
 
 function buildStatusRedirect(path: string, status: string) {
