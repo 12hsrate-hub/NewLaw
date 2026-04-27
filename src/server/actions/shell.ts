@@ -4,7 +4,12 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { isRedirectError } from "next/dist/client/components/redirect-error";
 
+import { getServerById } from "@/db/repositories/server.repository";
 import { getAppShellContext } from "@/server/app-shell/context";
+import {
+  getSafeServerSwitchRedirectBase,
+  resolveServerSwitchRedirectTarget,
+} from "@/server/actions/server-switch-resolver";
 import {
   type ActiveServerSelectionInput,
   activeServerSelectionSchema,
@@ -44,27 +49,42 @@ function buildStatusRedirect(path: string, status: string) {
 
 export async function selectActiveServerAction(formData: FormData) {
   const redirectTo = getRedirectTarget(formData);
-  const { account } = await requireProtectedAccountContext(redirectTo);
+  const safeRedirectBase = getSafeServerSwitchRedirectBase(redirectTo);
+  const { account } = await requireProtectedAccountContext(safeRedirectBase);
 
   try {
     const input: ActiveServerSelectionInput = {
       serverId: String(formData.get("serverId") ?? ""),
     };
+    const parsedInput = activeServerSelectionSchema.parse(input);
+    const selectedServer = await getServerById(parsedInput.serverId);
 
-    await setActiveServerSelection(account.id, activeServerSelectionSchema.parse(input));
-    revalidatePath(redirectTo);
+    if (!selectedServer) {
+      throw new ActiveServerNotFoundError();
+    }
+
+    const nextRedirectTo = resolveServerSwitchRedirectTarget({
+      redirectTo: safeRedirectBase,
+      selectedServerSlug: selectedServer.code,
+    });
+
+    await setActiveServerSelection(account.id, parsedInput);
+    revalidatePath(safeRedirectBase);
+    if (nextRedirectTo !== safeRedirectBase) {
+      revalidatePath(nextRedirectTo);
+    }
     revalidatePath("/app");
-    redirect(redirectTo);
+    redirect(nextRedirectTo);
   } catch (error) {
     if (isRedirectError(error)) {
       throw error;
     }
 
     if (error instanceof ActiveServerNotFoundError) {
-      redirect(buildStatusRedirect(redirectTo, "server-not-found"));
+      redirect(buildStatusRedirect(safeRedirectBase, "server-not-found"));
     }
 
-    redirect(buildStatusRedirect(redirectTo, "server-selection-error"));
+    redirect(buildStatusRedirect(safeRedirectBase, "server-selection-error"));
   }
 }
 
