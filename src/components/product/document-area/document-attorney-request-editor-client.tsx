@@ -84,14 +84,14 @@ function buildCreatePayloadJson() {
 
 function formatDocumentStatus(status: "draft" | "generated" | "published") {
   if (status === "draft") {
-    return "черновик";
+    return "Черновик";
   }
 
   if (status === "generated") {
-    return "сгенерировано";
+    return "Документ собран";
   }
 
-  return "опубликовано";
+  return "Опубликован";
 }
 
 function formatPresetLabel(key: string | null) {
@@ -219,8 +219,6 @@ export function AttorneyRequestEditorClient(props: AttorneyRequestEditorClientPr
   const [generationMessage, setGenerationMessage] = useState<string | null>(null);
   const [generatedArtifact, setGeneratedArtifact] = useState(props.generatedArtifact);
   const [generatedAt, setGeneratedAt] = useState(props.generatedAt);
-  const [generatedOutputFormat, setGeneratedOutputFormat] = useState(props.generatedOutputFormat);
-  const [generatedRendererVersion, setGeneratedRendererVersion] = useState(props.generatedRendererVersion);
   const [status, setStatus] = useState(props.status);
   const [isModifiedAfterGeneration, setIsModifiedAfterGeneration] = useState(
     props.isModifiedAfterGeneration,
@@ -274,17 +272,15 @@ export function AttorneyRequestEditorClient(props: AttorneyRequestEditorClientPr
         return;
       }
 
-      setGenerationMessage("Не удалось сгенерировать адвокатский запрос. Сохраните черновик и попробуйте снова.");
+      setGenerationMessage("Не удалось собрать документ. Черновик сохранён, можно попробовать ещё раз.");
       return;
     }
 
     setStatus(result.status);
     setGeneratedAt(result.generatedAt);
     setGeneratedArtifact(result.generatedArtifact);
-    setGeneratedOutputFormat(result.generatedOutputFormat);
-    setGeneratedRendererVersion(result.generatedRendererVersion);
     setIsModifiedAfterGeneration(result.isModifiedAfterGeneration);
-    setGenerationMessage("Адвокатский запрос сгенерирован. Проверьте предпросмотр перед использованием.");
+    setGenerationMessage("Документ собран. Проверьте предпросмотр перед использованием.");
   };
 
   return (
@@ -447,7 +443,7 @@ export function AttorneyRequestEditorClient(props: AttorneyRequestEditorClientPr
           Сохранить черновик
         </Button>
         <Button onClick={performGenerate} type="button" variant="secondary">
-          Сгенерировать preview / PDF / PNG / JPG
+          Собрать предпросмотр и файлы
         </Button>
         <Badge>{formatDocumentStatus(status)}</Badge>
         {isDirty ? <Badge>есть несохранённые изменения</Badge> : null}
@@ -463,8 +459,6 @@ export function AttorneyRequestEditorClient(props: AttorneyRequestEditorClientPr
         <div className="flex flex-wrap items-center gap-2">
           <h3 className="text-xl font-semibold">Результат генерации</h3>
           {generatedAt ? <Badge>{new Date(generatedAt).toLocaleString("ru-RU")}</Badge> : null}
-          {generatedOutputFormat ? <Badge>{generatedOutputFormat}</Badge> : null}
-          {generatedRendererVersion ? <Badge>{generatedRendererVersion}</Badge> : null}
         </div>
         {generatedArtifact ? (
           <div className="space-y-3">
@@ -498,7 +492,7 @@ export function AttorneyRequestEditorClient(props: AttorneyRequestEditorClientPr
           </div>
         ) : (
           <p className="text-sm leading-6 text-[var(--muted)]">
-            Генерация ещё не выполнялась. Черновик можно сохранять неполным, но генерация попросит
+            Сборка ещё не выполнялась. Черновик можно сохранять неполным, но перед сборкой нужно
             заполнить обязательные поля.
           </p>
         )}

@@ -9,7 +9,7 @@ import LegalServicesAgreementEditorPage from "@/app/servers/[serverSlug]/documen
 import { getLegalServicesAgreementEditorRouteContext } from "@/server/document-area/context";
 
 describe("/servers/[serverSlug]/documents/legal-services-agreements/[documentId] page", () => {
-  it("грузит owner-only editor с postраничным artifact", async () => {
+  it("грузит редактор договора с готовыми страницами для скачивания", async () => {
     vi.mocked(getLegalServicesAgreementEditorRouteContext).mockResolvedValue({
       status: "ready",
       account: {
@@ -111,7 +111,7 @@ describe("/servers/[serverSlug]/documents/legal-services-agreements/[documentId]
       nextPath: "/servers/blackberry/documents/legal-services-agreements/agreement-1",
     });
     expect(html).toContain("Редактор договора");
-    expect(html).toContain("legal_services_agreement_png_pages_v1");
+    expect(html).toContain("О документе");
     expect(html).toContain("Скачать страницу 1");
     expect(html).toContain("Nick Name");
   });
@@ -153,7 +153,7 @@ describe("/servers/[serverSlug]/documents/legal-services-agreements/[documentId]
     );
 
     expect(html).toContain("Требует восстановления");
-    expect(html).toContain("agreement-broken");
+    expect(html).not.toContain("agreement-broken");
     expect(html).toContain("договорам");
   });
 });

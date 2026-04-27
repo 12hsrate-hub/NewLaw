@@ -41,7 +41,7 @@ function EvidenceGroupsEditor(props: {
     <div className="space-y-4">
       {groups.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-[var(--border)] px-4 py-5 text-sm text-[var(--muted)]">
-          Пока нет evidence groups. Claims editor можно сохранить и без них, а ссылки добавить позже.
+          Пока нет групп доказательств. Черновик можно сохранить и без них, а ссылки добавить позже.
         </div>
       ) : null}
 
@@ -49,9 +49,9 @@ function EvidenceGroupsEditor(props: {
         <div className="space-y-4 rounded-3xl border border-[var(--border)] bg-white/70 p-4" key={group.id}>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="space-y-1">
-              <p className="text-sm font-medium text-[var(--foreground)]">Evidence group {groupIndex + 1}</p>
+              <p className="text-sm font-medium text-[var(--foreground)]">Группа доказательств {groupIndex + 1}</p>
               <ClaimsFieldHint>
-                Используем тот же evidence pattern, что и в OGP, чтобы не плодить вторую несовместимую модель.
+                Сюда можно объединять ссылки на материалы по смысловым блокам, чтобы с ними было проще работать дальше.
               </ClaimsFieldHint>
             </div>
             <Button
@@ -87,7 +87,7 @@ function EvidenceGroupsEditor(props: {
             {group.rows.map((row, rowIndex) => (
               <div className="space-y-3 rounded-2xl border border-[var(--border)] bg-white/80 p-4" key={row.id}>
                 <div className="flex flex-wrap items-center justify-between gap-3">
-                  <p className="text-sm font-medium text-[var(--foreground)]">Evidence row {rowIndex + 1}</p>
+                  <p className="text-sm font-medium text-[var(--foreground)]">Ссылка {rowIndex + 1}</p>
                   <Button
                     onClick={() => {
                       props.onChange(
@@ -111,7 +111,7 @@ function EvidenceGroupsEditor(props: {
                 <div className="grid gap-3 md:grid-cols-2">
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`claim-row-label-${row.id}`}>
-                      Название / label
+                      Название ссылки
                     </label>
                     <Input
                       id={`claim-row-label-${row.id}`}
@@ -210,7 +210,7 @@ function EvidenceGroupsEditor(props: {
             type="button"
             variant="secondary"
           >
-            Добавить evidence row
+            Добавить ссылку
           </Button>
         </div>
       ))}
@@ -222,7 +222,7 @@ function EvidenceGroupsEditor(props: {
         type="button"
         variant="secondary"
       >
-        Добавить evidence group
+        Добавить группу доказательств
       </Button>
     </div>
   );
@@ -251,24 +251,23 @@ export function ClaimsFormFields(props: {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center gap-2">
-        <Badge>{props.mode === "create" ? "pre-draft entry" : "persisted claims editor"}</Badge>
-        <Badge>Subtype: {formatSubtypeLabel(props.documentType)}</Badge>
-        <Badge>Filing mode: {filingModeLabel(payload.filingMode)}</Badge>
-        {props.draftStatusLabel ? <Badge>Status: {props.draftStatusLabel}</Badge> : null}
+        <Badge>{props.mode === "create" ? "Новый черновик" : "Сохранённый документ"}</Badge>
+        <Badge>Вид документа: {formatSubtypeLabel(props.documentType)}</Badge>
+        <Badge>Способ подачи: {filingModeLabel(payload.filingMode)}</Badge>
+        {props.draftStatusLabel ? <Badge>Статус: {props.draftStatusLabel}</Badge> : null}
       </div>
 
       <div className="rounded-3xl border border-[var(--border)] bg-white/70 p-4 text-sm leading-6 text-[var(--muted)]">
         <p>Сервер и персонаж уже показаны явно. Персонаж: {props.characterLabel}.</p>
         {!props.profileComplete ? (
           <p className="mt-2 text-[var(--accent)]">
-            Профиль персонажа неполный. Вход в claims flow разрешён, но этот статус нужно будет учитывать в future output/generation logic.
+            Профиль персонажа заполнен не полностью. Черновик можно продолжать, но перед использованием документа лучше проверить недостающие данные.
           </p>
         ) : null}
         {!props.representativeAllowed ? (
-          <p className="mt-2">У этого персонажа нет access flag `advocate`, поэтому representative filing недоступен.</p>
+          <p className="mt-2">У этого персонажа нет доступа для подачи через представителя, поэтому жалоба доступна только от своего имени.</p>
         ) : null}
-        <p className="mt-2">После first save server, author snapshot и subtype становятся immutable для этого `documentId`.</p>
-        {props.routeStatus ? <p className="mt-2">Route status: {props.routeStatus}</p> : null}
+        <p className="mt-2">После первого сохранения вид документа и данные автора фиксируются для этого черновика.</p>
         {props.updatedAtLabel ? <p className="mt-2">Последнее сохранение: {props.updatedAtLabel}</p> : null}
       </div>
 
@@ -292,7 +291,7 @@ export function ClaimsFormFields(props: {
       <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-2">
           <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`${props.mode}-claim-filing-mode`}>
-            Filing mode
+            Способ подачи
           </label>
           <Select
             id={`${props.mode}-claim-filing-mode`}
@@ -312,17 +311,17 @@ export function ClaimsFormFields(props: {
             }}
             value={payload.filingMode}
           >
-            <option value="self">Self</option>
+            <option value="self">От своего имени</option>
             <option disabled={!props.representativeAllowed} value="representative">
-              Representative
+              Через представителя
             </option>
           </Select>
-          <ClaimsFieldHint>Ветка representative доступна только персонажу с `advocate`.</ClaimsFieldHint>
+          <ClaimsFieldHint>Подача через представителя доступна только персонажу с нужным доступом.</ClaimsFieldHint>
         </div>
 
         <div className="space-y-2">
           <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`${props.mode}-claim-respondent-name`}>
-            Respondent name
+            Ответчик или орган
           </label>
           <Input
             id={`${props.mode}-claim-respondent-name`}
@@ -344,7 +343,7 @@ export function ClaimsFormFields(props: {
 
       <div className="space-y-2">
         <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`${props.mode}-claim-subject`}>
-          Claim subject
+          Предмет требования
         </label>
         <Input
           id={`${props.mode}-claim-subject`}
@@ -366,15 +365,15 @@ export function ClaimsFormFields(props: {
       {props.documentType === "rehabilitation" ? (
         <div className="space-y-4 rounded-3xl border border-[var(--border)] bg-white/70 p-4">
           <div className="space-y-1">
-            <h3 className="text-lg font-semibold">Rehabilitation-specific fields</h3>
+            <h3 className="text-lg font-semibold">Поля для реабилитации</h3>
             <ClaimsFieldHint>
-              Эти поля относятся только к subtype `rehabilitation` и не могут быть заменены на `lawsuit` после first save.
+              Эти поля относятся только к документу о реабилитации и после первого сохранения не меняются на другой вид документа.
             </ClaimsFieldHint>
           </div>
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`${props.mode}-rehabilitation-case-reference`}>
-                Case reference
+                Номер дела или решения
               </label>
               <Input
                 id={`${props.mode}-rehabilitation-case-reference`}
@@ -394,7 +393,7 @@ export function ClaimsFormFields(props: {
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`${props.mode}-rehabilitation-basis`}>
-                Rehabilitation basis
+                Основание для реабилитации
               </label>
               <Textarea
                 id={`${props.mode}-rehabilitation-basis`}
@@ -413,14 +412,14 @@ export function ClaimsFormFields(props: {
               {"rehabilitationBasis" in payload
                 ? props.renderRewriteControls?.({
                     sectionKey: "rehabilitation_basis",
-                    sectionLabel: "Rehabilitation basis",
+                    sectionLabel: "Основание для реабилитации",
                   })
                 : null}
             </div>
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`${props.mode}-rehabilitation-harm-summary`}>
-              Harm summary
+              Описание причинённого вреда
             </label>
             <Textarea
               id={`${props.mode}-rehabilitation-harm-summary`}
@@ -439,7 +438,7 @@ export function ClaimsFormFields(props: {
             {"harmSummary" in payload
               ? props.renderRewriteControls?.({
                   sectionKey: "harm_summary",
-                  sectionLabel: "Harm summary",
+                  sectionLabel: "Описание причинённого вреда",
                 })
               : null}
           </div>
@@ -447,15 +446,15 @@ export function ClaimsFormFields(props: {
       ) : (
         <div className="space-y-4 rounded-3xl border border-[var(--border)] bg-white/70 p-4">
           <div className="space-y-1">
-            <h3 className="text-lg font-semibold">Lawsuit-specific fields</h3>
+            <h3 className="text-lg font-semibold">Поля для искового заявления</h3>
             <ClaimsFieldHint>
-              Эти поля относятся только к subtype `lawsuit` и не смешиваются с `rehabilitation`.
+              Эти поля относятся только к исковому заявлению и не смешиваются с реабилитацией.
             </ClaimsFieldHint>
           </div>
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`${props.mode}-lawsuit-court-name`}>
-                Court name
+                Суд
               </label>
               <Input
                 id={`${props.mode}-lawsuit-court-name`}
@@ -475,7 +474,7 @@ export function ClaimsFormFields(props: {
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`${props.mode}-lawsuit-defendant-name`}>
-                Defendant name
+                Ответчик
               </label>
               <Input
                 id={`${props.mode}-lawsuit-defendant-name`}
@@ -497,7 +496,7 @@ export function ClaimsFormFields(props: {
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`${props.mode}-lawsuit-claim-amount`}>
-                Claim amount
+                Сумма требований
               </label>
               <Input
                 id={`${props.mode}-lawsuit-claim-amount`}
@@ -517,7 +516,7 @@ export function ClaimsFormFields(props: {
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`${props.mode}-lawsuit-pretrial-summary`}>
-                Pretrial summary
+                Досудебные действия
               </label>
               <Textarea
                 id={`${props.mode}-lawsuit-pretrial-summary`}
@@ -536,7 +535,7 @@ export function ClaimsFormFields(props: {
               {"pretrialSummary" in payload
                 ? props.renderRewriteControls?.({
                     sectionKey: "pretrial_summary",
-                    sectionLabel: "Pretrial summary",
+                    sectionLabel: "Досудебные действия",
                   })
                 : null}
             </div>
@@ -546,7 +545,7 @@ export function ClaimsFormFields(props: {
 
       <div className="space-y-2">
         <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`${props.mode}-claim-factual-background`}>
-          Factual background
+          Фактические обстоятельства
         </label>
         <Textarea
           id={`${props.mode}-claim-factual-background`}
@@ -564,14 +563,14 @@ export function ClaimsFormFields(props: {
         />
         {props.renderRewriteControls?.({
           sectionKey: "factual_background",
-          sectionLabel: "Factual background",
+          sectionLabel: "Фактические обстоятельства",
         })}
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-2">
           <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`${props.mode}-claim-legal-basis-summary`}>
-            Legal basis summary
+            Правовые основания
           </label>
           <Textarea
             id={`${props.mode}-claim-legal-basis-summary`}
@@ -589,12 +588,12 @@ export function ClaimsFormFields(props: {
           />
           {props.renderRewriteControls?.({
             sectionKey: "legal_basis_summary",
-            sectionLabel: "Legal basis summary",
+            sectionLabel: "Правовые основания",
           })}
         </div>
         <div className="space-y-2">
           <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`${props.mode}-claim-requested-relief`}>
-            Requested relief
+            Просьба заявителя
           </label>
           <Textarea
             id={`${props.mode}-claim-requested-relief`}
@@ -612,7 +611,7 @@ export function ClaimsFormFields(props: {
           />
           {props.renderRewriteControls?.({
             sectionKey: "requested_relief",
-            sectionLabel: "Requested relief",
+            sectionLabel: "Просьба заявителя",
           })}
         </div>
       </div>
@@ -620,9 +619,9 @@ export function ClaimsFormFields(props: {
       {payload.filingMode === "representative" ? (
         <div className="space-y-4 rounded-3xl border border-[var(--border)] bg-white/70 p-4">
           <div className="space-y-1">
-            <h3 className="text-lg font-semibold">Trustor snapshot</h3>
+            <h3 className="text-lg font-semibold">Данные доверителя</h3>
             <ClaimsFieldHint>
-              Trustor живёт внутри claims document как snapshot. Registry используется только как optional prefill и не создаёт live-связь с документом.
+              Данные доверителя сохраняются внутри документа. Список доверителей используется только для быстрого заполнения и не меняет уже сохранённый черновик автоматически.
             </ClaimsFieldHint>
           </div>
 
@@ -646,7 +645,7 @@ export function ClaimsFormFields(props: {
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`${props.mode}-claim-trustor-full-name`}>
-                Trustor full name
+                ФИО доверителя
               </label>
               <Input
                 id={`${props.mode}-claim-trustor-full-name`}
@@ -668,7 +667,7 @@ export function ClaimsFormFields(props: {
 
             <div className="space-y-2">
               <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`${props.mode}-claim-trustor-passport`}>
-                Trustor passport number
+                Паспорт доверителя
               </label>
               <Input
                 id={`${props.mode}-claim-trustor-passport`}
@@ -691,7 +690,7 @@ export function ClaimsFormFields(props: {
 
           <div className="space-y-2">
             <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`${props.mode}-claim-trustor-note`}>
-              Trustor note
+              Примечание по доверителю
             </label>
             <Textarea
               id={`${props.mode}-claim-trustor-note`}
@@ -716,10 +715,10 @@ export function ClaimsFormFields(props: {
 
       <div className="space-y-4 rounded-3xl border border-[var(--border)] bg-white/70 p-4">
         <div className="space-y-1">
-          <h3 className="text-lg font-semibold">Evidence links</h3>
-          <ClaimsFieldHint>
-            Используется тот же evidence pattern, что и в OGP. File uploads и output/publication сюда не входят.
-          </ClaimsFieldHint>
+            <h3 className="text-lg font-semibold">Доказательства и ссылки</h3>
+            <ClaimsFieldHint>
+            Здесь можно собрать ссылки на документы, материалы и публикации, которые пригодятся при подготовке текста.
+            </ClaimsFieldHint>
         </div>
         <EvidenceGroupsEditor
           evidenceGroups={payload.evidenceGroups}
@@ -737,7 +736,7 @@ export function ClaimsFormFields(props: {
 
       <div className="space-y-2">
         <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`${props.mode}-claim-working-notes`}>
-          Working notes
+          Рабочие заметки
         </label>
         <Textarea
           id={`${props.mode}-claim-working-notes`}
@@ -750,7 +749,7 @@ export function ClaimsFormFields(props: {
               },
             });
           }}
-          placeholder="Внутренние рабочие заметки по claim"
+          placeholder="Внутренние рабочие заметки по документу"
           value={payload.workingNotes}
         />
       </div>

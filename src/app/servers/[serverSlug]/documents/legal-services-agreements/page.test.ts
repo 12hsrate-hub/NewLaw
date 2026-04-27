@@ -9,7 +9,7 @@ import LegalServicesAgreementFamilyPage from "@/app/servers/[serverSlug]/documen
 import { getLegalServicesAgreementFamilyRouteContext } from "@/server/document-area/context";
 
 describe("/servers/[serverSlug]/documents/legal-services-agreements page", () => {
-  it("рендерит persisted family внутри server documents area", async () => {
+  it("показывает сохранённые договоры внутри документов сервера", async () => {
     vi.mocked(getLegalServicesAgreementFamilyRouteContext).mockResolvedValue({
       status: "ready",
       account: {
@@ -99,7 +99,7 @@ describe("/servers/[serverSlug]/documents/legal-services-agreements page", () =>
       nextPath: "/servers/blackberry/documents/legal-services-agreements",
     });
     expect(html).toContain("Договоры на оказание юридических услуг");
-    expect(html).toContain("страницы выгружаются отдельно как PNG");
+    expect(html).toContain("готовые страницы договора для проверки и скачивания");
     expect(html).toContain("Nick Name");
     expect(html).toContain("LS-0011");
   });

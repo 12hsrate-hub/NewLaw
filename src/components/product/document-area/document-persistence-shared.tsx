@@ -24,7 +24,7 @@ export function DocumentLink({
 }
 
 export function formatClaimSubtype(documentType: ClaimDocumentType) {
-  return documentType === "rehabilitation" ? "Rehabilitation" : "Lawsuit";
+  return documentType === "rehabilitation" ? "Реабилитация" : "Исковое заявление";
 }
 
 export function formatForumConnectionState(state: ForumConnectionSummary["state"]) {
@@ -33,7 +33,7 @@ export function formatForumConnectionState(state: ForumConnectionSummary["state"
   }
 
   if (state === "connected_unvalidated") {
-    return "подключено, но не проверено";
+    return "подключено, требуется проверка";
   }
 
   if (state === "valid") {
@@ -53,7 +53,7 @@ export function formatForumSyncState(state: OgpForumSyncState | null) {
   }
 
   if (state === "not_published") {
-    return "ещё не опубликовано";
+    return "пока не опубликовано";
   }
 
   if (state === "current") {
@@ -61,26 +61,26 @@ export function formatForumSyncState(state: OgpForumSyncState | null) {
   }
 
   if (state === "outdated") {
-    return "нужно обновить публикацию";
+    return "требуется обновление публикации";
   }
 
   if (state === "failed") {
-    return "ошибка публикации";
+    return "не удалось опубликовать";
   }
 
-  return "указана вручную";
+  return "ссылка добавлена вручную";
 }
 
 export function formatDocumentStatus(status: DocumentAreaPersistedListItem["status"]) {
   if (status === "draft") {
-    return "черновик";
+    return "Черновик";
   }
 
   if (status === "generated") {
-    return "сгенерировано";
+    return "Документ собран";
   }
 
-  return "опубликовано";
+  return "Опубликован";
 }
 
 export function formatFilingMode(mode: DocumentAreaPersistedListItem["filingMode"]) {

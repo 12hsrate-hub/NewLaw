@@ -9,7 +9,7 @@ import ClaimsFamilyPage from "@/app/servers/[serverSlug]/documents/claims/page";
 import { getClaimsFamilyRouteContext } from "@/server/document-area/context";
 
 describe("/servers/[serverSlug]/documents/claims page", () => {
-  it("читает persisted claims family рядом с OGP", async () => {
+  it("показывает раздел исков рядом с другими документами сервера", async () => {
     vi.mocked(getClaimsFamilyRouteContext).mockResolvedValue({
       status: "ready",
       account: {
@@ -84,9 +84,9 @@ describe("/servers/[serverSlug]/documents/claims page", () => {
       serverSlug: "blackberry",
       nextPath: "/servers/blackberry/documents/claims",
     });
-    expect(html).toContain("Claims");
-    expect(html).toContain("rehabilitation");
+    expect(html).toContain("Иски");
+    expect(html).toContain("Реабилитация");
     expect(html).toContain("Документ по реабилитации");
-    expect(html).toContain("реальные persisted документы");
+    expect(html).toContain("Здесь собраны ваши сохранённые документы по искам.");
   });
 });

@@ -29,8 +29,12 @@ export function OwnedDocumentUnavailableState(props: {
         </div>
         <h1 className="text-3xl font-semibold">Документ недоступен</h1>
         <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
-          Документ `{props.documentId}` не найден на этом сервере или не принадлежит текущему
-          аккаунту.
+          Не удалось открыть документ. Он не найден на этом сервере или недоступен для текущего
+          аккаунта.
+        </p>
+        <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
+          Ваши данные не удалены. Можно вернуться к списку документов и открыть другой черновик
+          или готовый документ.
         </p>
         <div className="flex flex-wrap gap-3">
           <DocumentLink href={familyHref}>
@@ -70,15 +74,18 @@ export function InvalidDocumentDataState(props: {
         </div>
         <h1 className="text-3xl font-semibold">{props.document.title}</h1>
         <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
-          Данные документа `{props.document.id}` не удалось безопасно прочитать. Сам документ не
-          удалён, но его payload или snapshots повреждены либо устарели и требуют ручного
-          восстановления.
+          Не удалось безопасно прочитать данные этого документа. Сам документ не удалён, но его
+          содержимое требует проверки или восстановления.
         </p>
         <div className="space-y-1 text-sm leading-6 text-[var(--muted)]">
           <p>Статус: {formatDocumentStatus(props.document.status)}.</p>
           <p>Сохранено: {new Date(props.document.snapshotCapturedAt).toLocaleString("ru-RU")}.</p>
           <p>Последнее обновление: {new Date(props.document.updatedAt).toLocaleString("ru-RU")}.</p>
         </div>
+        <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
+          Попробуйте открыть другой документ или вернуться позже. Если проблема повторяется,
+          понадобится помощь администратора.
+        </p>
         <div className="flex flex-wrap gap-3">
           <DocumentLink href={props.familyHref}>
             Вернуться к {props.familyLabel}

@@ -196,7 +196,6 @@ export function ServerDocumentsHub(props: {
           Здесь собраны документы и действия для выбранного сервера.
         </p>
         <div className="flex flex-wrap items-center gap-2 text-sm leading-6 text-[var(--muted)]">
-          <Badge>Код сервера: {props.server.code}</Badge>
           <Badge>Персонаж: {props.selectedCharacter.fullName}</Badge>
           <span>
             Выбор: {props.selectedCharacter.source === "last_used" ? "последний использованный" : "первый доступный"}
@@ -221,8 +220,8 @@ export function ServerDocumentsHub(props: {
             </p>
             <h2 className="text-2xl font-semibold">Жалобы в ОГП</h2>
             <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
-              Создавайте и редактируйте жалобы в ОГП, генерируйте BBCode и готовьте публикацию
-              на форуме.
+              Создавайте и редактируйте жалобы в ОГП, собирайте готовый текст для форума и
+              готовьте публикацию.
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
@@ -239,8 +238,8 @@ export function ServerDocumentsHub(props: {
             </p>
             <h2 className="text-2xl font-semibold">Договоры на оказание юридических услуг</h2>
             <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
-              Тестовое rigid-template family для server-specific договоров. Static template
-              берётся из reference PDF, а спорные поля остаются provisional внутри spike.
+              Создавайте и редактируйте договоры на оказание юридических услуг. После заполнения
+              данных можно собрать страницы договора для проверки и скачивания.
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
@@ -341,7 +340,6 @@ export function OgpComplaintFoundation(props: {
         <h1 className="text-3xl font-semibold">{title}</h1>
         <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">{description}</p>
         <div className="flex flex-wrap items-center gap-2 text-sm leading-6 text-[var(--muted)]">
-          <Badge>Код сервера: {props.server.code}</Badge>
           <Badge>Сервер: {props.server.name}</Badge>
           <Badge>Персонаж: {props.selectedCharacter.fullName}</Badge>
           <span>Паспорт: {props.selectedCharacter.passportNumber}</span>
@@ -353,13 +351,10 @@ export function OgpComplaintFoundation(props: {
         <ul className="space-y-2 text-sm leading-6 text-[var(--muted)]">
           <li>Черновик можно создать и затем открыть в редакторе жалобы.</li>
           <li>После сохранения данные персонажа фиксируются в документе.</li>
-          <li>Генерация BBCode доступна в сохранённом редакторе жалобы.</li>
+          <li>Сборка готового текста для форума доступна в сохранённом редакторе жалобы.</li>
           <li>
             Выбранный персонаж показан явно и может быть изменён до первого сохранения.
           </li>
-          {props.mode === "editor" ? (
-            <li>ID документа: {props.documentId}.</li>
-          ) : null}
         </ul>
         <div className="flex flex-wrap gap-3">
           {props.mode !== "index" ? (
@@ -379,7 +374,7 @@ export function OgpComplaintFoundation(props: {
 }
 
 function formatClaimSubtypeLabel(subtype: "rehabilitation" | "lawsuit") {
-  return subtype === "rehabilitation" ? "Rehabilitation" : "Lawsuit";
+  return subtype === "rehabilitation" ? "Реабилитация" : "Исковое заявление";
 }
 
 export function ClaimsFamilyFoundation(props: {
@@ -398,38 +393,36 @@ export function ClaimsFamilyFoundation(props: {
 }) {
   const title =
     props.mode === "index"
-      ? "Claims"
+      ? "Иски"
       : props.mode === "new"
-        ? "Новый claim"
-        : "Future claims editor route";
+        ? "Новый документ из раздела «Иски»"
+        : "Редактор документа из раздела «Иски»";
 
   const description =
     props.mode === "index"
-      ? "Это отдельная family внутри server-scoped document area. Здесь позже будут жить persisted claims типов `rehabilitation` и `lawsuit`."
+      ? "Здесь собраны документы из раздела исков."
       : props.mode === "new"
-        ? "Это entry route family `Claims`. Сначала пользователь обязан выбрать subtype, а persisted create/edit flow начнётся только в следующем claims-шаге."
-        : "Это future owner-account route для claims. Здесь пока нет fake loading, fake persistence и нет подмены работы через `/account` или `/app`.";
+        ? "Сначала выберите вид документа, а затем создайте черновик."
+        : "Откройте сохранённый документ и продолжите редактирование.";
 
   return (
     <div className="space-y-6">
       <Card className="space-y-3">
         <div className="flex flex-wrap items-center gap-2">
-          <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">Claims Family</p>
-          {props.mode === "editor" ? <Badge>owner-account route foundation</Badge> : null}
-          {props.selectedSubtype ? <Badge>Subtype: {formatClaimSubtypeLabel(props.selectedSubtype)}</Badge> : null}
+          <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">Иски</p>
+          {props.selectedSubtype ? <Badge>Вид документа: {formatClaimSubtypeLabel(props.selectedSubtype)}</Badge> : null}
         </div>
         <h1 className="text-3xl font-semibold">{title}</h1>
         <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">{description}</p>
         <div className="flex flex-wrap items-center gap-2 text-sm leading-6 text-[var(--muted)]">
-          <Badge>serverSlug: {props.server.code}</Badge>
           <Badge>Сервер: {props.server.name}</Badge>
           {props.selectedCharacter ? (
             <>
               <Badge>Персонаж: {props.selectedCharacter.fullName}</Badge>
               <span>Паспорт: {props.selectedCharacter.passportNumber}</span>
               <span>
-                UX-default:{" "}
-                {props.selectedCharacter.source === "last_used" ? "last-used" : "first available"}
+                Сейчас выбран{" "}
+                {props.selectedCharacter.source === "last_used" ? "последний использованный" : "первый доступный"} персонаж
               </span>
             </>
           ) : (
@@ -439,45 +432,40 @@ export function ClaimsFamilyFoundation(props: {
       </Card>
 
       <Card className="space-y-4">
-        <h2 className="text-2xl font-semibold">Что входит в family `Claims`</h2>
+        <h2 className="text-2xl font-semibold">Что доступно в этом разделе</h2>
         <ul className="space-y-2 text-sm leading-6 text-[var(--muted)]">
-          <li>Subtype `rehabilitation`.</li>
-          <li>Subtype `lawsuit`.</li>
-          <li>Отдельный route/editor contract, не подмешанный в `OGP complaints`.</li>
-          <li>Никакого `BBCode`, `publication_url` или forum automation на этом шаге.</li>
+          <li>Документ вида «Реабилитация».</li>
+          <li>Документ вида «Исковое заявление».</li>
+          <li>Черновики и итоговые версии документов по искам.</li>
+          <li>Публикация на форуме для этого раздела не используется.</li>
           {props.mode === "editor" ? (
-            <li>Subtype будущего persisted документа будет определяться по `document_type`, а не по URL.</li>
-          ) : null}
-          {props.mode === "editor" && props.documentId ? (
-            <li>Текущий route contract использует documentId из URL: {props.documentId}.</li>
+            <li>После первого сохранения вид документа уже не меняется автоматически.</li>
           ) : null}
         </ul>
       </Card>
 
       {props.mode === "new" ? (
         <Card className="space-y-4">
-          <h2 className="text-2xl font-semibold">Выбор subtype</h2>
+          <h2 className="text-2xl font-semibold">Выбор вида документа</h2>
           <p className="text-sm leading-6 text-[var(--muted)]">
-            Subtype choice обязателен. Сейчас это честный foundation-level entry без draft creation:
-            route только фиксирует будущий контракт editor flow.
+            Перед созданием черновика нужно выбрать, какой именно документ вы хотите подготовить.
           </p>
           <div className="flex flex-wrap gap-3">
             <FoundationLink href={`/servers/${props.server.code}/documents/claims/new?subtype=rehabilitation`}>
-              Выбрать Rehabilitation
+              Выбрать реабилитацию
             </FoundationLink>
             <FoundationLink href={`/servers/${props.server.code}/documents/claims/new?subtype=lawsuit`}>
-              Выбрать Lawsuit
+              Выбрать исковое заявление
             </FoundationLink>
           </div>
           {props.selectedSubtype ? (
             <p className="text-sm leading-6 text-[var(--muted)]">
-              Сейчас выбран subtype `{props.selectedSubtype}`. Persisted claims create flow и
-              claims editor payload появятся отдельным следующим блоком.
+              Сейчас выбран документ вида «{formatClaimSubtypeLabel(props.selectedSubtype)}».
+              Ниже можно перейти к созданию черновика.
             </p>
           ) : (
             <p className="text-sm leading-6 text-[var(--muted)]">
-              Пока subtype не выбран. Без явного выбора route не должен создавать впечатление, что
-              claims draft уже создаётся автоматически.
+              Пока вид документа не выбран. Без этого новый черновик не создаётся.
             </p>
           )}
         </Card>
@@ -487,16 +475,16 @@ export function ClaimsFamilyFoundation(props: {
         <div className="flex flex-wrap gap-3">
           {props.mode !== "index" ? (
             <FoundationLink href={`/servers/${props.server.code}/documents/claims`}>
-              Вернуться к Claims family
+              Вернуться к искам
             </FoundationLink>
           ) : null}
           {props.mode !== "new" ? (
             <FoundationLink href={`/servers/${props.server.code}/documents/claims/new`}>
-              Открыть subtype choice
+              Выбрать вид документа
             </FoundationLink>
           ) : null}
           <FoundationLink href={`/servers/${props.server.code}/documents`}>
-            Вернуться к hub сервера
+            Вернуться к документам сервера
           </FoundationLink>
         </div>
       </Card>

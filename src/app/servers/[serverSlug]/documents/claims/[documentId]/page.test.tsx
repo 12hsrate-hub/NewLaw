@@ -9,7 +9,7 @@ import ClaimsEditorFoundationPage from "@/app/servers/[serverSlug]/documents/cla
 import { getClaimsEditorRouteContext } from "@/server/document-area/context";
 
 describe("/servers/[serverSlug]/documents/claims/[documentId] page", () => {
-  it("грузит persisted claims draft как owner-only route", async () => {
+  it("грузит сохранённый документ из раздела исков", async () => {
     vi.mocked(getClaimsEditorRouteContext).mockResolvedValue({
       status: "ready",
       account: {
@@ -84,10 +84,10 @@ describe("/servers/[serverSlug]/documents/claims/[documentId] page", () => {
       documentId: "claim-123",
       nextPath: "/servers/blackberry/documents/claims/claim-123",
     });
-    expect(html).toContain("реальный claims editor route");
-    expect(html).toContain("Subtype: Rehabilitation");
-    expect(html).toContain("claim-123");
-    expect(html).toContain("working notes");
-    expect(html).toContain("Claims output preview");
+    expect(html).toContain("Редактор документа");
+    expect(html).toContain("Вид документа: Реабилитация");
+    expect(html).toContain("Рабочие заметки");
+    expect(html).toContain("Сведения о сборке");
+    expect(html).not.toContain("claim-123");
   });
 });

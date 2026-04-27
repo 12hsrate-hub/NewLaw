@@ -179,11 +179,11 @@ export function createGenerationState(input: {
 }
 
 export function formatSubtypeLabel(documentType: ClaimDocumentType) {
-  return documentType === "rehabilitation" ? "Rehabilitation" : "Lawsuit";
+  return documentType === "rehabilitation" ? "Реабилитация" : "Исковое заявление";
 }
 
 export function filingModeLabel(mode: ClaimsDraftPayload["filingMode"]) {
-  return mode === "representative" ? "Representative" : "Self";
+  return mode === "representative" ? "Через представителя" : "От своего имени";
 }
 
 export function formatGroundedSupportSummary(
@@ -191,8 +191,8 @@ export function formatGroundedSupportSummary(
   references: GroundedDocumentReference[],
 ) {
   if (groundingMode === "law_grounded") {
-    return `Опора: подтверждённые нормы закона (${references.length}). Suggestion остаётся локальным и не сохраняется автоматически.`;
+    return `Опора: подтверждённые нормы закона (${references.length}). Предложение показано только для проверки и не сохраняется автоматически.`;
   }
 
-  return `Опора: подтверждённые судебные прецеденты (${references.length}). Норма закона по retrieval не найдена, поэтому suggestion остаётся precedent-grounded.`;
+  return `Опора: подтверждённые судебные прецеденты (${references.length}). Точные нормы закона для этого фрагмента не подтверждены, поэтому текст требует особенно внимательной проверки.`;
 }

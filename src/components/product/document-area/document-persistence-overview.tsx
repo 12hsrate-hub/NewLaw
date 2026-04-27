@@ -61,7 +61,7 @@ function PersistedDocumentList(props: {
                 <Badge>Подача: {formatFilingMode(document.filingMode)}</Badge>
               ) : null}
               <span className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
-                {document.server.name} / {document.server.code}
+                {document.server.name}
               </span>
             </div>
             <h3 className="text-xl font-semibold">{document.title}</h3>
@@ -89,8 +89,8 @@ function PersistedDocumentList(props: {
                 {document.documentType === "attorney_request"
                   ? `Адвокатский запрос привязан к доверителю: ${document.trustorName ?? "не указан"}.`
                   : document.documentType === "legal_services_agreement"
-                    ? `Договор привязан к доверителю: ${document.trustorName ?? "не указан"}. Текст берётся из reference template, а страницы выгружаются отдельно как PNG.`
-                    : "Этот документ относится к разделу исков. Его данные и результат подготовки хранятся отдельно от жалоб в ОГП."}
+                    ? `Договор привязан к доверителю: ${document.trustorName ?? "не указан"}. После сборки здесь доступны готовые страницы для проверки и скачивания.`
+                    : "Этот документ относится к разделу исков и собирается отдельно от жалоб в ОГП."}
               </p>
             ) : null}
             {document.documentType === "attorney_request" && document.dataHealth === "ok" ? (
@@ -108,8 +108,8 @@ function PersistedDocumentList(props: {
             </p>
             {document.generatedAt ? (
               <p className="text-sm leading-6 text-[var(--muted)]">
-                Сгенерировано: {new Date(document.generatedAt).toLocaleString("ru-RU")}.
-                {document.isModifiedAfterGeneration ? " После генерации есть несинхронизированные изменения." : ""}
+                Сборка выполнена: {new Date(document.generatedAt).toLocaleString("ru-RU")}.
+                {document.isModifiedAfterGeneration ? " После последней сборки в документе есть изменения." : ""}
               </p>
             ) : null}
             {document.publicationUrl ? (
@@ -120,7 +120,7 @@ function PersistedDocumentList(props: {
             ) : null}
             {document.documentType === "ogp_complaint" && document.forumLastSyncError ? (
               <p className="text-sm leading-6 text-[#8a2d1d]">
-                Последняя ошибка публикации: {document.forumLastSyncError}
+                Не удалось подтвердить последнюю публикацию. Проверьте ссылку и попробуйте ещё раз.
               </p>
             ) : null}
             {document.workingNotesPreview ? (
@@ -173,9 +173,6 @@ export function AccountDocumentsPersistedOverview(props: {
               <div className="space-y-2">
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge>{server.name}</Badge>
-                  <span className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
-                    {server.code}
-                  </span>
                 </div>
                 <p className="text-sm leading-6 text-[var(--muted)]">
                   Персонажей на сервере: {server.characterCount}. Жалоб в ОГП:{" "}
@@ -225,7 +222,6 @@ export function OgpComplaintFamilyPersistedList(props: {
           Здесь отображаются сохранённые жалобы в ОГП на выбранном сервере.
         </p>
         <div className="flex flex-wrap items-center gap-2 text-sm leading-6 text-[var(--muted)]">
-          <Badge>Код сервера: {props.server.code}</Badge>
           <Badge>Сервер: {props.server.name}</Badge>
           {props.selectedCharacter ? (
             <>
@@ -297,7 +293,6 @@ export function AttorneyRequestFamilyPersistedList(props: {
           запрос фиксируется за конкретным доверителем при первом сохранении.
         </p>
         <div className="flex flex-wrap items-center gap-2 text-sm leading-6 text-[var(--muted)]">
-          <Badge>Код сервера: {props.server.code}</Badge>
           <Badge>Сервер: {props.server.name}</Badge>
           {props.selectedCharacter ? (
             <>
@@ -362,12 +357,10 @@ export function LegalServicesAgreementFamilyPersistedList(props: {
         </p>
         <h1 className="text-3xl font-semibold">Договоры на оказание юридических услуг</h1>
         <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
-          Это rigid-template family внутри server documents hub. Static эталон берётся из
-          reference PDF, текст не редактируется свободно, а генерация собирает отдельные PNG по
-          страницам.
+          Здесь отображаются сохранённые договоры. После заполнения данных можно собрать готовые
+          страницы договора для проверки и скачивания.
         </p>
         <div className="flex flex-wrap items-center gap-2 text-sm leading-6 text-[var(--muted)]">
-          <Badge>Код сервера: {props.server.code}</Badge>
           <Badge>Сервер: {props.server.name}</Badge>
           {props.selectedCharacter ? (
             <>
@@ -422,36 +415,34 @@ export function ClaimsFamilyPersistedList(props: {
   return (
     <div className="space-y-6">
       <Card className="space-y-3">
-        <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">Claims Family</p>
-        <h1 className="text-3xl font-semibold">Claims</h1>
+        <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">Иски</p>
+        <h1 className="text-3xl font-semibold">Иски</h1>
         <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
-          Это уже не purely foundation route: здесь читаются реальные persisted документы family
-          `Claims` на выбранном сервере. User-facing family остаётся одной, а subtype
-          фиксируется через internal `document_type`.
+          Здесь отображаются сохранённые документы из раздела исков. Вид документа выбирается при
+          создании черновика и дальше уже не меняется автоматически.
         </p>
         <div className="flex flex-wrap items-center gap-2 text-sm leading-6 text-[var(--muted)]">
-          <Badge>serverSlug: {props.server.code}</Badge>
           <Badge>Сервер: {props.server.name}</Badge>
           {props.selectedCharacter ? (
             <>
-              <Badge>UX-default персонаж: {props.selectedCharacter.fullName}</Badge>
+              <Badge>Персонаж: {props.selectedCharacter.fullName}</Badge>
               <span>
-                Источник:{" "}
-                {props.selectedCharacter.source === "last_used" ? "last-used" : "first available"}
+                Сейчас выбран{" "}
+                {props.selectedCharacter.source === "last_used" ? "последний использованный" : "первый доступный"} персонаж
               </span>
             </>
           ) : (
-            <Badge>Новых create-flow сейчас нет: на сервере нет персонажей</Badge>
+            <Badge>Создание недоступно: на сервере нет персонажей</Badge>
           )}
         </div>
         <div className="flex flex-wrap gap-3">
           {props.canCreateDocuments ? (
             <DocumentLink href={`/servers/${props.server.code}/documents/claims/new`}>
-              Создать новый claim draft
+              Создать черновик
             </DocumentLink>
           ) : null}
           <DocumentLink href={`/servers/${props.server.code}/documents`}>
-            Вернуться к hub сервера
+            Вернуться к документам сервера
           </DocumentLink>
         </div>
       </Card>
@@ -460,8 +451,8 @@ export function ClaimsFamilyPersistedList(props: {
         <Card className="space-y-3">
           <h2 className="text-2xl font-semibold">Создание временно недоступно</h2>
           <p className="text-sm leading-6 text-[var(--muted)]">
-            На сервере сейчас нет доступных персонажей, поэтому новый claim создать нельзя.
-            Existing persisted drafts при этом остаются доступны owner-аккаунту.
+            На сервере сейчас нет доступных персонажей, поэтому новый документ из раздела исков
+            создать нельзя. Уже сохранённые черновики при этом остаются доступны.
           </p>
         </Card>
       ) : null}

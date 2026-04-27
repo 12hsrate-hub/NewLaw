@@ -229,7 +229,7 @@ export function formatForumConnectionState(state: ForumConnectionSummary["state"
 
 export function formatForumSyncState(state: OgpForumSyncState) {
   if (state === "not_published") {
-    return "ещё не опубликовано";
+    return "пока не опубликовано";
   }
 
   if (state === "current") {
@@ -237,26 +237,26 @@ export function formatForumSyncState(state: OgpForumSyncState) {
   }
 
   if (state === "outdated") {
-    return "нужно обновить публикацию";
+    return "требуется обновление публикации";
   }
 
   if (state === "failed") {
-    return "ошибка публикации";
+    return "не удалось опубликовать";
   }
 
-  return "указана вручную";
+  return "ссылка добавлена вручную";
 }
 
 export function formatDraftStatus(status: OgpComplaintGenerationState["status"]) {
   if (status === "draft") {
-    return "черновик";
+    return "Черновик";
   }
 
   if (status === "generated") {
-    return "сгенерирован";
+    return "Документ собран";
   }
 
-  return "опубликован";
+  return "Опубликован";
 }
 
 export function applyComplaintNarrativeImprovementSuggestion(

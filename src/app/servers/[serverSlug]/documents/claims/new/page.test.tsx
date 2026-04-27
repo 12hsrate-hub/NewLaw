@@ -13,7 +13,7 @@ import {
 } from "@/server/document-area/context";
 
 describe("/servers/[serverSlug]/documents/claims/new page", () => {
-  it("рендерит обязательный subtype choice для claims family", async () => {
+  it("рендерит создание черновика для выбранного вида документа", async () => {
     vi.mocked(getServerDocumentsRouteContext).mockResolvedValue({
       status: "ready",
       account: {
@@ -75,13 +75,13 @@ describe("/servers/[serverSlug]/documents/claims/new page", () => {
       serverSlug: "blackberry",
       nextPath: "/servers/blackberry/documents/claims/new",
     });
-    expect(html).toContain("Claims create entry");
-    expect(html).toContain("Subtype: Rehabilitation");
-    expect(html).toContain("Создать persisted claim draft");
-    expect(html).toContain("После первого сохранения работа продолжается");
+    expect(html).toContain("Черновик документа");
+    expect(html).toContain("Вид документа: Реабилитация");
+    expect(html).toContain("Создать черновик");
+    expect(html).toContain("После первого сохранения вид документа и данные автора фиксируются в черновике.");
   });
 
-  it("без subtype остаётся на foundation-level subtype choice", async () => {
+  it("без выбранного вида документа остаётся на шаге выбора", async () => {
     vi.mocked(getServerDocumentsRouteContext).mockResolvedValue({
       status: "ready",
       account: {
@@ -128,8 +128,8 @@ describe("/servers/[serverSlug]/documents/claims/new page", () => {
       }),
     );
 
-    expect(html).toContain("Выбор subtype");
-    expect(html).toContain("Subtype choice обязателен");
+    expect(html).toContain("Выбор вида документа");
+    expect(html).toContain("Пока вид документа не выбран. Без этого новый черновик не создаётся.");
   });
 
   it("показывает empty state с CTA, если на сервере нет персонажей", async () => {

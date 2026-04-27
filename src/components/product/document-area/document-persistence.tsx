@@ -135,7 +135,6 @@ export function OgpComplaintDraftCreateEntry(props: {
           Создайте черновик жалобы. После первого сохранения откроется обычный редактор документа.
         </p>
         <div className="flex flex-wrap items-center gap-2 text-sm leading-6 text-[var(--muted)]">
-          <Badge>Код сервера: {props.server.code}</Badge>
           <Badge>Сервер: {props.server.name}</Badge>
           <Badge>Персонаж: {props.selectedCharacter.fullName}</Badge>
           <span>
@@ -143,16 +142,13 @@ export function OgpComplaintDraftCreateEntry(props: {
             {props.selectedCharacter.source === "last_used" ? "последний использованный" : "первый доступный"} персонаж.
           </span>
         </div>
-        {props.status ? (
-          <p className="text-sm leading-6 text-[var(--muted)]">Технический статус: {props.status}</p>
-        ) : null}
       </Card>
 
       <Card className="space-y-4">
         <h2 className="text-2xl font-semibold">Черновик жалобы</h2>
         <p className="text-sm leading-6 text-[var(--muted)]">
-          Заполните основные поля и сохраните черновик. Генерация BBCode и публикация на форуме
-          будут доступны после сохранения.
+          Заполните основные поля и сохраните черновик. После этого можно будет собрать готовый
+          текст для форума и подготовить публикацию.
         </p>
         <OgpComplaintDraftCreateClient
           characters={props.characters}
@@ -205,24 +201,20 @@ export function AttorneyRequestDraftCreateEntry(props: {
           фиксируются в документе.
         </p>
         <div className="flex flex-wrap items-center gap-2 text-sm leading-6 text-[var(--muted)]">
-          <Badge>Код сервера: {props.server.code}</Badge>
           <Badge>Сервер: {props.server.name}</Badge>
           <Badge>Персонаж: {props.selectedCharacter.fullName}</Badge>
           <span>
-            Источник выбора:{" "}
-            {props.selectedCharacter.source === "last_used" ? "последний использованный" : "первый доступный"}.
+            Сейчас выбран{" "}
+            {props.selectedCharacter.source === "last_used" ? "последний использованный" : "первый доступный"} персонаж.
           </span>
         </div>
-        {props.status ? (
-          <p className="text-sm leading-6 text-[var(--muted)]">Статус: {props.status}</p>
-        ) : null}
       </Card>
 
       <Card className="space-y-4">
         <h2 className="text-2xl font-semibold">Черновик запроса</h2>
         <p className="text-sm leading-6 text-[var(--muted)]">
-          Неполный черновик можно сохранить. Генерация preview / PDF / JPG станет доступна
-          после заполнения обязательных полей.
+          Неполный черновик можно сохранить. После заполнения обязательных полей станет доступен
+          предпросмотр и файлы для скачивания.
         </p>
         <AttorneyRequestDraftCreateClient
           characters={props.characters}
@@ -269,27 +261,23 @@ export function LegalServicesAgreementDraftCreateEntry(props: {
         <h1 className="text-3xl font-semibold">Новый договор на оказание юридических услуг</h1>
         <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
           После первого сохранения сервер, персонаж и доверитель фиксируются, а дальше документ
-          редактируется только как owner-only rigid template.
+          редактируется уже внутри сохранённого черновика.
         </p>
         <div className="flex flex-wrap items-center gap-2 text-sm leading-6 text-[var(--muted)]">
-          <Badge>Код сервера: {props.server.code}</Badge>
           <Badge>Сервер: {props.server.name}</Badge>
           <Badge>Персонаж: {props.selectedCharacter.fullName}</Badge>
           <span>
-            Источник выбора:{" "}
-            {props.selectedCharacter.source === "last_used" ? "последний использованный" : "первый доступный"}.
+            Сейчас выбран{" "}
+            {props.selectedCharacter.source === "last_used" ? "последний использованный" : "первый доступный"} персонаж.
           </span>
         </div>
-        {props.status ? (
-          <p className="text-sm leading-6 text-[var(--muted)]">Статус: {props.status}</p>
-        ) : null}
       </Card>
 
       <Card className="space-y-4">
         <h2 className="text-2xl font-semibold">Черновик договора</h2>
         <p className="text-sm leading-6 text-[var(--muted)]">
-          Здесь заполняются только утверждённые ручные поля договора. Остальные данные подставляются
-          из frozen snapshots персонажа и доверителя.
+          Здесь заполняются только утверждённые ручные поля договора. Остальные данные берутся из
+          сохранённых сведений о персонаже и доверителе.
         </p>
         <LegalServicesAgreementDraftCreateClient
           characters={props.characters}
@@ -362,53 +350,47 @@ export function OgpComplaintPersistedEditor(props: {
         </div>
         <h1 className="text-3xl font-semibold">{props.document.title}</h1>
         <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
-          Здесь можно редактировать жалобу в ОГП, сохранить черновик, сгенерировать BBCode и
-          подготовить публикацию на форуме.
+          Здесь можно редактировать жалобу в ОГП, сохранить черновик, собрать готовый текст для
+          форума и подготовить публикацию.
         </p>
         <div className="flex flex-wrap items-center gap-2 text-sm leading-6 text-[var(--muted)]">
-          <Badge>Код сервера: {props.document.server.code}</Badge>
           <Badge>Сервер: {props.document.server.name}</Badge>
           <Badge>Персонаж: {props.document.authorSnapshot.fullName}</Badge>
           <span>Паспорт: {props.document.authorSnapshot.passportNumber}</span>
         </div>
-        {props.status ? (
-          <p className="text-sm leading-6 text-[var(--muted)]">Статус: {props.status}</p>
-        ) : null}
       </Card>
 
       <Card className="space-y-4">
-        <h2 className="text-2xl font-semibold">Служебные сведения</h2>
+        <h2 className="text-2xl font-semibold">О документе</h2>
         <ul className="space-y-2 text-sm leading-6 text-[var(--muted)]">
-          <li>ID документа: {props.document.id}</li>
           <li>Создано: {new Date(props.document.createdAt).toLocaleString("ru-RU")}</li>
           <li>Обновлено: {new Date(props.document.updatedAt).toLocaleString("ru-RU")}</li>
           <li>
-            Данные персонажа сохранены: {new Date(props.document.snapshotCapturedAt).toLocaleString("ru-RU")}
+            Данные автора зафиксированы: {new Date(props.document.snapshotCapturedAt).toLocaleString("ru-RU")}
           </li>
-          <li>Версия формы: {props.document.formSchemaVersion}</li>
-          <li>Ник: {props.document.authorSnapshot.nickname}</li>
-          <li>Роли: {props.document.authorSnapshot.roleKeys.join(", ") || "нет"}</li>
-          <li>Доступы: {props.document.authorSnapshot.accessFlags.join(", ") || "нет"}</li>
           <li>
             Сервер и выбранный персонаж после первого сохранения не меняются.
           </li>
           <li>
-            Генерация: {props.document.generatedAt ? "BBCode уже создан" : "ещё не выполнялась"}.
+            {props.document.generatedAt
+              ? `Готовый текст для форума уже собран: ${new Date(props.document.generatedAt).toLocaleString("ru-RU")}.`
+              : "Готовый текст для форума ещё не собирался."}
           </li>
           <li>Подключение форума: {formatForumConnectionState(props.document.forumConnection.state)}.</li>
           <li>Статус публикации: {formatForumSyncState(props.document.forumSyncState)}.</li>
           <li>
-            Опубликовано через приложение:{" "}
-            {props.document.forumThreadId && props.document.forumPostId ? "да" : "нет"}
-          </li>
-          <li>
-            Последняя публикация на форуме:{" "}
+            Последняя публикация:{" "}
             {props.document.forumLastPublishedAt
               ? new Date(props.document.forumLastPublishedAt).toLocaleString("ru-RU")
               : "ещё не публиковался"}
           </li>
+          <li>
+            {props.document.isModifiedAfterGeneration
+              ? "После последней сборки документ менялся. Перед публикацией лучше собрать текст заново."
+              : "После последней сборки документ не менялся."}
+          </li>
           {props.document.forumLastSyncError ? (
-            <li>Последняя ошибка публикации: {props.document.forumLastSyncError}</li>
+            <li>Не удалось подтвердить последнюю публикацию. Проверьте ссылку и попробуйте ещё раз.</li>
           ) : null}
         </ul>
       </Card>
@@ -420,14 +402,9 @@ export function OgpComplaintPersistedEditor(props: {
           для публикации жалобы в ОГП.
         </p>
         <ul className="space-y-2 text-sm leading-6 text-[var(--muted)]">
-          <li>Форум: {props.document.forumConnection.providerKey}</li>
           <li>Статус: {formatForumConnectionState(props.document.forumConnection.state)}</li>
           <li>
-            Форумный аккаунт:{" "}
-            {props.document.forumConnection.forumUsername ?? "ещё не извлечена"}
-            {props.document.forumConnection.forumUserId
-              ? ` (${props.document.forumConnection.forumUserId})`
-              : ""}
+            Аккаунт форума: {props.document.forumConnection.forumUsername ?? "ещё не подтверждён"}
           </li>
           <li>
             Последняя проверка:{" "}
@@ -436,7 +413,7 @@ export function OgpComplaintPersistedEditor(props: {
               : "ещё не подтверждалась"}
           </li>
           {props.document.forumConnection.lastValidationError ? (
-            <li>Последняя ошибка проверки: {props.document.forumConnection.lastValidationError}</li>
+            <li>Подключение требует повторной проверки в настройках аккаунта.</li>
           ) : null}
         </ul>
       </Card>
@@ -510,33 +487,29 @@ export function ClaimsDraftCreateEntry(props: {
   return (
     <div className="space-y-6">
       <Card className="space-y-3">
-        <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">Claims Draft</p>
-        <h1 className="text-3xl font-semibold">Новый claim</h1>
+        <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">Новый документ</p>
+        <h1 className="text-3xl font-semibold">Новый документ из раздела «Иски»</h1>
         <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
-          `/new` отвечает за pre-draft create entry. После первого сохранения работа продолжается
-          в owner-only route `[documentId]`, а subtype `{formatClaimSubtype(props.documentType)}`
-          становится immutable.
+          Здесь создаётся черновик документа. После первого сохранения его вид
+          «{formatClaimSubtype(props.documentType)}» фиксируется, а дальнейшая работа продолжается
+          уже в редакторе сохранённого документа.
         </p>
         <div className="flex flex-wrap items-center gap-2 text-sm leading-6 text-[var(--muted)]">
-          <Badge>serverSlug: {props.server.code}</Badge>
           <Badge>Сервер: {props.server.name}</Badge>
-          <Badge>Subtype: {formatClaimSubtype(props.documentType)}</Badge>
-          <Badge>UX-default персонаж: {props.selectedCharacter.fullName}</Badge>
+          <Badge>Вид документа: {formatClaimSubtype(props.documentType)}</Badge>
+          <Badge>Персонаж: {props.selectedCharacter.fullName}</Badge>
           <span>
-            До first save персонажа можно сменить. Источник default:{" "}
-            {props.selectedCharacter.source === "last_used" ? "last-used" : "first available"}.
+            До первого сохранения персонажа можно сменить. Сейчас выбран{" "}
+            {props.selectedCharacter.source === "last_used" ? "последний использованный" : "первый доступный"} персонаж.
           </span>
         </div>
-        {props.status ? (
-          <p className="text-sm leading-6 text-[var(--muted)]">Технический статус: {props.status}</p>
-        ) : null}
       </Card>
 
         <Card className="space-y-4">
-          <h2 className="text-2xl font-semibold">Claims create entry</h2>
+          <h2 className="text-2xl font-semibold">Черновик документа</h2>
           <p className="text-sm leading-6 text-[var(--muted)]">
-            На этом route создаётся persisted claims draft, фиксируется immutable author snapshot,
-            а subtype-specific payload уже собирается внутри editor flow без generation/publication слоя.
+            Сохраните документ, чтобы продолжить работу в обычном редакторе. Публикация на форуме
+            для этого раздела не используется.
           </p>
           <ClaimsDraftCreateClient
             characters={props.characters}
@@ -590,62 +563,50 @@ export function ClaimsPersistedEditor(props: {
       <Card className="space-y-3">
         <div className="flex flex-wrap items-center gap-2">
           <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">
-            Owner Document Editor
+            Редактор документа
           </p>
           <Badge>{formatDocumentStatus(props.document.status)}</Badge>
-          <Badge>owner-account route</Badge>
-          <Badge>Subtype: {formatClaimSubtype(props.document.documentType)}</Badge>
+          <Badge>Вид документа: {formatClaimSubtype(props.document.documentType)}</Badge>
         </div>
         <h1 className="text-3xl font-semibold">{props.document.title}</h1>
         <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
-          Это уже реальный claims editor route. Здесь грузится persisted draft, работает
-          owner-only access, базовый manual/autosave foundation и claims generated checkpoint без
-          publication слоя.
+          Здесь можно сохранить черновик, собрать текст для просмотра и зафиксировать итоговую
+          версию документа. Публикация на форуме для этого раздела не используется.
         </p>
         <div className="flex flex-wrap items-center gap-2 text-sm leading-6 text-[var(--muted)]">
-          <Badge>serverSlug: {props.document.server.code}</Badge>
           <Badge>Сервер: {props.document.server.name}</Badge>
-          <Badge>Author snapshot: {props.document.authorSnapshot.fullName}</Badge>
-          <span>Passport: {props.document.authorSnapshot.passportNumber}</span>
+          <Badge>Персонаж: {props.document.authorSnapshot.fullName}</Badge>
+          <span>Паспорт: {props.document.authorSnapshot.passportNumber}</span>
         </div>
-        {props.status ? (
-          <p className="text-sm leading-6 text-[var(--muted)]">Route status: {props.status}</p>
-        ) : null}
       </Card>
 
       <Card className="space-y-4">
-        <h2 className="text-2xl font-semibold">Persisted context</h2>
+        <h2 className="text-2xl font-semibold">О документе</h2>
         <ul className="space-y-2 text-sm leading-6 text-[var(--muted)]">
-          <li>Document ID: {props.document.id}</li>
-          <li>Subtype: {formatClaimSubtype(props.document.documentType)}</li>
-          <li>Created at: {new Date(props.document.createdAt).toLocaleString("ru-RU")}</li>
-          <li>Updated at: {new Date(props.document.updatedAt).toLocaleString("ru-RU")}</li>
+          <li>Вид документа: {formatClaimSubtype(props.document.documentType)}</li>
+          <li>Создано: {new Date(props.document.createdAt).toLocaleString("ru-RU")}</li>
+          <li>Обновлено: {new Date(props.document.updatedAt).toLocaleString("ru-RU")}</li>
           <li>
-            Snapshot captured at: {new Date(props.document.snapshotCapturedAt).toLocaleString("ru-RU")}
+            Данные автора зафиксированы: {new Date(props.document.snapshotCapturedAt).toLocaleString("ru-RU")}
           </li>
-          <li>Form schema version: {props.document.formSchemaVersion}</li>
           <li>
-            Generated at:{" "}
+            Последняя сборка:{" "}
             {props.document.generatedAt
               ? new Date(props.document.generatedAt).toLocaleString("ru-RU")
-              : "ещё не фиксировался"}
+              : "ещё не выполнялась"}
           </li>
-          <li>Generated form schema version: {props.document.generatedFormSchemaVersion ?? "ещё не зафиксирована"}</li>
-          <li>Generated output format: {props.document.generatedOutputFormat ?? "ещё не зафиксирован"}</li>
-          <li>Generated renderer version: {props.document.generatedRendererVersion ?? "ещё не зафиксирована"}</li>
           <li>
-            Modified after generation: {props.document.isModifiedAfterGeneration ? "да" : "нет"}
+            {props.document.isModifiedAfterGeneration
+              ? "После последней сборки в документе есть изменения. Перед использованием лучше собрать текст заново."
+              : "После последней сборки документ не менялся."}
           </li>
-          <li>Nickname snapshot: {props.document.authorSnapshot.nickname}</li>
-          <li>Role keys: {props.document.authorSnapshot.roleKeys.join(", ") || "нет"}</li>
-          <li>Access flags: {props.document.authorSnapshot.accessFlags.join(", ") || "нет"}</li>
-          <li>Server, character snapshot и subtype после first save больше не меняются.</li>
-          <li>Claims generated checkpoint не активирует publication workflow и не использует OGP BBCode.</li>
+          <li>Сервер, персонаж и вид документа после первого сохранения не меняются.</li>
+          <li>Для этого раздела не используется публикация на форуме.</li>
         </ul>
       </Card>
 
       <Card className="space-y-4">
-        <h2 className="text-2xl font-semibold">Claims editor MVP</h2>
+        <h2 className="text-2xl font-semibold">Редактор документа</h2>
         <ClaimsDraftEditorClient
           authorSnapshot={{
             canUseRepresentative: props.document.authorSnapshot.accessFlags.includes("advocate"),
@@ -730,36 +691,29 @@ export function AttorneyRequestPersistedEditor(props: {
         </div>
         <h1 className="text-3xl font-semibold">{props.document.title}</h1>
         <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
-          Здесь можно сохранить черновик, проверить данные и сгенерировать preview / PDF / JPG.
-          Документ привязан к доверителю и не зависит от дальнейших изменений карточки доверителя.
+          Здесь можно сохранить черновик, проверить данные и собрать предпросмотр документа с
+          файлами для скачивания. Документ привязан к доверителю и не зависит от дальнейших
+          изменений его карточки.
         </p>
         <div className="flex flex-wrap items-center gap-2 text-sm leading-6 text-[var(--muted)]">
-          <Badge>Код сервера: {props.document.server.code}</Badge>
           <Badge>Сервер: {props.document.server.name}</Badge>
           <Badge>Персонаж: {props.document.authorSnapshot.fullName}</Badge>
           <Badge>Доверитель: {props.document.payload.trustorSnapshot.fullName}</Badge>
           <span>Номер запроса: {props.document.payload.requestNumberNormalized || "не указан"}</span>
         </div>
-        {props.status ? (
-          <p className="text-sm leading-6 text-[var(--muted)]">Статус: {props.status}</p>
-        ) : null}
       </Card>
 
       <Card className="space-y-4">
-        <h2 className="text-2xl font-semibold">Служебные сведения</h2>
+        <h2 className="text-2xl font-semibold">О документе</h2>
         <ul className="space-y-2 text-sm leading-6 text-[var(--muted)]">
-          <li>ID документа: {props.document.id}</li>
           <li>Создано: {new Date(props.document.createdAt).toLocaleString("ru-RU")}</li>
           <li>Обновлено: {new Date(props.document.updatedAt).toLocaleString("ru-RU")}</li>
           <li>
-            Снимок персонажа и доверителя сохранён:{" "}
+            Данные автора и доверителя зафиксированы:{" "}
             {new Date(props.document.snapshotCapturedAt).toLocaleString("ru-RU")}
           </li>
-          <li>Версия формы: {props.document.formSchemaVersion}</li>
-          <li>Ник персонажа: {props.document.authorSnapshot.nickname}</li>
-          <li>Роли: {props.document.authorSnapshot.roleKeys.join(", ") || "нет"}</li>
           <li>
-            Должность для шаблона:{" "}
+            Должность в документе:{" "}
             {props.document.payload.signerTitleSnapshot?.bodyRu ?? props.document.authorSnapshot.position ?? "не указана"}
           </li>
           <li>
@@ -772,10 +726,14 @@ export function AttorneyRequestPersistedEditor(props: {
             .
           </li>
           <li>
-            Генерация: {props.document.generatedAt ? "результат уже создан" : "ещё не выполнялась"}.
+            {props.document.generatedAt
+              ? `Последняя сборка выполнена ${new Date(props.document.generatedAt).toLocaleString("ru-RU")}.`
+              : "Предпросмотр и файлы для скачивания ещё не собирались."}
           </li>
           <li>
-            Изменено после генерации: {props.document.isModifiedAfterGeneration ? "да" : "нет"}.
+            {props.document.isModifiedAfterGeneration
+              ? "После последней сборки документ менялся. Перед использованием лучше собрать его заново."
+              : "После последней сборки документ не менялся."}
           </li>
         </ul>
       </Card>
@@ -850,11 +808,10 @@ export function LegalServicesAgreementPersistedEditor(props: {
         </div>
         <h1 className="text-3xl font-semibold">{props.document.title}</h1>
         <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
-          Это rigid-template editor для reference PDF. Static текст договора не редактируется, а
-          генерация собирает postраничный PNG-export.
+          Здесь можно заполнить данные договора и собрать итоговые страницы для проверки и
+          скачивания. Основной текст договора формируется по утверждённому шаблону.
         </p>
         <div className="flex flex-wrap items-center gap-2 text-sm leading-6 text-[var(--muted)]">
-          <Badge>Код сервера: {props.document.server.code}</Badge>
           <Badge>Сервер: {props.document.server.name}</Badge>
           <Badge>Персонаж: {props.document.authorSnapshot.fullName}</Badge>
           <Badge>Доверитель: {props.document.payload.trustorSnapshot.fullName}</Badge>
@@ -862,32 +819,29 @@ export function LegalServicesAgreementPersistedEditor(props: {
             Номер договора: {props.document.payload.manualFields.agreementNumber || "не указан"}
           </span>
         </div>
-        {props.status ? (
-          <p className="text-sm leading-6 text-[var(--muted)]">Статус: {props.status}</p>
-        ) : null}
       </Card>
 
       <Card className="space-y-4">
-        <h2 className="text-2xl font-semibold">Служебные сведения</h2>
+        <h2 className="text-2xl font-semibold">О документе</h2>
         <ul className="space-y-2 text-sm leading-6 text-[var(--muted)]">
-          <li>ID документа: {props.document.id}</li>
           <li>Создано: {new Date(props.document.createdAt).toLocaleString("ru-RU")}</li>
           <li>Обновлено: {new Date(props.document.updatedAt).toLocaleString("ru-RU")}</li>
           <li>
-            Снимок персонажа и доверителя сохранён:{" "}
+            Данные автора и доверителя зафиксированы:{" "}
             {new Date(props.document.snapshotCapturedAt).toLocaleString("ru-RU")}
           </li>
-          <li>Версия формы: {props.document.formSchemaVersion}</li>
-          <li>Ник персонажа: {props.document.authorSnapshot.nickname}</li>
-          <li>Роли: {props.document.authorSnapshot.roleKeys.join(", ") || "нет"}</li>
           <li>
-            Подписи персонажа и доверителя генерируются шрифтом из frozen snapshots.
+            Подписи персонажа и доверителя подставляются автоматически по сохранённым данным документа.
           </li>
           <li>
-            Генерация: {props.document.generatedAt ? "страницы уже собраны" : "ещё не выполнялась"}.
+            {props.document.generatedAt
+              ? `Последняя сборка выполнена ${new Date(props.document.generatedAt).toLocaleString("ru-RU")}.`
+              : "Страницы договора ещё не собирались."}
           </li>
           <li>
-            Изменено после генерации: {props.document.isModifiedAfterGeneration ? "да" : "нет"}.
+            {props.document.isModifiedAfterGeneration
+              ? "После последней сборки документ менялся. Перед использованием лучше собрать его заново."
+              : "После последней сборки документ не менялся."}
           </li>
         </ul>
       </Card>

@@ -79,7 +79,7 @@ export function ClaimsDraftCreateClient(props: ClaimsDraftCreateClientProps) {
 
       <div className="space-y-2">
         <label className="text-sm font-medium text-[var(--foreground)]" htmlFor="create-claim-character-id">
-          Персонаж для first save
+          Персонаж для первого сохранения
         </label>
         <Select
           id="create-claim-character-id"
@@ -95,7 +95,8 @@ export function ClaimsDraftCreateClient(props: ClaimsDraftCreateClientProps) {
           ))}
         </Select>
         <ClaimsFieldHint>
-          До первого сохранения персонажа можно сменить. После first save subtype и snapshot уже не меняются.
+          До первого сохранения персонажа можно сменить. После этого вид документа и данные
+          автора фиксируются в черновике.
         </ClaimsFieldHint>
       </div>
 
@@ -112,7 +113,7 @@ export function ClaimsDraftCreateClient(props: ClaimsDraftCreateClientProps) {
       />
 
       <div className="flex flex-wrap gap-3">
-        <Button type="submit">Создать persisted claim draft</Button>
+        <Button type="submit">Создать черновик</Button>
       </div>
     </form>
   );
@@ -217,16 +218,16 @@ export function ClaimsDraftEditorClient(props: ClaimsDraftEditorClientProps) {
 
       if (!result.ok) {
         if (result.error === "representative-not-allowed") {
-          setSaveMessage("Representative filing недоступен без access flag advocate.");
+          setSaveMessage("Подача как представитель доступна только персонажу с ролью адвоката.");
           return;
         }
 
         if (result.error === "invalid-payload") {
-          setSaveMessage("Claims draft не прошёл валидацию. Проверь обязательные поля, subtype section и evidence ссылки.");
+          setSaveMessage("Не удалось сохранить изменения. Проверьте обязательные поля и ссылки на доказательства, затем повторите попытку.");
           return;
         }
 
-        setSaveMessage("Сохранить claims draft не удалось. Проверь доступ и попробуй ещё раз.");
+        setSaveMessage("Не удалось сохранить черновик. Проверьте заполненные поля и повторите попытку.");
         return;
       }
 
@@ -240,8 +241,8 @@ export function ClaimsDraftEditorClient(props: ClaimsDraftEditorClientProps) {
       setIsPreviewStale((current) => current || previewState !== null || result.isModifiedAfterGeneration);
       setSaveMessage(
         mode === "autosave"
-          ? `Claims draft автосохранён: ${new Date(result.updatedAt).toLocaleString("ru-RU")}`
-          : `Claims draft сохранён вручную: ${new Date(result.updatedAt).toLocaleString("ru-RU")}`,
+          ? `Черновик автосохранён: ${new Date(result.updatedAt).toLocaleString("ru-RU")}`
+          : `Черновик сохранён: ${new Date(result.updatedAt).toLocaleString("ru-RU")}`,
       );
     },
     [editorState, previewState, props.documentId],
@@ -272,12 +273,12 @@ export function ClaimsDraftEditorClient(props: ClaimsDraftEditorClientProps) {
 
   const handleGeneratePreview = useCallback(async () => {
     if (!isDirty && !savedUpdatedAt) {
-      setPreviewMessage("Сначала сохраните claims draft, чтобы preview строился из persisted документа.");
+      setPreviewMessage("Сначала сохраните черновик, чтобы предпросмотр строился по сохранённой версии документа.");
       return;
     }
 
     if (isDirty) {
-      setPreviewMessage("Сначала сохраните claims draft. Structured preview всегда строится только из persisted документа.");
+      setPreviewMessage("Сначала сохраните черновик. Предпросмотр всегда строится только по сохранённой версии документа.");
       return;
     }
 
@@ -292,21 +293,19 @@ export function ClaimsDraftEditorClient(props: ClaimsDraftEditorClientProps) {
         return;
       }
 
-      setPreviewMessage("Не удалось построить structured preview. Проверь доступ и попробуй ещё раз.");
+      setPreviewMessage("Не удалось собрать предпросмотр. Проверьте доступ к документу и попробуйте снова.");
       return;
     }
 
     setPreviewState(result.output);
     setIsPreviewStale(generationState.isModifiedAfterGeneration);
-    setPreviewMessage(
-      `Structured preview собран из persisted claims document. Format: ${result.output.format}.`,
-    );
+      setPreviewMessage("Предпросмотр документа обновлён.");
   }, [generationState.isModifiedAfterGeneration, isDirty, previewState, props.documentId, savedUpdatedAt]);
 
   const handleGenerateCheckpoint = useCallback(async () => {
     if (!savedUpdatedAt || isDirty) {
       setPreviewMessage(
-        "Сначала сохраните claims draft. Generated checkpoint всегда фиксируется только из persisted документа.",
+        "Сначала сохраните черновик. Итоговая версия фиксируется только по сохранённым данным документа.",
       );
       return;
     }
@@ -321,7 +320,7 @@ export function ClaimsDraftEditorClient(props: ClaimsDraftEditorClientProps) {
         return;
       }
 
-      setPreviewMessage("Не удалось зафиксировать generated checkpoint. Проверь доступ и попробуй ещё раз.");
+      setPreviewMessage("Не удалось сохранить итоговую версию документа. Проверьте доступ и попробуйте снова.");
       return;
     }
 
@@ -337,7 +336,7 @@ export function ClaimsDraftEditorClient(props: ClaimsDraftEditorClientProps) {
     setSavedUpdatedAt(result.updatedAt);
     setIsPreviewStale(false);
     setPreviewMessage(
-      `Claims generated checkpoint сохранён: ${
+      `Итоговая версия документа сохранена: ${
         result.generatedAt ? new Date(result.generatedAt).toLocaleString("ru-RU") : "время недоступно"
       }.`,
     );
@@ -350,9 +349,9 @@ export function ClaimsDraftEditorClient(props: ClaimsDraftEditorClientProps) {
 
     try {
       await navigator.clipboard.writeText(previewState.copyText);
-      setPreviewMessage("Copy-friendly text скопирован в буфер обмена.");
+      setPreviewMessage("Текст для копирования скопирован в буфер обмена.");
     } catch {
-      setPreviewMessage("Не удалось скопировать preview автоматически. Можно скопировать текст вручную из блока ниже.");
+      setPreviewMessage("Не удалось скопировать текст автоматически. Можно скопировать его вручную из блока ниже.");
     }
   }, [previewState]);
 
@@ -361,7 +360,7 @@ export function ClaimsDraftEditorClient(props: ClaimsDraftEditorClientProps) {
       if (isDirty) {
         setRewriteFeedback({
           sectionKey,
-          message: "Сначала сохраните черновик. AI suggestion всегда строится из persisted документа.",
+          message: "Сначала сохраните черновик. Предложение строится только по сохранённой версии документа.",
         });
         setRewriteSuggestion(null);
         return;
@@ -397,7 +396,7 @@ export function ClaimsDraftEditorClient(props: ClaimsDraftEditorClientProps) {
 
           setRewriteFeedback({
             sectionKey,
-            message: "Получить AI-предложение не удалось. Проверь доступ к документу и попробуй ещё раз.",
+            message: "Не удалось подготовить предложение. Проверьте доступ к документу и попробуйте снова.",
           });
           setRewriteSuggestion(null);
           return;
@@ -433,7 +432,7 @@ export function ClaimsDraftEditorClient(props: ClaimsDraftEditorClientProps) {
     }));
     setRewriteFeedback({
       sectionKey: rewriteSuggestion.sectionKey,
-      message: "AI-предложение применено локально. Сохраните черновик или дождитесь autosave.",
+      message: "Предложение применено в редакторе. Сохраните черновик или дождитесь автосохранения.",
     });
     setRewriteSuggestion(null);
   }, [rewriteSuggestion]);
@@ -447,12 +446,12 @@ export function ClaimsDraftEditorClient(props: ClaimsDraftEditorClientProps) {
       await navigator.clipboard.writeText(rewriteSuggestion.suggestionText);
       setRewriteFeedback({
         sectionKey: rewriteSuggestion.sectionKey,
-        message: "AI-предложение скопировано в буфер обмена.",
+        message: "Предложение скопировано в буфер обмена.",
       });
     } catch {
       setRewriteFeedback({
         sectionKey: rewriteSuggestion.sectionKey,
-        message: "Не удалось скопировать AI-предложение автоматически.",
+        message: "Не удалось скопировать предложение автоматически.",
       });
     }
   }, [rewriteSuggestion]);
@@ -463,7 +462,7 @@ export function ClaimsDraftEditorClient(props: ClaimsDraftEditorClientProps) {
         setGroundedRewriteFeedback({
           sectionKey,
           message:
-            "Сначала сохраните черновик. Grounded AI suggestion всегда строится из persisted документа.",
+            "Сначала сохраните черновик. Предложение с опорой на нормы строится только по сохранённой версии документа.",
         });
         setGroundedRewriteSuggestion(null);
         return;
@@ -500,7 +499,7 @@ export function ClaimsDraftEditorClient(props: ClaimsDraftEditorClientProps) {
           setGroundedRewriteFeedback({
             sectionKey,
             message:
-              "Получить grounded AI-предложение не удалось. Проверь доступ к документу и попробуй ещё раз.",
+              "Не удалось подготовить предложение с опорой на нормы. Проверьте доступ к документу и попробуйте снова.",
           });
           setGroundedRewriteSuggestion(null);
           return;
@@ -540,7 +539,7 @@ export function ClaimsDraftEditorClient(props: ClaimsDraftEditorClientProps) {
     setGroundedRewriteFeedback({
       sectionKey: groundedRewriteSuggestion.sectionKey,
       message:
-        "Grounded AI-предложение применено локально. Сохраните черновик или дождитесь autosave.",
+        "Предложение с опорой на нормы применено в редакторе. Сохраните черновик или дождитесь автосохранения.",
     });
     setGroundedRewriteSuggestion(null);
   }, [groundedRewriteSuggestion]);
@@ -554,12 +553,12 @@ export function ClaimsDraftEditorClient(props: ClaimsDraftEditorClientProps) {
       await navigator.clipboard.writeText(groundedRewriteSuggestion.suggestionText);
       setGroundedRewriteFeedback({
         sectionKey: groundedRewriteSuggestion.sectionKey,
-        message: "Grounded AI-предложение скопировано в буфер обмена.",
+        message: "Предложение с опорой на нормы скопировано в буфер обмена.",
       });
     } catch {
       setGroundedRewriteFeedback({
         sectionKey: groundedRewriteSuggestion.sectionKey,
-        message: "Не удалось скопировать grounded AI-предложение автоматически.",
+        message: "Не удалось автоматически скопировать предложение с опорой на нормы.",
       });
     }
   }, [groundedRewriteSuggestion]);
@@ -615,7 +614,7 @@ export function ClaimsDraftEditorClient(props: ClaimsDraftEditorClientProps) {
               </Button>
             ) : null}
             <span className="text-xs leading-5 text-[var(--muted)]">
-              AI использует только последнее persisted состояние секции.
+              Помощник использует только последнюю сохранённую версию этого раздела.
             </span>
           </div>
           {sectionFeedback ? <p className="text-sm text-[var(--muted)]">{sectionFeedback}</p> : null}
@@ -654,7 +653,7 @@ export function ClaimsDraftEditorClient(props: ClaimsDraftEditorClientProps) {
                 activeGroundedSuggestion.groundingMode,
                 activeGroundedSuggestion.references,
               )}
-              titlePrefix="Grounded AI-предложение"
+              titlePrefix="Предложение с опорой на нормы"
             />
           ) : null}
         </div>

@@ -9,7 +9,7 @@ import OgpComplaintEditorFoundationPage from "@/app/servers/[serverSlug]/documen
 import { getOgpComplaintEditorRouteContext } from "@/server/document-area/context";
 
 describe("/servers/[serverSlug]/documents/ogp-complaints/[documentId] page", () => {
-  it("рендерит owner-account persisted editor route", async () => {
+  it("рендерит сохранённый редактор жалобы в ОГП", async () => {
     vi.mocked(getOgpComplaintEditorRouteContext).mockResolvedValue({
       status: "ready",
       account: {
@@ -120,10 +120,9 @@ describe("/servers/[serverSlug]/documents/ogp-complaints/[documentId] page", () 
 
     expect(html).toContain("только для владельца");
     expect(html).toContain("Persisted draft");
-    expect(html).toContain("doc-123");
     expect(html).toContain("Редактор жалобы в ОГП");
     expect(html).toContain("Подача: как представитель");
-    expect(html).toContain("Готовый BBCode");
+    expect(html).toContain("Готовый текст для форума");
     expect(html).toContain("Подключение форума");
     expect(html).toContain("Статус: подключение работает");
     expect(html).toContain("Опубликовать на форуме");
@@ -132,5 +131,6 @@ describe("/servers/[serverSlug]/documents/ogp-complaints/[documentId] page", () 
     expect(html).not.toContain("Телефон: Укажите телефон.");
     expect(html).not.toContain("Игровая почта: Укажите игровую почту.");
     expect(html).not.toContain("Ссылка на скрин паспорта: Укажите ссылку на скрин паспорта.");
+    expect(html).not.toContain("doc-123");
   });
 });

@@ -132,7 +132,7 @@ function EvidenceItemsEditor(props: {
     <div className="space-y-4">
       {items.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-[var(--border)] px-4 py-5 text-sm text-[var(--muted)]">
-          Доказательства пока не добавлены. Добавьте хотя бы одну ссылку перед генерацией BBCode.
+          Доказательства пока не добавлены. Добавьте хотя бы одну ссылку перед сборкой текста для форума.
         </div>
       ) : null}
 
@@ -144,7 +144,7 @@ function EvidenceItemsEditor(props: {
                 Доказательство {itemIndex + 1}
               </p>
               <ComplaintFieldHint>
-                В итоговом BBCode будет использован сохранённый текст и ссылка из этой строки.
+                В итоговом тексте для форума будет использован сохранённый текст и ссылка из этой строки.
               </ComplaintFieldHint>
             </div>
             <Button
@@ -999,16 +999,16 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
 
       if (!result.ok) {
         if (result.error === "representative-not-allowed") {
-          setSaveMessage("Подача как представитель доступна только персонажу с ролью адвоката. Код: OGP_REPRESENTATIVE_NOT_ALLOWED.");
+          setSaveMessage("Подача как представитель доступна только персонажу с ролью адвоката.");
           return;
         }
 
         if (result.error === "invalid-payload") {
-          setSaveMessage("Черновик не прошёл проверку. Проверьте поля жалобы и ссылки на доказательства. Код: OGP_DRAFT_INVALID.");
+          setSaveMessage("Не удалось сохранить изменения. Проверьте поля жалобы и ссылки на доказательства, затем повторите попытку.");
           return;
         }
 
-        setSaveMessage("Не удалось сохранить черновик. Проверьте доступ и попробуйте снова. Код: OGP_DRAFT_SAVE_FAILED.");
+        setSaveMessage("Не удалось сохранить изменения. Проверьте заполненные поля и повторите попытку.");
         return;
       }
 
@@ -1071,17 +1071,17 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
       if (!result.ok) {
         if (result.error === "character-unavailable") {
           setProfileSnapshotMessage(
-            "Не удалось обновить данные профиля: выбранный персонаж недоступен на этом сервере. Код: OGP_CHARACTER_UNAVAILABLE.",
+            "Не удалось обновить данные профиля: выбранный персонаж больше недоступен на этом сервере.",
           );
           return;
         }
 
         if (result.error === "invalid-profile") {
-          setProfileSnapshotMessage("Профиль персонажа заполнен не полностью. Проверьте обязательные поля. Код: OGP_CHARACTER_PROFILE_INVALID.");
+          setProfileSnapshotMessage("Не удалось обновить данные профиля. Сначала заполните обязательные поля в карточке персонажа.");
           return;
         }
 
-        setProfileSnapshotMessage("Не удалось обновить данные профиля в жалобе. Проверьте доступ к документу. Код: OGP_PROFILE_REFRESH_FAILED.");
+        setProfileSnapshotMessage("Не удалось обновить данные профиля в жалобе. Попробуйте ещё раз немного позже.");
         return;
       }
 
@@ -1149,7 +1149,7 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
         return;
       }
 
-      setGenerationMessage("Не удалось сгенерировать BBCode. Проверьте доступ и попробуйте снова. Код: OGP_BBCODE_GENERATION_FAILED.");
+      setGenerationMessage("Не удалось собрать текст для форума. Черновик сохранён, можно попробовать ещё раз.");
       return;
     }
 
@@ -1178,7 +1178,7 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
     });
     setPublicationUrlInput(result.publicationUrl ?? "");
     setGenerationMessage(
-      `BBCode сгенерирован: ${result.generatedAt ? new Date(result.generatedAt).toLocaleString("ru-RU") : "время недоступно"}.`,
+      `Текст для форума готов: ${result.generatedAt ? new Date(result.generatedAt).toLocaleString("ru-RU") : "время недоступно"}.`,
     );
   }, [
     canGenerateFromPersistedState,
@@ -1197,9 +1197,9 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
 
     try {
       await navigator.clipboard.writeText(generationState.lastGeneratedBbcode);
-      setGenerationMessage("BBCode скопирован в буфер обмена.");
+      setGenerationMessage("Текст для форума скопирован в буфер обмена.");
     } catch {
-      setGenerationMessage("Не удалось скопировать BBCode автоматически. Можно скопировать его вручную из блока ниже.");
+      setGenerationMessage("Не удалось скопировать текст автоматически. Можно скопировать его вручную из блока ниже.");
     }
   }, [generationState.lastGeneratedBbcode]);
 
@@ -1244,7 +1244,7 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
 
           setRewriteFeedback({
             sectionKey,
-            message: "Не удалось подготовить предложение. Проверьте доступ к документу и попробуйте снова. Код: OGP_AI_REWRITE_FAILED.",
+            message: "Не удалось подготовить предложение. Проверьте доступ к документу и попробуйте снова.",
           });
           setRewriteSuggestion(null);
           return;
@@ -1347,7 +1347,7 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
           setGroundedRewriteFeedback({
             sectionKey,
             message:
-              "Не удалось подготовить предложение с опорой на нормы. Проверьте доступ к документу и попробуйте снова. Код: OGP_GROUNDED_REWRITE_FAILED.",
+              "Не удалось подготовить предложение с опорой на нормы. Проверьте доступ к документу и попробуйте снова.",
           });
           setGroundedRewriteSuggestion(null);
           return;
@@ -1469,7 +1469,7 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
         }
 
         setComplaintNarrativeFeedback(
-          "Не удалось улучшить описание. Проверьте доступ к черновику и попробуйте снова. Код: OGP_NARRATIVE_IMPROVEMENT_FAILED.",
+          "Не удалось улучшить описание. Проверьте доступ к черновику и попробуйте снова.",
         );
         setComplaintNarrativeSuggestion(null);
         return;
@@ -1698,16 +1698,16 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
 
     if (!result.ok) {
       if (result.error === "publication-before-generation") {
-        setPublicationMessage("Сначала сгенерируйте BBCode, а затем укажите ссылку на публикацию. Код: OGP_PUBLICATION_BEFORE_GENERATION.");
+        setPublicationMessage("Сначала соберите текст для форума, а затем укажите ссылку на публикацию.");
         return;
       }
 
       if (result.error === "invalid-publication-url") {
-        setPublicationMessage("Ссылка на публикацию должна быть пустой или вести на https://forum.gta5rp.com/. Код: OGP_PUBLICATION_URL_INVALID.");
+        setPublicationMessage("Ссылка на публикацию должна быть пустой или вести на https://forum.gta5rp.com/.");
         return;
       }
 
-      setPublicationMessage("Не удалось сохранить данные публикации. Код: OGP_PUBLICATION_METADATA_SAVE_FAILED.");
+      setPublicationMessage("Не удалось сохранить данные публикации. Проверьте ссылку и повторите попытку.");
       return;
     }
 
@@ -1737,7 +1737,7 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
   const handlePublishCreate = useCallback(async () => {
     if (isDirty) {
       setPublicationMessage(
-        "Сначала сохраните черновик. Публикация использует последний сохранённый BBCode.",
+        "Сначала сохраните черновик. Публикация использует последнюю сохранённую версию текста для форума.",
       );
       return;
     }
@@ -1763,7 +1763,7 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
         return;
       }
 
-      setPublicationMessage("Не удалось опубликовать жалобу на форуме. Проверьте доступ к документу. Код: OGP_FORUM_PUBLISH_CREATE_FAILED.");
+      setPublicationMessage("Не удалось опубликовать жалобу на форуме. Проверьте подключение форума и попробуйте снова.");
       return;
     }
 
@@ -1789,7 +1789,7 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
   const handlePublishUpdate = useCallback(async () => {
     if (isDirty) {
       setPublicationMessage(
-        "Сначала сохраните черновик. Обновление публикации использует последний сохранённый BBCode.",
+        "Сначала сохраните черновик. Обновление публикации использует последнюю сохранённую версию текста для форума.",
       );
       return;
     }
@@ -1815,7 +1815,7 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
         return;
       }
 
-      setPublicationMessage("Не удалось обновить публикацию на форуме. Проверьте доступ к документу. Код: OGP_FORUM_PUBLISH_UPDATE_FAILED.");
+      setPublicationMessage("Не удалось обновить публикацию на форуме. Проверьте подключение форума и попробуйте снова.");
       return;
     }
 
@@ -1876,7 +1876,7 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
           type="button"
           variant="secondary"
         >
-          Сгенерировать BBCode
+          Собрать текст для форума
         </Button>
         <Button onClick={handleClearComplaintTemplate} type="button" variant="secondary">
           Очистить форму жалобы
@@ -1960,32 +1960,27 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
 
       <div className="space-y-4 rounded-3xl border border-[var(--border)] bg-white/70 p-4">
         <div className="space-y-1">
-          <h3 className="text-lg font-semibold">Сведения о генерации</h3>
+          <h3 className="text-lg font-semibold">Сведения о сборке</h3>
           <ComplaintFieldHint>
-            Эти сведения помогают понять, когда и из какой версии данных был создан BBCode.
+            Здесь видно, когда в последний раз собирался текст для форума и нужно ли обновить его перед публикацией.
           </ComplaintFieldHint>
         </div>
         <ul className="space-y-2 text-sm leading-6 text-[var(--muted)]">
           <li>Статус: {formatDraftStatus(generationState.status)}</li>
           <li>
-            Сгенерировано:{" "}
+            Последняя сборка:{" "}
             {generationState.generatedAt
               ? new Date(generationState.generatedAt).toLocaleString("ru-RU")
-              : "ещё не генерировалось"}
-          </li>
-          <li>Версия правовой базы: {generationState.generatedLawVersion ?? "ещё не заполнено"}</li>
-          <li>
-            Версия шаблона: {generationState.generatedTemplateVersion ?? "ещё не заполнено"}
+              : "ещё не выполнялась"}
           </li>
           <li>
-            Версия формы: {generationState.generatedFormSchemaVersion ?? "ещё не заполнено"}
+            {generationState.isModifiedAfterGeneration
+              ? "После последней сборки документ менялся. Перед публикацией лучше собрать текст заново."
+              : "После последней сборки документ не менялся."}
           </li>
+          <li>Статус публикации: {formatForumSyncState(generationState.forumSyncState)}</li>
           <li>
-            Есть изменения после генерации: {generationState.isModifiedAfterGeneration ? "да" : "нет"}
-          </li>
-          <li>Статус публикации на форуме: {formatForumSyncState(generationState.forumSyncState)}</li>
-          <li>
-            Последняя публикация на форуме:{" "}
+            Последняя публикация:{" "}
             {generationState.forumLastPublishedAt
               ? new Date(generationState.forumLastPublishedAt).toLocaleString("ru-RU")
               : "ещё не публиковался"}
@@ -1996,9 +1991,9 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
       <div className="space-y-4 rounded-3xl border border-[var(--border)] bg-white/70 p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="space-y-1">
-            <h3 className="text-lg font-semibold">Готовый BBCode</h3>
+            <h3 className="text-lg font-semibold">Готовый текст для форума</h3>
             <ComplaintFieldHint>
-              Здесь показывается итоговый BBCode для копирования и публикации.
+              Здесь показывается итоговый текст для копирования и публикации.
             </ComplaintFieldHint>
           </div>
           <Button
@@ -2011,13 +2006,13 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
             type="button"
             variant="secondary"
           >
-            Копировать BBCode
+            Скопировать текст для форума
           </Button>
         </div>
         <Textarea
           className="min-h-[320px] font-mono text-xs"
           readOnly
-          value={generationState.lastGeneratedBbcode ?? "BBCode ещё не сгенерирован."}
+          value={generationState.lastGeneratedBbcode ?? "Текст для форума ещё не собран."}
         />
       </div>
 
@@ -2036,10 +2031,9 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
             </span>
           </p>
           <p>
-            Форумный аккаунт:{" "}
+            Аккаунт форума:{" "}
             <span className="font-medium text-[var(--foreground)]">
-              {props.forumConnection.forumUsername ?? "ещё не извлечена"}
-              {props.forumConnection.forumUserId ? ` (${props.forumConnection.forumUserId})` : ""}
+              {props.forumConnection.forumUsername ?? "ещё не подтверждён"}
             </span>
           </p>
           <p>
@@ -2052,7 +2046,7 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
           </p>
           {props.forumConnection.lastValidationError ? (
             <p className="mt-2 text-[#8a2d1d]">
-              Требуется переподключение: {props.forumConnection.lastValidationError}
+              Подключение требует повторной проверки в настройках аккаунта.
             </p>
           ) : null}
           <p className="mt-2">Подключение форума управляется в настройках аккаунта.</p>
@@ -2071,11 +2065,11 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
             </span>
           </p>
           <p>
-            Тема и сообщение на форуме:{" "}
+            Публикация через приложение:{" "}
             <span className="font-medium text-[var(--foreground)]">
               {generationState.forumThreadId && generationState.forumPostId
-                ? `${generationState.forumThreadId} / ${generationState.forumPostId}`
-                : "ещё не сохранена"}
+                ? "опубликована"
+                : "ещё не опубликована"}
             </span>
           </p>
           <p>
@@ -2088,7 +2082,7 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
           </p>
           {generationState.forumLastSyncError ? (
             <p className="mt-2 text-[#8a2d1d]">
-              Последняя ошибка публикации: {generationState.forumLastSyncError}
+              Не удалось подтвердить последнюю публикацию. Проверьте подключение форума и попробуйте ещё раз.
             </p>
           ) : null}
           <p className="mt-2">

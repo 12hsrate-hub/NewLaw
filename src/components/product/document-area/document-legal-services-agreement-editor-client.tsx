@@ -88,14 +88,14 @@ function FieldHint(props: { children: ReactNode }) {
 
 function formatDocumentStatus(status: "draft" | "generated" | "published") {
   if (status === "draft") {
-    return "черновик";
+    return "Черновик";
   }
 
   if (status === "generated") {
-    return "сгенерировано";
+    return "Документ собран";
   }
 
-  return "опубликовано";
+  return "Опубликован";
 }
 
 export function LegalServicesAgreementDraftCreateClient(
@@ -188,12 +188,6 @@ export function LegalServicesAgreementEditorClient(
   const [generationErrors, setGenerationErrors] = useState<string[]>([]);
   const [generatedArtifact, setGeneratedArtifact] = useState(props.generatedArtifact);
   const [generatedAt, setGeneratedAt] = useState(props.generatedAt);
-  const [generatedOutputFormat, setGeneratedOutputFormat] = useState(
-    props.generatedOutputFormat,
-  );
-  const [generatedRendererVersion, setGeneratedRendererVersion] = useState(
-    props.generatedRendererVersion,
-  );
   const [status, setStatus] = useState(props.status);
   const [isModifiedAfterGeneration, setIsModifiedAfterGeneration] = useState(
     props.isModifiedAfterGeneration,
@@ -247,13 +241,13 @@ export function LegalServicesAgreementEditorClient(
       if (result.error === "generation-blocked") {
         setGenerationErrors(result.messages);
         setGenerationMessage(
-          "Генерация заблокирована, пока не заполнены обязательные данные договора или snapshots.",
+          "Сборка недоступна, пока не заполнены обязательные данные договора.",
         );
         return;
       }
 
       setGenerationMessage(
-        "Не удалось собрать постраничный export договора. Сохраните черновик и попробуйте снова.",
+        "Не удалось собрать страницы договора. Черновик сохранён, можно попробовать ещё раз.",
       );
       return;
     }
@@ -261,19 +255,17 @@ export function LegalServicesAgreementEditorClient(
     setStatus(result.status);
     setGeneratedAt(result.generatedAt);
     setGeneratedArtifact(result.generatedArtifact);
-    setGeneratedOutputFormat(result.generatedOutputFormat);
-    setGeneratedRendererVersion(result.generatedRendererVersion);
     setIsModifiedAfterGeneration(result.isModifiedAfterGeneration);
     setGenerationMessage(
-      "Договор собран. Reference template сохранён без свободного редактирования, а страницы доступны отдельными PNG-файлами.",
+      "Договор собран. Проверьте страницы и скачайте нужные файлы при необходимости.",
     );
   };
 
   return (
     <div className="space-y-6">
       <div className="rounded-2xl border border-[var(--border)] bg-white/60 px-4 py-3 text-sm leading-6 text-[var(--muted)]">
-        Этот документ использует reference PDF как источник static текста и layout. Подписи
-        персонажа и доверителя рисуются автоматически шрифтом из frozen snapshots документа.
+        Основной текст договора формируется по утверждённому шаблону. Подписи персонажа и
+        доверителя подставляются автоматически по сохранённым данным документа.
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
@@ -315,8 +307,8 @@ export function LegalServicesAgreementEditorClient(
           <Badge>паспорт {editorState.payload.trustorSnapshot.passportNumber}</Badge>
         </div>
         <p className="text-sm leading-6 text-[var(--muted)]">
-          Trustor snapshot уже сохранён в документе и не меняется автоматически после первого
-          создания черновика.
+          Данные доверителя уже зафиксированы в документе и не меняются автоматически после
+          первого сохранения черновика.
         </p>
       </section>
 
@@ -341,7 +333,7 @@ export function LegalServicesAgreementEditorClient(
           Сохранить черновик
         </Button>
         <Button onClick={performGenerate} type="button" variant="secondary">
-          Собрать preview и PNG-страницы
+          Собрать страницы договора
         </Button>
         <Badge>{formatDocumentStatus(status)}</Badge>
         {isDirty ? <Badge>есть несохранённые изменения</Badge> : null}
@@ -364,9 +356,6 @@ export function LegalServicesAgreementEditorClient(
         <div className="flex flex-wrap items-center gap-2">
           <h3 className="text-xl font-semibold">Результат генерации</h3>
           {generatedAt ? <Badge>{new Date(generatedAt).toLocaleString("ru-RU")}</Badge> : null}
-          {generatedOutputFormat ? <Badge>{generatedOutputFormat}</Badge> : null}
-          {generatedRendererVersion ? <Badge>{generatedRendererVersion}</Badge> : null}
-          {generatedArtifact ? <Badge>reference: {generatedArtifact.referenceState}</Badge> : null}
         </div>
         {generatedArtifact ? (
           <div className="space-y-4">
@@ -389,8 +378,8 @@ export function LegalServicesAgreementEditorClient(
           </div>
         ) : (
           <p className="text-sm leading-6 text-[var(--muted)]">
-            Генерация ещё не запускалась. После сборки здесь появится preview и набор отдельных
-            PNG-файлов по страницам договора.
+            Сборка ещё не запускалась. После неё здесь появятся страницы договора для проверки и
+            скачивания.
           </p>
         )}
       </section>

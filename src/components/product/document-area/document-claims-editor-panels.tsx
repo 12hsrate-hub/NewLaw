@@ -8,6 +8,18 @@ import type {
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 
+function formatClaimsDocumentStatus(status: ClaimsGenerationState["status"]) {
+  if (status === "draft") {
+    return "Черновик";
+  }
+
+  if (status === "generated") {
+    return "Документ собран";
+  }
+
+  return "Опубликован";
+}
+
 export function ClaimsEditorActionBar(props: {
   isDirty: boolean;
   hasPreview: boolean;
@@ -19,16 +31,16 @@ export function ClaimsEditorActionBar(props: {
   return (
     <div className="flex flex-wrap items-center gap-3">
       <Button disabled={!props.isDirty} onClick={props.onSave} type="button">
-        Сохранить claims draft
+        Сохранить черновик
       </Button>
       <Button disabled={props.isDirty} onClick={props.onGeneratePreview} type="button" variant="secondary">
-        Собрать structured preview
+        Обновить предпросмотр
       </Button>
       <Button disabled={props.isDirty} onClick={props.onGenerateCheckpoint} type="button" variant="secondary">
-        Зафиксировать generated checkpoint
+        Сохранить итоговую версию
       </Button>
       <Button disabled={!props.hasPreview} onClick={props.onCopyPreview} type="button" variant="secondary">
-        Копировать текст preview
+        Скопировать текст
       </Button>
     </div>
   );
@@ -43,41 +55,37 @@ export function ClaimsEditorPreviewPanels(props: {
     <>
       <div className="space-y-4 rounded-3xl border border-[var(--border)] bg-white/70 p-4">
         <div className="space-y-1">
-          <h3 className="text-lg font-semibold">Claims output preview</h3>
+          <h3 className="text-lg font-semibold">Сведения о сборке</h3>
           <ClaimsFieldHint>
-            Это отдельный claims structured renderer. Он не использует OGP BBCode и не включает publication workflow.
+            Здесь видно, когда в последний раз собирался текст документа и нужно ли обновить его перед использованием.
           </ClaimsFieldHint>
         </div>
         <ul className="space-y-2 text-sm leading-6 text-[var(--muted)]">
-          <li>Document status: {props.generationState.status}</li>
+          <li>Статус документа: {formatClaimsDocumentStatus(props.generationState.status)}</li>
           <li>
-            Preview format: {props.previewState?.format ?? props.generationState.generatedOutputFormat ?? "ещё не собран"}
+            Результат сборки: {props.previewState?.format ?? props.generationState.generatedOutputFormat ?? "ещё не подготовлен"}
           </li>
           <li>
-            Renderer version:{" "}
-            {props.previewState?.rendererVersion ?? props.generationState.generatedRendererVersion ?? "ещё не собран"}
-          </li>
-          <li>
-            Generated at:{" "}
+            Последняя сборка:{" "}
             {props.generationState.generatedAt
               ? new Date(props.generationState.generatedAt).toLocaleString("ru-RU")
-              : "checkpoint ещё не фиксировался"}
+              : "ещё не выполнялась"}
           </li>
           <li>
-            Generated form schema version: {props.generationState.generatedFormSchemaVersion ?? "ещё не зафиксирована"}
+            {props.generationState.isModifiedAfterGeneration
+              ? "После последней сборки документ менялся. Перед использованием лучше обновить предпросмотр."
+              : "После последней сборки документ не менялся."}
           </li>
-          <li>Modified after generation: {props.generationState.isModifiedAfterGeneration ? "да" : "нет"}</li>
-          <li>Publication / forum sync для claims на этом шаге не активируются.</li>
+          <li>Публикация на форуме для этого раздела не используется.</li>
           {props.previewState ? (
             <li>
-              Blocking reasons:{" "}
-              {props.previewState.blockingReasons.length > 0 ? props.previewState.blockingReasons.join(", ") : "нет"}
+              Что ещё нужно проверить:{" "}
+              {props.previewState.blockingReasons.length > 0 ? props.previewState.blockingReasons.join(", ") : "замечаний нет"}
             </li>
           ) : null}
           {props.isPreviewStale ? (
             <li>
-              Текущий preview устарел после последнего сохранения. Можно собрать preview заново или перезаписать
-              generated checkpoint.
+              Текущий предпросмотр устарел после последнего сохранения. Обновите его перед использованием.
             </li>
           ) : null}
         </ul>
@@ -85,8 +93,8 @@ export function ClaimsEditorPreviewPanels(props: {
 
       <div className="space-y-4 rounded-3xl border border-[var(--border)] bg-white/70 p-4">
         <div className="space-y-1">
-          <h3 className="text-lg font-semibold">Structured preview</h3>
-          <ClaimsFieldHint>Preview и copyText строятся из одного и того же deterministic output shape.</ClaimsFieldHint>
+          <h3 className="text-lg font-semibold">Предпросмотр документа</h3>
+          <ClaimsFieldHint>Здесь показывается текст, который будет использован в итоговой версии документа.</ClaimsFieldHint>
         </div>
         {props.previewState ? (
           <div className="space-y-4">
@@ -99,17 +107,17 @@ export function ClaimsEditorPreviewPanels(props: {
           </div>
         ) : (
           <div className="rounded-2xl border border-dashed border-[var(--border)] px-4 py-5 text-sm text-[var(--muted)]">
-            Structured preview ещё не собран. Сначала сохрани draft, затем запусти Generate preview.
+            Предпросмотр ещё не собран. Сначала сохраните черновик, затем обновите предпросмотр.
           </div>
         )}
       </div>
 
       <div className="space-y-4 rounded-3xl border border-[var(--border)] bg-white/70 p-4">
         <div className="space-y-1">
-          <h3 className="text-lg font-semibold">Copy-friendly text</h3>
-          <ClaimsFieldHint>Это не BBCode и не publication artifact. Текст только для просмотра и копирования.</ClaimsFieldHint>
+          <h3 className="text-lg font-semibold">Текст для копирования</h3>
+          <ClaimsFieldHint>Этот текст можно использовать для просмотра и дальнейшей ручной работы с документом.</ClaimsFieldHint>
         </div>
-        <Textarea className="min-h-[320px] font-mono text-xs" readOnly value={props.previewState?.copyText ?? "Preview ещё не собран."} />
+        <Textarea className="min-h-[320px] font-mono text-xs" readOnly value={props.previewState?.copyText ?? "Предпросмотр ещё не собран."} />
       </div>
     </>
   );
