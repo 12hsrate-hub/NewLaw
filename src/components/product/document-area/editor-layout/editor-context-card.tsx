@@ -21,20 +21,23 @@ export function EditorContextCard(props: {
   className?: string;
 }) {
   return (
-    <EmbeddedCard className={cn("space-y-4", props.className)} data-editor-context-card="true">
+    <EmbeddedCard
+      className={cn("space-y-4 overflow-hidden p-5 sm:space-y-5 sm:p-6", props.className)}
+      data-editor-context-card="true"
+    >
       <div className="space-y-2.5">
         {props.eyebrow ? (
           <p className="text-xs uppercase tracking-[0.22em] text-[var(--accent)]">
             {props.eyebrow}
           </p>
         ) : null}
-        <h2 className="text-xl font-semibold text-[var(--foreground)]">{props.title}</h2>
+        <h2 className="text-lg font-semibold text-[var(--foreground)] sm:text-xl">{props.title}</h2>
         {props.description ? (
-          <p className="text-sm leading-6 text-[var(--muted)]">{props.description}</p>
+          <p className="max-w-prose text-sm leading-6 text-[var(--muted)]">{props.description}</p>
         ) : null}
       </div>
 
-      {props.meta ? <div className="flex flex-wrap items-center gap-2">{props.meta}</div> : null}
+      {props.meta ? <div className="flex flex-wrap items-start gap-2">{props.meta}</div> : null}
       {props.children}
 
       {props.actions?.length ? (
@@ -51,7 +54,7 @@ export function EditorContextCard(props: {
         </div>
       ) : null}
 
-      {props.footer ? <div className="text-sm leading-6 text-[var(--muted)]">{props.footer}</div> : null}
+      {props.footer ? <div className="max-w-prose text-sm leading-6 text-[var(--muted)]">{props.footer}</div> : null}
     </EmbeddedCard>
   );
 }

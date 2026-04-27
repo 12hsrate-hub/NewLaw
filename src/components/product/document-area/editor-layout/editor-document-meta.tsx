@@ -34,9 +34,9 @@ export function EditorDocumentMeta(props: {
     >
       <dl className="space-y-3 text-sm leading-6">
         {props.items.map((item) => (
-          <div className="space-y-1" key={`${item.label}:${item.value}`}>
+          <div className="min-w-0 space-y-1" key={`${item.label}:${item.value}`}>
             <dt className="text-[var(--muted)]">{item.label}</dt>
-            <dd className="text-[var(--foreground)]">{item.value}</dd>
+            <dd className="break-words text-[var(--foreground)]">{item.value}</dd>
           </div>
         ))}
       </dl>

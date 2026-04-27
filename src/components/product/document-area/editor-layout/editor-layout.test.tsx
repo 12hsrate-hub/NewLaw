@@ -32,8 +32,14 @@ describe("EditorWorkspaceLayout", () => {
     expect(html).toContain('data-editor-workspace-layout="true"');
     expect(html).toContain('data-editor-main-column="true"');
     expect(html).toContain('data-editor-context-aside="true"');
-    expect(html).toContain("xl:grid-cols-[minmax(0,1fr)_360px]");
+    expect(html).toContain("grid-cols-1");
+    expect(html).toContain("xl:grid-cols-[minmax(0,1fr)_minmax(320px,360px)]");
+    expect(html).toContain("2xl:grid-cols-[minmax(0,1fr)_380px]");
+    expect(html).toContain("order-last");
+    expect(html).toContain("xl:order-none");
+    expect(html).toContain("xl:max-w-[380px]");
     expect(html).toContain("xl:sticky");
+    expect(html).toContain("xl:top-24");
     expect(html).toContain("Main content");
     expect(html).toContain("Aside content");
   });
@@ -78,13 +84,13 @@ describe("EditorWorkspaceLayout", () => {
           ]}
           items={[
             { label: "Сервер", value: "Blackberry" },
-            { label: "Документ", value: "claim-1" },
+            { label: "Документ", value: "claim-1-with-very-long-value-to-check-wrapping-behavior" },
           ]}
         />
         <EditorActionSummary
           helperText="Действия выполняются из основной колонки редактора."
           items={[
-            { label: "Сохранение", value: "Доступно" },
+            { label: "Сохранение", value: "Доступно после проверки и повторной сборки итогового результата" },
             { label: "Публикация", tone: "info", value: "Не используется" },
           ]}
         />
@@ -95,8 +101,11 @@ describe("EditorWorkspaceLayout", () => {
     expect(html).toContain("Заполнены");
     expect(html).toContain("Сервер");
     expect(html).toContain("Blackberry");
+    expect(html).toContain("claim-1-with-very-long-value-to-check-wrapping-behavior");
     expect(html).toContain("Публикация");
     expect(html).toContain("Подсказка по готовности.");
     expect(html).toContain("Действия выполняются из основной колонки редактора.");
+    expect(html).toContain("break-words");
+    expect(html).toContain("whitespace-normal");
   });
 });
