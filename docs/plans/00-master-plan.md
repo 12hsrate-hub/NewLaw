@@ -242,6 +242,7 @@
 - зафиксировать, что scenario suites будут уменьшаться и очищаться от дублей
 - зафиксировать `16.3 AI Legal Core — NormBundle and Companion Context` как active partial line
 - зафиксировать, что slices `5a`-`5c.1` по `NormBundle` уже задеплоены на production
+- зафиксировать, что `5d` уже добавил companion-aware expectation layer для `attorney_request` без изменения runtime
 
 Границы:
 

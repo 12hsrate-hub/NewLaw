@@ -574,10 +574,11 @@ AI не должен показывать сомнения напрямую.
 - `5b.1` — issue-aware narrowing для same-article segments без blind inclusion procedural-looking частей
 - `5c` — bundle projection в generation context без увеличения общего prompt budget
 - `5c.1` — marker-aware dedupe companions и приоритетное удержание `ч. 2` и `ч. 5` для `attorney_request / no-response-refusal`
+- `5d` — companion-aware expectation layer для scenario suites и internal evaluator без изменения runtime AI Legal Core
 
 Текущий ещё не закрытый объём:
 
-- `5d` — scenario expectation update и постепенная активация companion-aware expectation checks
+- постепенное расширение companion-aware expectation checks за пределы `attorney_request`
 
 `NormBundle` должен включать:
 
@@ -668,6 +669,57 @@ Prod model:
   - selection / `PrimaryBasisEligibility`
   - `source-excerpt`
   - generation prompt policy
+
+## Текущий implemented checkpoint по `5d`
+
+`5d` зафиксирован коммитом `fbf5cd8`.
+
+Это acceptance / evaluator layer, а не новый runtime layer.
+
+`5d` добавил:
+
+- `activateCompanionChecks`
+- `requiredCompanionTargets`
+- `failIfSanctionWithoutBaseRule`
+- `failIfExceptionWithoutBaseRule`
+- реальное использование `requiredCompanionRelations` для `attorney_request`
+- реальное использование `forbiddenCompanionAsPrimary` для `attorney_request`
+
+Что именно делает `5d`:
+
+- проверяет required companion relations
+- проверяет required companion targets по `law_family / article_number / part_number / marker`
+- разрешает считать duplicate companion покрытым, если он уже исключён как `duplicate_of_primary_excerpt`
+- валит scenario при `sanction without base rule`
+- валит scenario при `exception without base rule`
+- валит scenario при отсутствии обязательного companion
+
+Первичная активация companion-aware checks выполнена только для:
+
+- `alt-attorney-request-deadline`
+- `general-no-response-to-attorney-request`
+- `hallucination-attorney-request-crime`
+
+Источник данных для evaluator:
+
+- `selected_norm_roles`
+- `primary_basis_eligibility`
+- `direct_basis_status`
+- `NormBundle / projection diagnostics`
+
+Принцип проверки:
+
+- evaluator проверяет structured diagnostics и selected legal context
+- evaluator не опирается на matching текста ответа
+
+Важно:
+
+- `5d` не меняет retrieval
+- `5d` не меняет selection / `PrimaryBasisEligibility`
+- `5d` не меняет `source-excerpt`
+- `5d` не меняет generation prompt
+- `5d` не меняет budget
+- `5d` не меняет public assistant actions
 
 ## VPS smoke policy
 
