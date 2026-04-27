@@ -248,6 +248,7 @@
 - зафиксировать, что `5d.3` в repo-state расширяет companion-aware expectations на `multi_server_variance` без изменения runtime
 - зафиксировать, что `16.3` на текущем уровне считается `stabilised / partial-complete line`, а следующий крупный AI Legal Core шаг лучше искать вне дальнейшего companion expansion
 - зафиксировать implemented `citation behavior contract v1`, который различает `citation_explanation`, `citation_application`, thin-facts application и `unresolved_citation` без изменения `Step 17` gate policy
+- зафиксировать production deploy `citation behavior contract v1` на release `af7f4f6` с успешным targeted citation smoke и правилом `node --env-file`, без `bash source`
 
 Границы:
 

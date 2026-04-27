@@ -1031,6 +1031,74 @@ node --env-file=/srv/newlaw/app/shared/.env.production ...
 
 - не использовать `bash source .env.production`
 
+## Post-deploy checkpoint по citation behavior contract v1
+
+Production deploy для runtime slice `citation behavior contract v1` выполнен на commit `af7f4f6`.
+
+Зафиксировано:
+
+- active release: `af7f4f6f2c4824717596bea8369c334ca70fcfd7`
+- `/srv/newlaw/app/current` указывает на `/srv/newlaw/app/releases/af7f4f6`
+- `/api/health` = `ok`
+- production model = `gpt-5.4-mini`
+- для ручного smoke использовался только:
+
+```bash
+node --env-file=/srv/newlaw/app/shared/.env.production ...
+```
+
+- `bash source .env.production` не использовался
+
+### Targeted smoke outcomes
+
+Пять целевых citation cases на production прошли успешно:
+
+1. `22 ч.1 АК`
+   - `citation_behavior_mode = explanation_only`
+   - `primaryLegalIssueType = citation_explanation`
+   - `direct_basis_status = direct_basis_present`
+   - `citation_target_count = 1`
+   - вопрос остался explanation-only и не превратился в applied conclusion
+
+2. `можно ли по 23.1 ПК`
+   - `citation_behavior_mode = application_with_insufficient_facts`
+   - `primaryLegalIssueType = citation_application`
+   - `direct_basis_status = direct_basis_present`
+   - `citation_target_count = 1`
+   - ответ остался conditional и явно потребовал дополнительные facts/обстоятельства
+
+3. `5 ч.4 Закона об адвокатуре`
+   - `citation_behavior_mode = explanation_only`
+   - `primaryLegalIssueType = citation_explanation`
+   - `direct_basis_status = direct_basis_present`
+   - `citation_target_count = 1`
+   - вопрос не превратился в вывод по конкретной ситуации
+
+4. `что если руководство отказало по 5 ч.4 Закона об адвокатуре`
+   - `citation_behavior_mode = application`
+   - `primaryLegalIssueType = refusal_question`
+   - `direct_basis_status = direct_basis_present`
+   - `citation_target_count = 1`
+   - ответ применяет норму осторожно и условно, без automatic categorical conclusion
+
+5. `999 УК`
+   - `citation_behavior_mode = unresolved_citation`
+   - `primaryLegalIssueType = citation_explanation`
+   - `direct_basis_status = partial_basis_only`
+   - `citation_target_count = 0`
+   - `citation resolution = unresolved:no_article`
+   - fake primary не создан
+   - semantic fallback не выдан за точную найденную норму
+
+### Interpretive note
+
+Для unresolved case `999 УК` status `direct_basis_status = partial_basis_only` считается допустимым unresolved-compatible состоянием в текущем runtime contour, потому что:
+
+- citation target не найден
+- fake primary не создаётся
+- exact cited norm не симулируется
+- applied conclusion не выдается как подтверждённый
+
 ## Как использовать test runner
 
 Базовый порядок ручного прогона:

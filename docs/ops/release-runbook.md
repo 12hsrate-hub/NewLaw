@@ -200,6 +200,14 @@ Canonical order:
 - full document flow smoke
 - full assistant answer smoke
 
+Если release меняет runtime behavior `server legal assistant`, допустим и рекомендуется отдельный narrow manual smoke поверх mandatory smoke.
+
+Для таких проверок:
+
+- использовать только `node --env-file=/srv/newlaw/app/shared/.env.production ...`
+- не использовать `bash source .env.production`
+- ограничивать прогон несколькими targeted questions вместо широкого дорогого assistant run
+
 ## Failure classification
 
 ### Code regression
