@@ -1968,8 +1968,12 @@ describe("answer pipeline", () => {
 
     expect(result.status).toBe("answered");
     const promptInput = requestAssistantProxyCompletion.mock.calls[0]?.[0]?.userPrompt as string;
+    expect(promptInput).toContain("- primary_excerpt:");
+    expect(promptInput).not.toContain("companion[procedure_companion]");
     expect(promptInput).toContain("одного календарного дня");
     expect(promptInput).not.toContain("3 рабочих дня");
+    expect(promptInput).not.toContain("срок давности");
+    expect(promptInput).not.toContain("подлежат уничтожению");
     expect(promptInput).not.toContain(longAttorneyArticle);
 
     const aiRequestPayload = createAIRequest.mock.calls[0]?.[0];
@@ -2037,9 +2041,285 @@ describe("answer pipeline", () => {
     expect(aiRequestPayload.requestPayloadJson.excluded_article_segments).toEqual(
       expect.arrayContaining([expect.objectContaining({ reason_code: expect.any(String) })]),
     );
-    expect(promptInput).not.toContain("companion[");
+    expect(aiRequestPayload.requestPayloadJson.norm_bundle_projection_used).toEqual([
+      expect.objectContaining({
+        law_id: "law-1",
+        law_block_id: "law-block-1",
+        used: false,
+      }),
+    ]);
+    expect(aiRequestPayload.requestPayloadJson.bundle_projection_items_count).toEqual([
+      expect.objectContaining({
+        law_id: "law-1",
+        law_block_id: "law-block-1",
+        item_count: 1,
+      }),
+    ]);
+    expect(aiRequestPayload.requestPayloadJson.bundle_projection_relation_types).toEqual([
+      expect.objectContaining({
+        law_id: "law-1",
+        law_block_id: "law-block-1",
+        relation_types: [],
+      }),
+    ]);
+    expect(aiRequestPayload.requestPayloadJson.bundle_projection_companion_items).toEqual([
+      expect.objectContaining({
+        law_id: "law-1",
+        law_block_id: "law-block-1",
+        items: [],
+      }),
+    ]);
+    expect(aiRequestPayload.requestPayloadJson.bundle_projection_excluded_items).toEqual([
+      expect.objectContaining({
+        law_id: "law-1",
+        law_block_id: "law-block-1",
+        items: expect.arrayContaining([
+          expect.objectContaining({
+            marker: "ч. 2",
+            relation_type: "procedure_companion",
+            reason_code: "duplicate_of_primary_excerpt",
+          }),
+        ]),
+      }),
+    ]);
     expect(promptInput).not.toContain("NormBundle");
     expect(JSON.stringify(aiRequestPayload.requestPayloadJson)).not.toContain("Текст нормы");
+  });
+
+  it("в compact_generation проецирует same-article companions для no-response без excluded procedural parts", async () => {
+    const createAIRequest = vi.fn();
+    const requestAssistantProxyCompletion = vi.fn().mockResolvedValue({
+      status: "success",
+      content: [
+        "## Краткий вывод",
+        "Нужно учитывать срок, основания отказа и последствия нарушения.",
+        "",
+        "## Что прямо следует из норм закона",
+        "Статья 5 охватывает срок, отказ и последствия.",
+        "",
+        "## Что подтверждается судебными прецедентами",
+        "Подтверждённые прецеденты не использовались.",
+        "",
+        "## Вывод / интерпретация",
+        "Оценка зависит от соблюдения порядка.",
+        "",
+        "## Использованные нормы / источники",
+        "Закон об адвокатуре, ст. 5.",
+      ].join("\n"),
+      proxyKey: "primary",
+      providerKey: "openai_compatible",
+      model: "gpt-5.4-mini",
+      responsePayloadJson: {
+        choices: [],
+      },
+    });
+
+    const longAttorneyArticle = [
+      "Статья 5. Адвокатский запрос",
+      "ч. 1 Адвокат вправе направлять официальный адвокатский запрос.",
+      "ч. 2 Органы и организации должны дать на него ответ в течение одного календарного дня с момента получения.",
+      "ч. 3 Если запрашиваемые материалы имеют срок давности, они не подлежат уничтожению до представления адвокату.",
+      "ч. 4 В предоставлении сведений может быть отказано, если адресат не располагает сведениями или информация покрывается тайной.",
+      "ч. 5 Неправомерный отказ и нарушение сроков предоставления сведений влекут ответственность.",
+      "ч. 6 Руководитель обязан уведомить подчинённого об адвокатском запросе.",
+      "ч. 8 Запрос делопроизводств офиса генерального прокурора не может происходить в рамках адвокатского запроса.",
+    ].join("\n");
+
+    await generateServerLegalAssistantAnswer(
+      {
+        serverId: "server-1",
+        serverCode: "blackberry",
+        serverName: "Blackberry",
+        question: "если руководство не ответило на адвокатский запрос",
+        responseModeOverride: "normal",
+        internalExecutionMode: "compact_generation",
+      },
+      {
+        searchAssistantCorpus: vi.fn().mockResolvedValue(
+          createAssistantRetrieval({
+            lawResults: [
+              {
+                serverId: "server-1",
+                lawId: "law-1",
+                lawKey: "advocacy_law",
+                lawTitle: "Закон об адвокатуре",
+                lawVersionId: "law-version-1",
+                lawVersionStatus: "current",
+                lawBlockId: "law-block-1",
+                blockType: "article",
+                blockOrder: 1,
+                articleNumberNormalized: "5",
+                snippet: "Статья 5. Адвокатский запрос.",
+                blockText: longAttorneyArticle,
+                sourceTopicUrl: "https://forum.gta5rp.com/threads/100001/",
+                sourcePosts: [],
+                metadata: {
+                  sourceSnapshotHash: "source-hash",
+                  normalizedTextHash: "normalized-hash",
+                  corpusSnapshotHash: "snapshot-hash",
+                },
+              },
+            ],
+          }),
+        ),
+        normalizeInputText: vi
+          .fn()
+          .mockResolvedValue(
+            createNormalizationResult("если руководство не ответило на адвокатский запрос"),
+          ),
+        requestAssistantProxyCompletion,
+        createAIRequest,
+        now: () => new Date("2026-04-27T09:00:00.000Z"),
+      },
+    );
+
+    const promptInput = requestAssistantProxyCompletion.mock.calls[0]?.[0]?.userPrompt as string;
+    expect(promptInput).toContain("companion[procedure_companion]");
+    expect(promptInput).not.toContain("companion[exception]");
+    expect(promptInput).toContain("companion[sanction_companion]");
+    expect(promptInput).toContain("в течение одного календарного дня");
+    expect(promptInput).toContain("может быть отказано");
+    expect(promptInput).toContain("Неправомерный отказ");
+    expect(promptInput).not.toContain("срок давности");
+    expect(promptInput).not.toContain("уведомить подчинённого");
+    expect(promptInput).not.toContain("офиса генерального прокурора");
+
+    const aiRequestPayload = createAIRequest.mock.calls[0]?.[0];
+    expect(aiRequestPayload.requestPayloadJson.bundle_projection_relation_types).toEqual([
+      expect.objectContaining({
+        law_id: "law-1",
+        law_block_id: "law-block-1",
+        relation_types: ["procedure_companion", "sanction_companion"],
+      }),
+    ]);
+    expect(aiRequestPayload.requestPayloadJson.bundle_projection_companion_items).toEqual([
+      expect.objectContaining({
+        law_id: "law-1",
+        law_block_id: "law-block-1",
+        items: expect.arrayContaining([
+          expect.objectContaining({
+            marker: "ч. 2",
+            relation_type: "procedure_companion",
+          }),
+          expect.objectContaining({
+            marker: "ч. 5",
+            relation_type: "sanction_companion",
+          }),
+        ]),
+      }),
+    ]);
+    expect(aiRequestPayload.requestPayloadJson.bundle_projection_excluded_items).toEqual([
+      expect.objectContaining({
+        law_id: "law-1",
+        law_block_id: "law-block-1",
+        items: expect.arrayContaining([
+          expect.objectContaining({
+            marker: "ч. 4",
+            relation_type: "exception",
+            reason_code: "duplicate_of_primary_excerpt",
+          }),
+        ]),
+      }),
+    ]);
+  });
+
+  it("подрезает bundle companions по budget и пишет projection diagnostics", async () => {
+    const createAIRequest = vi.fn();
+    const requestAssistantProxyCompletion = vi.fn().mockResolvedValue({
+      status: "success",
+      content: [
+        "## Краткий вывод",
+        "Есть несколько релевантных частей статьи.",
+        "",
+        "## Что прямо следует из норм закона",
+        "Нужно учитывать срок, отказ и последствия.",
+        "",
+        "## Что подтверждается судебными прецедентами",
+        "Подтверждённые прецеденты не использовались.",
+        "",
+        "## Вывод / интерпретация",
+        "Ориентируйтесь на прямые части статьи.",
+        "",
+        "## Использованные нормы / источники",
+        "Закон об адвокатуре, ст. 5.",
+      ].join("\n"),
+      proxyKey: "primary",
+      providerKey: "openai_compatible",
+      model: "gpt-5.4-mini",
+      responsePayloadJson: {
+        choices: [],
+      },
+    });
+
+    const longAttorneyArticle = [
+      "Статья 5. Адвокатский запрос",
+      "ч. 1 Адвокат вправе направлять официальный адвокатский запрос.",
+      `ч. 2 ${"Органы и организации должны дать на него ответ в течение одного календарного дня. ".repeat(4)}`,
+      `ч. 4 ${"В предоставлении сведений может быть отказано, если адресат не располагает сведениями или информация покрывается тайной. ".repeat(4)}`,
+      `ч. 5 ${"Неправомерный отказ и нарушение сроков предоставления сведений влекут ответственность. ".repeat(4)}`,
+    ].join("\n");
+
+    await generateServerLegalAssistantAnswer(
+      {
+        serverId: "server-1",
+        serverCode: "blackberry",
+        serverName: "Blackberry",
+        question: "если руководство не ответило на адвокатский запрос",
+        responseModeOverride: "normal",
+        internalExecutionMode: "compact_generation",
+      },
+      {
+        searchAssistantCorpus: vi.fn().mockResolvedValue(
+          createAssistantRetrieval({
+            lawResults: [
+              {
+                serverId: "server-1",
+                lawId: "law-1",
+                lawKey: "advocacy_law",
+                lawTitle: "Закон об адвокатуре",
+                lawVersionId: "law-version-1",
+                lawVersionStatus: "current",
+                lawBlockId: "law-block-1",
+                blockType: "article",
+                blockOrder: 1,
+                articleNumberNormalized: "5",
+                snippet: "Статья 5. Адвокатский запрос.",
+                blockText: longAttorneyArticle,
+                sourceTopicUrl: "https://forum.gta5rp.com/threads/100001/",
+                sourcePosts: [],
+                metadata: {
+                  sourceSnapshotHash: "source-hash",
+                  normalizedTextHash: "normalized-hash",
+                  corpusSnapshotHash: "snapshot-hash",
+                },
+              },
+            ],
+          }),
+        ),
+        normalizeInputText: vi
+          .fn()
+          .mockResolvedValue(
+            createNormalizationResult("если руководство не ответило на адвокатский запрос"),
+          ),
+        requestAssistantProxyCompletion,
+        createAIRequest,
+        now: () => new Date("2026-04-27T09:05:00.000Z"),
+      },
+    );
+
+    const aiRequestPayload = createAIRequest.mock.calls[0]?.[0];
+    expect(aiRequestPayload.requestPayloadJson.bundle_budget_trimmed).toBe(true);
+    expect(aiRequestPayload.requestPayloadJson.bundle_projection_excluded_items).toEqual([
+      expect.objectContaining({
+        law_id: "law-1",
+        law_block_id: "law-block-1",
+        items: expect.arrayContaining([
+          expect.objectContaining({
+            reason_code: expect.stringMatching(/^(projection_|duplicate_of_primary_excerpt)/),
+          }),
+        ]),
+      }),
+    ]);
   });
 
   it("нормализует ответ модели в структурированный markdown даже если precedent section пропущена", async () => {

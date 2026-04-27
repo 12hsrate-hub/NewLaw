@@ -7,7 +7,12 @@ import {
   type ProxyAttemptTrace,
   requestAssistantProxyCompletion,
 } from "@/server/legal-assistant/ai-proxy";
-import { buildNormBundle } from "@/server/legal-assistant/norm-bundle";
+import {
+  buildNormBundle,
+  type NormBundle,
+  type NormBundleItem,
+  type NormBundleRelationType,
+} from "@/server/legal-assistant/norm-bundle";
 import { selectQuestionAwareSourceExcerpt } from "@/server/legal-assistant/source-excerpt";
 import { buildAssistantRetrievalQuery } from "@/server/legal-core/assistant-retrieval-query";
 import { buildLegalGroundingDiagnostics } from "@/server/legal-core/legal-diagnostics";
@@ -202,12 +207,48 @@ type AssistantGenerationContext = {
     generation_excerpt_start: number;
     generation_excerpt_end: number;
   }>;
+  bundle_projection_diagnostics: Array<{
+    law_id: string;
+    law_version: string;
+    law_block_id: string;
+    norm_bundle_projection_used: boolean;
+    bundle_projection_items_count: number;
+    bundle_projection_relation_types: Array<
+      Exclude<NormBundleRelationType, "primary" | "unresolved_reference">
+    >;
+    bundle_projection_primary_items: Array<{
+      item_type: "primary_excerpt";
+      source: "law_source_excerpt";
+    }>;
+    bundle_projection_companion_items: Array<{
+      marker: string | null;
+      part_number: string | null;
+      relation_type: Exclude<NormBundleRelationType, "primary" | "unresolved_reference">;
+      reason_code: string;
+    }>;
+    bundle_projection_excluded_items: Array<{
+      marker: string | null;
+      part_number: string | null;
+      relation_type: Exclude<NormBundleRelationType, "primary" | "unresolved_reference">;
+      reason_code: string;
+    }>;
+    bundle_budget_trimmed: boolean;
+  }>;
   generation_source_budget: number;
   generation_sources_count: number;
   generation_excerpt_budget: number;
   generation_context_chars: number;
   generation_context_trimmed: boolean;
   answer_mode_effective_budget: AssistantGenerationBudgetTrace;
+};
+
+type AssistantProjectableBundleRelationType = Exclude<
+  NormBundleRelationType,
+  "primary" | "unresolved_reference"
+>;
+
+type AssistantProjectableBundleItem = NormBundleItem & {
+  relation_type: AssistantProjectableBundleRelationType;
 };
 
 type GroundedLawReference = {
@@ -843,6 +884,36 @@ function clampAssistantPromptExcerpt(value: string, limit: number) {
   };
 }
 
+function normalizeProjectionComparableText(value: string) {
+  return value.trim().replace(/\s+/g, " ");
+}
+
+function isDuplicateProjectionText(left: string, right: string) {
+  const normalizedLeft = normalizeProjectionComparableText(left);
+  const normalizedRight = normalizeProjectionComparableText(right);
+
+  return (
+    normalizedLeft === normalizedRight ||
+    normalizedLeft.startsWith(normalizedRight) ||
+    normalizedRight.startsWith(normalizedLeft)
+  );
+}
+
+function detectPrimaryExcerptSegmentKey(value: string) {
+  const normalized = value.trim();
+  const partMatch = normalized.match(/^(ч\.\s*(\d+))/i);
+
+  if (partMatch) {
+    return `${partMatch[1].replace(/\s+/g, " ").trim()}:${partMatch[2]}`;
+  }
+
+  if (/^Примечание/i.test(normalized)) {
+    return "Примечание:";
+  }
+
+  return null;
+}
+
 function buildAssistantLawSourceExcerpt(input: {
   blockText: string;
   budget: number;
@@ -861,6 +932,332 @@ function buildAssistantLawSourceExcerpt(input: {
     articleNumber: input.articleNumber,
     maxChars: input.budget,
   });
+}
+
+function isProjectableNormBundleRelationType(
+  relationType: NormBundleRelationType,
+): relationType is AssistantProjectableBundleRelationType {
+  return relationType !== "primary" && relationType !== "unresolved_reference";
+}
+
+function getNormBundleProjectionRelationRank(input: {
+  relationType: AssistantProjectableBundleRelationType;
+  plan: LegalQueryPlan;
+}) {
+  const { relationType, plan } = input;
+
+  if (plan.primaryLegalIssueType === "deadline_question") {
+    switch (relationType) {
+      case "procedure_companion":
+        return 0;
+      case "exception":
+        return 1;
+      case "sanction_companion":
+        return 2;
+      case "evidence_companion":
+        return 3;
+      case "article_note":
+        return 4;
+      case "definition":
+        return 5;
+      default:
+        return 6;
+    }
+  }
+
+  if (plan.primaryLegalIssueType === "refusal_question") {
+    switch (relationType) {
+      case "exception":
+        return 0;
+      case "procedure_companion":
+        return 1;
+      case "sanction_companion":
+        return 2;
+      case "evidence_companion":
+        return 3;
+      case "article_note":
+        return 4;
+      case "definition":
+        return 5;
+      default:
+        return 6;
+    }
+  }
+
+  if (plan.primaryLegalIssueType === "sanction_question") {
+    switch (relationType) {
+      case "sanction_companion":
+        return 0;
+      case "procedure_companion":
+        return 1;
+      case "exception":
+        return 2;
+      case "evidence_companion":
+        return 3;
+      case "article_note":
+        return 4;
+      case "definition":
+        return 5;
+      default:
+        return 6;
+    }
+  }
+
+  if (plan.primaryLegalIssueType === "evidence_question") {
+    switch (relationType) {
+      case "evidence_companion":
+        return 0;
+      case "procedure_companion":
+        return 1;
+      case "exception":
+        return 2;
+      case "sanction_companion":
+        return 3;
+      case "article_note":
+        return 4;
+      case "definition":
+        return 5;
+      default:
+        return 6;
+    }
+  }
+
+  switch (relationType) {
+    case "procedure_companion":
+      return 0;
+    case "exception":
+      return 1;
+    case "sanction_companion":
+      return 2;
+    case "evidence_companion":
+      return 3;
+    case "article_note":
+      return 4;
+    case "definition":
+      return 5;
+    default:
+      return 6;
+  }
+}
+
+function collectLawSourceBundleProjectionItems(input: {
+  normBundle: NormBundle;
+  lawBlockId: string;
+  plan: LegalQueryPlan;
+}) {
+  const companionItems = [
+    ...input.normBundle.same_article_parts,
+    ...input.normBundle.article_notes,
+    ...input.normBundle.article_comments,
+    ...input.normBundle.exceptions,
+    ...input.normBundle.definitions,
+    ...input.normBundle.procedure_companions,
+    ...input.normBundle.sanction_companions,
+    ...input.normBundle.evidence_companions,
+    ...input.normBundle.remedy_companions,
+    ...input.normBundle.citation_companions,
+  ]
+    .filter(
+      (item): item is AssistantProjectableBundleItem =>
+        item.law_block_id === input.lawBlockId &&
+        isProjectableNormBundleRelationType(item.relation_type),
+    )
+    .sort((left, right) => {
+      const leftRank = getNormBundleProjectionRelationRank({
+        relationType: left.relation_type,
+        plan: input.plan,
+      });
+      const rightRank = getNormBundleProjectionRelationRank({
+        relationType: right.relation_type,
+        plan: input.plan,
+      });
+
+      if (leftRank !== rightRank) {
+        return leftRank - rightRank;
+      }
+
+      if (left.priority !== right.priority) {
+        return right.priority - left.priority;
+      }
+
+      return (left.marker ?? "").localeCompare(right.marker ?? "", "ru");
+    });
+
+  return companionItems;
+}
+
+function buildAssistantLawSourceBundleProjection(input: {
+  result: AssistantPromptLawContextEntry;
+  excerptBudget: number;
+  plan: LegalQueryPlan;
+  normBundle: NormBundle;
+}) {
+  const companionCandidates =
+    input.result.selected_role?.norm_role === "primary_basis"
+      ? collectLawSourceBundleProjectionItems({
+          normBundle: input.normBundle,
+          lawBlockId: input.result.lawBlockId,
+          plan: input.plan,
+        })
+      : [];
+  const maxCompanionCount = 3;
+  const companionReserve =
+    companionCandidates.length > 0
+      ? Math.min(
+          Math.max(90, companionCandidates.length * 75),
+          Math.max(0, input.excerptBudget - 120),
+        )
+      : 0;
+  const primaryBudget =
+    companionCandidates.length > 0
+      ? Math.max(120, input.excerptBudget - companionReserve)
+      : input.excerptBudget;
+  const primaryExcerpt = buildAssistantLawSourceExcerpt({
+    blockText: input.result.blockText,
+    budget: Math.min(input.excerptBudget, primaryBudget),
+    plan: input.plan,
+    lawFamily: input.result.selected_role?.law_family ?? null,
+    normRole: input.result.selected_role?.norm_role ?? null,
+    articleNumber: input.result.articleNumberNormalized ?? null,
+  });
+  let remainingCompanionBudget = Math.max(0, input.excerptBudget - primaryExcerpt.text.length);
+  let bundleBudgetTrimmed = false;
+  const normalizedPrimaryExcerpt = normalizeProjectionComparableText(primaryExcerpt.text);
+  const primaryMatchedSegmentKeys = new Set<string>();
+  const detectedPrimarySegmentKey = detectPrimaryExcerptSegmentKey(primaryExcerpt.text);
+
+  if (detectedPrimarySegmentKey) {
+    primaryMatchedSegmentKeys.add(detectedPrimarySegmentKey);
+  }
+
+  for (const item of companionCandidates) {
+    const candidateText = item.compact_excerpt?.trim();
+
+    if (
+      typeof candidateText === "string" &&
+      isDuplicateProjectionText(candidateText, normalizedPrimaryExcerpt)
+    ) {
+      primaryMatchedSegmentKeys.add(`${item.marker ?? ""}:${item.part_number ?? ""}`);
+    }
+  }
+  const includedCompanions: Array<{
+    item: AssistantProjectableBundleItem;
+    text: string;
+    trimmed: boolean;
+  }> = [];
+  const excludedCompanions: Array<{
+    marker: string | null;
+    part_number: string | null;
+    relation_type: AssistantProjectableBundleRelationType;
+    reason_code: string;
+  }> = [];
+
+  for (const item of companionCandidates) {
+    const companionTextSource = item.compact_excerpt?.trim();
+    const normalizedCompanionText =
+      typeof companionTextSource === "string"
+        ? normalizeProjectionComparableText(companionTextSource)
+        : null;
+    const segmentKey = `${item.marker ?? ""}:${item.part_number ?? ""}`;
+
+    if (
+      (primaryMatchedSegmentKeys.size > 0 && primaryMatchedSegmentKeys.has(segmentKey)) ||
+      (typeof normalizedCompanionText === "string" &&
+        normalizedCompanionText.length > 0 &&
+        isDuplicateProjectionText(normalizedCompanionText, normalizedPrimaryExcerpt))
+    ) {
+      excludedCompanions.push({
+        marker: item.marker ?? null,
+        part_number: item.part_number ?? null,
+        relation_type: item.relation_type,
+        reason_code: "duplicate_of_primary_excerpt",
+      });
+      continue;
+    }
+
+    if (includedCompanions.length >= maxCompanionCount) {
+      bundleBudgetTrimmed = true;
+      excludedCompanions.push({
+        marker: item.marker ?? null,
+        part_number: item.part_number ?? null,
+        relation_type: item.relation_type,
+        reason_code: "projection_priority_trimmed",
+      });
+      continue;
+    }
+
+    if (remainingCompanionBudget < 40) {
+      bundleBudgetTrimmed = true;
+      excludedCompanions.push({
+        marker: item.marker ?? null,
+        part_number: item.part_number ?? null,
+        relation_type: item.relation_type,
+        reason_code: "projection_budget_excluded",
+      });
+      continue;
+    }
+
+    if (!companionTextSource) {
+      excludedCompanions.push({
+        marker: item.marker ?? null,
+        part_number: item.part_number ?? null,
+        relation_type: item.relation_type,
+        reason_code: "projection_missing_excerpt",
+      });
+      continue;
+    }
+
+    const companionExcerpt = clampAssistantPromptExcerpt(
+      companionTextSource,
+      Math.min(140, remainingCompanionBudget),
+    );
+    includedCompanions.push({
+      item,
+      text: companionExcerpt.text,
+      trimmed: companionExcerpt.trimmed,
+    });
+    remainingCompanionBudget -= companionExcerpt.text.length;
+    bundleBudgetTrimmed = bundleBudgetTrimmed || companionExcerpt.trimmed;
+  }
+
+  const projectionRelationTypes = Array.from(
+    new Set(includedCompanions.map((entry) => entry.item.relation_type)),
+  );
+
+  return {
+    primaryExcerpt,
+    includedCompanions,
+    excludedCompanions,
+    bundleProjectionDiagnostic: {
+      law_id: input.result.lawId,
+      law_version: input.result.lawVersionId,
+      law_block_id: input.result.lawBlockId,
+      norm_bundle_projection_used: includedCompanions.length > 0,
+      bundle_projection_items_count: 1 + includedCompanions.length,
+      bundle_projection_relation_types: projectionRelationTypes,
+      bundle_projection_primary_items: [
+        {
+          item_type: "primary_excerpt" as const,
+          source: "law_source_excerpt" as const,
+        },
+      ],
+      bundle_projection_companion_items: includedCompanions.map((entry) => ({
+        marker: entry.item.marker ?? null,
+        part_number: entry.item.part_number ?? null,
+        relation_type: entry.item.relation_type,
+        reason_code: entry.item.relation_reason,
+      })),
+      bundle_projection_excluded_items: excludedCompanions,
+      bundle_budget_trimmed: bundleBudgetTrimmed,
+    },
+    usedChars:
+      primaryExcerpt.text.length +
+      includedCompanions.reduce((total, entry) => total + entry.text.length, 0),
+    trimmed:
+      primaryExcerpt.trimmed ||
+      bundleBudgetTrimmed ||
+      includedCompanions.some((entry) => entry.trimmed),
+  };
 }
 
 function shouldIncludePrecedentsInGenerationContext(input: {
@@ -889,6 +1286,7 @@ function buildAssistantGenerationContext(input: {
   responseMode: LegalCoreResponseMode;
   internalExecutionMode: AssistantInternalExecutionMode;
   plan: LegalQueryPlan;
+  normBundle: NormBundle;
 }) {
   const budget = getAssistantGenerationBudget({
     responseMode: input.responseMode,
@@ -937,6 +1335,7 @@ function buildAssistantGenerationContext(input: {
   const lawContextParts: string[] = [];
   const includedLawSources: AssistantPromptLawContextEntry[] = [];
   const generationExcerptDiagnostics: AssistantGenerationContext["generation_excerpt_diagnostics"] = [];
+  const bundleProjectionDiagnostics: AssistantGenerationContext["bundle_projection_diagnostics"] = [];
 
   for (const [index, result] of lawSources.entries()) {
     if (remainingContextChars <= 0) {
@@ -948,29 +1347,28 @@ function buildAssistantGenerationContext(input: {
       budget.max_excerpt_chars_per_source,
       remainingContextChars,
     );
-    const excerpt = buildAssistantLawSourceExcerpt({
-      blockText: result.blockText,
-      budget: excerptBudget,
+    const projection = buildAssistantLawSourceBundleProjection({
+      result,
+      excerptBudget,
       plan: input.plan,
-      lawFamily: result.selected_role?.law_family ?? null,
-      normRole: result.selected_role?.norm_role ?? null,
-      articleNumber: result.articleNumberNormalized ?? null,
+      normBundle: input.normBundle,
     });
-    remainingContextChars -= excerpt.text.length;
-    generationContextChars += excerpt.text.length;
-    generationContextTrimmed = generationContextTrimmed || excerpt.trimmed;
+    remainingContextChars -= projection.usedChars;
+    generationContextChars += projection.usedChars;
+    generationContextTrimmed = generationContextTrimmed || projection.trimmed;
     includedLawSources.push(result);
     generationExcerptDiagnostics.push({
       law_id: result.lawId,
       law_version: result.lawVersionId,
       law_block_id: result.lawBlockId,
-      generation_excerpt_strategy: excerpt.strategy,
-      generation_excerpt_matched_terms: excerpt.matchedTerms,
-      generation_excerpt_was_targeted: excerpt.wasTargeted,
-      generation_excerpt_trimmed: excerpt.trimmed,
-      generation_excerpt_start: excerpt.excerptStart,
-      generation_excerpt_end: excerpt.excerptEnd,
+      generation_excerpt_strategy: projection.primaryExcerpt.strategy,
+      generation_excerpt_matched_terms: projection.primaryExcerpt.matchedTerms,
+      generation_excerpt_was_targeted: projection.primaryExcerpt.wasTargeted,
+      generation_excerpt_trimmed: projection.primaryExcerpt.trimmed,
+      generation_excerpt_start: projection.primaryExcerpt.excerptStart,
+      generation_excerpt_end: projection.primaryExcerpt.excerptEnd,
     });
+    bundleProjectionDiagnostics.push(projection.bundleProjectionDiagnostic);
     lawContextParts.push(
       [
         `Law source ${index + 1}`,
@@ -980,7 +1378,10 @@ function buildAssistantGenerationContext(input: {
         `- law_family: ${result.selected_role?.law_family ?? "other"}`,
         `- norm_role: ${result.selected_role?.norm_role ?? "background_only"}`,
         `- primary_basis_eligibility: ${result.primary_basis_eligibility}`,
-        `- text: ${excerpt.text}`,
+        `- primary_excerpt: ${projection.primaryExcerpt.text}`,
+        ...projection.includedCompanions.map(
+          (entry) => `- companion[${entry.item.relation_type}]: ${entry.text}`,
+        ),
       ].join("\n"),
     );
   }
@@ -1019,6 +1420,7 @@ function buildAssistantGenerationContext(input: {
     law_context_text: lawContextParts.join("\n\n"),
     precedent_context_text: precedentContextParts.join("\n\n"),
     generation_excerpt_diagnostics: generationExcerptDiagnostics,
+    bundle_projection_diagnostics: bundleProjectionDiagnostics,
     generation_source_budget: budget.max_total_sources,
     generation_sources_count:
       includedLawSources.length + includedPrecedentSources.length,
@@ -1872,6 +2274,7 @@ export async function generateServerLegalAssistantAnswer(
     responseMode,
     internalExecutionMode,
     plan: legalQueryPlan,
+    normBundle,
   });
   const usedSources = buildAssistantContextUsedSources({
     lawContext: generationContext.law_sources,
@@ -1938,7 +2341,9 @@ export async function generateServerLegalAssistantAnswer(
     companion_relation_types: normBundle.bundle_diagnostics.companion_relation_types,
     included_companions: normBundle.bundle_diagnostics.included_companions,
     excluded_companions: normBundle.bundle_diagnostics.excluded_companions,
-    bundle_budget_trimmed: normBundle.bundle_diagnostics.bundle_budget_trimmed,
+    bundle_budget_trimmed:
+      normBundle.bundle_diagnostics.bundle_budget_trimmed ||
+      generationContext.bundle_projection_diagnostics.some((entry) => entry.bundle_budget_trimmed),
     bundle_generation_context_items: normBundle.bundle_diagnostics.bundle_generation_context_items,
     same_article_part_count: normBundle.bundle_diagnostics.same_article_part_count,
     article_note_count: normBundle.bundle_diagnostics.article_note_count,
@@ -1948,6 +2353,42 @@ export async function generateServerLegalAssistantAnswer(
     segment_relation_types: normBundle.bundle_diagnostics.segment_relation_types,
     included_article_segments: normBundle.bundle_diagnostics.included_article_segments,
     excluded_article_segments: normBundle.bundle_diagnostics.excluded_article_segments,
+    norm_bundle_projection_used: generationContext.bundle_projection_diagnostics.map((entry) => ({
+      law_id: entry.law_id,
+      law_version: entry.law_version,
+      law_block_id: entry.law_block_id,
+      used: entry.norm_bundle_projection_used,
+    })),
+    bundle_projection_items_count: generationContext.bundle_projection_diagnostics.map((entry) => ({
+      law_id: entry.law_id,
+      law_version: entry.law_version,
+      law_block_id: entry.law_block_id,
+      item_count: entry.bundle_projection_items_count,
+    })),
+    bundle_projection_relation_types: generationContext.bundle_projection_diagnostics.map((entry) => ({
+      law_id: entry.law_id,
+      law_version: entry.law_version,
+      law_block_id: entry.law_block_id,
+      relation_types: entry.bundle_projection_relation_types,
+    })),
+    bundle_projection_primary_items: generationContext.bundle_projection_diagnostics.map((entry) => ({
+      law_id: entry.law_id,
+      law_version: entry.law_version,
+      law_block_id: entry.law_block_id,
+      items: entry.bundle_projection_primary_items,
+    })),
+    bundle_projection_companion_items: generationContext.bundle_projection_diagnostics.map((entry) => ({
+      law_id: entry.law_id,
+      law_version: entry.law_version,
+      law_block_id: entry.law_block_id,
+      items: entry.bundle_projection_companion_items,
+    })),
+    bundle_projection_excluded_items: generationContext.bundle_projection_diagnostics.map((entry) => ({
+      law_id: entry.law_id,
+      law_version: entry.law_version,
+      law_block_id: entry.law_block_id,
+      items: entry.bundle_projection_excluded_items,
+    })),
   };
   const metadataBase = {
     serverId: input.serverId,
