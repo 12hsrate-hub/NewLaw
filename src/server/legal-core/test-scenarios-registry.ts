@@ -1189,6 +1189,16 @@ function buildExpectationProfileForScenario(
           "Direct basis present допустим только при прямой норме о видеофиксации, записи или предоставлении записи.",
           "Government code или department-specific noise не должны подменять прямую норму о recording.",
         ],
+        activateCompanionChecks:
+          scenario.id === "attorney-requested-detention-record" ||
+          scenario.id === "citizen-requested-detention-record"
+            ? true
+            : undefined,
+        requiredCompanionRelations:
+          scenario.id === "attorney-requested-detention-record" ||
+          scenario.id === "citizen-requested-detention-record"
+            ? ["procedure_companion"]
+            : undefined,
         missingCompanionWarning: true,
       };
     case "attorney_rights":

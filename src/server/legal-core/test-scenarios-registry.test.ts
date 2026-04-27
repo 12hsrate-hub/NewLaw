@@ -135,6 +135,9 @@ describe("ai legal core test scenarios registry", () => {
   it("сохраняет expectationProfile для ключевых suite groups и не утверждает runtime NormBundle", () => {
     const maskScenario = getAILegalCoreTestScenarioById("general-mask-detention");
     const bodycamScenario = getAILegalCoreTestScenarioById("attorney-requested-detention-record");
+    const citizenBodycamScenario = getAILegalCoreTestScenarioById(
+      "citizen-requested-detention-record",
+    );
     const attorneyRightsScenario = getAILegalCoreTestScenarioById("self-no-lawyer-on-detention");
     const attorneyRightsAltScenario = getAILegalCoreTestScenarioById(
       "alt-attorney-admit-defender-on-detention",
@@ -175,6 +178,16 @@ describe("ai legal core test scenarios registry", () => {
         forbiddenLawFamilies: ["department_specific"],
         expectedDirectBasisStatus: "partial_basis_only",
         forbiddenPrimaryBasis: [expect.objectContaining({ lawFamily: "government_code" })],
+        activateCompanionChecks: true,
+        requiredCompanionRelations: ["procedure_companion"],
+      }),
+    });
+
+    expect(citizenBodycamScenario).toMatchObject({
+      suiteGroup: "bodycam_and_recording",
+      expectationProfile: expect.objectContaining({
+        activateCompanionChecks: true,
+        requiredCompanionRelations: ["procedure_companion"],
       }),
     });
 
@@ -298,6 +311,8 @@ describe("ai legal core test scenarios registry", () => {
     const inactiveAttorneyRightsScenario = getAILegalCoreTestScenarioById(
       "general-no-lawyer-on-detention",
     );
+    const inactiveBodycamScenario = getAILegalCoreTestScenarioById("general-no-bodycam");
+    const inactiveBodycamAltScenario = getAILegalCoreTestScenarioById("alt-bodycam-recording-duty");
 
     expect(maskScenario?.expectationProfile).toMatchObject({
       requiredCompanionRelations: ["procedure_companion"],
@@ -308,6 +323,11 @@ describe("ai legal core test scenarios registry", () => {
       requiredCompanionRelations: ["procedure_companion"],
     });
     expect(inactiveAttorneyRightsScenario?.expectationProfile?.activateCompanionChecks).toBeUndefined();
+
+    expect(inactiveBodycamScenario?.expectationProfile?.requiredCompanionRelations).toBeUndefined();
+    expect(inactiveBodycamScenario?.expectationProfile?.activateCompanionChecks).toBeUndefined();
+    expect(inactiveBodycamAltScenario?.expectationProfile?.requiredCompanionRelations).toBeUndefined();
+    expect(inactiveBodycamAltScenario?.expectationProfile?.activateCompanionChecks).toBeUndefined();
   });
 
   it("деактивированные сценарии сохраняют compatibility по id, но не попадают в active suite selection", () => {

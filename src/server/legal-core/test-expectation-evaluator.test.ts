@@ -610,6 +610,119 @@ describe("ai legal core expectation evaluator", () => {
     );
   });
 
+  it("проверяет bodycam access scenario по relation-level procedure_companion без exact target", () => {
+    const result = evaluateScenarioExpectations({
+      expectationProfile: {
+        forbiddenLawFamilies: ["department_specific"],
+        forbiddenPrimaryBasis: [
+          {
+            lawFamily: "government_code",
+          },
+        ],
+        expectedDirectBasisStatus: "partial_basis_only",
+        activateCompanionChecks: true,
+        requiredCompanionRelations: ["procedure_companion"],
+      },
+      snapshot: {
+        selected_norm_roles: [
+          {
+            law_id: "law-evidence",
+            law_version: "version-1",
+            law_block_id: "block-evidence",
+            law_family: "procedural_code",
+            norm_role: "procedure",
+          },
+        ],
+        primary_basis_eligibility: [],
+        direct_basis_status: "partial_basis_only",
+        norm_bundle_diagnostics: {
+          companion_relation_types: ["procedure_companion"],
+          missing_expected_companion: [],
+          included_article_segments: [
+            {
+              law_id: "law-evidence",
+              law_family: "procedural_code",
+              article_number: "32",
+              marker: "ч. 1",
+              part_number: "1",
+              relation_type: "procedure_companion",
+              reason_code: "selected_procedure_role",
+            },
+          ],
+          excluded_article_segments: [],
+          bundle_projection_excluded_items: [],
+        },
+      },
+    });
+
+    expect(result.passed_expectations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          key: "requiredCompanionRelations",
+          status: "passed",
+        }),
+        expect.objectContaining({
+          key: "expectedDirectBasisStatus",
+          status: "passed",
+        }),
+      ]),
+    );
+  });
+
+  it("проваливает activated bodycam access scenario при отсутствии обязательного procedure_companion", () => {
+    const result = evaluateScenarioExpectations({
+      expectationProfile: {
+        expectedDirectBasisStatus: "partial_basis_only",
+        activateCompanionChecks: true,
+        requiredCompanionRelations: ["procedure_companion"],
+      },
+      snapshot: {
+        selected_norm_roles: [],
+        primary_basis_eligibility: [],
+        direct_basis_status: "partial_basis_only",
+        norm_bundle_diagnostics: {
+          companion_relation_types: [],
+          missing_expected_companion: ["procedure_companion"],
+          included_article_segments: [],
+          excluded_article_segments: [],
+          bundle_projection_excluded_items: [],
+        },
+      },
+    });
+
+    expect(result.failed_expectations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          key: "requiredCompanionRelations",
+          status: "failed",
+        }),
+      ]),
+    );
+  });
+
+  it("оставляет companion relation checks future_reserved для неактивированного bodycam scenario", () => {
+    const result = evaluateScenarioExpectations({
+      expectationProfile: {
+        expectedDirectBasisStatus: "partial_basis_only",
+        missingCompanionWarning: true,
+      },
+      snapshot: {
+        selected_norm_roles: [],
+        primary_basis_eligibility: [],
+        direct_basis_status: "partial_basis_only",
+      },
+    });
+
+    expect(result.checks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          key: "missingCompanionWarning",
+          status: "future_reserved",
+        }),
+      ]),
+    );
+  });
+
   it("проваливает attorney_rights negative case, если procedure_companion подменяет base rule", () => {
     const result = evaluateScenarioExpectations({
       expectationProfile: {
