@@ -366,6 +366,35 @@
 
 Остаётся активной, потому что template documents уже реально вошли в repo как post-MVP expansion и нужен один актуальный документ с канонической policy этой линии.
 
+### `20-navigation-workspaces`
+
+Статус: `post-MVP / active planning line`
+
+Это отдельная продуктово-архитектурная линия после закрытия базового MVP и после первичной очистки пользовательского UI.
+
+Роль этой линии:
+
+- зафиксировать главную страницу как tool panel, а не как documents center или account zone
+- зафиксировать server context как глобальный пользовательский контекст
+- зафиксировать, что персонаж не является обязательным глобальным контекстом всего сайта
+- зафиксировать assistant как модуль, который работает без персонажа
+- зафиксировать documents как отдельный модуль
+- зафиксировать lawyer workspace как отдельный модуль
+- зафиксировать `account` как зону настроек, безопасности и доступов
+- зафиксировать `internal` как скрытую служебную зону
+- зафиксировать capability-based UX вместо прямого role-first UI
+- зафиксировать правила document entry без свободного выбора режимов `разовый / от себя / для доверителя`
+- зафиксировать правила для `ogp_complaint`, `attorney_request` и `legal_services_agreement` в новой навигационной рамке
+
+Источник правды:
+
+- [20-navigation-workspaces.md](./20-navigation-workspaces.md)
+- [20-navigation-workspaces-implementation.md](./20-navigation-workspaces-implementation.md)
+- [../product/navigation-and-site-map.md](../product/navigation-and-site-map.md)
+- [../product/access-capabilities.md](../product/access-capabilities.md)
+- [../product/document-creation-rules.md](../product/document-creation-rules.md)
+- [../product/lawyer-workspace.md](../product/lawyer-workspace.md)
+
 ### Trustors expansion beyond current convenience layer
 
 Статус: `future`
