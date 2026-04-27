@@ -37,7 +37,7 @@ describe("auth confirm helpers", () => {
     });
   });
 
-  it("использует /account как fallback next без явного next query", () => {
+  it("использует / как fallback next без явного next query", () => {
     const parsed = readAuthConfirmQuery(
       new URL("https://lawyer5rp.ru/auth/confirm?token_hash=abc123&type=email"),
     );
@@ -45,7 +45,7 @@ describe("auth confirm helpers", () => {
     expect(parsed).toEqual({
       tokenHash: "abc123",
       type: "email",
-      nextPath: "/account",
+      nextPath: "/",
     });
   });
 

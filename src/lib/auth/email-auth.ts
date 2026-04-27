@@ -112,7 +112,7 @@ type SignUpResult =
       status: "placeholder";
     };
 
-export const defaultAuthenticatedLandingPath = "/account";
+export const defaultAuthenticatedLandingPath = "/";
 
 export function sanitizeNextPath(nextPath: string | null | undefined) {
   if (

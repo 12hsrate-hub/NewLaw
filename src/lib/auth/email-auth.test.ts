@@ -24,11 +24,11 @@ const liveRuntimeConfig = {
 };
 
 describe("email auth helpers", () => {
-  it("использует /account как default nextPath для missing и unsafe значений", () => {
-    expect(sanitizeNextPath(undefined)).toBe("/account");
-    expect(sanitizeNextPath(null)).toBe("/account");
-    expect(sanitizeNextPath("//evil.example")).toBe("/account");
-    expect(sanitizeNextPath("javascript:alert(1)")).toBe("/account");
+  it("использует / как default nextPath для missing и unsafe значений", () => {
+    expect(sanitizeNextPath(undefined)).toBe("/");
+    expect(sanitizeNextPath(null)).toBe("/");
+    expect(sanitizeNextPath("//evil.example")).toBe("/");
+    expect(sanitizeNextPath("javascript:alert(1)")).toBe("/");
   });
 
   it("строит redirect URL подтверждения email", () => {
@@ -37,9 +37,9 @@ describe("email auth helpers", () => {
     ).toBe("https://lawyer5rp.ru/auth/confirm?next=%2Fapp");
   });
 
-  it("строит redirect URL подтверждения email с /account как default target", () => {
+  it("строит redirect URL подтверждения email с / как default target", () => {
     expect(buildEmailConfirmationRedirectUrl("https://lawyer5rp.ru")).toBe(
-      "https://lawyer5rp.ru/auth/confirm?next=%2Faccount",
+      "https://lawyer5rp.ru/auth/confirm?next=%2F",
     );
   });
 
@@ -102,7 +102,7 @@ describe("email auth helpers", () => {
     });
   });
 
-  it("после успешного signup без explicit next сохраняет /account как fallback target", async () => {
+  it("после успешного signup без explicit next сохраняет / как fallback target", async () => {
     const client = createAuthClientMock();
 
     client.auth.signUp.mockResolvedValue({
@@ -125,7 +125,7 @@ describe("email auth helpers", () => {
 
     expect(result).toEqual({
       status: "confirmation-required",
-      checkEmailPath: "/sign-up/check-email?status=signup-sent&next=%2Faccount",
+      checkEmailPath: "/sign-up/check-email?status=signup-sent&next=%2F",
     });
   });
 
@@ -203,7 +203,7 @@ describe("email auth helpers", () => {
     });
   });
 
-  it("возвращает /account как fallback для sign-in без explicit next", async () => {
+  it("возвращает / как fallback для sign-in без explicit next", async () => {
     const client = createAuthClientMock();
 
     client.auth.signInWithPassword.mockResolvedValue({
@@ -221,7 +221,7 @@ describe("email auth helpers", () => {
 
     expect(result).toEqual({
       status: "success",
-      nextPath: "/account",
+      nextPath: "/",
     });
   });
 });
