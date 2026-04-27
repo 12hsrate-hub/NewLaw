@@ -984,72 +984,170 @@ export function LegalServicesAgreementPersistedEditor(props: {
   };
   status?: string;
 }) {
+  const lastGeneratedLabel = props.document.generatedAt
+    ? new Date(props.document.generatedAt).toLocaleString("ru-RU")
+    : "ещё не выполнялась";
+
+  const generatedFilesLabel = props.document.generatedArtifact
+    ? `${props.document.generatedArtifact.pageCount} стр. готовы`
+    : "Ещё не собраны";
+
+  const signatureLabel = props.document.generatedArtifact
+    ? "Подставлены в собранных страницах"
+    : "Появятся после сборки";
+
   return (
-    <div className="space-y-6">
-      <Card className="space-y-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">
-            Редактор договора
-          </p>
-          <Badge>{formatDocumentStatus(props.document.status)}</Badge>
-          <Badge>только для владельца</Badge>
-        </div>
-        <h1 className="text-3xl font-semibold">{props.document.title}</h1>
-        <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
-          Здесь можно заполнить данные договора и собрать итоговые страницы для проверки и
-          скачивания. Основной текст договора формируется по утверждённому шаблону.
-        </p>
-        <div className="flex flex-wrap items-center gap-2 text-sm leading-6 text-[var(--muted)]">
-          <Badge>Сервер: {props.document.server.name}</Badge>
-          <Badge>Персонаж: {props.document.authorSnapshot.fullName}</Badge>
-          <Badge>Доверитель: {props.document.payload.trustorSnapshot.fullName}</Badge>
-          <span>
-            Номер договора: {props.document.payload.manualFields.agreementNumber || "не указан"}
-          </span>
-        </div>
-      </Card>
+    <EditorWorkspaceLayout
+      aside={
+        <EditorContextAside>
+          <EditorDocumentMeta
+            badges={[
+              { label: formatDocumentStatus(props.document.status) },
+              { label: "Договор на юридические услуги", tone: "info" },
+              {
+                label: props.document.generatedArtifact ? "Страницы готовы" : "Ожидает сборки",
+                tone: props.document.generatedArtifact ? "success" : "warning",
+              },
+            ]}
+            description="Справа собраны сведения о договоре, доверителе и текущем результате сборки, чтобы их было удобно сверять во время редактирования."
+            items={[
+              { label: "Сервер", value: props.document.server.name },
+              { label: "Персонаж", value: props.document.authorSnapshot.fullName },
+              { label: "Паспорт персонажа", value: props.document.authorSnapshot.passportNumber },
+              { label: "Доверитель", value: props.document.payload.trustorSnapshot.fullName || "не указан" },
+              {
+                label: "Паспорт доверителя",
+                value: props.document.payload.trustorSnapshot.passportNumber || "не указан",
+              },
+              {
+                label: "Номер договора",
+                value: props.document.payload.manualFields.agreementNumber || "не указан",
+              },
+              {
+                label: "Дата договора",
+                value: props.document.payload.manualFields.agreementDate || "не указана",
+              },
+              { label: "Создано", value: new Date(props.document.createdAt).toLocaleString("ru-RU") },
+              { label: "Обновлено", value: new Date(props.document.updatedAt).toLocaleString("ru-RU") },
+              {
+                label: "Снимок данных",
+                value: new Date(props.document.snapshotCapturedAt).toLocaleString("ru-RU"),
+              },
+            ]}
+            title="О договоре"
+          />
 
-      <Card className="space-y-4">
-        <h2 className="text-2xl font-semibold">О документе</h2>
-        <ul className="space-y-2 text-sm leading-6 text-[var(--muted)]">
-          <li>Создано: {new Date(props.document.createdAt).toLocaleString("ru-RU")}</li>
-          <li>Обновлено: {new Date(props.document.updatedAt).toLocaleString("ru-RU")}</li>
-          <li>
-            Данные автора и доверителя зафиксированы:{" "}
-            {new Date(props.document.snapshotCapturedAt).toLocaleString("ru-RU")}
-          </li>
-          <li>
-            Подписи персонажа и доверителя подставляются автоматически по сохранённым данным документа.
-          </li>
-          <li>
-            {props.document.generatedAt
-              ? `Последняя сборка выполнена ${new Date(props.document.generatedAt).toLocaleString("ru-RU")}.`
-              : "Страницы договора ещё не собирались."}
-          </li>
-          <li>
-            {props.document.isModifiedAfterGeneration
-              ? "После последней сборки документ менялся. Перед использованием лучше собрать его заново."
-              : "После последней сборки документ не менялся."}
-          </li>
-        </ul>
-      </Card>
+          <EditorProgressSummary
+            description="Этот блок помогает быстро понять, готовы ли страницы для проверки и не нужно ли заново собрать документ."
+            helperText="Подписи персонажа и доверителя подставляются по сохранённым данным договора и появляются в итоговых страницах после сборки."
+            items={[
+              {
+                label: "Последняя сборка",
+                value: lastGeneratedLabel,
+                tone: props.document.generatedAt ? "success" : "warning",
+              },
+              {
+                label: "Файлы для скачивания",
+                value: generatedFilesLabel,
+                tone: props.document.generatedArtifact ? "success" : "neutral",
+              },
+              {
+                label: "Исходные данные",
+                value:
+                  props.document.generatedArtifact?.referenceState === "ready"
+                    ? "Готовы"
+                    : "Нужно проверить",
+                tone:
+                  props.document.generatedArtifact?.referenceState === "ready"
+                    ? "success"
+                    : "warning",
+              },
+              {
+                label: "Подписи",
+                value: signatureLabel,
+                tone: props.document.generatedArtifact ? "success" : "info",
+              },
+              {
+                label: "Изменения после сборки",
+                value: props.document.isModifiedAfterGeneration ? "Есть изменения" : "Не обнаружены",
+                tone: props.document.isModifiedAfterGeneration ? "warning" : "success",
+              },
+            ]}
+            title="Готовность"
+          />
 
-      <Card className="space-y-4">
-        <h2 className="text-2xl font-semibold">Редактор договора</h2>
-        <LegalServicesAgreementEditorClient
-          documentId={props.document.id}
-          generatedArtifact={props.document.generatedArtifact}
-          generatedAt={props.document.generatedAt}
-          generatedOutputFormat={props.document.generatedOutputFormat}
-          generatedRendererVersion={props.document.generatedRendererVersion}
-          initialPayload={props.document.payload}
-          initialTitle={props.document.title}
-          isModifiedAfterGeneration={props.document.isModifiedAfterGeneration}
-          server={props.document.server}
-          status={props.document.status}
-          updatedAt={props.document.updatedAt}
-        />
-      </Card>
-    </div>
+          <EditorActionSummary
+            description="Блок справа не запускает действия, а только подсказывает, на что обратить внимание перед следующей сборкой или скачиванием."
+            helperText={
+              props.document.isModifiedAfterGeneration
+                ? "После последней сборки документ менялся. Перед использованием лучше собрать его заново."
+                : "После последней сборки документ не менялся."
+            }
+            items={[
+              { label: "Черновик", value: "Доступен" },
+              {
+                label: "Страниц в результате",
+                value: props.document.generatedArtifact ? `${props.document.generatedArtifact.pageCount}` : "Пока нет",
+                tone: props.document.generatedArtifact ? "success" : "neutral",
+              },
+              {
+                label: "Следующий шаг",
+                value: props.document.generatedArtifact ? "Проверить и скачать страницы" : "Собрать первый результат",
+                tone: props.document.generatedArtifact ? "neutral" : "warning",
+              },
+              {
+                label: "Публикация",
+                value: "Не используется",
+                tone: "info",
+              },
+            ]}
+            title="Следующие действия"
+          />
+        </EditorContextAside>
+      }
+      main={
+        <EditorMainColumn>
+          <Card className="space-y-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">
+                Редактор договора
+              </p>
+              <Badge>{formatDocumentStatus(props.document.status)}</Badge>
+              <Badge>только для владельца</Badge>
+            </div>
+            <h1 className="text-3xl font-semibold">{props.document.title}</h1>
+            <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
+              Здесь можно заполнить данные договора и собрать итоговые страницы для проверки и
+              скачивания. Основной текст договора формируется по утверждённому шаблону.
+            </p>
+            <div className="flex flex-wrap items-center gap-2 text-sm leading-6 text-[var(--muted)]">
+              <Badge>Сервер: {props.document.server.name}</Badge>
+              <Badge>Персонаж: {props.document.authorSnapshot.fullName}</Badge>
+              <Badge>Доверитель: {props.document.payload.trustorSnapshot.fullName}</Badge>
+              <span>
+                Номер договора: {props.document.payload.manualFields.agreementNumber || "не указан"}
+              </span>
+            </div>
+          </Card>
+
+          <Card className="space-y-4">
+            <h2 className="text-2xl font-semibold">Редактор договора</h2>
+            <LegalServicesAgreementEditorClient
+              documentId={props.document.id}
+              generatedArtifact={props.document.generatedArtifact}
+              generatedAt={props.document.generatedAt}
+              generatedOutputFormat={props.document.generatedOutputFormat}
+              generatedRendererVersion={props.document.generatedRendererVersion}
+              initialPayload={props.document.payload}
+              initialTitle={props.document.title}
+              isModifiedAfterGeneration={props.document.isModifiedAfterGeneration}
+              server={props.document.server}
+              status={props.document.status}
+              updatedAt={props.document.updatedAt}
+            />
+          </Card>
+        </EditorMainColumn>
+      }
+    />
   );
 }
