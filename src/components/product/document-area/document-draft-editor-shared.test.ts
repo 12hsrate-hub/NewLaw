@@ -62,10 +62,19 @@ describe("complaint narrative improvement editor helpers", () => {
 
   it("humanizes complaint narrative risk flags", () => {
     expect(formatComplaintNarrativeRiskFlagLabel("missing_evidence")).toBe(
-      "Не хватает доказательств",
+      "Не хватает указанного доказательства",
+    );
+    expect(formatComplaintNarrativeRiskFlagLabel("unclear_roles")).toBe(
+      "Нужно проверить роли участников",
+    );
+    expect(formatComplaintNarrativeRiskFlagLabel("ambiguous_date_time")).toBe(
+      "Уточните назначение даты/времени",
+    );
+    expect(formatComplaintNarrativeRiskFlagLabel("possible_overclaiming")).toBe(
+      "Проверьте категоричность формулировок",
     );
     expect(formatComplaintNarrativeRiskFlagLabel("legal_basis_not_found")).toBe(
-      "Норма не подтверждена",
+      "Нормы не были подтверждены",
     );
   });
 });

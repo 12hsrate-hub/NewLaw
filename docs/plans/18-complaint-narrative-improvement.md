@@ -155,6 +155,29 @@ node --env-file=/srv/newlaw/app/shared/.env.production ...
 
 - нормализация role phrase для applicant / representative / advocate wording
 
+## Текущий implemented checkpoint по `18.5`
+
+`18.5` реализован как post-release quality slice без изменения backend contract, без изменения `BBCode` и без новых storage/runtime линий.
+
+Что уже входит:
+
+- manual QA matrix по complaint-specific archetypes
+- quick polish для role phrase normalization в prompt guidance
+- более понятные human-readable labels для `risk_flags`
+- polish UI copy для review / warning blocks
+- clean empty-state policy для `legal_basis_used`:
+  - пустой блок не показывается
+  - визуальный шум не добавляется
+- deterministic tests без real AI calls
+
+Что intentionally ещё не входит:
+
+- AI result history
+- feature-level cost tracking
+- richer review UX beyond current preview panel
+- richer legal basis display
+- broader manual QA wave по реальным production кейсам после накопления usage
+
 ## Назначение линии
 
 `Complaint Narrative Improvement v1` — это отдельный AI-flow для `ogp_complaint`, который улучшает только поле `Подробное описание ситуации`.
@@ -557,6 +580,72 @@ type ComplaintNarrativeImprovementResult = {
 - сокращать повторы
 - не дублировать весь список доказательств
 
+## Manual QA matrix
+
+### A. Attorney request + missing materials
+
+Проверять:
+
+- представитель и доверитель не путаются
+- `не предоставлена запись` не превращается в `запись отсутствует`, если этого нет в raw facts
+- без достаточной опоры нет категоричного вывода о нарушении
+
+### B. Detention + missing recording
+
+Проверять:
+
+- narrative не объявляет задержание незаконным как установленный факт
+- акцент ставится на затруднённости или невозможности объективной проверки
+- пустой `evidence_list` сам по себе не блокирует improvement
+
+### C. Disputed qualification
+
+Проверять:
+
+- narrative не пишет категорично `статья неприменима`
+- вывод подаётся как необходимость проверки правомерности квалификации
+- новые статьи не добавляются
+
+### D. Refusal of procedural action
+
+Проверять:
+
+- факт отказа отделён от правовой оценки
+- цитата отказа, если есть, встроена аккуратно
+- narrative не пишет автоматически `отказ незаконен`
+
+### E. Multi-actor case
+
+Проверять:
+
+- участники не путаются
+- хронология сохраняется
+- `evidence_list` не дублируется целиком в improved narrative
+
+### F. Insufficient facts
+
+Проверять:
+
+- `improved_text` всё равно формируется
+- `missing_facts` остаётся полезным и конкретным
+- `should_send_to_review = true`
+- narrative не дорисовывает отсутствующие детали
+
+### G. No legal context
+
+Проверять:
+
+- invented law refs не появляются
+- `legal_basis_used` остаётся пустым или сильно ограниченным
+- review note про слабый или неподтверждённый legal context остаётся понятным пользователю
+
+### H. Empty evidence list
+
+Проверять:
+
+- improvement не блокируется только из-за пустого списка доказательств
+- `missing_evidence` появляется только если raw text действительно ссылается на запись, документ или иной материал
+
 ## Test plan
 
 Implementation должен покрыть:
@@ -694,6 +783,7 @@ UI уже минимально подключён и должен остават
 
 Следующий безопасный инженерный шаг после `18.4`:
 
+- broader manual QA wave по реальным archetypes после накопления usage
 - richer review UX без изменения backend contract
 - optional apply/persist flow refinement внутри wizard
 - feature-level analytics / cost tracking

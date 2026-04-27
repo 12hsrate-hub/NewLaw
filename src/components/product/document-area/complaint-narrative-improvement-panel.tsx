@@ -45,7 +45,7 @@ export function ComplaintNarrativeImprovementPanel(
 
       {suggestion.shouldSendToReview ? (
         <div className="rounded-2xl border border-[var(--border)] bg-[rgba(141,79,49,0.08)] p-3 text-sm leading-6 text-[var(--foreground)]">
-          Текст сформирован, но перед подачей рекомендуется проверить указанные замечания.
+          Текст уже можно использовать как основу, но перед подачей лучше проверить замечания ниже.
         </div>
       ) : null}
 
@@ -65,7 +65,7 @@ export function ComplaintNarrativeImprovementPanel(
 
       {suggestion.missingFacts.length > 0 ? (
         <div className="space-y-2">
-          <p className="text-sm font-medium text-[var(--foreground)]">Что желательно уточнить</p>
+          <p className="text-sm font-medium text-[var(--foreground)]">Что ещё стоит уточнить</p>
           <ul className="space-y-2 text-sm leading-6 text-[var(--muted)]">
             {suggestion.missingFacts.map((item) => (
               <li key={item}>• {item}</li>
@@ -76,7 +76,7 @@ export function ComplaintNarrativeImprovementPanel(
 
       {suggestion.reviewNotes.length > 0 ? (
         <div className="space-y-2">
-          <p className="text-sm font-medium text-[var(--foreground)]">Что проверить перед подачей</p>
+          <p className="text-sm font-medium text-[var(--foreground)]">Что стоит проверить перед подачей</p>
           <ul className="space-y-2 text-sm leading-6 text-[var(--muted)]">
             {suggestion.reviewNotes.map((item) => (
               <li key={item}>• {item}</li>
@@ -87,7 +87,7 @@ export function ComplaintNarrativeImprovementPanel(
 
       {suggestion.riskFlags.length > 0 ? (
         <div className="space-y-2">
-          <p className="text-sm font-medium text-[var(--foreground)]">Предупреждения</p>
+          <p className="text-sm font-medium text-[var(--foreground)]">На что обратить внимание</p>
           <div className="flex flex-wrap gap-2">
             {suggestion.riskFlags.map((flag) => (
               <Badge key={flag}>{formatComplaintNarrativeRiskFlagLabel(flag)}</Badge>

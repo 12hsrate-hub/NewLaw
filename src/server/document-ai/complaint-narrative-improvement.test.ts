@@ -230,6 +230,8 @@ describe("complaint narrative improvement contract", () => {
     expect(systemPrompt).toContain("Стиль: официальный, юридический, нейтральный, уверенный");
     expect(systemPrompt).toContain("short_violation_summary нельзя использовать как source-of-facts");
     expect(systemPrompt).toContain("Это не Legal Q&A, не полная жалоба, не violation summary и не BBCode generation.");
+    expect(systemPrompt).toContain("не смешивай формулы 'представитель' и 'адвокат'");
+    expect(systemPrompt).toContain("Не добавляй роль 'адвокат', если applicant_role этого не подтверждает.");
     expect(systemPrompt).not.toContain("Пример готовой жалобы");
   });
 
@@ -254,6 +256,58 @@ describe("complaint narrative improvement contract", () => {
     expect(userPrompt).toContain("detention without recording");
     expect(userPrompt).toContain("short_violation_summary");
     expect(userPrompt).not.toContain("Краткая формулировка, которую нельзя использовать как source text.");
+    expect(userPrompt).not.toContain("в статусе представителя адвоката");
+  });
+
+  it("user prompt даёт нормализованную role phrasing guidance для advocate representative", () => {
+    const runtimeInput = buildComplaintNarrativeImprovementRuntimeInput({
+      document: createBaseDocument(),
+    });
+
+    const userPrompt = buildComplaintNarrativeImprovementUserPrompt(runtimeInput);
+
+    expect(userPrompt).toContain(
+      'Заявитель Игорь Юристов, являясь адвокатом и действуя в интересах доверителя Пётр Доверитель, ...',
+    );
+    expect(userPrompt).toContain(
+      'В интересах доверителя Пётр Доверитель заявителем был направлен ...',
+    );
+  });
+
+  it("user prompt даёт нейтральную representative phrasing guidance без роли адвоката", () => {
+    const runtimeInput = buildComplaintNarrativeImprovementRuntimeInput({
+      document: {
+        ...createBaseDocument(),
+        authorSnapshotJson: {
+          ...createBaseDocument().authorSnapshotJson,
+          position: "Представитель",
+          roleKeys: [],
+          accessFlags: [],
+        },
+      },
+    });
+
+    const userPrompt = buildComplaintNarrativeImprovementUserPrompt(runtimeInput);
+
+    expect(userPrompt).toContain(
+      'Заявитель Игорь Юристов, действуя как представитель доверителя Пётр Доверитель, ...',
+    );
+    expect(userPrompt).not.toContain("являясь адвокатом");
+  });
+
+  it("user prompt для self-filed complaint использует self role phrasing guidance", () => {
+    const runtimeInput = buildComplaintNarrativeImprovementRuntimeInput({
+      document: createBaseDocument({
+        payload: {
+          filingMode: "self",
+          trustorSnapshot: null,
+        },
+      }),
+    });
+
+    const userPrompt = buildComplaintNarrativeImprovementUserPrompt(runtimeInput);
+
+    expect(userPrompt).toContain('Заявитель Игорь Юристов обращается от своего имени ...');
   });
 
   it("output parser отвергает invalid risk flags", () => {

@@ -391,6 +391,24 @@ function buildStructuredContextSummary(label: string, value: Record<string, unkn
   return `${label}: ${clampText(JSON.stringify(value), 1_400)}`;
 }
 
+function buildRolePhrasingGuidance(input: ComplaintNarrativeImprovementRuntimeInput) {
+  const applicantName = input.active_character.full_name;
+  const trustorName = input.victim_or_trustor_name?.trim() || "доверителя";
+
+  if (input.representative_mode === "representative") {
+    if (input.applicant_role === "representative_advocate") {
+      return [
+        `Role phrasing guidance: prefer formulas like "Заявитель ${applicantName}, являясь адвокатом и действуя в интересах доверителя ${trustorName}, ...".`,
+        `Alternative role phrasing: "В интересах доверителя ${trustorName} заявителем был направлен ...".`,
+      ].join("\n");
+    }
+
+    return `Role phrasing guidance: prefer "Заявитель ${applicantName}, действуя как представитель доверителя ${trustorName}, ...".`;
+  }
+
+  return `Role phrasing guidance: prefer "Заявитель ${applicantName} обращается от своего имени ...".`;
+}
+
 export function buildComplaintNarrativeImprovementSystemPrompt() {
   return [
     "Ты улучшаешь только narrative-поле complaint draft: Подробное описание ситуации.",
@@ -404,6 +422,9 @@ export function buildComplaintNarrativeImprovementSystemPrompt() {
     "Не повторяй целиком applicant/trustor blocks и не генерируй всю complaint structure.",
     "Стиль: официальный, юридический, нейтральный, уверенный, без эмоций и разговорных выражений.",
     "Избегай слов 'возможно', 'вероятно', 'если это правда' внутри improved_text.",
+    "Нормализуй role phrasing: не смешивай формулы 'представитель' и 'адвокат' в один искусственный статусный ярлык.",
+    "Не добавляй роль 'адвокат', если applicant_role этого не подтверждает.",
+    "Если applicant_role неясен, используй нейтральные формулы 'заявитель' или 'представитель'.",
     "По умолчанию не используй категоричные обвинительные формулировки.",
     "Нормы и precedents можно использовать только из selected_legal_context.",
     "Если legal context отсутствует, не вставляй invented law refs в improved_text.",
@@ -436,6 +457,7 @@ export function buildComplaintNarrativeImprovementUserPrompt(
     buildStructuredContextSummary("Arrest/bodycam context", input.arrest_or_bodycam_context),
     "Selected legal context:",
     buildLegalContextSummary(input),
+    buildRolePhrasingGuidance(input),
     "",
     "short_violation_summary: do not use as a source of facts, focus or chronology.",
     "Raw situation description:",

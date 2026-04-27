@@ -276,17 +276,17 @@ export function formatComplaintNarrativeRiskFlagLabel(flag: ComplaintNarrativeRi
     case "weak_legal_context":
       return "Слабый правовой контекст";
     case "missing_evidence":
-      return "Не хватает доказательств";
+      return "Не хватает указанного доказательства";
     case "unclear_roles":
-      return "Нужно уточнить роли";
+      return "Нужно проверить роли участников";
     case "unclear_timeline":
-      return "Нужно уточнить хронологию";
+      return "Неясная хронология";
     case "ambiguous_date_time":
-      return "Неясная дата/время";
+      return "Уточните назначение даты/времени";
     case "possible_overclaiming":
-      return "Проверьте категоричность";
+      return "Проверьте категоричность формулировок";
     case "legal_basis_not_found":
-      return "Норма не подтверждена";
+      return "Нормы не были подтверждены";
   }
 }
 
