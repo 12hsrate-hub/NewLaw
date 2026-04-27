@@ -34,25 +34,101 @@ export function AccountZoneFoundationIntro(props: {
   isSuperAdmin?: boolean;
 }) {
   return (
-    <Card className="space-y-3">
-      <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">Личный кабинет</p>
-      <h1 className="text-3xl font-semibold">Личный кабинет</h1>
-      <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
-        Здесь можно перейти к документам, персонажам, доверителям и настройкам аккаунта.
-        Документы по конкретному серверу открываются из раздела серверов.
-      </p>
-      <div className="flex flex-wrap gap-3">
-        <FoundationLink href="/account/documents">Открыть обзор документов</FoundationLink>
-        <FoundationLink className="text-[var(--muted)]" href="/assistant">
-          Открыть юридического помощника
-        </FoundationLink>
+    <div className="space-y-6">
+      <Card className="space-y-3">
+        <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">Аккаунт</p>
+        <h1 className="text-3xl font-semibold">Аккаунт</h1>
+        <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
+          Здесь собраны настройки аккаунта, безопасность, доступы и служебные обзорные разделы.
+          Работа по конкретному серверу открывается из server-scoped зон, а эта страница помогает
+          быстро перейти к нужным настройкам и совместимым обзорным маршрутам.
+        </p>
+      </Card>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card className="space-y-4">
+          <div className="space-y-2">
+            <p className="text-xs uppercase tracking-[0.22em] text-[var(--accent)]">
+              Настройки и безопасность
+            </p>
+            <h2 className="text-2xl font-semibold">Безопасность и данные аккаунта</h2>
+            <p className="text-sm leading-6 text-[var(--muted)]">
+              Управляйте данными входа, безопасностью и подключением форума. Это основная зона для
+              служебных настроек аккаунта.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <FoundationLink href="/account/security">Открыть безопасность</FoundationLink>
+          </div>
+        </Card>
+
+        <Card className="space-y-4">
+          <div className="space-y-2">
+            <p className="text-xs uppercase tracking-[0.22em] text-[var(--accent)]">
+              Совместимый обзор
+            </p>
+            <h2 className="text-2xl font-semibold">Персонажи</h2>
+            <p className="text-sm leading-6 text-[var(--muted)]">
+              Здесь остаётся удобный обзор персонажей по серверам. Рабочие сценарии по серверу
+              продолжаются из серверных разделов.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <FoundationLink href="/account/characters">Открыть персонажей</FoundationLink>
+          </div>
+        </Card>
+
+        <Card className="space-y-4">
+          <div className="space-y-2">
+            <p className="text-xs uppercase tracking-[0.22em] text-[var(--accent)]">
+              Совместимый обзор
+            </p>
+            <h2 className="text-2xl font-semibold">Доверители</h2>
+            <p className="text-sm leading-6 text-[var(--muted)]">
+              Доверители пока остаются в аккаунте как совместимый и удобный обзорный раздел без
+              изменения текущей модели данных.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <FoundationLink href="/account/trustors">Открыть доверителей</FoundationLink>
+          </div>
+        </Card>
+
+        <Card className="space-y-4">
+          <div className="space-y-2">
+            <p className="text-xs uppercase tracking-[0.22em] text-[var(--accent)]">
+              Совместимый обзор
+            </p>
+            <h2 className="text-2xl font-semibold">Обзор документов</h2>
+            <p className="text-sm leading-6 text-[var(--muted)]">
+              Этот раздел собирает сохранённые документы по серверам. Создание и редактирование
+              документов по-прежнему открываются из server-scoped document area.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <FoundationLink href="/account/documents">Открыть обзор документов</FoundationLink>
+          </div>
+        </Card>
+
         {props.isSuperAdmin ? (
-          <FoundationLink className="text-[var(--muted)]" href="/internal/access-requests">
-            Открыть заявки на доступ
-          </FoundationLink>
+          <Card className="space-y-4 lg:col-span-2">
+            <div className="space-y-2">
+              <p className="text-xs uppercase tracking-[0.22em] text-[var(--accent)]">
+                Служебные разделы
+              </p>
+              <h2 className="text-2xl font-semibold">Доступы и заявки</h2>
+              <p className="text-sm leading-6 text-[var(--muted)]">
+                Для пользователей с расширенным доступом здесь остаётся быстрый переход в
+                служебный раздел заявок.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              <FoundationLink href="/internal/access-requests">Открыть заявки на доступ</FoundationLink>
+            </div>
+          </Card>
         ) : null}
       </div>
-    </Card>
+    </div>
   );
 }
 

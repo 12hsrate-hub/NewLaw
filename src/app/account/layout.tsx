@@ -28,14 +28,15 @@ export default async function AccountLayout({ children }: AccountLayoutProps) {
         <main className="min-h-screen px-6 py-10">
           <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
             <Card className="space-y-3">
-              <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">Кабинет адвоката</p>
-              <h1 className="text-3xl font-semibold">Личный кабинет</h1>
+              <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">Аккаунт</p>
+              <h1 className="text-3xl font-semibold">Аккаунт</h1>
               <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
-                Здесь собраны личные настройки, персонажи, доверители и общий обзор документов.
-                Работа с документами по конкретному серверу открывается из раздела серверов.
+                Здесь находятся настройки аккаунта, безопасность, доступы и служебные обзорные
+                разделы. Работа по конкретному серверу открывается из server-scoped зон, а разделы
+                персонажей, доверителей и документов здесь сохранены как удобные обзорные маршруты.
               </p>
               <nav
-                aria-label="Навигация личного кабинета"
+                aria-label="Навигация аккаунта"
                 className="flex flex-wrap gap-3 border-t border-[var(--border)] pt-3"
               >
                 <Link

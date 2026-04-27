@@ -61,7 +61,7 @@ describe("account layout", () => {
     });
   });
 
-  it("рендерит shared account subnav для overview, security, characters, documents и trustors", async () => {
+  it("рендерит account nav как зону настроек и совместимых обзорных разделов", async () => {
     vi.mocked(requireProtectedAccountContext).mockResolvedValue({
       account: {
         id: "account-1",
@@ -76,8 +76,10 @@ describe("account layout", () => {
       await AccountLayout({ children: createElement("div", null, "Child content") }),
     );
 
-    expect(html).toContain("Навигация личного кабинета");
+    expect(html).toContain("Навигация аккаунта");
     expect(html).toContain("Lawyer5RP");
+    expect(html).toContain("Аккаунт");
+    expect(html).toContain("Здесь находятся настройки аккаунта, безопасность, доступы и служебные обзорные разделы.");
     expect(html).toContain('href="/assistant"');
     expect(html).toContain('href="/servers"');
     expect(html).toContain('href="/account"');
@@ -87,6 +89,8 @@ describe("account layout", () => {
     expect(html).toContain('href="/account/trustors"');
     expect(html).toContain('href="/servers/blackberry/documents"');
     expect(html).toContain(">Переключить<");
+    expect(html).not.toContain("Кабинет адвоката");
+    expect(html).not.toContain("Личный кабинет");
     expect(html).not.toContain('href="/internal/access-requests"');
   });
 
