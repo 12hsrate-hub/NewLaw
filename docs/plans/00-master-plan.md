@@ -300,6 +300,36 @@
 
 - [17-ai-quality-review.md](./17-ai-quality-review.md)
 
+### `18-complaint-narrative-improvement`
+
+Статус: `post-MVP / planned`
+
+Это отдельная post-MVP линия document AI для `ogp_complaint`, но не часть `AI Legal Core`.
+
+Роль этой линии:
+
+- улучшать только поле `situation_description` / `Подробное описание ситуации`
+- строить complaint-ready narrative внутри уже собранной жалобы
+- использовать `raw_situation_description` как основной source-of-facts
+- использовать form context и legal context как ограниченный supporting layer
+- не подменять full complaint generation и не вмешиваться в `BBCode` renderer
+- не использовать `short_violation_summary` как source text
+- вводить отдельный backend contract, style profile, validation rules и output schema
+- держать legal caution и factual grounding как обязательные инварианты
+- готовить future backend integration в complaint wizard без UI redesign на первом implementation slice
+
+Границы:
+
+- `18` не подменяет шаг `08`
+- `18` не является общим Legal Q&A
+- `18` не является `AI Legal Core`
+- `18` не генерирует весь `BBCode`
+- `18` не переписывает весь complaint wizard
+
+Источник правды:
+
+- [18-complaint-narrative-improvement.md](./18-complaint-narrative-improvement.md)
+
 Дополнительный принцип для AI-линии:
 
 - дальнейшие AI-улучшения не должны затачиваться под `4` ручных вопроса
