@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 
 import Link from "next/link";
 
+import { ProductStateCard } from "@/components/product/states/product-state-card";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import type { LawyerWorkspaceRouteContext } from "@/server/lawyer-workspace/context";
@@ -29,17 +30,15 @@ function LawyerWorkspaceNotFoundState(props: {
   requestedServerSlug: string;
 }) {
   return (
-    <Card className="space-y-3">
-      <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">Адвокатский кабинет</p>
-      <h1 className="text-3xl font-semibold">Сервер не найден</h1>
-      <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
-        Не удалось открыть сервер с адресом {props.requestedServerSlug}. Вернитесь к списку
-        серверов и выберите нужный рабочий контекст снова.
-      </p>
-      <div className="flex flex-wrap gap-3">
-        <WorkspaceLink href="/servers">Вернуться к серверам</WorkspaceLink>
-      </div>
-    </Card>
+    <ProductStateCard
+      description={`Не удалось открыть сервер с адресом ${props.requestedServerSlug}. Выберите другой сервер и вернитесь к нужному рабочему контексту.`}
+      eyebrow="Адвокатский кабинет"
+      primaryAction={{
+        href: "/servers",
+        label: "Вернуться к серверам",
+      }}
+      title="Сервер не найден"
+    />
   );
 }
 
@@ -54,26 +53,25 @@ function LawyerWorkspaceBlockedState(props: {
 }) {
   return (
     <div className="space-y-6">
-      <Card className="space-y-4">
-        <div className="space-y-3">
-          <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">Адвокатский кабинет</p>
-          <h1 className="text-3xl font-semibold">{props.title}</h1>
-          <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">{props.description}</p>
-          {props.showAccessRequestHint ? (
-            <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
-              Если персонаж уже готов, адвокатский доступ оформляется через его заявку и дальнейшее
-              рассмотрение.
-            </p>
-          ) : null}
-        </div>
-        <div className="flex flex-wrap items-center gap-2 text-sm leading-6 text-[var(--muted)]">
-          <Badge>Сервер: {props.server.name}</Badge>
-        </div>
-        <div className="flex flex-wrap gap-3">
-          <WorkspaceLink href={props.charactersHref}>Открыть персонажей сервера</WorkspaceLink>
-          <WorkspaceLink href="/servers">Вернуться к серверам</WorkspaceLink>
-        </div>
-      </Card>
+      <ProductStateCard
+        badges={[`Сервер: ${props.server.name}`]}
+        description={props.description}
+        eyebrow="Адвокатский кабинет"
+        helperText={
+          props.showAccessRequestHint
+            ? "Если персонаж уже готов, адвокатский доступ оформляется через его заявку и дальнейшее рассмотрение."
+            : null
+        }
+        primaryAction={{
+          href: props.charactersHref,
+          label: "Открыть персонажей сервера",
+        }}
+        secondaryAction={{
+          href: "/servers",
+          label: "Вернуться к серверам",
+        }}
+        title={props.title}
+      />
     </div>
   );
 }

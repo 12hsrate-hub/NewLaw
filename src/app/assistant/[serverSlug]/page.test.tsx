@@ -30,6 +30,39 @@ import { getAssistantGuestUsageState } from "@/server/legal-assistant/guest-sess
 import { getAssistantViewerContext } from "@/server/legal-assistant/viewer";
 
 describe("/assistant/[serverSlug] page", () => {
+  it("показывает user-friendly server not found state", async () => {
+    vi.mocked(listAssistantServers).mockResolvedValue([]);
+    vi.mocked(getServerByCode).mockResolvedValue(null);
+    vi.mocked(getAssistantViewerContext).mockResolvedValue({
+      user: null,
+      account: null,
+      isAuthenticated: false,
+    });
+    vi.mocked(getAssistantGuestUsageState).mockResolvedValue({
+      guestToken: null,
+      fingerprint: {
+        ipAddress: "127.0.0.1",
+        userAgent: "Vitest",
+        ipHash: "ip-hash",
+        userAgentHash: "ua-hash",
+      },
+      session: null,
+      hasGuestQuestionAvailable: true,
+      savedAnswer: null,
+    });
+
+    const html = renderToStaticMarkup(
+      await AssistantServerPage({
+        params: Promise.resolve({
+          serverSlug: "unknown",
+        }),
+      }),
+    );
+
+    expect(html).toContain("Сервер не найден");
+    expect(html).toContain("Выбрать другой сервер");
+  });
+
   it("берёт server context из route param, а не из /app shell", async () => {
     vi.mocked(listAssistantServers).mockResolvedValue([
       {
@@ -130,6 +163,8 @@ describe("/assistant/[serverSlug] page", () => {
       }),
     );
 
-    expect(html).toContain("пока недостаточно правовых материалов");
+    expect(html).toContain("Помощник временно недоступен");
+    expect(html).toContain("Для этого сервера пока недостаточно правовых материалов");
+    expect(html).toContain("Выбрать другой сервер");
   });
 });

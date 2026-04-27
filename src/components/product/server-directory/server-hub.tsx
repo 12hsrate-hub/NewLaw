@@ -7,6 +7,7 @@ import {
   resolveDirectoryAvailabilityUi,
   resolveDocumentsAvailabilityUi,
 } from "@/components/product/server-directory/status-ui";
+import { ProductStateCard } from "@/components/product/states/product-state-card";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { buildCharactersBridgePath } from "@/server/document-area/context";
@@ -39,17 +40,15 @@ function HubLink(props: {
 function ServerHubNotFoundState() {
   return (
     <div className="space-y-6">
-      <Card className="space-y-3">
-        <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">Сервер</p>
-        <h1 className="text-3xl font-semibold">Сервер не найден</h1>
-        <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
-          Не удалось найти сервер с таким адресом. Вернитесь к списку серверов и выберите нужный
-          вариант снова.
-        </p>
-        <div className="flex flex-wrap gap-3">
-          <HubLink href="/servers">Вернуться к каталогу серверов</HubLink>
-        </div>
-      </Card>
+      <ProductStateCard
+        description="Не удалось найти сервер с таким адресом. Выберите другой сервер и откройте нужный рабочий контекст снова."
+        eyebrow="Сервер"
+        primaryAction={{
+          href: "/servers",
+          label: "Вернуться к серверам",
+        }}
+        title="Сервер не найден"
+      />
     </div>
   );
 }
@@ -61,20 +60,16 @@ function ServerHubUnavailableState(props: {
 }) {
   return (
     <div className="space-y-6">
-      <Card className="space-y-3">
-        <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">Сервер</p>
-        <h1 className="text-3xl font-semibold">{props.server.name}</h1>
-        <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
-          Этот сервер временно недоступен. Попробуйте открыть его позже или выберите другой
-          сервер из списка.
-        </p>
-        <div className="flex flex-wrap items-center gap-2 text-sm leading-6 text-[var(--muted)]">
-          <Badge>Недоступен</Badge>
-        </div>
-        <div className="flex flex-wrap gap-3">
-          <HubLink href="/servers">Вернуться к каталогу серверов</HubLink>
-        </div>
-      </Card>
+      <ProductStateCard
+        badges={[`Сервер: ${props.server.name}`]}
+        description="Этот сервер временно недоступен. Выберите другой сервер или вернитесь позже."
+        eyebrow="Сервер"
+        primaryAction={{
+          href: "/servers",
+          label: "Вернуться к серверам",
+        }}
+        title="Сервер временно недоступен"
+      />
     </div>
   );
 }
@@ -139,13 +134,12 @@ function DocumentsCard(props: {
         <p className="text-sm leading-6 text-[var(--muted)]">{props.availability.description}</p>
         {needsCharacterForGeneralDocuments ? (
           <p className="text-sm leading-6 text-[var(--muted)]">
-            Раздел можно открыть уже сейчас, но для жалоб и исков сначала нужен персонаж на этом
-            сервере.
+            Для жалоб и исков нужен персонаж на выбранном сервере.
           </p>
         ) : null}
         {needsAdvocateCharacterForLawyerDocuments ? (
           <p className="text-sm leading-6 text-[var(--muted)]">
-            Для адвокатских документов потребуется персонаж с адвокатским доступом.
+            Для адвокатских документов нужен персонаж с адвокатским доступом.
           </p>
         ) : null}
         {needsCompatibilityTrustor ? (
@@ -199,12 +193,12 @@ function LawyerWorkspaceCard(props: {
         </p>
         {needsCharacter ? (
           <p className="text-sm leading-6 text-[var(--muted)]">
-            Для адвокатского кабинета сначала нужен персонаж на этом сервере.
+            Для этого действия нужен персонаж на выбранном сервере.
           </p>
         ) : null}
         {needsAdvocateAccess ? (
           <p className="text-sm leading-6 text-[var(--muted)]">
-            Для адвокатского кабинета нужен персонаж с адвокатским доступом.
+            Для этого действия нужен персонаж с адвокатским доступом.
           </p>
         ) : null}
         {needsAdvocateAccess && canRequestAccess ? (

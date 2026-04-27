@@ -98,7 +98,7 @@ describe("/servers/[serverSlug] page", () => {
     );
 
     expect(html).toContain("Сервер не найден");
-    expect(html).toContain("Вернуться к каталогу серверов");
+    expect(html).toContain("Вернуться к серверам");
   });
 
   it("показывает maintenance state и временно выключает module actions", async () => {
@@ -209,8 +209,8 @@ describe("/servers/[serverSlug] page", () => {
     expect(html).toContain("/assistant/blackberry");
     expect(html).toContain("Нужен персонаж");
     expect(html).toContain("/servers/blackberry/documents");
-    expect(html).toContain("для жалоб и исков сначала нужен персонаж");
-    expect(html).toContain("Для адвокатского кабинета сначала нужен персонаж на этом сервере.");
+    expect(html).toContain("Для жалоб и исков нужен персонаж на выбранном сервере.");
+    expect(html).toContain("Для этого действия нужен персонаж на выбранном сервере.");
     expect(html).toContain('/account/characters?server=blackberry"');
   });
 
@@ -269,7 +269,7 @@ describe("/servers/[serverSlug] page", () => {
     );
 
     expect(html).toContain("Адвокатский кабинет");
-    expect(html).toContain("Для адвокатского кабинета нужен персонаж с адвокатским доступом.");
+    expect(html).toContain("Для этого действия нужен персонаж с адвокатским доступом.");
     expect(html).toContain('/account/characters?server=blackberry"');
     expect(html).not.toContain("/servers/blackberry/lawyer");
   });
@@ -299,7 +299,7 @@ describe("/servers/[serverSlug] page", () => {
       }),
     );
 
-    expect(html).toContain("недоступен");
+    expect(html).toContain("Сервер временно недоступен");
     expect(html).toContain("Legacy");
     expect(html).toContain("/servers");
   });

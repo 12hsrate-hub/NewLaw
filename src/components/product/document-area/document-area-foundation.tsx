@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 
 import Link from "next/link";
 
+import { ProductStateCard } from "@/components/product/states/product-state-card";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import type { DocumentAreaServerSummary } from "@/server/document-area/context";
@@ -196,16 +197,15 @@ export function DocumentServerNotFoundState(props: {
 }) {
   return (
     <div className="space-y-6">
-      <Card className="space-y-3">
-        <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">Документы</p>
-        <h1 className="text-3xl font-semibold">Сервер не найден</h1>
-        <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
-          Сервер с кодом {props.requestedServerSlug} сейчас недоступен для вашего аккаунта.
-        </p>
-        <div className="flex flex-wrap gap-3">
-          <FoundationLink href="/account/documents">Вернуться к обзору документов</FoundationLink>
-        </div>
-      </Card>
+      <ProductStateCard
+        description={`Не удалось открыть сервер с адресом ${props.requestedServerSlug}. Выберите другой сервер и откройте документы в нужном рабочем контексте.`}
+        eyebrow="Документы"
+        primaryAction={{
+          href: "/servers",
+          label: "Вернуться к серверам",
+        }}
+        title="Сервер не найден"
+      />
 
       {props.servers.length > 0 ? (
         <Card className="space-y-4">
@@ -232,20 +232,21 @@ export function DocumentNoCharactersState(props: {
 }) {
   return (
     <div className="space-y-6">
-      <Card className="space-y-3">
-        <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">Документы</p>
-        <h1 className="text-3xl font-semibold">{props.server.name}</h1>
-        <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
-          На этом сервере пока нет персонажей, поэтому документы для него создать нельзя.
-        </p>
-        <p className="text-sm leading-6 text-[var(--muted)]">
-          Сначала добавьте персонажа в личном кабинете. Ссылка ниже сразу откроет нужный сервер.
-        </p>
-        <div className="flex flex-wrap gap-3">
-          <FoundationLink href={props.bridgeHref}>Создать персонажа на этом сервере</FoundationLink>
-          <FoundationLink href="/account/documents">Вернуться к обзору документов</FoundationLink>
-        </div>
-      </Card>
+      <ProductStateCard
+        badges={[`Сервер: ${props.server.name}`]}
+        description="Для этого действия нужен персонаж на выбранном сервере."
+        eyebrow="Документы"
+        helperText="Сначала создайте персонажа и затем вернитесь к документам этого сервера."
+        primaryAction={{
+          href: props.bridgeHref,
+          label: "Открыть персонажей сервера",
+        }}
+        secondaryAction={{
+          href: "/servers",
+          label: "Вернуться к серверам",
+        }}
+        title="Сначала нужен персонаж"
+      />
     </div>
   );
 }
@@ -329,7 +330,7 @@ export function ServerDocumentsHub(props: {
             </p>
             {showGeneralCharacterNote ? (
               <p className="text-sm leading-6 text-[var(--muted)]">
-                Чтобы начать жалобу, сначала нужен персонаж на этом сервере.
+                Для этого действия нужен персонаж на выбранном сервере.
               </p>
             ) : null}
           </div>
@@ -351,7 +352,7 @@ export function ServerDocumentsHub(props: {
             </p>
             {showGeneralCharacterNote ? (
               <p className="text-sm leading-6 text-[var(--muted)]">
-                Чтобы начать иск, сначала нужен персонаж на этом сервере.
+                Для этого действия нужен персонаж на выбранном сервере.
               </p>
             ) : null}
           </div>
@@ -378,12 +379,12 @@ export function ServerDocumentsHub(props: {
           </p>
           {!hasCharacter ? (
             <p className="text-sm leading-6 text-[var(--muted)]">
-              Для адвокатских документов сначала нужен персонаж на этом сервере.
+              Для этого действия нужен персонаж на выбранном сервере.
             </p>
           ) : null}
           {showLawyerAdvocateNote ? (
             <p className="text-sm leading-6 text-[var(--muted)]">
-              Для адвокатских документов нужен персонаж с адвокатским доступом.
+              Для этого действия нужен персонаж с адвокатским доступом.
             </p>
           ) : null}
           {showLawyerAccessRequestHint ? (

@@ -87,7 +87,7 @@ describe("/servers/[serverSlug]/documents/legal-services-agreements/new page", (
     expect(html).toContain("Nick Name");
   });
 
-  it("показывает empty state, если на сервере нет персонажей", async () => {
+  it("показывает унифицированный bridge-state, если на сервере нет персонажей", async () => {
     vi.mocked(getServerDocumentsRouteContext).mockResolvedValue({
       status: "no_characters",
       account: {
@@ -117,7 +117,8 @@ describe("/servers/[serverSlug]/documents/legal-services-agreements/new page", (
       }),
     );
 
-    expect(html).toContain("нет персонажей");
+    expect(html).toContain("Сначала нужен персонаж");
+    expect(html).toContain("Для этого действия нужен персонаж на выбранном сервере.");
     expect(html).toContain("/account/characters?server=blackberry#create-character-blackberry");
     expect(buildCharactersBridgePath).toHaveBeenCalledWith("blackberry");
   });

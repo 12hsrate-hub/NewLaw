@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { ProductStateCard } from "@/components/product/states/product-state-card";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 
@@ -23,12 +24,15 @@ export function AssistantServerSelector({
 }: AssistantServerSelectorProps) {
   if (servers.length === 0) {
     return (
-      <Card className="space-y-3">
-        <h2 className="text-xl font-semibold">Серверы пока недоступны</h2>
-        <p className="text-sm leading-6 text-[var(--muted)]">
-          Для юридического помощника пока нет доступных серверов.
-        </p>
-      </Card>
+      <ProductStateCard
+        description="Для юридического помощника сейчас нет доступных серверов. Попробуйте открыть другой раздел или вернитесь позже."
+        eyebrow="Юридический помощник"
+        primaryAction={{
+          href: "/servers",
+          label: "Открыть серверы",
+        }}
+        title="Пока нет доступных серверов"
+      />
     );
   }
 

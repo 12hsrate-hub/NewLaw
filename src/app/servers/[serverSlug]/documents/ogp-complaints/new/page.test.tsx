@@ -75,7 +75,7 @@ describe("/servers/[serverSlug]/documents/ogp-complaints/new page", () => {
     expect(html).toContain("Создать черновик жалобы");
   });
 
-  it("показывает focused bridge, если на сервере нет персонажей", async () => {
+  it("показывает унифицированный focused bridge, если на сервере нет персонажей", async () => {
     vi.mocked(getServerDocumentsRouteContext).mockResolvedValue({
       status: "no_characters",
       account: {
@@ -103,7 +103,8 @@ describe("/servers/[serverSlug]/documents/ogp-complaints/new page", () => {
       }),
     );
 
-    expect(html).toContain("нет персонажей");
+    expect(html).toContain("Сначала нужен персонаж");
+    expect(html).toContain("Для этого действия нужен персонаж на выбранном сервере.");
     expect(html).toContain("/account/characters?server=blackberry#create-character-blackberry");
     expect(buildCharactersBridgePath).toHaveBeenCalledWith("blackberry");
   });

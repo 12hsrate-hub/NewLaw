@@ -2,7 +2,7 @@ import Link from "next/link";
 
 import { AssistantQuestionForm } from "@/components/product/legal-assistant/assistant-question-form";
 import { AssistantServerSelector } from "@/components/product/legal-assistant/assistant-server-selector";
-import { Card } from "@/components/ui/card";
+import { ProductStateCard } from "@/components/product/states/product-state-card";
 import { PageContainer } from "@/components/ui/page-container";
 import { getServerByCode, listAssistantServers } from "@/db/repositories/server.repository";
 import { type AssistantQuestionActionState } from "@/server/actions/legal-assistant";
@@ -86,16 +86,15 @@ export default async function AssistantServerPage({ params }: AssistantServerPag
       <PageContainer>
         <main className="min-h-screen px-6 py-10">
           <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
-            <Card className="space-y-3">
-              <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">
-                Юридический помощник
-              </p>
-              <h1 className="text-3xl font-semibold">Сервер не найден</h1>
-              <p className="text-sm leading-6 text-[var(--muted)]">
-                Такой сервер сейчас не найден среди доступных для помощника. Выберите нужный
-                вариант вручную ниже.
-              </p>
-            </Card>
+            <ProductStateCard
+              description="Такой сервер сейчас не найден среди доступных для помощника. Выберите другой сервер и попробуйте снова."
+              eyebrow="Юридический помощник"
+              primaryAction={{
+                href: "/assistant",
+                label: "Выбрать другой сервер",
+              }}
+              title="Сервер не найден"
+            />
 
             <AssistantServerSelector servers={servers} />
           </div>
@@ -114,12 +113,12 @@ export default async function AssistantServerPage({ params }: AssistantServerPag
     <PageContainer>
       <main className="min-h-screen px-6 py-10">
         <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
-        <div className="flex flex-wrap items-center gap-3 text-sm leading-6 text-[var(--muted)]">
-          <Link className="text-[var(--accent)] underline" href="/assistant">
-            Все серверы
-          </Link>
-          <span>Выбран сервер: {selectedServer.name}</span>
-        </div>
+          <div className="flex flex-wrap items-center gap-3 text-sm leading-6 text-[var(--muted)]">
+            <Link className="text-[var(--accent)] underline" href="/assistant">
+              Все серверы
+            </Link>
+            <span>Выбран сервер: {selectedServer.name}</span>
+          </div>
 
           <AssistantServerSelector
             currentServerCode={selectedServer.code}
@@ -127,13 +126,16 @@ export default async function AssistantServerPage({ params }: AssistantServerPag
           />
 
           {!selectedServer.hasUsableAssistantCorpus ? (
-            <Card className="space-y-3">
-              <h1 className="text-3xl font-semibold">{selectedServer.name}</h1>
-              <p className="text-sm leading-6 text-[var(--muted)]">
-                Для этого сервера пока недостаточно правовых материалов. Помощник временно
-                недоступен — выберите другой сервер или вернитесь позже.
-              </p>
-            </Card>
+            <ProductStateCard
+              badges={[`Сервер: ${selectedServer.name}`]}
+              description="Для этого сервера пока недостаточно правовых материалов. Выберите другой сервер или вернитесь позже."
+              eyebrow="Юридический помощник"
+              primaryAction={{
+                href: "/assistant",
+                label: "Выбрать другой сервер",
+              }}
+              title="Помощник временно недоступен"
+            />
           ) : (
             <AssistantQuestionForm
               initialState={initialState}

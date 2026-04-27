@@ -86,8 +86,7 @@ describe("ServerDocumentsHub", () => {
     );
 
     expect(html).toContain("Персонаж пока не выбран");
-    expect(html).toContain("Чтобы начать жалобу, сначала нужен персонаж на этом сервере.");
-    expect(html).toContain("Для адвокатских документов сначала нужен персонаж на этом сервере.");
+    expect(html).toContain("Для этого действия нужен персонаж на выбранном сервере.");
     expect(html).toContain("/account/characters?server=blackberry#create-character-blackberry");
   });
 
@@ -129,7 +128,7 @@ describe("ServerDocumentsHub", () => {
       />,
     );
 
-    expect(html).toContain("Для адвокатских документов нужен персонаж с адвокатским доступом.");
+    expect(html).toContain("Для этого действия нужен персонаж с адвокатским доступом.");
     expect(html).toContain("доступ оформляется через его заявку");
     expect(html).toContain("/account/characters?server=blackberry");
   });

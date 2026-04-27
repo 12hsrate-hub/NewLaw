@@ -152,8 +152,7 @@ describe("/servers/[serverSlug]/documents page", () => {
 
     expect(html).toContain("Документы сервера");
     expect(html).toContain("Персонаж пока не выбран");
-    expect(html).toContain("Чтобы начать жалобу, сначала нужен персонаж на этом сервере.");
-    expect(html).toContain("Для адвокатских документов сначала нужен персонаж на этом сервере.");
+    expect(html).toContain("Для этого действия нужен персонаж на выбранном сервере.");
     expect(html).toContain("/account/characters?server=blackberry#create-character-blackberry");
     expect(buildCharactersBridgePath).toHaveBeenCalledWith("blackberry");
   });
