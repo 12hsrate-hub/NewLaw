@@ -204,8 +204,7 @@ export async function signInWithEmailPassword(
   if (!isSupabaseAuthRuntimeReady(runtimeConfig)) {
     return {
       status: "placeholder",
-      message:
-        "Сейчас подключены placeholder-переменные Supabase. UI доступен, но реальный вход не будет работать, пока не подставлены боевые значения.",
+      message: "Вход временно недоступен. Попробуй ещё раз немного позже.",
     };
   }
 
@@ -235,8 +234,7 @@ export async function signUpWithEmailPassword(
   if (!isSupabaseAuthRuntimeReady(runtimeConfig)) {
     return {
       status: "placeholder",
-      message:
-        "Сейчас подключены placeholder-переменные Supabase. Экран регистрации доступен, но реальное письмо подтверждения не отправится, пока не подставлены боевые значения Supabase и не будет настроен Custom SMTP в проекте.",
+      message: "Регистрация временно недоступна. Попробуй ещё раз немного позже.",
     };
   }
 

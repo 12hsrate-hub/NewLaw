@@ -30,7 +30,7 @@ export function SignInForm({ nextPath }: SignInFormProps) {
         <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">Вход</p>
         <h1 className="text-3xl font-semibold">Lawyer5RP</h1>
         <p className="text-sm leading-6 text-[var(--muted)]">
-          Войди по email или login и паролю. Если email ещё не подтверждён, сначала открой ссылку из письма.
+          Войди по почте или логину и паролю. Если не получается, воспользуйся восстановлением доступа.
         </p>
       </div>
 

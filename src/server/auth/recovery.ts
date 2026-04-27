@@ -187,8 +187,7 @@ export async function requestPasswordRecovery(
   if (!hasLiveSupabaseRuntimeEnv(getServerRuntimeConfig())) {
     return {
       status: "placeholder" as const,
-      message:
-        "Сейчас подключены placeholder-переменные Supabase. Без боевых значений и настроенного Custom SMTP письмо для восстановления не отправится.",
+      message: "Восстановление доступа временно недоступно. Попробуй ещё раз немного позже.",
     };
   }
 
@@ -250,8 +249,7 @@ export async function completeRecoveryPasswordReset(
   if (!hasLiveSupabaseRuntimeEnv(getServerRuntimeConfig())) {
     return {
       status: "placeholder" as const,
-      message:
-        "Сейчас подключены placeholder-переменные Supabase. Без боевых значений обновление пароля не сработает.",
+      message: "Смена пароля временно недоступна. Попробуй ещё раз немного позже.",
     };
   }
 

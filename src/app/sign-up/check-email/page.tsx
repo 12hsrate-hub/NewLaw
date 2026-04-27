@@ -31,7 +31,7 @@ export default async function CheckEmailPage({ searchParams }: CheckEmailPagePro
         <CheckEmailCard flow="signup" nextPath={nextPath} />
       </div>
       <p className="text-sm leading-6 text-[var(--muted)]">
-        После подтверждения письма откроется обычная рабочая зона проекта, а не отдельный одноразовый кабинет регистрации.
+        После подтверждения письма вернись ко входу и продолжи работу в аккаунте.
       </p>
     </PageContainer>
   );

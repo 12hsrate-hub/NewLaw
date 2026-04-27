@@ -76,8 +76,7 @@ export async function signInWithIdentifierPassword(
   if (!isSupabaseAuthRuntimeReady(runtimeConfig)) {
     return {
       status: "placeholder",
-      message:
-        "Сейчас подключены placeholder-переменные Supabase. UI доступен, но реальный вход не будет работать, пока не подставлены боевые значения.",
+      message: "Вход временно недоступен. Попробуй ещё раз немного позже.",
     };
   }
 

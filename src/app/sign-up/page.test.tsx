@@ -44,7 +44,7 @@ describe("/sign-up page", () => {
     expect(html).toContain('data-tone="workspace"');
     expect(html).toContain('data-variant="split"');
     expect(html).toContain("sign-up-form:/");
-    expect(html).toContain("Аккаунт для юридической работы по серверам");
+    expect(html).toContain("Регистрация");
   });
 
   it("для уже авторизованного пользователя сохраняет redirect semantics", async () => {

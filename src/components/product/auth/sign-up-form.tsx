@@ -45,9 +45,7 @@ export function SignUpForm({ nextPath }: SignUpFormProps) {
 
     try {
       if (!supabase) {
-        setMessage(
-          "Сейчас подключены placeholder-переменные Supabase. Экран регистрации доступен, но реальное письмо подтверждения не отправится, пока не подставлены боевые значения Supabase и не будет настроен Custom SMTP.",
-        );
+        setMessage("Регистрация временно недоступна. Попробуй ещё раз немного позже.");
         setIsPending(false);
         return;
       }
@@ -65,7 +63,7 @@ export function SignUpForm({ nextPath }: SignUpFormProps) {
       );
 
       if (result.status === "placeholder") {
-        setMessage(result.message);
+        setMessage("Регистрация временно недоступна. Попробуй ещё раз немного позже.");
         setIsPending(false);
         return;
       }
@@ -90,14 +88,14 @@ export function SignUpForm({ nextPath }: SignUpFormProps) {
         <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">Регистрация</p>
         <h1 className="text-3xl font-semibold">Создать аккаунт</h1>
         <p className="text-sm leading-6 text-[var(--muted)]">
-          После регистрации мы отправим письмо с подтверждением email. До подтверждения вход в защищённую часть не откроется. Для production-доставки auth-писем проект должен быть подключён к Supabase Custom SMTP.
+          Укажи логин, почту и пароль. После регистрации мы отправим письмо для подтверждения почты.
         </p>
       </div>
 
       <form className="space-y-4" onSubmit={handleSubmit}>
         <div className="space-y-2">
           <label className="text-sm font-medium" htmlFor="signup-login">
-            Login аккаунта
+            Логин
           </label>
           <Input
             autoCapitalize="none"
@@ -110,7 +108,7 @@ export function SignUpForm({ nextPath }: SignUpFormProps) {
             value={login}
           />
           <p className="text-xs leading-5 text-[var(--muted)]">
-            Только латиница, цифры и нижнее подчёркивание. Login хранится в lowercase и в MVP не меняется.
+            Используй латиницу, цифры и нижнее подчёркивание.
           </p>
         </div>
 

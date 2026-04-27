@@ -36,8 +36,7 @@ export async function signInAction(
 
   if (!hasLiveSupabaseRuntimeEnv(getRuntimeConfig())) {
     return {
-      errorMessage:
-        "Сейчас подключены placeholder-переменные Supabase. UI доступен, но реальный вход не будет работать, пока не подставлены боевые значения.",
+      errorMessage: "Вход временно недоступен. Попробуй ещё раз немного позже.",
       fieldErrors: {},
     };
   }

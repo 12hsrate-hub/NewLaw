@@ -23,7 +23,7 @@ export default async function ForgotPasswordCheckEmailPage() {
         <CheckEmailCard flow="recovery" />
       </div>
       <p className="text-sm leading-6 text-[var(--muted)]">
-        Когда письмо придёт, открой самую свежую ссылку восстановления и задай новый пароль. Рабочие документы и серверные данные при этом не меняются.
+        Когда письмо придёт, открой самую свежую ссылку восстановления и задай новый пароль.
       </p>
     </PageContainer>
   );

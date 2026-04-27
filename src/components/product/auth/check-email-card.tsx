@@ -24,7 +24,7 @@ const flowContent: Record<
   signup: {
     title: "Письмо отправлено",
     description:
-      "Мы отправили письмо с подтверждением email. Открой ссылку из письма, после чего ты попадёшь в защищённую часть приложения.",
+      "Мы отправили письмо с подтверждением почты. Открой ссылку из письма, чтобы завершить регистрацию.",
     secondaryLink: {
       href: "/sign-up",
       label: "Зарегистрироваться заново",
@@ -57,14 +57,8 @@ export function CheckEmailCard({
 
       <div className="space-y-3 text-sm leading-6 text-[var(--muted)]">
         <p>Если письмо не пришло, проверь папки «Спам» и «Промоакции».</p>
-        <p>
-          Для production auth-писем проект должен использовать Supabase Custom SMTP. Без него email delivery нельзя считать рабочим для реальных пользователей.
-        </p>
         {flow === "signup" ? (
-          <p>
-            После подтверждения откроется маршрут{" "}
-            <span className="font-medium text-[var(--foreground)]">{nextPath}</span>.
-          </p>
+          <p>После подтверждения можно будет сразу перейти ко входу.</p>
         ) : null}
       </div>
 

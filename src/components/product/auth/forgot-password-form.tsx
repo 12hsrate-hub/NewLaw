@@ -34,7 +34,7 @@ export function ForgotPasswordForm({ nextPath }: ForgotPasswordFormProps) {
         <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">Восстановление</p>
         <h1 className="text-3xl font-semibold">Забыли пароль?</h1>
         <p className="text-sm leading-6 text-[var(--muted)]">
-          Укажи email аккаунта или `login`. Если аккаунт существует, мы отправим письмо со ссылкой для восстановления пароля.
+          Укажи почту или логин аккаунта. Если аккаунт существует, мы отправим письмо для восстановления доступа.
         </p>
       </div>
 

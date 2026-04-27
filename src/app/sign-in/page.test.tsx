@@ -46,7 +46,7 @@ describe("/sign-in page", () => {
     expect(html).toContain('data-variant="split"');
     expect(html).toContain("sign-in-form:/servers");
     expect(html).toContain("Пароль обновлён. Теперь войди с новым паролем.");
-    expect(html).toContain("Тёмный юридический workspace для GTA5RP");
+    expect(html).toContain("Добро пожаловать");
   });
 
   it("для уже авторизованного пользователя сохраняет redirect semantics", async () => {
