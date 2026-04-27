@@ -26,6 +26,27 @@ describe("/servers/[serverSlug] page", () => {
       },
       assistantStatus: "current_corpus_ready",
       documentsAvailabilityForViewer: "available",
+      workspaceCapabilities: {
+        canOpenAssistant: true,
+        canOpenDocumentsWorkspace: true,
+        canOpenLawyerWorkspace: false,
+        canManageCharacters: true,
+        canManageTrustors: true,
+        requiresServer: true,
+        requiresCharacter: false,
+        requiresAdvocateCharacter: false,
+        blockReasons: ["advocate_character_required"],
+      },
+      documentEntryCapabilities: {
+        canCreateSelfComplaint: true,
+        canCreateClaims: true,
+        canCreateAttorneyRequest: false,
+        canCreateLegalServicesAgreement: false,
+        requiresServer: true,
+        requiresCharacter: true,
+        requiresAdvocateCharacter: false,
+        blockReasons: ["advocate_character_required"],
+      },
       selectedCharacterSummary: {
         id: "character-1",
         fullName: "Игорь Юристов",
@@ -50,6 +71,7 @@ describe("/servers/[serverSlug] page", () => {
     expect(html).toContain("Blackberry");
     expect(html).toContain("/assistant/blackberry");
     expect(html).toContain("/servers/blackberry/documents");
+    expect(html).toContain("Для адвокатских документов потребуется персонаж с адвокатским доступом.");
     expect(html).not.toContain("Claims");
     expect(html).not.toContain("OGP complaints");
   });
@@ -94,6 +116,27 @@ describe("/servers/[serverSlug] page", () => {
       },
       assistantStatus: "maintenance_mode",
       documentsAvailabilityForViewer: "unavailable",
+      workspaceCapabilities: {
+        canOpenAssistant: false,
+        canOpenDocumentsWorkspace: true,
+        canOpenLawyerWorkspace: false,
+        canManageCharacters: true,
+        canManageTrustors: true,
+        requiresServer: true,
+        requiresCharacter: false,
+        requiresAdvocateCharacter: false,
+        blockReasons: ["materials_unavailable", "character_required"],
+      },
+      documentEntryCapabilities: {
+        canCreateSelfComplaint: false,
+        canCreateClaims: false,
+        canCreateAttorneyRequest: false,
+        canCreateLegalServicesAgreement: false,
+        requiresServer: true,
+        requiresCharacter: true,
+        requiresAdvocateCharacter: false,
+        blockReasons: ["character_required"],
+      },
       selectedCharacterSummary: null,
     });
 
@@ -129,6 +172,27 @@ describe("/servers/[serverSlug] page", () => {
       },
       assistantStatus: "corpus_bootstrap_incomplete",
       documentsAvailabilityForViewer: "needs_character",
+      workspaceCapabilities: {
+        canOpenAssistant: true,
+        canOpenDocumentsWorkspace: true,
+        canOpenLawyerWorkspace: false,
+        canManageCharacters: true,
+        canManageTrustors: true,
+        requiresServer: true,
+        requiresCharacter: false,
+        requiresAdvocateCharacter: false,
+        blockReasons: ["character_required"],
+      },
+      documentEntryCapabilities: {
+        canCreateSelfComplaint: false,
+        canCreateClaims: false,
+        canCreateAttorneyRequest: false,
+        canCreateLegalServicesAgreement: false,
+        requiresServer: true,
+        requiresCharacter: true,
+        requiresAdvocateCharacter: false,
+        blockReasons: ["character_required"],
+      },
       selectedCharacterSummary: null,
     });
 
@@ -142,8 +206,9 @@ describe("/servers/[serverSlug] page", () => {
 
     expect(html).toContain("/assistant/blackberry");
     expect(html).toContain("Нужен персонаж");
+    expect(html).toContain("/servers/blackberry/documents");
+    expect(html).toContain("для жалоб и исков сначала нужен персонаж");
     expect(html).toContain("/account/characters?server=blackberry#create-character-blackberry");
-    expect(html).not.toContain("/servers/blackberry/documents");
   });
 
   it("показывает honest server_unavailable state для недоступного сервера", async () => {

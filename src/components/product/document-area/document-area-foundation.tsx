@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import type { DocumentAreaServerSummary } from "@/server/document-area/context";
+import type { DocumentEntryCapabilities } from "@/server/navigation/capabilities";
 import { cn } from "@/utils/cn";
 
 function FoundationLink({
@@ -183,8 +184,27 @@ export function ServerDocumentsHub(props: {
   };
   ogpComplaintDocumentCount?: number;
   attorneyRequestDocumentCount?: number;
+  documentEntryCapabilities?: DocumentEntryCapabilities;
   legalServicesAgreementDocumentCount?: number;
 }) {
+  const blockReasons = props.documentEntryCapabilities?.blockReasons ?? [];
+  const showGeneralCharacterNote =
+    blockReasons.includes("character_required") &&
+    (!props.documentEntryCapabilities?.canCreateSelfComplaint ||
+      !props.documentEntryCapabilities?.canCreateClaims);
+  const showAttorneyAdvocateNote =
+    blockReasons.includes("advocate_character_required") &&
+    !props.documentEntryCapabilities?.canCreateAttorneyRequest;
+  const showAgreementAdvocateNote =
+    blockReasons.includes("advocate_character_required") &&
+    !props.documentEntryCapabilities?.canCreateLegalServicesAgreement;
+  const showAttorneyTrustorNote =
+    blockReasons.includes("trustor_required_temporarily") &&
+    !props.documentEntryCapabilities?.canCreateAttorneyRequest;
+  const showAgreementTrustorNote =
+    blockReasons.includes("trustor_required_temporarily") &&
+    !props.documentEntryCapabilities?.canCreateLegalServicesAgreement;
+
   return (
     <div className="space-y-6">
       <Card className="space-y-3">
@@ -223,6 +243,11 @@ export function ServerDocumentsHub(props: {
               Создавайте и редактируйте жалобы в ОГП, собирайте готовый текст для форума и
               готовьте публикацию.
             </p>
+            {showGeneralCharacterNote ? (
+              <p className="text-sm leading-6 text-[var(--muted)]">
+                Чтобы начать жалобу, сначала нужен персонаж на этом сервере.
+              </p>
+            ) : null}
           </div>
           <div className="flex flex-wrap gap-3">
             <FoundationLink href={`/servers/${props.server.code}/documents/ogp-complaints`}>
@@ -241,6 +266,16 @@ export function ServerDocumentsHub(props: {
               Создавайте и редактируйте договоры на оказание юридических услуг. После заполнения
               данных можно собрать страницы договора для проверки и скачивания.
             </p>
+            {showAgreementAdvocateNote ? (
+              <p className="text-sm leading-6 text-[var(--muted)]">
+                Для договора нужен персонаж с адвокатским доступом.
+              </p>
+            ) : null}
+            {showAgreementTrustorNote ? (
+              <p className="text-sm leading-6 text-[var(--muted)]">
+                В текущей версии для этого действия нужен сохранённый доверитель.
+              </p>
+            ) : null}
           </div>
           <div className="flex flex-wrap gap-3">
             <FoundationLink
@@ -266,6 +301,16 @@ export function ServerDocumentsHub(props: {
               Создавайте запросы от имени адвоката, фиксируя персонажа и доверителя в сохранённом
               документе.
             </p>
+            {showAttorneyAdvocateNote ? (
+              <p className="text-sm leading-6 text-[var(--muted)]">
+                Для адвокатского запроса нужен персонаж с адвокатским доступом.
+              </p>
+            ) : null}
+            {showAttorneyTrustorNote ? (
+              <p className="text-sm leading-6 text-[var(--muted)]">
+                В текущей версии для этого действия нужен сохранённый доверитель.
+              </p>
+            ) : null}
           </div>
           <div className="flex flex-wrap gap-3">
             <FoundationLink href={`/servers/${props.server.code}/documents/attorney-requests`}>
@@ -286,6 +331,11 @@ export function ServerDocumentsHub(props: {
             <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
               Отдельный раздел для исковых документов. Он не смешивается с жалобами в ОГП.
             </p>
+            {showGeneralCharacterNote ? (
+              <p className="text-sm leading-6 text-[var(--muted)]">
+                Чтобы начать иск, сначала нужен персонаж на этом сервере.
+              </p>
+            ) : null}
           </div>
           <div className="flex flex-wrap gap-3">
             <FoundationLink href={`/servers/${props.server.code}/documents/claims`}>

@@ -12,12 +12,17 @@ vi.mock("@/db/repositories/user-server-state.repository", () => ({
   getUserServerStates: vi.fn(),
 }));
 
+vi.mock("@/db/repositories/trustor.repository", () => ({
+  listTrustorsForAccountAndServer: vi.fn(),
+}));
+
 vi.mock("@/server/auth/protected", () => ({
   requireProtectedAccountContext: vi.fn(),
 }));
 
 import { getCharactersByServer } from "@/db/repositories/character.repository";
 import { getServerDirectoryServerByCode } from "@/db/repositories/server.repository";
+import { listTrustorsForAccountAndServer } from "@/db/repositories/trustor.repository";
 import { getUserServerStates } from "@/db/repositories/user-server-state.repository";
 import { requireProtectedAccountContext } from "@/server/auth/protected";
 import { getProtectedServerHubContext } from "@/server/server-directory/hub";
@@ -25,6 +30,7 @@ import { getProtectedServerHubContext } from "@/server/server-directory/hub";
 describe("server hub context", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(listTrustorsForAccountAndServer).mockResolvedValue([]);
   });
 
   it("требует auth и передаёт корректный nextPath", async () => {
@@ -198,6 +204,27 @@ describe("server hub context", () => {
         passportNumber: "AA-001",
         source: "first_available",
       },
+      workspaceCapabilities: {
+        canOpenAssistant: true,
+        canOpenDocumentsWorkspace: true,
+        canOpenLawyerWorkspace: false,
+        canManageCharacters: true,
+        canManageTrustors: true,
+        requiresServer: true,
+        requiresCharacter: false,
+        requiresAdvocateCharacter: false,
+        blockReasons: ["advocate_character_required"],
+      },
+      documentEntryCapabilities: {
+        canCreateSelfComplaint: true,
+        canCreateClaims: true,
+        canCreateAttorneyRequest: false,
+        canCreateLegalServicesAgreement: false,
+        requiresServer: true,
+        requiresCharacter: true,
+        requiresAdvocateCharacter: false,
+        blockReasons: ["advocate_character_required"],
+      },
     });
   });
 
@@ -247,6 +274,27 @@ describe("server hub context", () => {
       assistantStatus: "no_corpus",
       documentsAvailabilityForViewer: "needs_character",
       selectedCharacterSummary: null,
+      workspaceCapabilities: {
+        canOpenAssistant: false,
+        canOpenDocumentsWorkspace: true,
+        canOpenLawyerWorkspace: false,
+        canManageCharacters: true,
+        canManageTrustors: true,
+        requiresServer: true,
+        requiresCharacter: false,
+        requiresAdvocateCharacter: false,
+        blockReasons: ["materials_unavailable", "character_required"],
+      },
+      documentEntryCapabilities: {
+        canCreateSelfComplaint: false,
+        canCreateClaims: false,
+        canCreateAttorneyRequest: false,
+        canCreateLegalServicesAgreement: false,
+        requiresServer: true,
+        requiresCharacter: true,
+        requiresAdvocateCharacter: false,
+        blockReasons: ["character_required"],
+      },
     });
   });
 });

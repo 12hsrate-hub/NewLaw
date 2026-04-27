@@ -44,6 +44,7 @@ export default async function ServerDocumentsPage({ params }: ServerDocumentsPag
   return (
     <ServerDocumentsHub
       attorneyRequestDocumentCount={context.attorneyRequestDocumentCount}
+      documentEntryCapabilities={context.documentEntryCapabilities}
       legalServicesAgreementDocumentCount={context.legalServicesAgreementDocumentCount}
       ogpComplaintDocumentCount={context.ogpComplaintDocumentCount}
       selectedCharacter={context.selectedCharacter}

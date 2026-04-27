@@ -47,6 +47,16 @@ describe("/servers/[serverSlug]/documents page", () => {
         source: "last_used",
       },
       trustorRegistry: [],
+      documentEntryCapabilities: {
+        canCreateSelfComplaint: true,
+        canCreateClaims: true,
+        canCreateAttorneyRequest: false,
+        canCreateLegalServicesAgreement: false,
+        requiresServer: true,
+        requiresCharacter: true,
+        requiresAdvocateCharacter: false,
+        blockReasons: ["trustor_required_temporarily"],
+      },
       ogpComplaintDocumentCount: 2,
       claimsDocumentCount: 0,
     });
@@ -66,6 +76,7 @@ describe("/servers/[serverSlug]/documents page", () => {
     expect(html).toContain("Здесь собраны документы и действия для выбранного сервера");
     expect(html).toContain("Жалобы в ОГП");
     expect(html).toContain("Иски");
+    expect(html).toContain("В текущей версии для этого действия нужен сохранённый доверитель.");
     expect(html).toContain("/servers/blackberry/documents/claims");
   });
 

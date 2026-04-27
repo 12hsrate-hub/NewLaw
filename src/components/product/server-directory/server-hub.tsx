@@ -10,6 +10,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { buildCharactersBridgePath } from "@/server/document-area/context";
+import type { DocumentEntryCapabilities } from "@/server/navigation/capabilities";
 import type { ServerHubRouteContext } from "@/server/server-directory/hub";
 import { cn } from "@/utils/cn";
 
@@ -104,9 +105,26 @@ function DocumentsCard(props: {
   serverCode: string;
   serverSlug: string;
   availability: ReturnType<typeof resolveDocumentsAvailabilityUi>;
+  canOpenDocumentsWorkspace: boolean;
+  documentEntryCapabilities?: DocumentEntryCapabilities;
   state: "available" | "needs_character" | "unavailable";
 }) {
   const bridgeHref = buildCharactersBridgePath(props.serverCode);
+  const blockReasons = props.documentEntryCapabilities?.blockReasons ?? [];
+  const needsCharacterForGeneralDocuments =
+    blockReasons.includes("character_required") &&
+    (!props.documentEntryCapabilities?.canCreateSelfComplaint ||
+      !props.documentEntryCapabilities?.canCreateClaims);
+  const needsAdvocateCharacterForLawyerDocuments =
+    blockReasons.includes("advocate_character_required") &&
+    (!props.documentEntryCapabilities?.canCreateAttorneyRequest ||
+      !props.documentEntryCapabilities?.canCreateLegalServicesAgreement);
+  const needsCompatibilityTrustor =
+    blockReasons.includes("trustor_required_temporarily") &&
+    (!props.documentEntryCapabilities?.canCreateAttorneyRequest ||
+      !props.documentEntryCapabilities?.canCreateLegalServicesAgreement);
+  const canOpenDocuments =
+    props.state !== "unavailable" && props.canOpenDocumentsWorkspace;
 
   return (
     <Card className="space-y-4">
@@ -115,22 +133,37 @@ function DocumentsCard(props: {
         <h2 className="text-2xl font-semibold">Документы по серверу</h2>
         <p className="text-sm font-medium">{props.availability.label}</p>
         <p className="text-sm leading-6 text-[var(--muted)]">{props.availability.description}</p>
+        {needsCharacterForGeneralDocuments ? (
+          <p className="text-sm leading-6 text-[var(--muted)]">
+            Раздел можно открыть уже сейчас, но для жалоб и исков сначала нужен персонаж на этом
+            сервере.
+          </p>
+        ) : null}
+        {needsAdvocateCharacterForLawyerDocuments ? (
+          <p className="text-sm leading-6 text-[var(--muted)]">
+            Для адвокатских документов потребуется персонаж с адвокатским доступом.
+          </p>
+        ) : null}
+        {needsCompatibilityTrustor ? (
+          <p className="text-sm leading-6 text-[var(--muted)]">
+            В текущей версии для некоторых адвокатских действий нужен сохранённый доверитель.
+          </p>
+        ) : null}
       </div>
       <div className="flex flex-wrap gap-3">
-        {props.state === "available" ? (
+        {canOpenDocuments ? (
           <HubLink href={`/servers/${props.serverSlug}/documents`}>Открыть документы</HubLink>
-        ) : props.state === "needs_character" ? (
+        ) : null}
+        {props.state === "needs_character" ? (
           <>
-            <span className="inline-flex items-center rounded-2xl border border-dashed border-[var(--border)] px-4 py-2.5 text-sm font-medium text-[var(--muted)]">
-              Документы пока недоступны
-            </span>
             <HubLink href={bridgeHref}>Создать персонажа на этом сервере</HubLink>
           </>
-        ) : (
+        ) : null}
+        {props.state === "unavailable" || !props.canOpenDocumentsWorkspace ? (
           <span className="inline-flex items-center rounded-2xl border border-dashed border-[var(--border)] px-4 py-2.5 text-sm font-medium text-[var(--muted)]">
             Документы временно недоступны
           </span>
-        )}
+        ) : null}
       </div>
     </Card>
   );
@@ -153,9 +186,14 @@ export function AuthenticatedServerHub(props: {
     props.context.documentsAvailabilityForViewer,
   );
   const assistantInteractive =
-    props.context.assistantStatus === "current_corpus_ready" ||
-    props.context.assistantStatus === "corpus_bootstrap_incomplete" ||
-    props.context.assistantStatus === "corpus_stale";
+    props.context.workspaceCapabilities?.canOpenAssistant ??
+    (props.context.assistantStatus === "current_corpus_ready" ||
+      props.context.assistantStatus === "corpus_bootstrap_incomplete" ||
+      props.context.assistantStatus === "corpus_stale");
+  const documentsInteractive =
+    props.context.documentsAvailabilityForViewer !== "unavailable" &&
+    (props.context.workspaceCapabilities?.canOpenDocumentsWorkspace ??
+      props.context.documentsAvailabilityForViewer === "available");
 
   return (
     <div className="space-y-6">
@@ -198,6 +236,8 @@ export function AuthenticatedServerHub(props: {
         />
         <DocumentsCard
           availability={documentsUi}
+          canOpenDocumentsWorkspace={documentsInteractive}
+          documentEntryCapabilities={props.context.documentEntryCapabilities}
           serverCode={props.context.server.code}
           serverSlug={props.context.server.slug}
           state={props.context.documentsAvailabilityForViewer}

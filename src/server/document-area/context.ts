@@ -11,6 +11,10 @@ import { getServerByCode, getServers } from "@/db/repositories/server.repository
 import { getUserServerStates } from "@/db/repositories/user-server-state.repository";
 import { requireProtectedAccountContext } from "@/server/auth/protected";
 import { resolveActiveCharacterId } from "@/server/app-shell/state";
+import {
+  buildDocumentEntryCapabilities,
+  type DocumentEntryCapabilities,
+} from "@/server/navigation/capabilities";
 import { getAccountForumConnectionSummary } from "@/server/forum-integration/service";
 import {
   buildDocumentEditorAuthorSnapshotSummary,
@@ -151,6 +155,7 @@ type ReadyServerDocumentsRouteContext = {
   claimsDocumentCount: number;
   attorneyRequestDocumentCount?: number;
   legalServicesAgreementDocumentCount?: number;
+  documentEntryCapabilities?: DocumentEntryCapabilities;
 };
 
 type NoCharactersServerDocumentsRouteContext = {
@@ -166,6 +171,7 @@ type NoCharactersServerDocumentsRouteContext = {
   claimsDocumentCount: number;
   attorneyRequestDocumentCount?: number;
   legalServicesAgreementDocumentCount?: number;
+  documentEntryCapabilities?: DocumentEntryCapabilities;
 };
 
 type ServerNotFoundDocumentsRouteContext = {
@@ -199,6 +205,7 @@ type OgpComplaintFamilyRouteContext =
       canCreateDocuments: boolean;
       selectedCharacter: SelectedCharacterSummary | null;
       documents: DocumentAreaPersistedListItem[];
+      documentEntryCapabilities?: DocumentEntryCapabilities;
     };
 
 type ClaimsFamilyRouteContext =
@@ -220,6 +227,7 @@ type ClaimsFamilyRouteContext =
       canCreateDocuments: boolean;
       selectedCharacter: SelectedCharacterSummary | null;
       documents: DocumentAreaPersistedListItem[];
+      documentEntryCapabilities?: DocumentEntryCapabilities;
     };
 
 type AttorneyRequestFamilyRouteContext =
@@ -242,6 +250,7 @@ type AttorneyRequestFamilyRouteContext =
       selectedCharacter: SelectedCharacterSummary | null;
       trustorRegistry: DocumentTrustorRegistrySummary[];
       documents: DocumentAreaPersistedListItem[];
+      documentEntryCapabilities?: DocumentEntryCapabilities;
     };
 
 type LegalServicesAgreementFamilyRouteContext =
@@ -264,6 +273,7 @@ type LegalServicesAgreementFamilyRouteContext =
       selectedCharacter: SelectedCharacterSummary | null;
       trustorRegistry: DocumentTrustorRegistrySummary[];
       documents: DocumentAreaPersistedListItem[];
+      documentEntryCapabilities?: DocumentEntryCapabilities;
     };
 
 type InvalidDocumentDataEditorRouteContext = {
@@ -640,6 +650,21 @@ function buildDocumentTrustorRegistrySummary(
   })) satisfies DocumentTrustorRegistrySummary[];
 }
 
+function buildDocumentEntryCapabilitiesForContext(input: {
+  selectedCharacter: SelectedCharacterSummary | null;
+  trustorRegistryCount: number;
+}) {
+  return buildDocumentEntryCapabilities({
+    isAuthenticated: true,
+    hasServer: true,
+    hasSelectedCharacter: input.selectedCharacter !== null,
+    hasAdvocateCharacter: input.selectedCharacter?.canUseRepresentative === true,
+    hasTrustorRegistry: input.trustorRegistryCount > 0,
+    canCreateAttorneyRequestLegacy: input.selectedCharacter?.canCreateAttorneyRequest === true,
+    compatibilityRequiresTrustorRegistryForLegalServicesAgreement: true,
+  });
+}
+
 function buildInvalidDocumentDataEditorRouteContext(input: {
   account: AccountDocumentsOverviewContext["account"];
   server: {
@@ -871,6 +896,10 @@ export async function getServerDocumentsRouteContext(input: {
     serverStates,
   });
   const trustorRegistry = buildDocumentTrustorRegistrySummary(trustorRegistryRecords);
+  const documentEntryCapabilities = buildDocumentEntryCapabilitiesForContext({
+    selectedCharacter,
+    trustorRegistryCount: trustorRegistry.length,
+  });
 
   if (!selectedCharacter) {
     return {
@@ -882,6 +911,7 @@ export async function getServerDocumentsRouteContext(input: {
       claimsDocumentCount: rehabilitationDocumentCount + lawsuitDocumentCount,
       attorneyRequestDocumentCount,
       legalServicesAgreementDocumentCount,
+      documentEntryCapabilities,
     };
   }
 
@@ -897,6 +927,7 @@ export async function getServerDocumentsRouteContext(input: {
     claimsDocumentCount: rehabilitationDocumentCount + lawsuitDocumentCount,
     attorneyRequestDocumentCount,
     legalServicesAgreementDocumentCount,
+    documentEntryCapabilities,
   };
 }
 
@@ -938,16 +969,21 @@ export async function getOgpComplaintFamilyRouteContext(input: {
     characters,
     serverStates,
   });
+  const documentEntryCapabilities = buildDocumentEntryCapabilitiesForContext({
+    selectedCharacter,
+    trustorRegistryCount: 0,
+  });
 
-    return {
-      status: "ready",
-      account,
-      server: buildDocumentRouteServerSummary(server),
-      servers,
-      canCreateDocuments: selectedCharacter !== null,
-      selectedCharacter,
-      documents: buildPersistedServerDocumentItems(documents, server),
-    };
+  return {
+    status: "ready",
+    account,
+    server: buildDocumentRouteServerSummary(server),
+    servers,
+    canCreateDocuments: selectedCharacter !== null,
+    selectedCharacter,
+    documents: buildPersistedServerDocumentItems(documents, server),
+    documentEntryCapabilities,
+  };
 }
 
 export async function getClaimsFamilyRouteContext(input: {
@@ -997,6 +1033,10 @@ export async function getClaimsFamilyRouteContext(input: {
     sortDocumentsByUpdatedAtDesc([...rehabilitationDocuments, ...lawsuitDocuments]),
     server,
   );
+  const documentEntryCapabilities = buildDocumentEntryCapabilitiesForContext({
+    selectedCharacter,
+    trustorRegistryCount: 0,
+  });
 
   return {
     status: "ready",
@@ -1006,6 +1046,7 @@ export async function getClaimsFamilyRouteContext(input: {
     canCreateDocuments: selectedCharacter !== null,
     selectedCharacter,
     documents,
+    documentEntryCapabilities,
   };
 }
 
@@ -1051,6 +1092,10 @@ export async function getLegalServicesAgreementFamilyRouteContext(input: {
     characters,
     serverStates,
   });
+  const documentEntryCapabilities = buildDocumentEntryCapabilitiesForContext({
+    selectedCharacter,
+    trustorRegistryCount: trustorRegistryRecords.length,
+  });
 
   return {
     status: "ready",
@@ -1061,6 +1106,7 @@ export async function getLegalServicesAgreementFamilyRouteContext(input: {
     selectedCharacter,
     trustorRegistry: buildDocumentTrustorRegistrySummary(trustorRegistryRecords),
     documents: buildPersistedServerDocumentItems(documents, server),
+    documentEntryCapabilities,
   };
 }
 
@@ -1106,6 +1152,10 @@ export async function getAttorneyRequestFamilyRouteContext(input: {
     characters,
     serverStates,
   });
+  const documentEntryCapabilities = buildDocumentEntryCapabilitiesForContext({
+    selectedCharacter,
+    trustorRegistryCount: trustorRegistryRecords.length,
+  });
 
   return {
     status: "ready",
@@ -1117,6 +1167,7 @@ export async function getAttorneyRequestFamilyRouteContext(input: {
     selectedCharacter,
     trustorRegistry: buildDocumentTrustorRegistrySummary(trustorRegistryRecords),
     documents: buildPersistedServerDocumentItems(documents, server),
+    documentEntryCapabilities,
   };
 }
 

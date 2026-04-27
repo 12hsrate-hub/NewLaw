@@ -1,8 +1,15 @@
 import { getCharactersByServer } from "@/db/repositories/character.repository";
 import { getServerDirectoryServerByCode } from "@/db/repositories/server.repository";
+import { listTrustorsForAccountAndServer } from "@/db/repositories/trustor.repository";
 import { getUserServerStates } from "@/db/repositories/user-server-state.repository";
 import { requireProtectedAccountContext } from "@/server/auth/protected";
 import { resolveActiveCharacterId } from "@/server/app-shell/state";
+import {
+  buildDocumentEntryCapabilities,
+  buildWorkspaceCapabilities,
+  type DocumentEntryCapabilities,
+  type WorkspaceCapabilities,
+} from "@/server/navigation/capabilities";
 import {
   resolveAssistantStatus,
   type ServerAssistantStatus,
@@ -45,6 +52,8 @@ type ServerHubReadyContext = {
     "requires_auth"
   >;
   selectedCharacterSummary: ServerHubSelectedCharacterSummary | null;
+  workspaceCapabilities?: WorkspaceCapabilities;
+  documentEntryCapabilities?: DocumentEntryCapabilities;
 };
 
 type ServerHubNotFoundContext = {
@@ -142,6 +151,50 @@ function buildSelectedCharacterSummary(input: {
   };
 }
 
+function resolveSelectedCharacterForCapabilities(input: {
+  serverId: string;
+  characters: Array<{
+    id: string;
+    serverId: string;
+    fullName: string;
+    passportNumber: string;
+    accessFlags?: Array<{
+      flagKey: string;
+    }>;
+    roles?: Array<{
+      roleKey: string;
+    }>;
+  }>;
+  serverStates: Array<{
+    serverId: string;
+    activeCharacterId: string | null;
+    lastSelectedAt: Date | null;
+  }>;
+}) {
+  const activeCharacterId = resolveActiveCharacterId(
+    input.serverId,
+    input.characters,
+    input.serverStates,
+  );
+  const activeCharacter = activeCharacterId
+    ? input.characters.find((character) => character.id === activeCharacterId) ?? null
+    : null;
+
+  if (activeCharacter) {
+    return activeCharacter;
+  }
+
+  return input.characters[0] ?? null;
+}
+
+function isAssistantEntryAvailable(status: ServerAssistantStatus) {
+  return (
+    status === "current_corpus_ready" ||
+    status === "corpus_bootstrap_incomplete" ||
+    status === "corpus_stale"
+  );
+}
+
 export async function getProtectedServerHubContext(input: {
   serverSlug: string;
   nextPath: string;
@@ -171,13 +224,22 @@ export async function getProtectedServerHubContext(input: {
     };
   }
 
-  const [characters, serverStates] = await Promise.all([
+  const [characters, serverStates, trustorRegistryRecords] = await Promise.all([
     getCharactersByServer({
       accountId: account.id,
       serverId: server.id,
     }),
     getUserServerStates(account.id),
+    listTrustorsForAccountAndServer({
+      accountId: account.id,
+      serverId: server.id,
+    }),
   ]);
+  const selectedCharacter = resolveSelectedCharacterForCapabilities({
+    serverId: server.id,
+    characters,
+    serverStates,
+  });
   const selectedCharacterSummary = buildSelectedCharacterSummary({
     serverId: server.id,
     characters,
@@ -189,6 +251,26 @@ export async function getProtectedServerHubContext(input: {
       : selectedCharacterSummary
         ? "available"
         : "needs_character";
+  const hasAdvocateCharacter =
+    selectedCharacter?.accessFlags?.some((flag) => flag.flagKey === "advocate") === true;
+  const canCreateAttorneyRequestLegacy =
+    selectedCharacter?.roles?.some((role) => role.roleKey === "lawyer") === true;
+  const workspaceCapabilities = buildWorkspaceCapabilities({
+    isAuthenticated: true,
+    hasServer: true,
+    hasAssistantMaterials: isAssistantEntryAvailable(assistantStatus),
+    hasSelectedCharacter: selectedCharacterSummary !== null,
+    hasAdvocateCharacter,
+  });
+  const documentEntryCapabilities = buildDocumentEntryCapabilities({
+    isAuthenticated: true,
+    hasServer: true,
+    hasSelectedCharacter: selectedCharacterSummary !== null,
+    hasAdvocateCharacter,
+    hasTrustorRegistry: trustorRegistryRecords.length > 0,
+    canCreateAttorneyRequestLegacy,
+    compatibilityRequiresTrustorRegistryForLegalServicesAgreement: true,
+  });
 
   return {
     status: "ready",
@@ -197,5 +279,7 @@ export async function getProtectedServerHubContext(input: {
     assistantStatus,
     documentsAvailabilityForViewer,
     selectedCharacterSummary,
+    workspaceCapabilities,
+    documentEntryCapabilities,
   };
 }
