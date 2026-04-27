@@ -118,6 +118,42 @@ function buildInitialClaimsCreatePayload(documentType: ClaimDocumentType): Claim
   };
 }
 
+const editorMetaTitle = "О документе";
+const editorProgressTitle = "Готовность";
+const editorActionTitle = "Следующие действия";
+const unspecifiedLabel = "Не указано";
+const noDataLabel = "Нет данных";
+const notBuiltLabel = "Не собрано";
+const savedDraftLabel = "Сохранён";
+const forumPublishedLabel = "Опубликовано на форуме";
+const forumNotPublishedLabel = "Не опубликовано";
+
+function withFallback(value: string | null | undefined, fallback = unspecifiedLabel) {
+  const normalized = value?.trim();
+
+  return normalized && normalized.length > 0 ? normalized : fallback;
+}
+
+function formatDateTimeLabel(value: string | null | undefined, fallback = noDataLabel) {
+  return value ? new Date(value).toLocaleString("ru-RU") : fallback;
+}
+
+function formatModifiedAfterGenerationLabel(isModifiedAfterGeneration: boolean) {
+  return isModifiedAfterGeneration ? "Есть изменения после сборки" : "Без изменений после сборки";
+}
+
+function formatForumPublicationStatusLabel(state: OgpForumSyncState) {
+  if (state === "current") {
+    return forumPublishedLabel;
+  }
+
+  if (state === "not_published") {
+    return forumNotPublishedLabel;
+  }
+
+  return formatForumSyncState(state) ?? forumNotPublishedLabel;
+}
+
 export function OgpComplaintDraftCreateEntry(props: {
   server: {
     code: string;
@@ -354,126 +390,190 @@ export function OgpComplaintPersistedEditor(props: {
   };
   status?: string;
 }) {
+  const lastGeneratedLabel = formatDateTimeLabel(props.document.generatedAt, notBuiltLabel);
+  const publicationStatusLabel = formatForumPublicationStatusLabel(props.document.forumSyncState);
+  const trustorLabel = withFallback(props.document.payload.trustorSnapshot?.fullName);
+  const appealNumberLabel = withFallback(props.document.payload.appealNumber);
+  const objectOrganizationLabel = withFallback(props.document.payload.objectOrganization);
+  const objectFullNameLabel = withFallback(props.document.payload.objectFullName);
+  const generatedTextLabel = props.document.lastGeneratedBbcode ? "Собрано" : notBuiltLabel;
+  const evidenceCount = props.document.payload.evidenceItems.length;
+
+  const nextStepLabel = !props.document.generatedAt
+    ? "Собрать результат"
+    : props.document.isModifiedAfterGeneration
+      ? "Собрать результат заново"
+      : props.document.forumSyncState === "not_published"
+        ? "Проверить и опубликовать"
+        : "Проверить результат";
+
   return (
-    <div className="space-y-6">
-      <Card className="space-y-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">
-            Редактор жалобы
-          </p>
-          <Badge>{formatDocumentStatus(props.document.status)}</Badge>
-          <Badge>только для владельца</Badge>
-          <Badge>Подача: {formatFilingMode(props.document.payload.filingMode)}</Badge>
-        </div>
-        <h1 className="text-3xl font-semibold">{props.document.title}</h1>
-        <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
-          Здесь можно редактировать жалобу в ОГП, сохранить черновик, собрать готовый текст для
-          форума и подготовить публикацию.
-        </p>
-        <div className="flex flex-wrap items-center gap-2 text-sm leading-6 text-[var(--muted)]">
-          <Badge>Сервер: {props.document.server.name}</Badge>
-          <Badge>Персонаж: {props.document.authorSnapshot.fullName}</Badge>
-          <span>Паспорт: {props.document.authorSnapshot.passportNumber}</span>
-        </div>
-      </Card>
+    <EditorWorkspaceLayout
+      aside={
+        <EditorContextAside>
+          <EditorDocumentMeta
+            badges={[
+              { label: formatDocumentStatus(props.document.status) },
+              { label: "Жалоба в ОГП", tone: "info" },
+              {
+                label: `Подача: ${formatFilingMode(props.document.payload.filingMode)}`,
+              },
+            ]}
+            description="Ключевые сведения по жалобе для быстрой сверки."
+            items={[
+              { label: "Сервер", value: props.document.server.name },
+              { label: "Персонаж", value: props.document.authorSnapshot.fullName },
+              { label: "Паспорт", value: props.document.authorSnapshot.passportNumber },
+              { label: "Доверитель", value: trustorLabel },
+              { label: "Номер обращения", value: appealNumberLabel },
+              { label: "Организация", value: objectOrganizationLabel },
+              { label: "Объект заявления", value: objectFullNameLabel },
+              { label: "Создано", value: new Date(props.document.createdAt).toLocaleString("ru-RU") },
+              { label: "Обновлено", value: new Date(props.document.updatedAt).toLocaleString("ru-RU") },
+              {
+                label: "Снимок данных",
+                value: new Date(props.document.snapshotCapturedAt).toLocaleString("ru-RU"),
+              },
+            ]}
+            title={editorMetaTitle}
+          />
 
-      <Card className="space-y-4">
-        <h2 className="text-2xl font-semibold">О документе</h2>
-        <ul className="space-y-2 text-sm leading-6 text-[var(--muted)]">
-          <li>Создано: {new Date(props.document.createdAt).toLocaleString("ru-RU")}</li>
-          <li>Обновлено: {new Date(props.document.updatedAt).toLocaleString("ru-RU")}</li>
-          <li>
-            Данные автора зафиксированы: {new Date(props.document.snapshotCapturedAt).toLocaleString("ru-RU")}
-          </li>
-          <li>
-            Сервер и выбранный персонаж после первого сохранения не меняются.
-          </li>
-          <li>
-            {props.document.generatedAt
-              ? `Готовый текст для форума уже собран: ${new Date(props.document.generatedAt).toLocaleString("ru-RU")}.`
-              : "Готовый текст для форума ещё не собирался."}
-          </li>
-          <li>Подключение форума: {formatForumConnectionState(props.document.forumConnection.state)}.</li>
-          <li>Статус публикации: {formatForumSyncState(props.document.forumSyncState)}.</li>
-          <li>
-            Последняя публикация:{" "}
-            {props.document.forumLastPublishedAt
-              ? new Date(props.document.forumLastPublishedAt).toLocaleString("ru-RU")
-              : "ещё не публиковался"}
-          </li>
-          <li>
-            {props.document.isModifiedAfterGeneration
-              ? "После последней сборки документ менялся. Перед публикацией лучше собрать текст заново."
-              : "После последней сборки документ не менялся."}
-          </li>
-          {props.document.forumLastSyncError ? (
-            <li>Не удалось подтвердить последнюю публикацию. Проверьте ссылку и попробуйте ещё раз.</li>
-          ) : null}
-        </ul>
-      </Card>
+          <EditorProgressSummary
+            description="Показывает, готова ли жалоба к сборке и публикации."
+            helperText="Сервер и персонаж уже зафиксированы."
+            items={[
+              {
+                label: "Последняя сборка",
+                value: lastGeneratedLabel,
+                tone: props.document.generatedAt ? "success" : "warning",
+              },
+              {
+                label: "BBCode",
+                value: generatedTextLabel,
+                tone: props.document.lastGeneratedBbcode ? "success" : "neutral",
+              },
+              {
+                label: "Подключение форума",
+                value: formatForumConnectionState(props.document.forumConnection.state),
+                tone: props.document.forumConnection.state === "valid" ? "success" : "warning",
+              },
+              {
+                label: "Статус публикации",
+                value: publicationStatusLabel,
+                tone:
+                  props.document.forumSyncState === "current"
+                    ? "success"
+                    : props.document.forumSyncState === "failed" || props.document.forumSyncState === "outdated"
+                      ? "warning"
+                      : "neutral",
+              },
+              {
+                label: "Изменения после сборки",
+                value: formatModifiedAfterGenerationLabel(props.document.isModifiedAfterGeneration),
+                tone: props.document.isModifiedAfterGeneration ? "warning" : "success",
+              },
+            ]}
+            title={editorProgressTitle}
+          />
 
-      <Card className="space-y-4">
-        <h2 className="text-2xl font-semibold">Подключение форума</h2>
-        <p className="text-sm leading-6 text-[var(--muted)]">
-          Подключение форума управляется в настройках аккаунта. Редактор использует его только
-          для публикации жалобы в ОГП.
-        </p>
-        <ul className="space-y-2 text-sm leading-6 text-[var(--muted)]">
-          <li>Статус: {formatForumConnectionState(props.document.forumConnection.state)}</li>
-          <li>
-            Аккаунт форума: {props.document.forumConnection.forumUsername ?? "ещё не подтверждён"}
-          </li>
-          <li>
-            Последняя проверка:{" "}
-            {props.document.forumConnection.validatedAt
-              ? new Date(props.document.forumConnection.validatedAt).toLocaleString("ru-RU")
-              : "ещё не подтверждалась"}
-          </li>
-          {props.document.forumConnection.lastValidationError ? (
-            <li>Подключение требует повторной проверки в настройках аккаунта.</li>
-          ) : null}
-        </ul>
-      </Card>
+          <EditorActionSummary
+            description="Подсказывает следующий шаг."
+            helperText={
+              props.document.forumLastSyncError
+                ? "Проверка публикации не подтвердилась. Проверьте ссылку и попробуйте ещё раз."
+                : props.document.forumLastPublishedAt
+                  ? `Публикация подтверждена ${new Date(props.document.forumLastPublishedAt).toLocaleString("ru-RU")}.`
+                  : "Публикация ещё не подтверждена."
+            }
+            items={[
+              { label: "Черновик", value: savedDraftLabel },
+              {
+                label: "Группы доказательств",
+                value: evidenceCount > 0 ? `${evidenceCount}` : noDataLabel,
+                tone: evidenceCount > 0 ? "success" : "neutral",
+              },
+              {
+                label: "Публикация",
+                value: props.document.publicationUrl ? forumPublishedLabel : forumNotPublishedLabel,
+                tone: props.document.publicationUrl ? "success" : "neutral",
+              },
+              {
+                label: "Следующий шаг",
+                value: nextStepLabel,
+                tone:
+                  nextStepLabel === "Проверить результат"
+                    ? "neutral"
+                    : "warning",
+              },
+            ]}
+            title={editorActionTitle}
+          />
+        </EditorContextAside>
+      }
+      main={
+        <EditorMainColumn>
+          <Card className="space-y-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">
+                Редактор жалобы
+              </p>
+              <Badge>{formatDocumentStatus(props.document.status)}</Badge>
+              <Badge>только для владельца</Badge>
+              <Badge>Подача: {formatFilingMode(props.document.payload.filingMode)}</Badge>
+            </div>
+            <h1 className="text-3xl font-semibold">{props.document.title}</h1>
+            <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
+              Здесь можно редактировать жалобу в ОГП, сохранить черновик, собрать готовый текст для
+              форума и подготовить публикацию.
+            </p>
+            <div className="flex flex-wrap items-center gap-2 text-sm leading-6 text-[var(--muted)]">
+              <Badge>Сервер: {props.document.server.name}</Badge>
+              <Badge>Персонаж: {props.document.authorSnapshot.fullName}</Badge>
+              <span>Паспорт: {props.document.authorSnapshot.passportNumber}</span>
+            </div>
+          </Card>
 
-      <Card className="space-y-4">
-        <h2 className="text-2xl font-semibold">Редактор жалобы в ОГП</h2>
-        <DocumentDraftEditorClient
-          authorSnapshot={{
-            canUseRepresentative: props.document.authorSnapshot.accessFlags.includes("advocate"),
-            address: props.document.authorSnapshot.address,
-            fullName: props.document.authorSnapshot.fullName,
-            icEmail: props.document.authorSnapshot.icEmail,
-            isProfileComplete: props.document.authorSnapshot.isProfileComplete,
-            passportNumber: props.document.authorSnapshot.passportNumber,
-            passportImageUrl: props.document.authorSnapshot.passportImageUrl,
-            phone: props.document.authorSnapshot.phone,
-            position: props.document.authorSnapshot.position,
-          }}
-          documentId={props.document.id}
-          generatedFormSchemaVersion={props.document.generatedFormSchemaVersion}
-          generatedAt={props.document.generatedAt}
-          generatedLawVersion={props.document.generatedLawVersion}
-          generatedTemplateVersion={props.document.generatedTemplateVersion}
-          initialIsModifiedAfterGeneration={props.document.isModifiedAfterGeneration}
-          initialIsSiteForumSynced={props.document.isSiteForumSynced}
-          initialLastGeneratedBbcode={props.document.lastGeneratedBbcode}
-          initialForumLastPublishedAt={props.document.forumLastPublishedAt}
-          initialForumLastSyncError={props.document.forumLastSyncError}
-          initialForumPostId={props.document.forumPostId}
-          initialForumPublishedBbcodeHash={props.document.forumPublishedBbcodeHash}
-          initialForumSyncState={props.document.forumSyncState}
-          initialForumThreadId={props.document.forumThreadId}
-          initialPublicationUrl={props.document.publicationUrl}
-          initialPayload={props.document.payload}
-          initialTitle={props.document.title}
-          server={props.document.server}
-          status={props.document.status}
-          forumConnection={props.document.forumConnection}
-          trustorRegistry={props.document.trustorRegistry}
-          updatedAt={props.document.updatedAt}
-        />
-      </Card>
-    </div>
+          <Card className="space-y-4">
+            <h2 className="text-2xl font-semibold">Редактор жалобы в ОГП</h2>
+            <DocumentDraftEditorClient
+              authorSnapshot={{
+                canUseRepresentative: props.document.authorSnapshot.accessFlags.includes("advocate"),
+                address: props.document.authorSnapshot.address,
+                fullName: props.document.authorSnapshot.fullName,
+                icEmail: props.document.authorSnapshot.icEmail,
+                isProfileComplete: props.document.authorSnapshot.isProfileComplete,
+                passportNumber: props.document.authorSnapshot.passportNumber,
+                passportImageUrl: props.document.authorSnapshot.passportImageUrl,
+                phone: props.document.authorSnapshot.phone,
+                position: props.document.authorSnapshot.position,
+              }}
+              documentId={props.document.id}
+              generatedFormSchemaVersion={props.document.generatedFormSchemaVersion}
+              generatedAt={props.document.generatedAt}
+              generatedLawVersion={props.document.generatedLawVersion}
+              generatedTemplateVersion={props.document.generatedTemplateVersion}
+              initialIsModifiedAfterGeneration={props.document.isModifiedAfterGeneration}
+              initialIsSiteForumSynced={props.document.isSiteForumSynced}
+              initialLastGeneratedBbcode={props.document.lastGeneratedBbcode}
+              initialForumLastPublishedAt={props.document.forumLastPublishedAt}
+              initialForumLastSyncError={props.document.forumLastSyncError}
+              initialForumPostId={props.document.forumPostId}
+              initialForumPublishedBbcodeHash={props.document.forumPublishedBbcodeHash}
+              initialForumSyncState={props.document.forumSyncState}
+              initialForumThreadId={props.document.forumThreadId}
+              initialPublicationUrl={props.document.publicationUrl}
+              initialPayload={props.document.payload}
+              initialTitle={props.document.title}
+              server={props.document.server}
+              status={props.document.status}
+              forumConnection={props.document.forumConnection}
+              trustorRegistry={props.document.trustorRegistry}
+              updatedAt={props.document.updatedAt}
+            />
+          </Card>
+        </EditorMainColumn>
+      }
+    />
   );
 }
 

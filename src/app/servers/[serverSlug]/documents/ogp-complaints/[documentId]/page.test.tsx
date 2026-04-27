@@ -118,13 +118,21 @@ describe("/servers/[serverSlug]/documents/ogp-complaints/[documentId] page", () 
       }),
     );
 
+    expect(html).toContain('data-editor-workspace-layout="true"');
+    expect(html).toContain('data-editor-main-column="true"');
+    expect(html).toContain('data-editor-context-aside="true"');
     expect(html).toContain("только для владельца");
     expect(html).toContain("Persisted draft");
     expect(html).toContain("Редактор жалобы в ОГП");
     expect(html).toContain("Подача: как представитель");
-    expect(html).toContain("Готовый текст для форума");
+    expect(html).toContain("О документе");
+    expect(html).toContain("Готовность");
+    expect(html).toContain("Следующие действия");
+    expect(html).toContain("Номер обращения");
+    expect(html).toContain("Организация");
     expect(html).toContain("Подключение форума");
-    expect(html).toContain("Статус: подключение работает");
+    expect(html).toContain("Статус публикации");
+    expect(html).toContain("Группы доказательств");
     expect(html).toContain("Опубликовать на форуме");
     expect(html).not.toContain("Профиль персонажа неполный");
     expect(html).not.toContain("Должность: Укажите должность.");
