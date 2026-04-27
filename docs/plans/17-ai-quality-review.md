@@ -178,6 +178,50 @@ Post-MVP. Не входит в MVP.
 - `cross_reference_unresolved`
 - `normalization_changed_meaning` как отдельный расширенный review lane beyond current bootstrap semantics
 
+## Текущий implemented checkpoint по `17.1b`
+
+`17.1b` реализован как internal runner / reporting integration для deterministic review kernel из `17.1a`.
+
+Это по-прежнему internal-only slice:
+
+- без public assistant behavior changes
+- без UI
+- без Prisma/schema
+- без queue workflow
+- без AI reviewer changes
+- без regression gate
+- без изменения runtime `Step 16`
+
+Что именно добавляет `17.1b`:
+
+- structured `law_basis_review` теперь прокидывается в internal AI Legal Core test runner result
+- для каждого scenario result доступны compact поля:
+  - `overall_status`
+  - `fail_count`
+  - `warn_count`
+  - `pass_count`
+  - `flag_codes`
+  - `failed_flag_codes`
+  - `warn_flag_codes`
+- для всего test run доступен aggregate summary:
+  - `counts_by_law_basis_review_status`
+  - `scenarios_with_failed_law_basis_review`
+  - `top_law_basis_review_flags`
+
+Важно:
+
+- `law_basis_review` остаётся отдельным review-layer result
+- `expectation_summary` остаётся acceptance-layer result
+- `direct_basis_summary` остаётся отдельным legal-core summary
+- `review fail / warn` пока не блокирует suite outcome автоматически
+
+Что остаётся future после `17.1b`:
+
+- regression gate по review fail flags
+- queue/workflow policy
+- public/internal UI exposure beyond existing preview layer
+- richer analytics по issue clusters и trends
+
 ## `law_basis_issue`
 
 В шаге `17` должен быть отдельный класс проблем `law_basis_issue`.

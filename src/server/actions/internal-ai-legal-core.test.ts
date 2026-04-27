@@ -120,6 +120,30 @@ describe("internal ai legal core action", () => {
                 article_number: "18",
               },
             ],
+            ai_quality_review: {
+              layers: {
+                deterministic_checks: {
+                  law_basis_review: {
+                    overall_status: "pass",
+                    flags: [
+                      {
+                        code: "missing_primary_basis_norm",
+                        severity: "pass",
+                      },
+                      {
+                        code: "law_family_mismatch",
+                        severity: "pass",
+                      },
+                    ],
+                    summary: {
+                      pass: 2,
+                      warn: 0,
+                      fail: 0,
+                    },
+                  },
+                },
+              },
+            },
             stage_usage: {
               normalization: {
                 model: "gpt-5.4-nano",
@@ -230,6 +254,16 @@ describe("internal ai legal core action", () => {
       scenarios_with_missing_direct_basis: [],
       scenarios_with_weak_only_basis: [],
     });
+    expect(result.law_basis_review_summary).toEqual({
+      counts_by_law_basis_review_status: {
+        pass: 1,
+        warn: 0,
+        fail: 0,
+        unknown: 0,
+      },
+      scenarios_with_failed_law_basis_review: [],
+      top_law_basis_review_flags: [],
+    });
     expect(result.results[0]).toMatchObject({
       scenarioId: "general-mask-detention",
       status: "answered",
@@ -263,6 +297,15 @@ describe("internal ai legal core action", () => {
         primary_basis_count: 1,
         eligible_primary_basis_count: 1,
         selected_law_families: ["administrative_code"],
+      },
+      law_basis_review: {
+        overall_status: "pass",
+        fail_count: 0,
+        warn_count: 0,
+        pass_count: 2,
+        flag_codes: ["missing_primary_basis_norm", "law_family_mismatch"],
+        failed_flag_codes: [],
+        warn_flag_codes: [],
       },
       technical: {
         confidence: "high",
@@ -435,6 +478,26 @@ describe("internal ai legal core action", () => {
           },
           responsePayloadJson: {
             used_sources: [{ source_kind: "law", law_id: "law-1" }],
+            ai_quality_review: {
+              layers: {
+                deterministic_checks: {
+                  law_basis_review: {
+                    overall_status: "warn",
+                    flags: [
+                      {
+                        code: "weak_direct_basis",
+                        severity: "warn",
+                      },
+                    ],
+                    summary: {
+                      pass: 1,
+                      warn: 1,
+                      fail: 0,
+                    },
+                  },
+                },
+              },
+            },
             stage_usage: {
               normalization: {
                 model: "gpt-5.4-nano",
@@ -497,6 +560,15 @@ describe("internal ai legal core action", () => {
         primary_basis_count: 1,
         eligible_primary_basis_count: 1,
         selected_law_families: ["administrative_code"],
+      },
+      law_basis_review: {
+        overall_status: "warn",
+        fail_count: 0,
+        warn_count: 1,
+        pass_count: 1,
+        flag_codes: ["weak_direct_basis"],
+        failed_flag_codes: [],
+        warn_flag_codes: ["weak_direct_basis"],
       },
       coreSnapshot: {
         normalized_input: "Можно ли задержать человека за маску?",
@@ -660,6 +732,30 @@ describe("internal ai legal core action", () => {
                 article_number: "4",
               },
             ],
+            ai_quality_review: {
+              layers: {
+                deterministic_checks: {
+                  law_basis_review: {
+                    overall_status: "fail",
+                    flags: [
+                      {
+                        code: "law_family_mismatch",
+                        severity: "fail",
+                      },
+                      {
+                        code: "weak_direct_basis",
+                        severity: "warn",
+                      },
+                    ],
+                    summary: {
+                      pass: 0,
+                      warn: 1,
+                      fail: 1,
+                    },
+                  },
+                },
+              },
+            },
             stage_usage: {
               normalization: {
                 model: "gpt-5.4-nano",
@@ -736,6 +832,34 @@ describe("internal ai legal core action", () => {
         eligible_primary_basis_count: 0,
         selected_law_families: ["government_code"],
       },
+      law_basis_review: {
+        overall_status: "fail",
+        fail_count: 1,
+        warn_count: 1,
+        pass_count: 0,
+        flag_codes: ["law_family_mismatch", "weak_direct_basis"],
+        failed_flag_codes: ["law_family_mismatch"],
+        warn_flag_codes: ["weak_direct_basis"],
+      },
+    });
+    expect(result.law_basis_review_summary).toEqual({
+      counts_by_law_basis_review_status: {
+        pass: 0,
+        warn: 0,
+        fail: 1,
+        unknown: 0,
+      },
+      scenarios_with_failed_law_basis_review: ["general-no-bodycam"],
+      top_law_basis_review_flags: [
+        {
+          code: "law_family_mismatch",
+          count: 1,
+        },
+        {
+          code: "weak_direct_basis",
+          count: 1,
+        },
+      ],
     });
   });
 

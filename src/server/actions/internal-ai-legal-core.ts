@@ -142,6 +142,7 @@ export type InternalAILegalCoreTestRunResult = {
       } | null;
     } | null;
     stage_usage: Record<string, unknown> | null;
+    ai_quality_review: Record<string, unknown> | null;
   } | null;
   passed_expectations: ExpectationCheckResult[];
   failed_expectations: ExpectationCheckResult[];
@@ -168,6 +169,15 @@ export type InternalAILegalCoreTestRunResult = {
     primary_basis_count: number;
     eligible_primary_basis_count: number;
     selected_law_families: string[];
+  };
+  law_basis_review: {
+    overall_status: "pass" | "warn" | "fail" | null;
+    fail_count: number;
+    warn_count: number;
+    pass_count: number;
+    flag_codes: string[];
+    failed_flag_codes: string[];
+    warn_flag_codes: string[];
   };
   comparison: AILegalCoreScenarioComparison | null;
 };
@@ -211,6 +221,14 @@ export type InternalAILegalCoreActionState = {
     counts_by_direct_basis_status: Record<string, number>;
     scenarios_with_missing_direct_basis: string[];
     scenarios_with_weak_only_basis: string[];
+  } | null;
+  law_basis_review_summary?: {
+    counts_by_law_basis_review_status: Record<string, number>;
+    scenarios_with_failed_law_basis_review: string[];
+    top_law_basis_review_flags: Array<{
+      code: string;
+      count: number;
+    }>;
   } | null;
   results: InternalAILegalCoreTestRunResult[];
 };
@@ -492,6 +510,7 @@ function readCoreSnapshot(input: {
       },
     },
     stage_usage: readJsonObject(responsePayload?.stage_usage),
+    ai_quality_review: readJsonObject(responsePayload?.ai_quality_review),
   };
 }
 
@@ -539,6 +558,45 @@ function buildCostSummary(input: {
     output_tokens: summedCompletionTokens,
     cost: input.technical.costUsd ?? summedCost,
     latency: input.technical.latencyMs ?? summedLatency,
+  };
+}
+
+function buildLawBasisReviewSummary(
+  coreSnapshot: InternalAILegalCoreTestRunResult["coreSnapshot"],
+) {
+  const lawBasisReview = readJsonObject(
+    coreSnapshot?.ai_quality_review &&
+      readJsonObject(coreSnapshot.ai_quality_review.layers)?.deterministic_checks &&
+      readJsonObject(
+        readJsonObject(coreSnapshot.ai_quality_review.layers)?.deterministic_checks,
+      )?.law_basis_review,
+  );
+  const summary = readJsonObject(lawBasisReview?.summary);
+  const flags = readArray(lawBasisReview?.flags)
+    .map((entry) => readJsonObject(entry))
+    .filter((entry): entry is Record<string, unknown> => Boolean(entry));
+  const overallStatus = readString(lawBasisReview?.overall_status) as
+    | "pass"
+    | "warn"
+    | "fail"
+    | null;
+
+  return {
+    overall_status: overallStatus,
+    fail_count: readNumber(summary?.fail) ?? 0,
+    warn_count: readNumber(summary?.warn) ?? 0,
+    pass_count: readNumber(summary?.pass) ?? 0,
+    flag_codes: flags
+      .map((entry) => readString(entry.code))
+      .filter((value): value is string => Boolean(value)),
+    failed_flag_codes: flags
+      .filter((entry) => readString(entry.severity) === "fail")
+      .map((entry) => readString(entry.code))
+      .filter((value): value is string => Boolean(value)),
+    warn_flag_codes: flags
+      .filter((entry) => readString(entry.severity) === "warn")
+      .map((entry) => readString(entry.code))
+      .filter((value): value is string => Boolean(value)),
   };
 }
 
@@ -644,6 +702,7 @@ function attachInternalRunnerSummaries(input: {
       coreSnapshot: input.result.coreSnapshot,
     }),
     direct_basis_summary: buildDirectBasisSummary(input.result.coreSnapshot),
+    law_basis_review: buildLawBasisReviewSummary(input.result.coreSnapshot),
   } satisfies InternalAILegalCoreTestRunResult;
 }
 
@@ -742,6 +801,50 @@ function buildAggregateDirectBasisSummary(results: InternalAILegalCoreTestRunRes
   };
 }
 
+function buildAggregateLawBasisReviewSummary(results: InternalAILegalCoreTestRunResult[]) {
+  const countsByStatus: Record<string, number> = {
+    pass: 0,
+    warn: 0,
+    fail: 0,
+    unknown: 0,
+  };
+  const scenariosWithFailedLawBasisReview: string[] = [];
+  const flagCounts = new Map<string, number>();
+
+  for (const result of results) {
+    const status = result.law_basis_review.overall_status ?? "unknown";
+    countsByStatus[status] = (countsByStatus[status] ?? 0) + 1;
+
+    if (status === "fail") {
+      scenariosWithFailedLawBasisReview.push(result.scenarioId);
+    }
+
+    for (const flagCode of result.law_basis_review.failed_flag_codes) {
+      flagCounts.set(flagCode, (flagCounts.get(flagCode) ?? 0) + 1);
+    }
+
+    for (const flagCode of result.law_basis_review.warn_flag_codes) {
+      flagCounts.set(flagCode, (flagCounts.get(flagCode) ?? 0) + 1);
+    }
+  }
+
+  const topLawBasisReviewFlags = Array.from(flagCounts.entries())
+    .map(([code, count]) => ({ code, count }))
+    .sort((left, right) => {
+      if (right.count !== left.count) {
+        return right.count - left.count;
+      }
+
+      return left.code.localeCompare(right.code);
+    });
+
+  return {
+    counts_by_law_basis_review_status: countsByStatus,
+    scenarios_with_failed_law_basis_review: scenariosWithFailedLawBasisReview,
+    top_law_basis_review_flags: topLawBasisReviewFlags,
+  };
+}
+
 function buildActionResultFromScenario(input: {
   scenario: AILegalCoreTestScenario;
   result: Awaited<ReturnType<typeof generateServerLegalAssistantAnswer>>;
@@ -790,6 +893,15 @@ function buildActionResultFromScenario(input: {
         selected_law_families: [],
       },
       comparison: null,
+      law_basis_review: {
+        overall_status: null,
+        fail_count: 0,
+        warn_count: 0,
+        pass_count: 0,
+        flag_codes: [],
+        failed_flag_codes: [],
+        warn_flag_codes: [],
+      },
     };
   }
 
@@ -831,6 +943,15 @@ function buildActionResultFromScenario(input: {
         selected_law_families: [],
       },
       comparison: null,
+      law_basis_review: {
+        overall_status: null,
+        fail_count: 0,
+        warn_count: 0,
+        pass_count: 0,
+        flag_codes: [],
+        failed_flag_codes: [],
+        warn_flag_codes: [],
+      },
     };
   }
 
@@ -871,6 +992,15 @@ function buildActionResultFromScenario(input: {
       selected_law_families: [],
     },
     comparison: null,
+    law_basis_review: {
+      overall_status: null,
+      fail_count: 0,
+      warn_count: 0,
+      pass_count: 0,
+      flag_codes: [],
+      failed_flag_codes: [],
+      warn_flag_codes: [],
+    },
   };
 }
 
@@ -920,6 +1050,15 @@ function buildRewriteResultFromScenario(input: {
         selected_law_families: [],
       },
       comparison: null,
+      law_basis_review: {
+        overall_status: null,
+        fail_count: 0,
+        warn_count: 0,
+        pass_count: 0,
+        flag_codes: [],
+        failed_flag_codes: [],
+        warn_flag_codes: [],
+      },
     };
   }
 
@@ -960,6 +1099,15 @@ function buildRewriteResultFromScenario(input: {
       selected_law_families: [],
     },
     comparison: null,
+    law_basis_review: {
+      overall_status: null,
+      fail_count: 0,
+      warn_count: 0,
+      pass_count: 0,
+      flag_codes: [],
+      failed_flag_codes: [],
+      warn_flag_codes: [],
+    },
   };
 }
 
@@ -1013,6 +1161,15 @@ function buildErrorResultFromScenario(
       selected_law_families: [],
     },
     comparison: null,
+    law_basis_review: {
+      overall_status: null,
+      fail_count: 0,
+      warn_count: 0,
+      pass_count: 0,
+      flag_codes: [],
+      failed_flag_codes: [],
+      warn_flag_codes: [],
+    },
   };
 }
 
@@ -1084,6 +1241,7 @@ export async function runInternalAILegalCoreScenariosAction(
           serverSlug: "Нужен активный сервер с assistant corpus.",
         },
         runSummary: null,
+        law_basis_review_summary: null,
         results: [],
       };
     }
@@ -1109,6 +1267,7 @@ export async function runInternalAILegalCoreScenariosAction(
               : undefined,
         },
         runSummary: null,
+        law_basis_review_summary: null,
         results: [],
       };
     }
@@ -1313,6 +1472,7 @@ export async function runInternalAILegalCoreScenariosAction(
       scenario_group_summary: buildAggregateScenarioGroupSummary(resultsWithComparisons),
       cost_summary: buildAggregateCostSummary(resultsWithComparisons),
       direct_basis_summary: buildAggregateDirectBasisSummary(resultsWithComparisons),
+      law_basis_review_summary: buildAggregateLawBasisReviewSummary(resultsWithComparisons),
       results: resultsWithComparisons,
     };
   } catch (error) {
@@ -1331,6 +1491,7 @@ export async function runInternalAILegalCoreScenariosAction(
         scenario_group_summary: null,
         cost_summary: null,
         direct_basis_summary: null,
+        law_basis_review_summary: null,
         results: [],
       };
     }
