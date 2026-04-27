@@ -493,4 +493,224 @@ describe("ai legal core expectation evaluator", () => {
       ]),
     );
   });
+
+  it("проверяет attorney_rights companion expectations через procedure_companion без exact article target", () => {
+    const result = evaluateScenarioExpectations({
+      expectationProfile: {
+        requiredLawFamilies: ["advocacy_law"],
+        requiredNormRoles: ["primary_basis"],
+        minPrimaryBasisNorms: 1,
+        expectedDirectBasisStatus: "direct_basis_present",
+        activateCompanionChecks: true,
+        requiredCompanionRelations: ["procedure_companion"],
+        forbiddenCompanionAsPrimary: ["procedure_companion"],
+      },
+      snapshot: {
+        selected_norm_roles: [
+          {
+            law_id: "law-adv",
+            law_version: "version-1",
+            law_block_id: "block-adv",
+            law_family: "advocacy_law",
+            norm_role: "primary_basis",
+          },
+          {
+            law_id: "law-proc",
+            law_version: "version-1",
+            law_block_id: "block-proc",
+            law_family: "procedural_code",
+            norm_role: "procedure",
+          },
+        ],
+        primary_basis_eligibility: [
+          {
+            law_id: "law-adv",
+            law_version: "version-1",
+            law_block_id: "block-adv",
+            primary_basis_eligibility: "eligible",
+          },
+        ],
+        direct_basis_status: "direct_basis_present",
+        norm_bundle_diagnostics: {
+          companion_relation_types: ["procedure_companion"],
+          missing_expected_companion: [],
+          included_article_segments: [
+            {
+              law_id: "law-proc",
+              law_family: "procedural_code",
+              article_number: "23.1",
+              marker: "ч. 1",
+              part_number: "1",
+              relation_type: "procedure_companion",
+              reason_code: "selected_procedure_role",
+            },
+          ],
+          excluded_article_segments: [],
+          bundle_projection_excluded_items: [],
+        },
+      },
+    });
+
+    expect(result.passed_expectations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          key: "requiredCompanionRelations",
+          status: "passed",
+        }),
+        expect.objectContaining({
+          key: "forbiddenCompanionAsPrimary",
+          status: "passed",
+        }),
+      ]),
+    );
+  });
+
+  it("проваливает attorney_rights expectation при отсутствии обязательного procedure_companion", () => {
+    const result = evaluateScenarioExpectations({
+      expectationProfile: {
+        activateCompanionChecks: true,
+        requiredCompanionRelations: ["procedure_companion"],
+      },
+      snapshot: {
+        selected_norm_roles: [
+          {
+            law_id: "law-adv",
+            law_version: "version-1",
+            law_block_id: "block-adv",
+            law_family: "advocacy_law",
+            norm_role: "primary_basis",
+          },
+        ],
+        primary_basis_eligibility: [
+          {
+            law_id: "law-adv",
+            law_version: "version-1",
+            law_block_id: "block-adv",
+            primary_basis_eligibility: "eligible",
+          },
+        ],
+        direct_basis_status: "direct_basis_present",
+        norm_bundle_diagnostics: {
+          companion_relation_types: [],
+          missing_expected_companion: ["procedure_companion"],
+          included_article_segments: [],
+          excluded_article_segments: [],
+          bundle_projection_excluded_items: [],
+        },
+      },
+    });
+
+    expect(result.failed_expectations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          key: "requiredCompanionRelations",
+          status: "failed",
+        }),
+      ]),
+    );
+  });
+
+  it("проваливает attorney_rights negative case, если procedure_companion подменяет base rule", () => {
+    const result = evaluateScenarioExpectations({
+      expectationProfile: {
+        activateCompanionChecks: true,
+        forbiddenCompanionAsPrimary: ["procedure_companion"],
+      },
+      snapshot: {
+        selected_norm_roles: [
+          {
+            law_id: "law-proc",
+            law_version: "version-1",
+            law_block_id: "block-proc",
+            law_family: "procedural_code",
+            norm_role: "procedure",
+          },
+        ],
+        primary_basis_eligibility: [],
+        direct_basis_status: "partial_basis_only",
+        norm_bundle_diagnostics: {
+          companion_relation_types: ["procedure_companion"],
+          missing_expected_companion: [],
+          included_article_segments: [
+            {
+              law_id: "law-proc",
+              law_family: "procedural_code",
+              article_number: "23.1",
+              marker: "ч. 1",
+              part_number: "1",
+              relation_type: "procedure_companion",
+              reason_code: "selected_procedure_role",
+            },
+          ],
+          excluded_article_segments: [],
+          bundle_projection_excluded_items: [],
+        },
+      },
+    });
+
+    expect(result.failed_expectations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          key: "forbiddenCompanionAsPrimary",
+          status: "failed",
+        }),
+      ]),
+    );
+  });
+
+  it("использует существующие checks против wrong family primary для attorney_rights", () => {
+    const result = evaluateScenarioExpectations({
+      expectationProfile: {
+        requiredLawFamilies: ["advocacy_law"],
+        minPrimaryBasisNorms: 1,
+        forbiddenPrimaryBasis: [
+          {
+            lawFamily: "government_code",
+            lawTitleIncludes: ["прокурор", "огп"],
+          },
+        ],
+      },
+      snapshot: {
+        selected_norm_roles: [
+          {
+            law_id: "law-ogp",
+            law_version: "version-1",
+            law_block_id: "block-ogp",
+            law_family: "government_code",
+            norm_role: "primary_basis",
+          },
+        ],
+        primary_basis_eligibility: [
+          {
+            law_id: "law-ogp",
+            law_version: "version-1",
+            law_block_id: "block-ogp",
+            primary_basis_eligibility: "eligible",
+          },
+        ],
+        direct_basis_status: "direct_basis_present",
+        used_sources: [
+          {
+            source_kind: "law",
+            law_id: "law-ogp",
+            law_name: "Закон об ОГП",
+            article_number: "17",
+          },
+        ],
+      },
+    });
+
+    expect(result.failed_expectations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          key: "requiredLawFamilies",
+          status: "failed",
+        }),
+        expect.objectContaining({
+          key: "forbiddenPrimaryBasis",
+          status: "failed",
+        }),
+      ]),
+    );
+  });
 });

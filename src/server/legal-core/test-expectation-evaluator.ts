@@ -571,11 +571,24 @@ export function evaluateScenarioExpectations(input: {
   if (companionDiagnosticsActive && expectationProfile.forbiddenCompanionAsPrimary) {
     const found = expectationProfile.forbiddenCompanionAsPrimary.filter((relation) => {
       if (relation === "sanction_companion") {
-        return input.snapshot.selected_norm_roles.some((entry) => entry.norm_role === "sanction");
+        return (
+          companionSegments.allRelationTypes.includes("sanction_companion") ||
+          input.snapshot.selected_norm_roles.some((entry) => entry.norm_role === "sanction")
+        );
       }
 
       if (relation === "exception") {
-        return input.snapshot.selected_norm_roles.some((entry) => entry.norm_role === "exception");
+        return (
+          companionSegments.allRelationTypes.includes("exception") ||
+          input.snapshot.selected_norm_roles.some((entry) => entry.norm_role === "exception")
+        );
+      }
+
+      if (relation === "procedure_companion") {
+        return (
+          companionSegments.allRelationTypes.includes("procedure_companion") ||
+          input.snapshot.selected_norm_roles.some((entry) => entry.norm_role === "procedure")
+        );
       }
 
       return false;

@@ -136,6 +136,9 @@ describe("ai legal core test scenarios registry", () => {
     const maskScenario = getAILegalCoreTestScenarioById("general-mask-detention");
     const bodycamScenario = getAILegalCoreTestScenarioById("attorney-requested-detention-record");
     const attorneyRightsScenario = getAILegalCoreTestScenarioById("self-no-lawyer-on-detention");
+    const attorneyRightsAltScenario = getAILegalCoreTestScenarioById(
+      "alt-attorney-admit-defender-on-detention",
+    );
     const attorneyRequestScenario = getAILegalCoreTestScenarioById(
       "general-no-response-to-attorney-request",
     );
@@ -180,12 +183,24 @@ describe("ai legal core test scenarios registry", () => {
       expectationProfile: expect.objectContaining({
         requiredLawFamilies: ["advocacy_law"],
         requiredNormRoles: ["primary_basis"],
+        activateCompanionChecks: true,
+        requiredCompanionRelations: ["procedure_companion"],
+        forbiddenCompanionAsPrimary: ["procedure_companion"],
         forbiddenPrimaryBasis: [
           expect.objectContaining({
             lawFamily: "government_code",
             lawTitleIncludes: ["прокурор", "огп"],
           }),
         ],
+      }),
+    });
+
+    expect(attorneyRightsAltScenario).toMatchObject({
+      suiteGroup: "attorney_rights",
+      expectationProfile: expect.objectContaining({
+        activateCompanionChecks: true,
+        requiredCompanionRelations: ["procedure_companion"],
+        forbiddenCompanionAsPrimary: ["procedure_companion"],
       }),
     });
 
@@ -268,6 +283,9 @@ describe("ai legal core test scenarios registry", () => {
       suiteGroup: "attorney_rights",
       expectationProfile: expect.objectContaining({
         requiredLawFamilies: ["procedural_code"],
+        activateCompanionChecks: true,
+        requiredCompanionRelations: ["procedure_companion"],
+        forbiddenCompanionAsPrimary: ["procedure_companion"],
         forbiddenPrimaryBasis: [expect.objectContaining({ lawFamily: "advocacy_law" })],
       }),
     });
@@ -276,12 +294,20 @@ describe("ai legal core test scenarios registry", () => {
   });
 
   it("companion expectation fields вне attorney_request могут оставаться future-oriented без активации checks", () => {
-    const scenario = getAILegalCoreTestScenarioById("general-mask-detention");
+    const maskScenario = getAILegalCoreTestScenarioById("general-mask-detention");
+    const inactiveAttorneyRightsScenario = getAILegalCoreTestScenarioById(
+      "general-no-lawyer-on-detention",
+    );
 
-    expect(scenario?.expectationProfile).toMatchObject({
+    expect(maskScenario?.expectationProfile).toMatchObject({
       requiredCompanionRelations: ["procedure_companion"],
     });
-    expect(scenario?.expectationProfile?.activateCompanionChecks).toBeUndefined();
+    expect(maskScenario?.expectationProfile?.activateCompanionChecks).toBeUndefined();
+
+    expect(inactiveAttorneyRightsScenario?.expectationProfile).toMatchObject({
+      requiredCompanionRelations: ["procedure_companion"],
+    });
+    expect(inactiveAttorneyRightsScenario?.expectationProfile?.activateCompanionChecks).toBeUndefined();
   });
 
   it("деактивированные сценарии сохраняют compatibility по id, но не попадают в active suite selection", () => {

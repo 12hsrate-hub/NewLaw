@@ -1150,7 +1150,9 @@ function buildExpectationProfileForScenario(
         "Primary basis должен быть связан с процедурными правами задержанного, включая право на сообщение о задержании или связанный контакт.",
         "Advocacy law допустим только как supporting или companion context, если вопрос о звонке связан с вызовом адвоката.",
       ],
+      activateCompanionChecks: true,
       requiredCompanionRelations: ["procedure_companion"],
+      forbiddenCompanionAsPrimary: ["procedure_companion"],
     };
   }
 
@@ -1207,7 +1209,17 @@ function buildExpectationProfileForScenario(
           "Primary basis должен быть про адвоката, защитника, право на защиту или реализацию прав задержанного.",
           "Норма об ОГП не должна подменять прямую норму о праве на защитника.",
         ],
+        activateCompanionChecks:
+          scenario.id === "self-no-lawyer-on-detention" ||
+          scenario.id === "alt-attorney-admit-defender-on-detention"
+            ? true
+            : undefined,
         requiredCompanionRelations: ["procedure_companion"],
+        forbiddenCompanionAsPrimary:
+          scenario.id === "self-no-lawyer-on-detention" ||
+          scenario.id === "alt-attorney-admit-defender-on-detention"
+            ? ["procedure_companion"]
+            : undefined,
       };
     case "attorney_request":
       return {
