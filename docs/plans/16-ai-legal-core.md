@@ -1099,6 +1099,45 @@ node --env-file=/srv/newlaw/app/shared/.env.production ...
 - exact cited norm не симулируется
 - applied conclusion не выдается как подтверждённый
 
+## Финальный checkpoint по текущему этапу шага 16
+
+На текущем post-MVP этапе шаг `16` следует считать закрытым как runtime legal grounding foundation.
+
+Что уже входит в завершённый scope этого этапа:
+
+- `16.3 NormBundle / Companion Context` закрыт как `stabilised / partial-complete`
+- runtime часть `16.3` доведена до usable production contour через `5c.1`
+- acceptance/evaluator expansion `5d`-`5d.3` закрыл безопасный companion-aware coverage для:
+  - `attorney_request`
+  - `attorney_rights`
+  - `bodycam_and_recording` access scenarios
+  - `multi_server_variance`
+- implemented `citation behavior contract v1` добавил отдельный runtime behavior-layer для explicit citation questions
+- production deploy `af7f4f6` прошёл успешно
+- targeted citation smoke прошёл по `5` ключевым кейсам
+
+Практический итог по `Step 16`:
+
+- legal grounding foundation уже существует как production runtime, а не только как repo-state
+- explicit citation questions проходят через отдельный behavior contract
+- explanation-only вопросы не превращаются автоматически в applied conclusion
+- thin application questions требуют facts и дают conditional answer
+- unresolved citation не создаёт fake primary
+- `direct_basis_present` не равен automatic categorical applied conclusion
+
+Что intentionally остаётся future вне этого checkpoint:
+
+- broader citation behavior scenario suite beyond текущие targeted cases
+- broad answer quality rewrite
+- anti-hallucination / guard-discipline line
+- дальнейшее companion expansion без отдельного нового analysis-first шага
+- любые крупные runtime expansions вне уже зафиксированного behavior contract v1
+
+Практическое правило:
+
+- следующий крупный AI Legal Core этап нужно выбирать отдельно
+- шаг `16` не должен расширяться дальше автоматически “по инерции”
+
 ## Как использовать test runner
 
 Базовый порядок ручного прогона:

@@ -694,6 +694,42 @@ Gate readiness применяется только если:
 - `law_basis_gate_status_summary` не переопределяет suite result
 - broader gate по `missing_primary_basis_norm` и `law_family_mismatch` остаётся future
 
+## Финальный checkpoint по текущему этапу шага 17
+
+На текущем post-MVP этапе шаг `17` следует считать закрытым как internal deterministic quality review / gate-readiness contour.
+
+Что уже входит в завершённый scope этого этапа:
+
+- `17.1a` implemented deterministic `law_basis_review` kernel
+- `17.1b` internal runner / reporting integration
+- `17.1c` calibration baseline policy
+- `17.1d` non-blocking gate simulation
+- `17.1e` dry-run calibration report
+- `17.2` narrow internal-only opt-in gate readiness
+- `17.2a` usage validation / runbook
+
+Практический итог по `Step 17`:
+
+- internal review contour уже существует и опирается на deterministic flags, а не на speculative AI reviewer
+- `law_basis_review` и `law_basis_gate_simulation` дают visibility и calibration без automatic suite blocking
+- narrow gate readiness существует только как internal-only, opt-in и allowlist-scoped слой
+- public assistant behavior и runtime `Step 16` не меняются самим шагом `17`
+
+Что intentionally остаётся future:
+
+- broader regression gate
+- expanded blocking flags beyond `sanction_or_exception_used_as_primary`
+- review UI
+- Prisma/schema для review history
+- AI reviewer
+- cross-run analytics / trends
+- broader workflow/policy layer поверх current internal contour
+
+Практическое правило:
+
+- следующий крупный AI Legal Core этап нужно выбирать отдельно
+- шаг `17` не должен автоматически расширяться в global gate, UI или full review platform без нового отдельного решения
+
 ## `law_basis_issue`
 
 В шаге `17` должен быть отдельный класс проблем `law_basis_issue`.

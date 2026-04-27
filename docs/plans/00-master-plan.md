@@ -285,6 +285,9 @@
 - зафиксировать `17.1e` как dry-run calibration report для `law_basis_gate_simulation` без blocking policy и без изменения runtime/public behavior
 - зафиксировать `17.2` как narrow internal-only opt-in gate readiness только для `sanction_or_exception_used_as_primary`, без изменения suite result и без изменения runtime/public behavior
 - зафиксировать `17.2a` как usage validation и runbook для internal-only opt-in law basis gate без расширения blocking scope
+- зафиксировать, что текущий этап `16` закрыт как runtime legal grounding foundation, а текущий этап `17` закрыт как internal deterministic quality review / gate-readiness contour
+- зафиксировать, что broader regression gate, expanded blocking flags, review UI, Prisma/schema для review history, AI reviewer, cross-run analytics/trends, broad answer quality rewrite, anti-hallucination line и broader citation behavior suite остаются отдельными future линиями
+- зафиксировать, что следующий крупный AI Legal Core этап должен выбираться отдельно, а не через автоматическое расширение `16/17`
 
 Границы:
 
