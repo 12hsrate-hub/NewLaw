@@ -99,6 +99,19 @@ vi.mock("@/server/document-ai/complaint-narrative-improvement", () => ({
       this.name = "ComplaintNarrativeImprovementInvalidOutputError";
     }
   },
+  ComplaintNarrativeImprovementUnsupportedDocumentTypeError:
+    class ComplaintNarrativeImprovementUnsupportedDocumentTypeError extends Error {
+      constructor(message: string) {
+        super(message);
+        this.name = "ComplaintNarrativeImprovementUnsupportedDocumentTypeError";
+      }
+    },
+  ComplaintNarrativeImprovementInvalidDraftError: class ComplaintNarrativeImprovementInvalidDraftError extends Error {
+    constructor(message: string) {
+      super(message);
+      this.name = "ComplaintNarrativeImprovementInvalidDraftError";
+    }
+  },
   mapComplaintNarrativeImprovementBlockingReasonsToMessages: vi.fn((reasons: string[]) =>
     reasons.map((reason) =>
       reason === "missing_trustor_name"
@@ -117,7 +130,9 @@ import {
 } from "@/server/actions/documents";
 import {
   ComplaintNarrativeImprovementBlockedError,
+  ComplaintNarrativeImprovementInvalidDraftError,
   ComplaintNarrativeImprovementInvalidOutputError,
+  ComplaintNarrativeImprovementUnsupportedDocumentTypeError,
   ComplaintNarrativeImprovementUnavailableError,
   improveOwnedComplaintNarrative,
 } from "@/server/document-ai/complaint-narrative-improvement";
@@ -490,6 +505,44 @@ describe("document rewrite action", () => {
       ok: false,
       error: "invalid-output",
       message: "AI вернул невалидный structured output. Попробуйте ещё раз позже.",
+    });
+  });
+
+  it("возвращает unsupported-document-type branch для complaint narrative improvement", async () => {
+    vi.mocked(improveOwnedComplaintNarrative).mockRejectedValue(
+      new ComplaintNarrativeImprovementUnsupportedDocumentTypeError(
+        "Complaint narrative improvement поддерживается только для OGP complaint drafts.",
+      ),
+    );
+
+    const result = await improveComplaintNarrativeAction({
+      documentId: "document-1",
+      lengthMode: "normal",
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      error: "unsupported-document-type",
+      message: "Complaint narrative improvement поддерживается только для OGP complaint drafts.",
+    });
+  });
+
+  it("возвращает invalid-draft branch для complaint narrative improvement", async () => {
+    vi.mocked(improveOwnedComplaintNarrative).mockRejectedValue(
+      new ComplaintNarrativeImprovementInvalidDraftError(
+        "Draft complaint содержит невалидные данные для narrative improvement.",
+      ),
+    );
+
+    const result = await improveComplaintNarrativeAction({
+      documentId: "document-1",
+      lengthMode: "normal",
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      error: "invalid-draft",
+      message: "Draft complaint содержит невалидные данные для narrative improvement.",
     });
   });
 });

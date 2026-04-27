@@ -319,6 +319,7 @@
 - готовить future backend integration в complaint wizard без UI redesign на первом implementation slice
 - зафиксировать `18.1` как backend-only contract slice без UI integration
 - зафиксировать `18.2` как owner-only backend action + AI invocation slice без UI, BBCode и Prisma/schema changes
+- зафиксировать `18.3` как draft adapter slice для реального `ogp_complaint` backend context без UI wiring и без apply-in-draft
 
 Границы:
 

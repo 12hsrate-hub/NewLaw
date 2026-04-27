@@ -9,6 +9,7 @@ import {
   type ComplaintNarrativeImprovementUsageMeta,
 } from "@/schemas/document-ai";
 import type { DocumentAuthorSnapshot } from "@/schemas/document";
+import { ZodError } from "zod";
 import { createAIRequest } from "@/db/repositories/ai-request.repository";
 import { getDocumentByIdForAccount } from "@/db/repositories/document.repository";
 import { requestAssistantProxyCompletion } from "@/server/legal-assistant/ai-proxy";
@@ -79,6 +80,20 @@ export class ComplaintNarrativeImprovementInvalidOutputError extends Error {
   constructor(message: string) {
     super(message);
     this.name = "ComplaintNarrativeImprovementInvalidOutputError";
+  }
+}
+
+export class ComplaintNarrativeImprovementUnsupportedDocumentTypeError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ComplaintNarrativeImprovementUnsupportedDocumentTypeError";
+  }
+}
+
+export class ComplaintNarrativeImprovementInvalidDraftError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ComplaintNarrativeImprovementInvalidDraftError";
   }
 }
 
@@ -162,9 +177,9 @@ function formatLegalContext(input: {
   };
 }
 
-export function buildComplaintNarrativeImprovementRuntimeInput(input: {
+export function buildComplaintNarrativeImprovementInputFromDraft(input: {
   document: {
-    documentType: "ogp_complaint";
+    documentType: string;
     serverId: string;
     authorSnapshotJson: unknown;
     formPayloadJson: unknown;
@@ -188,6 +203,12 @@ export function buildComplaintNarrativeImprovementRuntimeInput(input: {
       }
     | null;
 }) {
+  if (input.document.documentType !== "ogp_complaint") {
+    throw new ComplaintNarrativeImprovementUnsupportedDocumentTypeError(
+      "Complaint narrative improvement поддерживается только для OGP complaint drafts.",
+    );
+  }
+
   const authorSnapshot = readDocumentAuthorSnapshot(input.document.authorSnapshotJson);
   const payload = readOgpComplaintDraftPayload(input.document.formPayloadJson);
   const trustorName = payload.trustorSnapshot?.fullName.trim() || null;
@@ -222,6 +243,35 @@ export function buildComplaintNarrativeImprovementRuntimeInput(input: {
     }),
     length_mode: input.lengthMode ?? "normal",
   });
+}
+
+export function buildComplaintNarrativeImprovementRuntimeInput(input: {
+  document: {
+    documentType: "ogp_complaint";
+    serverId: string;
+    authorSnapshotJson: unknown;
+    formPayloadJson: unknown;
+  };
+  lawVersion?: string | null;
+  lengthMode?: ComplaintNarrativeLengthMode;
+  attorneyRequestContext?: Record<string, unknown> | null;
+  arrestOrBodycamContext?: Record<string, unknown> | null;
+  selectedLegalContext?:
+    | {
+        laws?: Array<{
+          law_name: string;
+          article?: string;
+          part?: string;
+          excerpt?: string;
+        }>;
+        precedents?: Array<{
+          title: string;
+          reason: string;
+        }>;
+      }
+    | null;
+}) {
+  return buildComplaintNarrativeImprovementInputFromDraft(input);
 }
 
 export function validateComplaintNarrativeImprovementPreflight(
@@ -570,19 +620,35 @@ export async function improveOwnedComplaintNarrative(
     documentId: input.documentId,
   });
 
-  if (!document || document.documentType !== "ogp_complaint") {
+  if (!document) {
     throw new DocumentAccessDeniedError();
   }
 
-  const runtimeInput = buildComplaintNarrativeImprovementRuntimeInput({
-    document: {
-      documentType: "ogp_complaint",
-      serverId: document.serverId,
-      authorSnapshotJson: document.authorSnapshotJson,
-      formPayloadJson: document.formPayloadJson,
-    },
-    lengthMode: input.lengthMode,
-  });
+  let runtimeInput: ComplaintNarrativeImprovementRuntimeInput;
+
+  try {
+    runtimeInput = buildComplaintNarrativeImprovementInputFromDraft({
+      document: {
+        documentType: document.documentType,
+        serverId: document.serverId,
+        authorSnapshotJson: document.authorSnapshotJson,
+        formPayloadJson: document.formPayloadJson,
+      },
+      lengthMode: input.lengthMode,
+    });
+  } catch (error) {
+    if (error instanceof ComplaintNarrativeImprovementUnsupportedDocumentTypeError) {
+      throw error;
+    }
+
+    if (error instanceof ZodError) {
+      throw new ComplaintNarrativeImprovementInvalidDraftError(
+        "Draft complaint содержит невалидные данные для narrative improvement.",
+      );
+    }
+
+    throw error;
+  }
 
   assertComplaintNarrativeImprovementPreflight(runtimeInput);
 
@@ -773,6 +839,7 @@ export const __complaintNarrativeImprovementInternals = {
   AMBIGUOUS_DATE_TIME_REVIEW_NOTE,
   MISSING_EVIDENCE_REVIEW_NOTE,
   deriveApplicantRole,
+  buildComplaintNarrativeImprovementInputFromDraft,
   buildComplaintNarrativeImprovementRuntimeInput,
   validateComplaintNarrativeImprovementPreflight,
   buildComplaintNarrativeImprovementSystemPrompt,

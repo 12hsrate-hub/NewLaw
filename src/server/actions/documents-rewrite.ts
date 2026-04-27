@@ -13,8 +13,10 @@ import {
 } from "@/server/document-ai/grounded-rewrite";
 import {
   ComplaintNarrativeImprovementBlockedError,
+  ComplaintNarrativeImprovementInvalidDraftError,
   ComplaintNarrativeImprovementInvalidOutputError,
   ComplaintNarrativeImprovementUnavailableError,
+  ComplaintNarrativeImprovementUnsupportedDocumentTypeError,
   improveOwnedComplaintNarrative,
   mapComplaintNarrativeImprovementBlockingReasonsToMessages,
 } from "@/server/document-ai/complaint-narrative-improvement";
@@ -198,6 +200,22 @@ export async function improveComplaintNarrativeActionImpl(input: {
         ok: false as const,
         error: "rewrite-blocked" as const,
         reasons: mapComplaintNarrativeImprovementBlockingReasonsToMessages(error.reasons),
+      };
+    }
+
+    if (error instanceof ComplaintNarrativeImprovementUnsupportedDocumentTypeError) {
+      return {
+        ok: false as const,
+        error: "unsupported-document-type" as const,
+        message: error.message,
+      };
+    }
+
+    if (error instanceof ComplaintNarrativeImprovementInvalidDraftError) {
+      return {
+        ok: false as const,
+        error: "invalid-draft" as const,
+        message: error.message,
       };
     }
 

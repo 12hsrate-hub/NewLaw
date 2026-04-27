@@ -9,10 +9,13 @@ import {
 import {
   __complaintNarrativeImprovementInternals,
   ComplaintNarrativeImprovementBlockedError,
+  ComplaintNarrativeImprovementInvalidDraftError,
   ComplaintNarrativeImprovementInvalidOutputError,
+  ComplaintNarrativeImprovementUnsupportedDocumentTypeError,
   ComplaintNarrativeImprovementUnavailableError,
   ComplaintNarrativeImprovementValidationError,
   assertComplaintNarrativeImprovementPreflight,
+  buildComplaintNarrativeImprovementInputFromDraft,
   buildComplaintNarrativeImprovementRuntimeInput,
   buildComplaintNarrativeImprovementSystemPrompt,
   buildComplaintNarrativeImprovementUserPrompt,
@@ -128,6 +131,30 @@ describe("complaint narrative improvement contract", () => {
     });
     expect(runtimeInput.raw_situation_description).toContain("доверителю не предоставили видеозапись");
     expect(runtimeInput.raw_situation_description).not.toContain("Краткая формулировка");
+  });
+
+  it("draft adapter использует только нужные поля из реального OGP draft context", () => {
+    const runtimeInput = buildComplaintNarrativeImprovementInputFromDraft({
+      document: createBaseDocument({
+        payload: {
+          evidenceItems: [],
+          violationSummary: "Эта формулировка не должна становиться source text.",
+        },
+      }),
+      lengthMode: "short",
+    });
+
+    expect(runtimeInput.server_id).toBe("server-1");
+    expect(runtimeInput.active_character.full_name).toBe("Игорь Юристов");
+    expect(runtimeInput.applicant_role).toBe("representative_advocate");
+    expect(runtimeInput.organization).toBe("LSPD");
+    expect(runtimeInput.subject_name).toBe("Officer Smoke");
+    expect(runtimeInput.victim_or_trustor_mode).toBe("trustor");
+    expect(runtimeInput.victim_or_trustor_name).toBe("Пётр Доверитель");
+    expect(runtimeInput.date_time).toBe("2026-04-22T10:15");
+    expect(runtimeInput.raw_situation_description).not.toContain("Эта формулировка");
+    expect(runtimeInput.length_mode).toBe("short");
+    expect(runtimeInput.evidence_list).toEqual([]);
   });
 
   it("не блокирует preflight без evidence list и legal context", () => {
@@ -338,6 +365,20 @@ describe("complaint narrative improvement contract", () => {
     expect(parsed.should_send_to_review).toBe(true);
   });
 
+  it("adapter не интерпретирует date_time как тип события и передаёт его нейтрально", () => {
+    const runtimeInput = buildComplaintNarrativeImprovementInputFromDraft({
+      document: createBaseDocument({
+        payload: {
+          incidentAt: "2026-04-22T10:15",
+          situationDescription: "Имел место конфликт, после которого запись не была предоставлена.",
+        },
+      }),
+    });
+
+    expect(runtimeInput.date_time).toBe("2026-04-22T10:15");
+    expect(runtimeInput.raw_situation_description).toContain("запись не была предоставлена");
+  });
+
   it("запускает owner-only improvement через mock AI provider и пишет safe ai log", async () => {
     const requestProxyCompletion = vi.fn().mockResolvedValue({
       status: "success",
@@ -473,6 +514,44 @@ describe("complaint narrative improvement contract", () => {
     );
   });
 
+  it("не вызывает provider при blocked preflight и возвращает missing required context", async () => {
+    const requestProxyCompletion = vi.fn();
+    const createAIRequest = vi.fn();
+
+    await expect(
+      improveOwnedComplaintNarrative(
+        {
+          accountId: "account-1",
+          documentId: "document-1",
+        },
+        {
+          getDocumentByIdForAccount: vi.fn().mockResolvedValue(
+            createBaseDocument({
+              payload: {
+                trustorSnapshot: {
+                  sourceType: "inline_manual",
+                  fullName: "",
+                  passportNumber: "TR-001",
+                  address: "",
+                  phone: "",
+                  icEmail: "",
+                  passportImageUrl: "",
+                  note: "Действую по доверенности",
+                },
+              },
+            }),
+          ),
+          requestProxyCompletion,
+          createAIRequest,
+          now: () => new Date("2026-04-27T10:15:00.000Z"),
+        },
+      ),
+    ).rejects.toThrow(ComplaintNarrativeImprovementBlockedError);
+
+    expect(requestProxyCompletion).not.toHaveBeenCalled();
+    expect(createAIRequest).not.toHaveBeenCalled();
+  });
+
   it("безопасно помечает invalid structured output", async () => {
     const createAIRequest = vi.fn().mockResolvedValue({ id: "ai-request-3" });
 
@@ -540,5 +619,65 @@ describe("complaint narrative improvement contract", () => {
         },
       ),
     ).rejects.toBeInstanceOf(DocumentAccessDeniedError);
+  });
+
+  it("не вызывает provider для unsupported document type", async () => {
+    const requestProxyCompletion = vi.fn();
+    const createAIRequest = vi.fn();
+
+    await expect(
+      improveOwnedComplaintNarrative(
+        {
+          accountId: "account-1",
+          documentId: "document-claims-1",
+        },
+        {
+          getDocumentByIdForAccount: vi.fn().mockResolvedValue({
+            ...createBaseDocument(),
+            documentType: "lawsuit",
+          }),
+          requestProxyCompletion,
+          createAIRequest,
+          now: () => new Date("2026-04-27T10:15:00.000Z"),
+        },
+      ),
+    ).rejects.toBeInstanceOf(ComplaintNarrativeImprovementUnsupportedDocumentTypeError);
+
+    expect(requestProxyCompletion).not.toHaveBeenCalled();
+    expect(createAIRequest).not.toHaveBeenCalled();
+  });
+
+  it("не вызывает provider при invalid draft shape", async () => {
+    const requestProxyCompletion = vi.fn();
+    const createAIRequest = vi.fn();
+
+    await expect(
+      improveOwnedComplaintNarrative(
+        {
+          accountId: "account-1",
+          documentId: "document-1",
+        },
+        {
+          getDocumentByIdForAccount: vi.fn().mockResolvedValue({
+            ...createBaseDocument(),
+            formPayloadJson: {
+              filingMode: "representative",
+              objectOrganization: "LSPD",
+              objectFullName: "Officer Smoke",
+              incidentAt: 12345,
+              situationDescription: "Описание",
+              violationSummary: "Не использовать",
+              evidenceItems: [],
+            },
+          }),
+          requestProxyCompletion,
+          createAIRequest,
+          now: () => new Date("2026-04-27T10:15:00.000Z"),
+        },
+      ),
+    ).rejects.toBeInstanceOf(ComplaintNarrativeImprovementInvalidDraftError);
+
+    expect(requestProxyCompletion).not.toHaveBeenCalled();
+    expect(createAIRequest).not.toHaveBeenCalled();
   });
 });

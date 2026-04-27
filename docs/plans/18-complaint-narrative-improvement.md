@@ -47,6 +47,31 @@
 - Prisma/schema changes
 - deploy/runtime rollout
 
+## Текущий implemented checkpoint по `18.3`
+
+`18.3` реализован как draft adapter slice без UI integration.
+
+Что уже входит:
+
+- отдельный helper для сборки `ComplaintNarrativeImprovementRuntimeInput` из реального `ogp_complaint` draft/document context
+- owner-only invocation по `documentId` с явным draft-based adapter path
+- safe branches для:
+  - `document-access-denied`
+  - `unsupported-document-type`
+  - `invalid-draft`
+  - `rewrite-blocked`
+  - `rewrite-unavailable`
+  - `invalid-output`
+- deterministic tests без real AI calls, включая проверки, что provider не вызывается при blocked / unsupported / invalid draft
+
+Что intentionally ещё не входит:
+
+- wiring в complaint wizard UI
+- automatic apply improved text into draft
+- сохранение результата improvement в editor state
+- BBCode integration
+- Prisma/schema changes
+
 ## Назначение линии
 
 `Complaint Narrative Improvement v1` — это отдельный AI-flow для `ogp_complaint`, который улучшает только поле `Подробное описание ситуации`.
@@ -525,9 +550,10 @@ Implementation должен покрыть:
 
 Статус:
 
-- partially implemented в `18.2`
+- partially implemented в `18.2` + `18.3`
 - owner-only action + AI invocation уже есть
-- wiring в complaint wizard backend без UI остаётся следующим безопасным slice
+- draft adapter для реального `ogp_complaint` backend context уже есть
+- wiring в complaint wizard backend без UI и без apply-in-editor остаётся следующим безопасным slice
 
 ### Slice E — future UI
 
