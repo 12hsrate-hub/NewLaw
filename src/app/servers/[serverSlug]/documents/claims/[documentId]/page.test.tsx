@@ -84,8 +84,15 @@ describe("/servers/[serverSlug]/documents/claims/[documentId] page", () => {
       documentId: "claim-123",
       nextPath: "/servers/blackberry/documents/claims/claim-123",
     });
+    expect(html).toContain('data-editor-workspace-layout="true"');
+    expect(html).toContain('data-editor-main-column="true"');
+    expect(html).toContain('data-editor-context-aside="true"');
     expect(html).toContain("Редактор документа");
     expect(html).toContain("Вид документа: Реабилитация");
+    expect(html).toContain("О документе");
+    expect(html).toContain("Готовность");
+    expect(html).toContain("Следующие действия");
+    expect(html).toContain("Группы доказательств");
     expect(html).toContain("Рабочие заметки");
     expect(html).toContain("Сведения о сборке");
     expect(html).not.toContain("claim-123");

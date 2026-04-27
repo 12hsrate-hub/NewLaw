@@ -3,6 +3,20 @@ import {
   AttorneyRequestEditorClient,
 } from "@/components/product/document-area/document-attorney-request-editor-client";
 import {
+  EditorActionSummary,
+} from "@/components/product/document-area/editor-layout/editor-action-summary";
+import {
+  EditorDocumentMeta,
+} from "@/components/product/document-area/editor-layout/editor-document-meta";
+import {
+  EditorProgressSummary,
+} from "@/components/product/document-area/editor-layout/editor-progress-summary";
+import {
+  EditorContextAside,
+  EditorMainColumn,
+  EditorWorkspaceLayout,
+} from "@/components/product/document-area/editor-layout/editor-workspace-layout";
+import {
   ClaimsDraftCreateClient,
   ClaimsDraftEditorClient,
 } from "@/components/product/document-area/document-claims-editor-client";
@@ -558,79 +572,159 @@ export function ClaimsPersistedEditor(props: {
   };
   status?: string;
 }) {
+  const lastGeneratedLabel = props.document.generatedAt
+    ? new Date(props.document.generatedAt).toLocaleString("ru-RU")
+    : "ещё не выполнялась";
+
+  const generatedOutputLabel = props.document.generatedOutputFormat
+    ? props.document.generatedOutputFormat.toUpperCase()
+    : "ещё не подготовлен";
+
+  const evidenceGroupCount = props.document.payload.evidenceGroups.length;
+  const trustorLabel =
+    props.document.payload.filingMode === "representative"
+      ? props.document.payload.trustorSnapshot?.fullName ?? "пока не выбран"
+      : "не используется";
+
+  const publicationLabel = props.document.status === "published" ? "Зафиксирован" : "Не используется";
+
   return (
-    <div className="space-y-6">
-      <Card className="space-y-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">
-            Редактор документа
-          </p>
-          <Badge>{formatDocumentStatus(props.document.status)}</Badge>
-          <Badge>Вид документа: {formatClaimSubtype(props.document.documentType)}</Badge>
-        </div>
-        <h1 className="text-3xl font-semibold">{props.document.title}</h1>
-        <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
-          Здесь можно сохранить черновик, собрать текст для просмотра и зафиксировать итоговую
-          версию документа. Публикация на форуме для этого раздела не используется.
-        </p>
-        <div className="flex flex-wrap items-center gap-2 text-sm leading-6 text-[var(--muted)]">
-          <Badge>Сервер: {props.document.server.name}</Badge>
-          <Badge>Персонаж: {props.document.authorSnapshot.fullName}</Badge>
-          <span>Паспорт: {props.document.authorSnapshot.passportNumber}</span>
-        </div>
-      </Card>
+    <EditorWorkspaceLayout
+      aside={
+        <EditorContextAside>
+          <EditorDocumentMeta
+            badges={[
+              { label: formatDocumentStatus(props.document.status) },
+              { label: formatClaimSubtype(props.document.documentType), tone: "info" },
+              {
+                label:
+                  props.document.payload.filingMode === "representative"
+                    ? "Через представителя"
+                    : "От своего имени",
+              },
+            ]}
+            description="Ключевые сведения о документе собраны рядом, чтобы не терять контекст во время редактирования."
+            items={[
+              { label: "Сервер", value: props.document.server.name },
+              { label: "Персонаж", value: props.document.authorSnapshot.fullName },
+              { label: "Паспорт", value: props.document.authorSnapshot.passportNumber },
+              { label: "Создано", value: new Date(props.document.createdAt).toLocaleString("ru-RU") },
+              { label: "Обновлено", value: new Date(props.document.updatedAt).toLocaleString("ru-RU") },
+              {
+                label: "Данные автора зафиксированы",
+                value: new Date(props.document.snapshotCapturedAt).toLocaleString("ru-RU"),
+              },
+            ]}
+            title="О документе"
+          />
 
-      <Card className="space-y-4">
-        <h2 className="text-2xl font-semibold">О документе</h2>
-        <ul className="space-y-2 text-sm leading-6 text-[var(--muted)]">
-          <li>Вид документа: {formatClaimSubtype(props.document.documentType)}</li>
-          <li>Создано: {new Date(props.document.createdAt).toLocaleString("ru-RU")}</li>
-          <li>Обновлено: {new Date(props.document.updatedAt).toLocaleString("ru-RU")}</li>
-          <li>
-            Данные автора зафиксированы: {new Date(props.document.snapshotCapturedAt).toLocaleString("ru-RU")}
-          </li>
-          <li>
-            Последняя сборка:{" "}
-            {props.document.generatedAt
-              ? new Date(props.document.generatedAt).toLocaleString("ru-RU")
-              : "ещё не выполнялась"}
-          </li>
-          <li>
-            {props.document.isModifiedAfterGeneration
-              ? "После последней сборки в документе есть изменения. Перед использованием лучше собрать текст заново."
-              : "После последней сборки документ не менялся."}
-          </li>
-          <li>Сервер, персонаж и вид документа после первого сохранения не меняются.</li>
-          <li>Для этого раздела не используется публикация на форуме.</li>
-        </ul>
-      </Card>
+          <EditorProgressSummary
+            description="Этот блок помогает быстро понять, что уже готово, а что стоит проверить перед следующей сборкой."
+            helperText="Сервер, персонаж и вид документа после первого сохранения не меняются."
+            items={[
+              {
+                label: "Последняя сборка",
+                value: lastGeneratedLabel,
+                tone: props.document.generatedAt ? "success" : "warning",
+              },
+              {
+                label: "Результат сборки",
+                value: generatedOutputLabel,
+                tone: props.document.generatedOutputFormat ? "success" : "neutral",
+              },
+              {
+                label: "Изменения после сборки",
+                value: props.document.isModifiedAfterGeneration ? "Есть изменения" : "Не обнаружены",
+                tone: props.document.isModifiedAfterGeneration ? "warning" : "success",
+              },
+              {
+                label: "Публикация",
+                value: publicationLabel,
+                tone: "info",
+              },
+            ]}
+            title="Готовность"
+          />
 
-      <Card className="space-y-4">
-        <h2 className="text-2xl font-semibold">Редактор документа</h2>
-        <ClaimsDraftEditorClient
-          authorSnapshot={{
-            canUseRepresentative: props.document.authorSnapshot.accessFlags.includes("advocate"),
-            fullName: props.document.authorSnapshot.fullName,
-            isProfileComplete: props.document.authorSnapshot.isProfileComplete,
-            passportNumber: props.document.authorSnapshot.passportNumber,
-          }}
-          documentId={props.document.id}
-          documentType={props.document.documentType}
-          generatedArtifact={props.document.generatedArtifact}
-          generatedAt={props.document.generatedAt}
-          generatedFormSchemaVersion={props.document.generatedFormSchemaVersion}
-          generatedOutputFormat={props.document.generatedOutputFormat}
-          generatedRendererVersion={props.document.generatedRendererVersion}
-          initialPayload={props.document.payload}
-          isModifiedAfterGeneration={props.document.isModifiedAfterGeneration}
-          initialTitle={props.document.title}
-          server={props.document.server}
-          status={props.document.status}
-          trustorRegistry={props.document.trustorRegistry}
-          updatedAt={props.document.updatedAt}
-        />
-      </Card>
-    </div>
+          <EditorActionSummary
+            description="Здесь собраны только подсказки по текущему состоянию. Все действия по-прежнему выполняются в основной колонке."
+            helperText={
+              props.document.isModifiedAfterGeneration
+                ? "После последней сборки в документе есть изменения. Перед использованием лучше собрать текст заново."
+                : "После последней сборки документ не менялся."
+            }
+            items={[
+              { label: "Черновик", value: "Доступен" },
+              {
+                label: "Доверитель",
+                value: trustorLabel,
+                tone: props.document.payload.filingMode === "representative" ? "info" : "neutral",
+              },
+              {
+                label: "Группы доказательств",
+                value: evidenceGroupCount > 0 ? `${evidenceGroupCount}` : "Пока нет",
+                tone: evidenceGroupCount > 0 ? "success" : "neutral",
+              },
+              {
+                label: "Следующий шаг",
+                value: props.document.generatedAt ? "Проверить результат" : "Собрать первый результат",
+                tone: props.document.generatedAt ? "neutral" : "warning",
+              },
+            ]}
+            title="Следующие действия"
+          />
+        </EditorContextAside>
+      }
+      main={
+        <EditorMainColumn>
+          <Card className="space-y-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">
+                Редактор документа
+              </p>
+              <Badge>{formatDocumentStatus(props.document.status)}</Badge>
+              <Badge>Вид документа: {formatClaimSubtype(props.document.documentType)}</Badge>
+            </div>
+            <h1 className="text-3xl font-semibold">{props.document.title}</h1>
+            <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
+              Здесь можно сохранить черновик, собрать текст для просмотра и зафиксировать итоговую
+              версию документа. Публикация на форуме для этого раздела не используется.
+            </p>
+            <div className="flex flex-wrap items-center gap-2 text-sm leading-6 text-[var(--muted)]">
+              <Badge>Сервер: {props.document.server.name}</Badge>
+              <Badge>Персонаж: {props.document.authorSnapshot.fullName}</Badge>
+              <span>Паспорт: {props.document.authorSnapshot.passportNumber}</span>
+            </div>
+          </Card>
+
+          <Card className="space-y-4">
+            <h2 className="text-2xl font-semibold">Редактор документа</h2>
+            <ClaimsDraftEditorClient
+              authorSnapshot={{
+                canUseRepresentative: props.document.authorSnapshot.accessFlags.includes("advocate"),
+                fullName: props.document.authorSnapshot.fullName,
+                isProfileComplete: props.document.authorSnapshot.isProfileComplete,
+                passportNumber: props.document.authorSnapshot.passportNumber,
+              }}
+              documentId={props.document.id}
+              documentType={props.document.documentType}
+              generatedArtifact={props.document.generatedArtifact}
+              generatedAt={props.document.generatedAt}
+              generatedFormSchemaVersion={props.document.generatedFormSchemaVersion}
+              generatedOutputFormat={props.document.generatedOutputFormat}
+              generatedRendererVersion={props.document.generatedRendererVersion}
+              initialPayload={props.document.payload}
+              isModifiedAfterGeneration={props.document.isModifiedAfterGeneration}
+              initialTitle={props.document.title}
+              server={props.document.server}
+              status={props.document.status}
+              trustorRegistry={props.document.trustorRegistry}
+              updatedAt={props.document.updatedAt}
+            />
+          </Card>
+        </EditorMainColumn>
+      }
+    />
   );
 }
 
