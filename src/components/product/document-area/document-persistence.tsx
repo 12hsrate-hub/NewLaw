@@ -41,6 +41,9 @@ import type {
   AttorneyRequestDraftPayload,
   AttorneyRequestRenderedArtifact,
 } from "@/features/documents/attorney-request/schemas";
+import {
+  attorneyRequestAddresseePresets,
+} from "@/features/documents/attorney-request/presets";
 import type {
   LegalServicesAgreementDraftPayload,
   LegalServicesAgreementRenderedArtifact,
@@ -773,84 +776,175 @@ export function AttorneyRequestPersistedEditor(props: {
   };
   status?: string;
 }) {
+  const lastGeneratedLabel = props.document.generatedAt
+    ? new Date(props.document.generatedAt).toLocaleString("ru-RU")
+    : "ещё не выполнялась";
+
+  const addresseeLabel = props.document.payload.targetOfficerInput.trim().length
+    ? props.document.payload.targetOfficerInput
+    : props.document.payload.addresseePreset
+      ? attorneyRequestAddresseePresets[props.document.payload.addresseePreset]?.label ??
+        props.document.payload.addresseePreset
+      : "не указан";
+
+  const signatureLabel = props.document.signatureSnapshot
+    ? "Снимок подписи сохранён"
+    : props.document.hasActiveCharacterSignature
+      ? "Будет зафиксирована при сборке"
+      : "Подпись не загружена";
+
+  const generatedFilesLabel = props.document.generatedArtifact
+    ? "PDF, PNG и JPG готовы"
+    : "Ещё не собраны";
+
   return (
-    <div className="space-y-6">
-      <Card className="space-y-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">
-            Редактор адвокатского запроса
-          </p>
-          <Badge>{formatDocumentStatus(props.document.status)}</Badge>
-          <Badge>только для владельца</Badge>
-        </div>
-        <h1 className="text-3xl font-semibold">{props.document.title}</h1>
-        <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
-          Здесь можно сохранить черновик, проверить данные и собрать предпросмотр документа с
-          файлами для скачивания. Документ привязан к доверителю и не зависит от дальнейших
-          изменений его карточки.
-        </p>
-        <div className="flex flex-wrap items-center gap-2 text-sm leading-6 text-[var(--muted)]">
-          <Badge>Сервер: {props.document.server.name}</Badge>
-          <Badge>Персонаж: {props.document.authorSnapshot.fullName}</Badge>
-          <Badge>Доверитель: {props.document.payload.trustorSnapshot.fullName}</Badge>
-          <span>Номер запроса: {props.document.payload.requestNumberNormalized || "не указан"}</span>
-        </div>
-      </Card>
+    <EditorWorkspaceLayout
+      aside={
+        <EditorContextAside>
+          <EditorDocumentMeta
+            badges={[
+              { label: formatDocumentStatus(props.document.status) },
+              { label: "Адвокатский запрос", tone: "info" },
+              {
+                label: props.document.signatureSnapshot ? "Подпись зафиксирована" : "Подпись проверяется",
+                tone: props.document.signatureSnapshot ? "success" : "warning",
+              },
+            ]}
+            description="Справа собраны ключевые сведения по запросу, чтобы их можно было быстро сверять во время редактирования."
+            items={[
+              { label: "Сервер", value: props.document.server.name },
+              { label: "Персонаж", value: props.document.authorSnapshot.fullName },
+              { label: "Паспорт", value: props.document.authorSnapshot.passportNumber },
+              { label: "Доверитель", value: props.document.payload.trustorSnapshot.fullName || "не указан" },
+              {
+                label: "Номер запроса",
+                value: props.document.payload.requestNumberNormalized || "не указан",
+              },
+              { label: "Номер договора", value: props.document.payload.contractNumber || "не указан" },
+              { label: "Адресат", value: addresseeLabel },
+              {
+                label: "Должность в документе",
+                value:
+                  props.document.payload.signerTitleSnapshot?.bodyRu ??
+                  props.document.authorSnapshot.position ??
+                  "не указана",
+              },
+              { label: "Создано", value: new Date(props.document.createdAt).toLocaleString("ru-RU") },
+              { label: "Обновлено", value: new Date(props.document.updatedAt).toLocaleString("ru-RU") },
+              {
+                label: "Снимок данных",
+                value: new Date(props.document.snapshotCapturedAt).toLocaleString("ru-RU"),
+              },
+            ]}
+            title="О запросе"
+          />
 
-      <Card className="space-y-4">
-        <h2 className="text-2xl font-semibold">О документе</h2>
-        <ul className="space-y-2 text-sm leading-6 text-[var(--muted)]">
-          <li>Создано: {new Date(props.document.createdAt).toLocaleString("ru-RU")}</li>
-          <li>Обновлено: {new Date(props.document.updatedAt).toLocaleString("ru-RU")}</li>
-          <li>
-            Данные автора и доверителя зафиксированы:{" "}
-            {new Date(props.document.snapshotCapturedAt).toLocaleString("ru-RU")}
-          </li>
-          <li>
-            Должность в документе:{" "}
-            {props.document.payload.signerTitleSnapshot?.bodyRu ?? props.document.authorSnapshot.position ?? "не указана"}
-          </li>
-          <li>
-            Подпись персонажа в документе:{" "}
-            {props.document.signatureSnapshot
-              ? "снимок подписи уже зафиксирован"
-              : props.document.hasActiveCharacterSignature
-                ? "текущая активная подпись будет зафиксирована при генерации"
-                : "активная подпись пока не загружена"}
-            .
-          </li>
-          <li>
-            {props.document.generatedAt
-              ? `Последняя сборка выполнена ${new Date(props.document.generatedAt).toLocaleString("ru-RU")}.`
-              : "Предпросмотр и файлы для скачивания ещё не собирались."}
-          </li>
-          <li>
-            {props.document.isModifiedAfterGeneration
-              ? "После последней сборки документ менялся. Перед использованием лучше собрать его заново."
-              : "После последней сборки документ не менялся."}
-          </li>
-        </ul>
-      </Card>
+          <EditorProgressSummary
+            description="Эти подсказки помогают понять, можно ли уже собирать итоговые файлы или сначала стоит обновить данные."
+            helperText="Доверитель и данные подписи фиксируются в документе и дальше не зависят от изменений в карточках аккаунта."
+            items={[
+              {
+                label: "Последняя сборка",
+                value: lastGeneratedLabel,
+                tone: props.document.generatedAt ? "success" : "warning",
+              },
+              {
+                label: "Файлы для скачивания",
+                value: generatedFilesLabel,
+                tone: props.document.generatedArtifact ? "success" : "neutral",
+              },
+              {
+                label: "Изменения после сборки",
+                value: props.document.isModifiedAfterGeneration ? "Есть изменения" : "Не обнаружены",
+                tone: props.document.isModifiedAfterGeneration ? "warning" : "success",
+              },
+              {
+                label: "Подпись",
+                value: signatureLabel,
+                tone: props.document.signatureSnapshot
+                  ? "success"
+                  : props.document.hasActiveCharacterSignature
+                    ? "info"
+                    : "warning",
+              },
+            ]}
+            title="Готовность"
+          />
 
-      <Card className="space-y-4">
-        <h2 className="text-2xl font-semibold">Редактор запроса</h2>
-        <AttorneyRequestEditorClient
-          documentId={props.document.id}
-          generatedArtifact={props.document.generatedArtifact}
-          generatedAt={props.document.generatedAt}
-          generatedOutputFormat={props.document.generatedOutputFormat}
-          generatedRendererVersion={props.document.generatedRendererVersion}
-          hasActiveCharacterSignature={props.document.hasActiveCharacterSignature}
-          hasSignatureSnapshot={props.document.signatureSnapshot !== null}
-          initialPayload={props.document.payload}
-          initialTitle={props.document.title}
-          isModifiedAfterGeneration={props.document.isModifiedAfterGeneration}
-          server={props.document.server}
-          status={props.document.status}
-          updatedAt={props.document.updatedAt}
-        />
-      </Card>
-    </div>
+          <EditorActionSummary
+            description="Здесь нет новых действий: блок только подсказывает, что удобнее сделать следующим шагом."
+            helperText={
+              props.document.isModifiedAfterGeneration
+                ? "После последней сборки документ менялся. Перед использованием лучше собрать его заново."
+                : "После последней сборки документ не менялся."
+            }
+            items={[
+              { label: "Черновик", value: "Доступен" },
+              {
+                label: "Снимок данных",
+                value: new Date(props.document.snapshotCapturedAt).toLocaleString("ru-RU"),
+                tone: "success",
+              },
+              {
+                label: "Следующий шаг",
+                value: props.document.generatedArtifact ? "Проверить и скачать файлы" : "Собрать первый результат",
+                tone: props.document.generatedArtifact ? "neutral" : "warning",
+              },
+              {
+                label: "Публикация",
+                value: "Не используется",
+                tone: "info",
+              },
+            ]}
+            title="Следующие действия"
+          />
+        </EditorContextAside>
+      }
+      main={
+        <EditorMainColumn>
+          <Card className="space-y-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">
+                Редактор адвокатского запроса
+              </p>
+              <Badge>{formatDocumentStatus(props.document.status)}</Badge>
+              <Badge>только для владельца</Badge>
+            </div>
+            <h1 className="text-3xl font-semibold">{props.document.title}</h1>
+            <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
+              Здесь можно сохранить черновик, проверить данные и собрать предпросмотр документа с
+              файлами для скачивания. Документ привязан к доверителю и не зависит от дальнейших
+              изменений его карточки.
+            </p>
+            <div className="flex flex-wrap items-center gap-2 text-sm leading-6 text-[var(--muted)]">
+              <Badge>Сервер: {props.document.server.name}</Badge>
+              <Badge>Персонаж: {props.document.authorSnapshot.fullName}</Badge>
+              <Badge>Доверитель: {props.document.payload.trustorSnapshot.fullName}</Badge>
+              <span>Номер запроса: {props.document.payload.requestNumberNormalized || "не указан"}</span>
+            </div>
+          </Card>
+
+          <Card className="space-y-4">
+            <h2 className="text-2xl font-semibold">Редактор запроса</h2>
+            <AttorneyRequestEditorClient
+              documentId={props.document.id}
+              generatedArtifact={props.document.generatedArtifact}
+              generatedAt={props.document.generatedAt}
+              generatedOutputFormat={props.document.generatedOutputFormat}
+              generatedRendererVersion={props.document.generatedRendererVersion}
+              hasActiveCharacterSignature={props.document.hasActiveCharacterSignature}
+              hasSignatureSnapshot={props.document.signatureSnapshot !== null}
+              initialPayload={props.document.payload}
+              initialTitle={props.document.title}
+              isModifiedAfterGeneration={props.document.isModifiedAfterGeneration}
+              server={props.document.server}
+              status={props.document.status}
+              updatedAt={props.document.updatedAt}
+            />
+          </Card>
+        </EditorMainColumn>
+      }
+    />
   );
 }
 
