@@ -240,7 +240,8 @@
 - зафиксировать multi-server grounding через `server_id + law_version`
 - зафиксировать scenario groups и expectation-based test suites как контур ручной проверки legal core
 - зафиксировать, что scenario suites будут уменьшаться и очищаться от дублей
-- зафиксировать future substep `16.3 AI Legal Core — NormBundle and Companion Context`
+- зафиксировать `16.3 AI Legal Core — NormBundle and Companion Context` как active partial line
+- зафиксировать, что slices `5a`-`5c.1` по `NormBundle` уже задеплоены на production
 
 Границы:
 

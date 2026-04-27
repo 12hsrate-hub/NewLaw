@@ -552,7 +552,7 @@ AI не должен показывать сомнения напрямую.
 
 ## 16.3 AI Legal Core — NormBundle and Companion Context
 
-Статус: `future substep`
+Статус: `post-MVP / active / partial / deployed`
 
 Цель:
 
@@ -566,6 +566,18 @@ AI не должен показывать сомнения напрямую.
 - базовое specificity / eligibility hardening
 
 `NormBundle` — это runtime-артефакт после `structured selection`.
+
+Текущий реализованный объём `16.3` после deploy `8b7333a`:
+
+- `5a` — `NormBundle diagnostics-only` после `structured selection` и до generation
+- `5b` — safe same-article part extraction для длинных article-like норм
+- `5b.1` — issue-aware narrowing для same-article segments без blind inclusion procedural-looking частей
+- `5c` — bundle projection в generation context без увеличения общего prompt budget
+- `5c.1` — marker-aware dedupe companions и приоритетное удержание `ч. 2` и `ч. 5` для `attorney_request / no-response-refusal`
+
+Текущий ещё не закрытый объём:
+
+- `5d` — scenario expectation update и постепенная активация companion-aware expectation checks
 
 `NormBundle` должен включать:
 
@@ -616,6 +628,58 @@ AI не должен показывать сомнения напрямую.
   - `companion_sources`
   - `missing_companion_warning`
   - `cross_reference_unresolved`
+
+## Текущий deployed checkpoint по `16.3`
+
+На production задеплоен commit `8b7333a`.
+
+Active release:
+
+- `8b7333a`
+
+Prod model:
+
+- `gpt-5.4-mini`
+
+Подтверждённый live smoke:
+
+- `attorney_request / deadline_question`
+  - ответ устойчиво даёт срок `1 календарный день`
+  - формулировка `3 рабочих дня` больше не появляется
+  - `primary basis` остаётся `Закон об адвокатуре`, `ст. 5`
+  - primary/companion excerpt опирается на смысл `ч. 2`
+- `attorney_request / no-response-refusal`
+  - `primary_excerpt` идёт по `ч. 4`
+  - в prompt остаются `ч. 2` как `procedure_companion` и `ч. 5` как `sanction_companion`
+  - duplicate companion по `ч. 4` исключается через diagnostics `duplicate_of_primary_excerpt`
+  - `ч. 3`, `ч. 6`, `ч. 8` не попадают в prompt без explicit context
+- explicit citations
+  - `22 ч.1 АК`, `23.1 ПК`, `5 ч.4 Закона об адвокатуре` корректно резолвятся
+  - `999 УК` остаётся `unresolved / no_article` и не создаёт fake primary
+
+Что именно зафиксировано в `5c.1`:
+
+- marker-aware dedupe companions в bundle projection
+- diagnostics `duplicate_of_primary_excerpt`
+- приоритет `ч. 2` и `ч. 5` для `attorney_request / no-response-refusal`
+- отсутствие увеличения общего generation budget
+- отсутствие изменений в:
+  - retrieval
+  - selection / `PrimaryBasisEligibility`
+  - `source-excerpt`
+  - generation prompt policy
+
+## VPS smoke policy
+
+Ручной smoke на production-like VPS должен запускаться только через:
+
+```bash
+node --env-file=/srv/newlaw/app/shared/.env.production ...
+```
+
+Обязательное правило:
+
+- не использовать `bash source .env.production`
 
 ## Как использовать test runner
 
