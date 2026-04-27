@@ -576,11 +576,12 @@ AI не должен показывать сомнения напрямую.
 - `5c.1` — marker-aware dedupe companions и приоритетное удержание `ч. 2` и `ч. 5` для `attorney_request / no-response-refusal`
 - `5d` — companion-aware expectation layer для scenario suites и internal evaluator без изменения runtime AI Legal Core
 - `5d.1` — расширение companion-aware expectations на `attorney_rights` на relation-level без точных article/part targets
+- `5d.2` — минимальное расширение companion-aware expectations на `bodycam_and_recording` только для access-сценариев
 
 Текущий ещё не закрытый объём:
 
-- постепенное расширение companion-aware expectation checks за пределы `attorney_request` и `attorney_rights`
-- отдельный companion-aware slice для `bodycam_and_recording` с более осторожной настройкой из-за higher false-positive risk
+- постепенное расширение companion-aware expectation checks за пределы `attorney_request`, `attorney_rights` и bodycam access-сценариев
+- отдельные более строгие slices для general bodycam / missing recording scenarios, где false-positive risk остаётся выше
 
 `NormBundle` должен включать:
 
@@ -773,6 +774,61 @@ Prod model:
 - `bodycam_and_recording`
 
 Но его лучше делать отдельным slice, потому что там выше риск false positives и weaker direct-basis signal, чем в `attorney_request` и `attorney_rights`.
+
+## Текущий implemented checkpoint по `5d.2`
+
+`5d.2` зафиксирован коммитом `ecd6e3f`.
+
+Это acceptance / evaluator-only расширение после `5d.1`, а не новый runtime layer.
+
+`5d.2` расширил companion-aware checks на `bodycam_and_recording` только для двух access-сценариев:
+
+- `attorney-requested-detention-record`
+- `citizen-requested-detention-record`
+
+Для этих сценариев включены:
+
+- `activateCompanionChecks`
+- `requiredCompanionRelations: ["procedure_companion"]`
+
+Что именно важно в `5d.2`:
+
+- `bodycam_and_recording` пока покрыт только минимально и только по access-сценариям
+- `requiredCompanionTargets` не добавлялись
+- exact `article / part / marker` targets не добавлялись
+- `evidence_companion` не делался обязательным relation
+- это сделано намеренно, потому что bodycam-линия пока остаётся более чувствительной к false positives
+
+Какие сценарии намеренно остались без companion activation:
+
+- `general-no-bodycam`
+- `alt-bodycam-recording-duty`
+- `self-no-detention-recording`
+- `trustor-no-bodycam-record`
+
+Причина:
+
+- для general bodycam / missing recording линии direct-basis signal слабее и чаще остаётся в зоне `partial_basis_only`
+- слишком ранняя жёсткая companion activation там повышает риск ложных падений evaluator-а
+
+Источник данных для evaluator не менялся:
+
+- `selected_norm_roles`
+- `primary_basis_eligibility`
+- `direct_basis_status`
+- `NormBundle / projection diagnostics`
+
+Важно:
+
+- `test-expectation-evaluator.ts` в `5d.2` не менялся
+- `internal-ai-legal-core.ts` в `5d.2` не менялся
+- `5d.2` не меняет retrieval
+- `5d.2` не меняет selection / `PrimaryBasisEligibility`
+- `5d.2` не меняет `source-excerpt`
+- `5d.2` не меняет generation context projection
+- `5d.2` не меняет generation prompt
+- `5d.2` не меняет budget
+- `5d.2` не меняет public assistant actions
 
 ## VPS smoke policy
 

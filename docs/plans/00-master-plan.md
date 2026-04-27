@@ -244,6 +244,7 @@
 - зафиксировать, что slices `5a`-`5c.1` по `NormBundle` уже задеплоены на production
 - зафиксировать, что `5d` уже добавил companion-aware expectation layer для `attorney_request` без изменения runtime
 - зафиксировать, что `5d.1` уже расширил companion-aware expectations на `attorney_rights` как acceptance-only слой без изменения runtime
+- зафиксировать, что `5d.2` уже минимально расширил companion-aware expectations на `bodycam_and_recording` только для access-сценариев без изменения runtime
 
 Границы:
 
