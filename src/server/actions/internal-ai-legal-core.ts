@@ -41,6 +41,7 @@ const RUN_GROUP_SCENARIO_LIMIT = 4;
 const runTargetSchema = z.enum(["scenario", "group"]);
 const lawVersionSelectionSchema = z.literal("current_snapshot_only");
 const executionModeSchema = z.enum(["full_generation", "core_only", "compact_generation"]);
+const lawBasisGateModeSchema = z.enum(["off", "sanction_primary_allowlist"]);
 
 const aiLegalCoreTestRunInputSchema = z.object({
   serverSlug: z.string().trim().min(1).max(64),
@@ -48,6 +49,7 @@ const aiLegalCoreTestRunInputSchema = z.object({
   actorContext: z.enum(legalCoreActorContexts),
   answerMode: z.enum(legalCoreResponseModes),
   executionMode: executionModeSchema.optional(),
+  lawBasisGateMode: lawBasisGateModeSchema.optional(),
   scenarioGroup: z.enum(aiLegalCoreScenarioGroupKeys),
   scenarioId: z.string().trim().optional(),
   runTarget: runTargetSchema,
@@ -187,6 +189,17 @@ export type InternalAILegalCoreTestRunResult = {
     status: "pass" | "would_fail";
     short_reason: string;
   };
+  law_basis_gate_status: {
+    enabled: boolean;
+    blocked: boolean;
+    blocking_flag_codes: string[];
+    scope: {
+      mode: "off" | "sanction_primary_allowlist";
+      allowed_groups: string[];
+      active_group: string;
+    };
+    short_reason: string;
+  };
   comparison: AILegalCoreScenarioComparison | null;
 };
 
@@ -250,6 +263,19 @@ export type InternalAILegalCoreActionState = {
       count: number;
     }>;
   } | null;
+  law_basis_gate_status_summary?: {
+    gate_enabled: boolean;
+    scenarios_blocked_by_law_basis_gate: string[];
+    counts_by_gate_status: Record<string, number>;
+    top_blocking_law_basis_gate_flag_codes: Array<{
+      code: string;
+      count: number;
+    }>;
+    groups_blocked_by_law_basis_gate: Array<{
+      scenario_group: string;
+      count: number;
+    }>;
+  } | null;
   results: InternalAILegalCoreTestRunResult[];
 };
 
@@ -262,6 +288,8 @@ const candidateForGateFlagCodes = new Set([
 const warnOnlyFlagCodes = new Set(["weak_direct_basis", "missing_required_companion_context"]);
 
 const diagnosticsOnlyFlagCodes = new Set(["unresolved_explicit_citation_used_as_basis"]);
+const lawBasisGateAllowedGroups = ["attorney_request", "multi_server_variance"] as const;
+const lawBasisGateBlockingFlagCodes = new Set(["sanction_or_exception_used_as_primary"]);
 
 type InternalAILegalCoreActionDependencies = {
   requireSuperAdminAccountContext: typeof requireSuperAdminAccountContext;
@@ -660,6 +688,45 @@ function buildLawBasisGateSimulation(
   };
 }
 
+function buildLawBasisGateStatus(input: {
+  lawBasisReview: InternalAILegalCoreTestRunResult["law_basis_review"];
+  activeGroup: string;
+  mode: "off" | "sanction_primary_allowlist";
+}) {
+  const enabled =
+    input.mode === "sanction_primary_allowlist" &&
+    lawBasisGateAllowedGroups.includes(
+      input.activeGroup as (typeof lawBasisGateAllowedGroups)[number],
+    );
+  const blockingFlagCodes = enabled
+    ? input.lawBasisReview.failed_flag_codes.filter((flagCode) =>
+        lawBasisGateBlockingFlagCodes.has(flagCode),
+      )
+    : [];
+  const blocked = blockingFlagCodes.length > 0;
+
+  return {
+    enabled,
+    blocked,
+    blocking_flag_codes: blockingFlagCodes,
+    scope: {
+      mode: input.mode,
+      allowed_groups: [...lawBasisGateAllowedGroups],
+      active_group: input.activeGroup,
+    },
+    short_reason:
+      input.mode === "off"
+        ? "gate mode is off"
+        : !lawBasisGateAllowedGroups.includes(
+              input.activeGroup as (typeof lawBasisGateAllowedGroups)[number],
+            )
+          ? "scenario group is outside allowlist"
+          : blocked
+            ? `blocking flags detected: ${blockingFlagCodes.join(", ")}`
+            : "no blocking law basis flags detected",
+  };
+}
+
 function buildDirectBasisSummary(
   coreSnapshot: InternalAILegalCoreTestRunResult["coreSnapshot"],
 ) {
@@ -744,6 +811,7 @@ function buildExpectationEvaluationForScenario(input: {
 function attachInternalRunnerSummaries(input: {
   scenario: AILegalCoreTestScenario;
   result: InternalAILegalCoreTestRunResult;
+  lawBasisGateMode: "off" | "sanction_primary_allowlist";
 }) {
   const expectationEvaluation = buildExpectationEvaluationForScenario({
     scenario: input.scenario,
@@ -751,13 +819,14 @@ function attachInternalRunnerSummaries(input: {
     coreSnapshot: input.result.coreSnapshot,
   });
   const lawBasisReview = buildLawBasisReviewSummary(input.result.coreSnapshot);
+  const scenarioGroupSummary = buildScenarioGroupSummary(input.scenario);
 
   return {
     ...input.result,
     passed_expectations: expectationEvaluation.passed_expectations,
     failed_expectations: expectationEvaluation.failed_expectations,
     expectation_summary: expectationEvaluation.expectation_summary,
-    scenario_group_summary: buildScenarioGroupSummary(input.scenario),
+    scenario_group_summary: scenarioGroupSummary,
     cost_summary: buildCostSummary({
       technical: input.result.technical,
       coreSnapshot: input.result.coreSnapshot,
@@ -765,6 +834,11 @@ function attachInternalRunnerSummaries(input: {
     direct_basis_summary: buildDirectBasisSummary(input.result.coreSnapshot),
     law_basis_review: lawBasisReview,
     law_basis_gate_simulation: buildLawBasisGateSimulation(lawBasisReview),
+    law_basis_gate_status: buildLawBasisGateStatus({
+      lawBasisReview,
+      activeGroup: scenarioGroupSummary.scenario_group,
+      mode: input.lawBasisGateMode,
+    }),
   } satisfies InternalAILegalCoreTestRunResult;
 }
 
@@ -962,6 +1036,70 @@ function buildAggregateLawBasisGateSimulationSummary(results: InternalAILegalCor
   };
 }
 
+function buildAggregateLawBasisGateStatusSummary(
+  results: InternalAILegalCoreTestRunResult[],
+  lawBasisGateMode: "off" | "sanction_primary_allowlist",
+) {
+  const countsByGateStatus: Record<string, number> = {
+    disabled: 0,
+    pass: 0,
+    blocked: 0,
+  };
+  const scenariosBlockedByLawBasisGate: string[] = [];
+  const blockingFlagCounts = new Map<string, number>();
+  const groupCounts = new Map<string, number>();
+
+  for (const result of results) {
+    const status = result.law_basis_gate_status.blocked
+      ? "blocked"
+      : result.law_basis_gate_status.enabled
+        ? "pass"
+        : "disabled";
+    countsByGateStatus[status] = (countsByGateStatus[status] ?? 0) + 1;
+
+    if (!result.law_basis_gate_status.blocked) {
+      continue;
+    }
+
+    scenariosBlockedByLawBasisGate.push(result.scenarioId);
+    groupCounts.set(
+      result.law_basis_gate_status.scope.active_group,
+      (groupCounts.get(result.law_basis_gate_status.scope.active_group) ?? 0) + 1,
+    );
+
+    for (const flagCode of result.law_basis_gate_status.blocking_flag_codes) {
+      blockingFlagCounts.set(flagCode, (blockingFlagCounts.get(flagCode) ?? 0) + 1);
+    }
+  }
+
+  const topBlockingLawBasisGateFlagCodes = Array.from(blockingFlagCounts.entries())
+    .map(([code, count]) => ({ code, count }))
+    .sort((left, right) => {
+      if (right.count !== left.count) {
+        return right.count - left.count;
+      }
+
+      return left.code.localeCompare(right.code);
+    });
+  const groupsBlockedByLawBasisGate = Array.from(groupCounts.entries())
+    .map(([scenario_group, count]) => ({ scenario_group, count }))
+    .sort((left, right) => {
+      if (right.count !== left.count) {
+        return right.count - left.count;
+      }
+
+      return left.scenario_group.localeCompare(right.scenario_group);
+    });
+
+  return {
+    gate_enabled: lawBasisGateMode !== "off",
+    scenarios_blocked_by_law_basis_gate: scenariosBlockedByLawBasisGate,
+    counts_by_gate_status: countsByGateStatus,
+    top_blocking_law_basis_gate_flag_codes: topBlockingLawBasisGateFlagCodes,
+    groups_blocked_by_law_basis_gate: groupsBlockedByLawBasisGate,
+  };
+}
+
 function buildActionResultFromScenario(input: {
   scenario: AILegalCoreTestScenario;
   result: Awaited<ReturnType<typeof generateServerLegalAssistantAnswer>>;
@@ -1027,6 +1165,17 @@ function buildActionResultFromScenario(input: {
         status: "pass",
         short_reason: "gate candidates not detected",
       },
+      law_basis_gate_status: {
+        enabled: false,
+        blocked: false,
+        blocking_flag_codes: [],
+        scope: {
+          mode: "off",
+          allowed_groups: [...lawBasisGateAllowedGroups],
+          active_group: input.scenario.scenarioGroup,
+        },
+        short_reason: "gate mode is off",
+      },
     };
   }
 
@@ -1085,6 +1234,17 @@ function buildActionResultFromScenario(input: {
         status: "pass",
         short_reason: "gate candidates not detected",
       },
+      law_basis_gate_status: {
+        enabled: false,
+        blocked: false,
+        blocking_flag_codes: [],
+        scope: {
+          mode: "off",
+          allowed_groups: [...lawBasisGateAllowedGroups],
+          active_group: input.scenario.scenarioGroup,
+        },
+        short_reason: "gate mode is off",
+      },
     };
   }
 
@@ -1141,6 +1301,17 @@ function buildActionResultFromScenario(input: {
       diagnostics_only_flag_codes: [],
       status: "pass",
       short_reason: "gate candidates not detected",
+    },
+    law_basis_gate_status: {
+      enabled: false,
+      blocked: false,
+      blocking_flag_codes: [],
+      scope: {
+        mode: "off",
+        allowed_groups: [...lawBasisGateAllowedGroups],
+        active_group: input.scenario.scenarioGroup,
+      },
+      short_reason: "gate mode is off",
     },
   };
 }
@@ -1208,6 +1379,17 @@ function buildRewriteResultFromScenario(input: {
         status: "pass",
         short_reason: "gate candidates not detected",
       },
+      law_basis_gate_status: {
+        enabled: false,
+        blocked: false,
+        blocking_flag_codes: [],
+        scope: {
+          mode: "off",
+          allowed_groups: [...lawBasisGateAllowedGroups],
+          active_group: input.scenario.scenarioGroup,
+        },
+        short_reason: "gate mode is off",
+      },
     };
   }
 
@@ -1264,6 +1446,17 @@ function buildRewriteResultFromScenario(input: {
       diagnostics_only_flag_codes: [],
       status: "pass",
       short_reason: "gate candidates not detected",
+    },
+    law_basis_gate_status: {
+      enabled: false,
+      blocked: false,
+      blocking_flag_codes: [],
+      scope: {
+        mode: "off",
+        allowed_groups: [...lawBasisGateAllowedGroups],
+        active_group: input.scenario.scenarioGroup,
+      },
+      short_reason: "gate mode is off",
     },
   };
 }
@@ -1335,6 +1528,17 @@ function buildErrorResultFromScenario(
       status: "pass",
       short_reason: "gate candidates not detected",
     },
+    law_basis_gate_status: {
+      enabled: false,
+      blocked: false,
+      blocking_flag_codes: [],
+      scope: {
+        mode: "off",
+        allowed_groups: [...lawBasisGateAllowedGroups],
+        active_group: scenario.scenarioGroup,
+      },
+      short_reason: "gate mode is off",
+    },
   };
 }
 
@@ -1391,6 +1595,10 @@ export async function runInternalAILegalCoreScenariosAction(
         typeof formData.get("executionMode") === "string"
           ? String(formData.get("executionMode"))
           : undefined,
+      lawBasisGateMode:
+        typeof formData.get("lawBasisGateMode") === "string"
+          ? String(formData.get("lawBasisGateMode"))
+          : undefined,
       scenarioGroup: String(formData.get("scenarioGroup") ?? ""),
       scenarioId:
         typeof formData.get("scenarioId") === "string" ? String(formData.get("scenarioId")) : undefined,
@@ -1408,6 +1616,7 @@ export async function runInternalAILegalCoreScenariosAction(
         runSummary: null,
         law_basis_review_summary: null,
         law_basis_gate_simulation_summary: null,
+        law_basis_gate_status_summary: null,
         results: [],
       };
     }
@@ -1435,12 +1644,14 @@ export async function runInternalAILegalCoreScenariosAction(
         runSummary: null,
         law_basis_review_summary: null,
         law_basis_gate_simulation_summary: null,
+        law_basis_gate_status_summary: null,
         results: [],
       };
     }
 
     const testRunId = dependencies.createId();
     const results: InternalAILegalCoreTestRunResult[] = [];
+    const lawBasisGateMode = parsed.lawBasisGateMode ?? "off";
 
     await dependencies.syncAITestScenarios({
       scenarios: listActiveAILegalCoreTestScenarios(),
@@ -1520,6 +1731,7 @@ export async function runInternalAILegalCoreScenariosAction(
           actionResult = attachInternalRunnerSummaries({
             scenario,
             result: actionResult,
+            lawBasisGateMode,
           });
 
           await dependencies.createAITestRunResult({
@@ -1582,6 +1794,7 @@ export async function runInternalAILegalCoreScenariosAction(
             attachInternalRunnerSummaries({
               scenario,
               result: actionResult,
+              lawBasisGateMode,
             }),
           );
         }
@@ -1604,6 +1817,7 @@ export async function runInternalAILegalCoreScenariosAction(
           attachInternalRunnerSummaries({
             scenario,
             result: errorResult,
+            lawBasisGateMode,
           }),
         );
       }
@@ -1642,6 +1856,10 @@ export async function runInternalAILegalCoreScenariosAction(
       law_basis_review_summary: buildAggregateLawBasisReviewSummary(resultsWithComparisons),
       law_basis_gate_simulation_summary:
         buildAggregateLawBasisGateSimulationSummary(resultsWithComparisons),
+      law_basis_gate_status_summary: buildAggregateLawBasisGateStatusSummary(
+        resultsWithComparisons,
+        lawBasisGateMode,
+      ),
       results: resultsWithComparisons,
     };
   } catch (error) {
@@ -1662,6 +1880,7 @@ export async function runInternalAILegalCoreScenariosAction(
         direct_basis_summary: null,
         law_basis_review_summary: null,
         law_basis_gate_simulation_summary: null,
+        law_basis_gate_status_summary: null,
         results: [],
       };
     }

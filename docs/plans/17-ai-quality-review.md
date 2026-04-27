@@ -481,6 +481,85 @@ Post-MVP. Не входит в MVP.
 - suite pass/fail всё ещё определяется через acceptance/evaluator layer
 - blocking gate можно обсуждать только в отдельном будущем `Step 17.2` после ручной проверки baseline
 
+## Текущий implemented checkpoint по `17.2`
+
+`17.2` реализован как narrow internal-only opt-in gate readiness для `law_basis_review`.
+
+Это не global regression gate:
+
+- без public assistant behavior changes
+- без изменения runtime `Step 16`
+- без deploy
+- без UI / Prisma / AI reviewer
+- без автоматического изменения suite pass/fail
+
+### Что именно делает `17.2`
+
+`17.2` добавляет отдельный internal-only блок `law_basis_gate_status` рядом с:
+
+- `expectation_summary`
+- `direct_basis_summary`
+- `law_basis_review`
+- `law_basis_gate_simulation`
+
+`law_basis_gate_status` показывает:
+
+- `enabled`
+- `blocked`
+- `blocking_flag_codes`
+- `scope`
+  - `mode`
+  - `allowed_groups`
+  - `active_group`
+- `short_reason`
+
+Для всего test run добавлен отдельный aggregate summary:
+
+- `gate_enabled`
+- `scenarios_blocked_by_law_basis_gate`
+- `counts_by_gate_status`
+- `top_blocking_law_basis_gate_flag_codes`
+- `groups_blocked_by_law_basis_gate`
+
+### Scope `17.2`
+
+Gate readiness применяется только если:
+
+- mode явно включён
+- active scenario group входит в allowlist:
+  - `attorney_request`
+  - `multi_server_variance`
+- `law_basis_review` содержит fail flag:
+  - `sanction_or_exception_used_as_primary`
+
+### Что `17.2` намеренно НЕ блокирует
+
+Даже в opt-in режиме `17.2` не блокирует:
+
+- `missing_primary_basis_norm`
+- `law_family_mismatch`
+- `weak_direct_basis`
+- `missing_required_companion_context`
+- `unresolved_explicit_citation_used_as_basis`
+
+Это означает:
+
+- `missing_primary_basis_norm` остаётся dry-run / future gate candidate
+- `law_family_mismatch` остаётся dry-run / future gate candidate
+- broader blocking gate по нескольким flag classes остаётся future expansion после дальнейшей ручной проверки
+
+### Что это значит practically
+
+На этапе `17.2`:
+
+- gate по-прежнему internal-only
+- gate default-off
+- blocking readiness включается только как opt-in mode
+- `expectation_summary` остаётся acceptance-layer result
+- `law_basis_gate_simulation` остаётся dry-run visibility layer
+- `law_basis_gate_status` остаётся отдельным gate-readiness layer
+- suite pass/fail по-прежнему не переопределяется автоматически review-layer сигналами
+
 ## `law_basis_issue`
 
 В шаге `17` должен быть отдельный класс проблем `law_basis_issue`.

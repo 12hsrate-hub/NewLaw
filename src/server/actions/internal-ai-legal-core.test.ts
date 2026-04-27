@@ -174,6 +174,15 @@ describe("internal ai legal core action", () => {
         diagnostics_only_flag_codes: [],
         status: "would_fail",
       },
+      law_basis_gate_status: {
+        enabled: false,
+        blocked: false,
+        blocking_flag_codes: [],
+        scope: {
+          mode: "off",
+          active_group: "mask_and_identity",
+        },
+      },
     });
     expect(result.scenario_group_summary).toEqual({
       total_scenarios: 1,
@@ -223,6 +232,17 @@ describe("internal ai legal core action", () => {
           count: 1,
         },
       ],
+    });
+    expect(result.law_basis_gate_status_summary).toEqual({
+      gate_enabled: false,
+      scenarios_blocked_by_law_basis_gate: [],
+      counts_by_gate_status: {
+        disabled: 1,
+        pass: 0,
+        blocked: 0,
+      },
+      top_blocking_law_basis_gate_flag_codes: [],
+      groups_blocked_by_law_basis_gate: [],
     });
   });
 
@@ -431,6 +451,665 @@ describe("internal ai legal core action", () => {
           count: 1,
         },
       ],
+    });
+  });
+
+  it("в opt-in режиме блокирует sanction_or_exception_used_as_primary для attorney_request без изменения scenario result status", async () => {
+    const formData = new FormData();
+    formData.set("serverSlug", "blackberry");
+    formData.set("lawVersionSelection", "current_snapshot_only");
+    formData.set("actorContext", "general_question");
+    formData.set("answerMode", "normal");
+    formData.set("lawBasisGateMode", "sanction_primary_allowlist");
+    formData.set("scenarioGroup", "general_legal_questions");
+    formData.set("scenarioId", "general-no-response-to-attorney-request");
+    formData.set("runTarget", "scenario");
+
+    const result = await runInternalAILegalCoreScenariosAction(
+      {
+        status: "idle",
+        errorMessage: null,
+        fieldErrors: {},
+        runSummary: null,
+        results: [],
+      },
+      formData,
+      {
+        requireSuperAdminAccountContext: vi.fn().mockResolvedValue({
+          account: {
+            id: "account-1",
+            isSuperAdmin: true,
+          },
+        }),
+        getServerByCode: vi.fn().mockResolvedValue({
+          id: "server-1",
+          code: "blackberry",
+          name: "Blackberry",
+        }),
+        generateServerLegalAssistantAnswer: vi.fn().mockResolvedValue({
+          status: "answered",
+          answerMarkdown: "Ответ.",
+          sections: {
+            summary: "Ответ.",
+            normativeAnalysis: "Норма.",
+            precedentAnalysis: "Прецедент.",
+            interpretation: "Интерпретация.",
+          },
+          metadata: {
+            used_sources: [{ source_kind: "law", law_id: "law-1" }],
+            total_tokens: 240,
+            cost_usd: 0.005,
+            latency_ms: 160,
+            self_assessment: {
+              answer_confidence: "medium",
+              insufficient_data: false,
+            },
+            review_status: {
+              queue_for_future_ai_quality_review: false,
+              future_review_priority: "low",
+            },
+          },
+        }),
+        runInternalDocumentTextImprovementScenario: vi.fn(),
+        syncAITestScenarios: vi.fn().mockResolvedValue(undefined),
+        createAITestRun: vi.fn().mockResolvedValue(undefined),
+        completeAITestRun: vi.fn().mockResolvedValue(undefined),
+        createAITestRunResult: vi.fn().mockResolvedValue(undefined),
+        findLatestAIRequestByTestRunContext: vi.fn().mockResolvedValue({
+          id: "ai-request-gate-attorney-request-1",
+          requestPayloadJson: {
+            normalized_input: "если руководство не ответило на адвокатский запрос",
+            selected_norm_roles: [
+              {
+                law_id: "law-adv-1",
+                law_version: "law-version-1",
+                law_block_id: "law-block-1",
+                law_family: "advocacy_law",
+                norm_role: "primary_basis",
+                applicability_score: 10,
+              },
+            ],
+            applicability_diagnostics: [
+              {
+                law_id: "law-adv-1",
+                law_version: "law-version-1",
+                law_block_id: "law-block-1",
+                primary_basis_eligibility: "ineligible",
+                primary_basis_eligibility_reason: "ineligible_due_to_sanction_only",
+                ineligible_primary_basis_reasons: ["ineligible_due_to_sanction_only"],
+                weak_primary_basis_reasons: [],
+              },
+            ],
+            grounding_diagnostics: {
+              direct_basis_status: "direct_basis_present",
+            },
+            direct_basis_status: "direct_basis_present",
+          },
+          responsePayloadJson: {
+            used_sources: [
+              {
+                source_kind: "law",
+                law_id: "law-adv-1",
+                law_name: "Закон об адвокатуре",
+                article_number: "5",
+              },
+            ],
+            ai_quality_review: {
+              layers: {
+                deterministic_checks: {
+                  law_basis_review: {
+                    overall_status: "fail",
+                    flags: [
+                      {
+                        code: "sanction_or_exception_used_as_primary",
+                        severity: "fail",
+                      },
+                    ],
+                    summary: {
+                      pass: 0,
+                      warn: 0,
+                      fail: 1,
+                    },
+                  },
+                },
+              },
+            },
+            stage_usage: {
+              generation: {
+                model: "gpt-5.4-mini",
+                prompt_tokens: 100,
+                completion_tokens: 30,
+                total_tokens: 130,
+                estimated_cost_usd: 0.002,
+                latency_ms: 160,
+              },
+            },
+          },
+        }),
+        getAILegalCoreScenarioComparisons: vi.fn().mockResolvedValue(new Map()),
+        now: () => new Date("2026-04-27T12:00:00.000Z"),
+        createId: () => "test-run-gate-attorney-request-1",
+      },
+    );
+
+    expect(result.status).toBe("success");
+    expect(result.results[0]).toMatchObject({
+      status: "answered",
+      scenario_group_summary: {
+        scenario_group: "attorney_request",
+      },
+      law_basis_gate_simulation: {
+        would_fail_gate: true,
+        candidate_fail_flag_codes: ["sanction_or_exception_used_as_primary"],
+      },
+      law_basis_gate_status: {
+        enabled: true,
+        blocked: true,
+        blocking_flag_codes: ["sanction_or_exception_used_as_primary"],
+        scope: {
+          mode: "sanction_primary_allowlist",
+          active_group: "attorney_request",
+        },
+      },
+    });
+    expect(result.law_basis_gate_status_summary).toEqual({
+      gate_enabled: true,
+      scenarios_blocked_by_law_basis_gate: ["general-no-response-to-attorney-request"],
+      counts_by_gate_status: {
+        disabled: 0,
+        pass: 0,
+        blocked: 1,
+      },
+      top_blocking_law_basis_gate_flag_codes: [
+        {
+          code: "sanction_or_exception_used_as_primary",
+          count: 1,
+        },
+      ],
+      groups_blocked_by_law_basis_gate: [
+        {
+          scenario_group: "attorney_request",
+          count: 1,
+        },
+      ],
+    });
+  });
+
+  it("в opt-in режиме блокирует sanction_or_exception_used_as_primary для multi_server_variance", async () => {
+    const formData = new FormData();
+    formData.set("serverSlug", "blackberry");
+    formData.set("lawVersionSelection", "current_snapshot_only");
+    formData.set("actorContext", "general_question");
+    formData.set("answerMode", "normal");
+    formData.set("lawBasisGateMode", "sanction_primary_allowlist");
+    formData.set("scenarioGroup", "response_modes");
+    formData.set("scenarioId", "general-attorney-request-other-server");
+    formData.set("runTarget", "scenario");
+
+    const result = await runInternalAILegalCoreScenariosAction(
+      {
+        status: "idle",
+        errorMessage: null,
+        fieldErrors: {},
+        runSummary: null,
+        results: [],
+      },
+      formData,
+      {
+        requireSuperAdminAccountContext: vi.fn().mockResolvedValue({
+          account: {
+            id: "account-1",
+            isSuperAdmin: true,
+          },
+        }),
+        getServerByCode: vi.fn().mockResolvedValue({
+          id: "server-1",
+          code: "blackberry",
+          name: "Blackberry",
+        }),
+        generateServerLegalAssistantAnswer: vi.fn().mockResolvedValue({
+          status: "answered",
+          answerMarkdown: "Ответ.",
+          sections: {
+            summary: "Ответ.",
+            normativeAnalysis: "Норма.",
+            precedentAnalysis: "Прецедент.",
+            interpretation: "Интерпретация.",
+          },
+          metadata: {
+            used_sources: [{ source_kind: "law", law_id: "law-1" }],
+            total_tokens: 210,
+            cost_usd: 0.004,
+            latency_ms: 150,
+            self_assessment: {
+              answer_confidence: "medium",
+              insufficient_data: false,
+            },
+            review_status: {
+              queue_for_future_ai_quality_review: false,
+              future_review_priority: "low",
+            },
+          },
+        }),
+        runInternalDocumentTextImprovementScenario: vi.fn(),
+        syncAITestScenarios: vi.fn().mockResolvedValue(undefined),
+        createAITestRun: vi.fn().mockResolvedValue(undefined),
+        completeAITestRun: vi.fn().mockResolvedValue(undefined),
+        createAITestRunResult: vi.fn().mockResolvedValue(undefined),
+        findLatestAIRequestByTestRunContext: vi.fn().mockResolvedValue({
+          id: "ai-request-gate-multi-server-1",
+          requestPayloadJson: {
+            normalized_input: "если руководство не ответило на адвокатский запрос на другом сервере",
+            selected_norm_roles: [
+              {
+                law_id: "law-adv-2",
+                law_version: "law-version-2",
+                law_block_id: "law-block-2",
+                law_family: "advocacy_law",
+                norm_role: "primary_basis",
+                applicability_score: 10,
+              },
+            ],
+            applicability_diagnostics: [
+              {
+                law_id: "law-adv-2",
+                law_version: "law-version-2",
+                law_block_id: "law-block-2",
+                primary_basis_eligibility: "ineligible",
+                primary_basis_eligibility_reason: "ineligible_due_to_exception_without_base",
+                ineligible_primary_basis_reasons: ["ineligible_due_to_exception_without_base"],
+                weak_primary_basis_reasons: [],
+              },
+            ],
+            grounding_diagnostics: {
+              direct_basis_status: "direct_basis_present",
+            },
+            direct_basis_status: "direct_basis_present",
+          },
+          responsePayloadJson: {
+            used_sources: [
+              {
+                source_kind: "law",
+                law_id: "law-adv-2",
+                law_name: "Закон об адвокатуре",
+                article_number: "5",
+              },
+            ],
+            ai_quality_review: {
+              layers: {
+                deterministic_checks: {
+                  law_basis_review: {
+                    overall_status: "fail",
+                    flags: [
+                      {
+                        code: "sanction_or_exception_used_as_primary",
+                        severity: "fail",
+                      },
+                    ],
+                    summary: {
+                      pass: 0,
+                      warn: 0,
+                      fail: 1,
+                    },
+                  },
+                },
+              },
+            },
+            stage_usage: {
+              generation: {
+                model: "gpt-5.4-mini",
+                prompt_tokens: 100,
+                completion_tokens: 30,
+                total_tokens: 130,
+                estimated_cost_usd: 0.002,
+                latency_ms: 150,
+              },
+            },
+          },
+        }),
+        getAILegalCoreScenarioComparisons: vi.fn().mockResolvedValue(new Map()),
+        now: () => new Date("2026-04-27T12:05:00.000Z"),
+        createId: () => "test-run-gate-multi-server-1",
+      },
+    );
+
+    expect(result.status).toBe("success");
+    expect(result.results[0]).toMatchObject({
+      scenario_group_summary: {
+        scenario_group: "multi_server_variance",
+      },
+      law_basis_gate_status: {
+        enabled: true,
+        blocked: true,
+        blocking_flag_codes: ["sanction_or_exception_used_as_primary"],
+        scope: {
+          mode: "sanction_primary_allowlist",
+          active_group: "multi_server_variance",
+        },
+      },
+    });
+    expect(result.law_basis_gate_status_summary).toEqual({
+      gate_enabled: true,
+      scenarios_blocked_by_law_basis_gate: ["general-attorney-request-other-server"],
+      counts_by_gate_status: {
+        disabled: 0,
+        pass: 0,
+        blocked: 1,
+      },
+      top_blocking_law_basis_gate_flag_codes: [
+        {
+          code: "sanction_or_exception_used_as_primary",
+          count: 1,
+        },
+      ],
+      groups_blocked_by_law_basis_gate: [
+        {
+          scenario_group: "multi_server_variance",
+          count: 1,
+        },
+      ],
+    });
+  });
+
+  it("в opt-in режиме не блокирует missing_primary_basis_norm, law_family_mismatch, weak_direct_basis, missing_required_companion_context и unresolved_explicit_citation_used_as_basis", async () => {
+    const formData = new FormData();
+    formData.set("serverSlug", "blackberry");
+    formData.set("lawVersionSelection", "current_snapshot_only");
+    formData.set("actorContext", "general_question");
+    formData.set("answerMode", "normal");
+    formData.set("lawBasisGateMode", "sanction_primary_allowlist");
+    formData.set("scenarioGroup", "general_legal_questions");
+    formData.set("scenarioId", "alt-attorney-request-deadline");
+    formData.set("runTarget", "scenario");
+
+    const result = await runInternalAILegalCoreScenariosAction(
+      {
+        status: "idle",
+        errorMessage: null,
+        fieldErrors: {},
+        runSummary: null,
+        results: [],
+      },
+      formData,
+      {
+        requireSuperAdminAccountContext: vi.fn().mockResolvedValue({
+          account: {
+            id: "account-1",
+            isSuperAdmin: true,
+          },
+        }),
+        getServerByCode: vi.fn().mockResolvedValue({
+          id: "server-1",
+          code: "blackberry",
+          name: "Blackberry",
+        }),
+        generateServerLegalAssistantAnswer: vi.fn().mockResolvedValue({
+          status: "answered",
+          answerMarkdown: "Ответ.",
+          sections: {
+            summary: "Ответ.",
+            normativeAnalysis: "Норма.",
+            precedentAnalysis: "Прецедент.",
+            interpretation: "Интерпретация.",
+          },
+          metadata: {
+            used_sources: [],
+            total_tokens: 180,
+            cost_usd: 0.004,
+            latency_ms: 140,
+            self_assessment: {
+              answer_confidence: "medium",
+              insufficient_data: false,
+            },
+            review_status: {
+              queue_for_future_ai_quality_review: false,
+              future_review_priority: "low",
+            },
+          },
+        }),
+        runInternalDocumentTextImprovementScenario: vi.fn(),
+        syncAITestScenarios: vi.fn().mockResolvedValue(undefined),
+        createAITestRun: vi.fn().mockResolvedValue(undefined),
+        completeAITestRun: vi.fn().mockResolvedValue(undefined),
+        createAITestRunResult: vi.fn().mockResolvedValue(undefined),
+        findLatestAIRequestByTestRunContext: vi.fn().mockResolvedValue({
+          id: "ai-request-gate-nonblocking-1",
+          requestPayloadJson: {
+            normalized_input: "какой срок ответа на адвокатский запрос",
+            selected_norm_roles: [],
+            applicability_diagnostics: [],
+            grounding_diagnostics: {
+              direct_basis_status: "partial_basis_only",
+            },
+            direct_basis_status: "partial_basis_only",
+          },
+          responsePayloadJson: {
+            used_sources: [],
+            ai_quality_review: {
+              layers: {
+                deterministic_checks: {
+                  law_basis_review: {
+                    overall_status: "fail",
+                    flags: [
+                      {
+                        code: "missing_primary_basis_norm",
+                        severity: "fail",
+                      },
+                      {
+                        code: "law_family_mismatch",
+                        severity: "fail",
+                      },
+                      {
+                        code: "weak_direct_basis",
+                        severity: "warn",
+                      },
+                      {
+                        code: "missing_required_companion_context",
+                        severity: "warn",
+                      },
+                      {
+                        code: "unresolved_explicit_citation_used_as_basis",
+                        severity: "fail",
+                      },
+                    ],
+                    summary: {
+                      pass: 0,
+                      warn: 2,
+                      fail: 3,
+                    },
+                  },
+                },
+              },
+            },
+            stage_usage: {
+              generation: {
+                model: "gpt-5.4-mini",
+                prompt_tokens: 80,
+                completion_tokens: 20,
+                total_tokens: 100,
+                estimated_cost_usd: 0.002,
+                latency_ms: 140,
+              },
+            },
+          },
+        }),
+        getAILegalCoreScenarioComparisons: vi.fn().mockResolvedValue(new Map()),
+        now: () => new Date("2026-04-27T12:10:00.000Z"),
+        createId: () => "test-run-gate-nonblocking-1",
+      },
+    );
+
+    expect(result.status).toBe("success");
+    expect(result.results[0]).toMatchObject({
+      scenario_group_summary: {
+        scenario_group: "attorney_request",
+      },
+      law_basis_gate_simulation: {
+        would_fail_gate: true,
+        candidate_fail_flag_codes: ["missing_primary_basis_norm", "law_family_mismatch"],
+        warn_only_flag_codes: ["weak_direct_basis", "missing_required_companion_context"],
+        diagnostics_only_flag_codes: ["unresolved_explicit_citation_used_as_basis"],
+      },
+      law_basis_gate_status: {
+        enabled: true,
+        blocked: false,
+        blocking_flag_codes: [],
+        scope: {
+          mode: "sanction_primary_allowlist",
+          active_group: "attorney_request",
+        },
+      },
+    });
+    expect(result.law_basis_gate_status_summary).toEqual({
+      gate_enabled: true,
+      scenarios_blocked_by_law_basis_gate: [],
+      counts_by_gate_status: {
+        disabled: 0,
+        pass: 1,
+        blocked: 0,
+      },
+      top_blocking_law_basis_gate_flag_codes: [],
+      groups_blocked_by_law_basis_gate: [],
+    });
+  });
+
+  it("в opt-in режиме не блокирует sanction_or_exception_used_as_primary вне allowlist groups", async () => {
+    const formData = new FormData();
+    formData.set("serverSlug", "blackberry");
+    formData.set("lawVersionSelection", "current_snapshot_only");
+    formData.set("actorContext", "general_question");
+    formData.set("answerMode", "normal");
+    formData.set("lawBasisGateMode", "sanction_primary_allowlist");
+    formData.set("scenarioGroup", "general_legal_questions");
+    formData.set("scenarioId", "general-no-bodycam");
+    formData.set("runTarget", "scenario");
+
+    const result = await runInternalAILegalCoreScenariosAction(
+      {
+        status: "idle",
+        errorMessage: null,
+        fieldErrors: {},
+        runSummary: null,
+        results: [],
+      },
+      formData,
+      {
+        requireSuperAdminAccountContext: vi.fn().mockResolvedValue({
+          account: {
+            id: "account-1",
+            isSuperAdmin: true,
+          },
+        }),
+        getServerByCode: vi.fn().mockResolvedValue({
+          id: "server-1",
+          code: "blackberry",
+          name: "Blackberry",
+        }),
+        generateServerLegalAssistantAnswer: vi.fn().mockResolvedValue({
+          status: "answered",
+          answerMarkdown: "Ответ.",
+          sections: {
+            summary: "Ответ.",
+            normativeAnalysis: "Норма.",
+            precedentAnalysis: "Прецедент.",
+            interpretation: "Интерпретация.",
+          },
+          metadata: {
+            used_sources: [],
+            total_tokens: 200,
+            cost_usd: 0.004,
+            latency_ms: 150,
+            self_assessment: {
+              answer_confidence: "medium",
+              insufficient_data: false,
+            },
+            review_status: {
+              queue_for_future_ai_quality_review: false,
+              future_review_priority: "low",
+            },
+          },
+        }),
+        runInternalDocumentTextImprovementScenario: vi.fn(),
+        syncAITestScenarios: vi.fn().mockResolvedValue(undefined),
+        createAITestRun: vi.fn().mockResolvedValue(undefined),
+        completeAITestRun: vi.fn().mockResolvedValue(undefined),
+        createAITestRunResult: vi.fn().mockResolvedValue(undefined),
+        findLatestAIRequestByTestRunContext: vi.fn().mockResolvedValue({
+          id: "ai-request-gate-outside-allowlist-1",
+          requestPayloadJson: {
+            normalized_input: "если сотрудник не вел бодикам это нарушение",
+            selected_norm_roles: [],
+            applicability_diagnostics: [],
+            grounding_diagnostics: {
+              direct_basis_status: "partial_basis_only",
+            },
+            direct_basis_status: "partial_basis_only",
+          },
+          responsePayloadJson: {
+            used_sources: [],
+            ai_quality_review: {
+              layers: {
+                deterministic_checks: {
+                  law_basis_review: {
+                    overall_status: "fail",
+                    flags: [
+                      {
+                        code: "sanction_or_exception_used_as_primary",
+                        severity: "fail",
+                      },
+                    ],
+                    summary: {
+                      pass: 0,
+                      warn: 0,
+                      fail: 1,
+                    },
+                  },
+                },
+              },
+            },
+            stage_usage: {
+              generation: {
+                model: "gpt-5.4-mini",
+                prompt_tokens: 80,
+                completion_tokens: 20,
+                total_tokens: 100,
+                estimated_cost_usd: 0.002,
+                latency_ms: 150,
+              },
+            },
+          },
+        }),
+        getAILegalCoreScenarioComparisons: vi.fn().mockResolvedValue(new Map()),
+        now: () => new Date("2026-04-27T12:15:00.000Z"),
+        createId: () => "test-run-gate-outside-allowlist-1",
+      },
+    );
+
+    expect(result.status).toBe("success");
+    expect(result.results[0]).toMatchObject({
+      scenario_group_summary: {
+        scenario_group: "bodycam_and_recording",
+      },
+      law_basis_gate_status: {
+        enabled: false,
+        blocked: false,
+        blocking_flag_codes: [],
+        scope: {
+          mode: "sanction_primary_allowlist",
+          active_group: "bodycam_and_recording",
+        },
+      },
+    });
+    expect(result.law_basis_gate_status_summary).toEqual({
+      gate_enabled: true,
+      scenarios_blocked_by_law_basis_gate: [],
+      counts_by_gate_status: {
+        disabled: 1,
+        pass: 0,
+        blocked: 0,
+      },
+      top_blocking_law_basis_gate_flag_codes: [],
+      groups_blocked_by_law_basis_gate: [],
     });
   });
 
