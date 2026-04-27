@@ -575,10 +575,12 @@ AI не должен показывать сомнения напрямую.
 - `5c` — bundle projection в generation context без увеличения общего prompt budget
 - `5c.1` — marker-aware dedupe companions и приоритетное удержание `ч. 2` и `ч. 5` для `attorney_request / no-response-refusal`
 - `5d` — companion-aware expectation layer для scenario suites и internal evaluator без изменения runtime AI Legal Core
+- `5d.1` — расширение companion-aware expectations на `attorney_rights` на relation-level без точных article/part targets
 
 Текущий ещё не закрытый объём:
 
-- постепенное расширение companion-aware expectation checks за пределы `attorney_request`
+- постепенное расширение companion-aware expectation checks за пределы `attorney_request` и `attorney_rights`
+- отдельный companion-aware slice для `bodycam_and_recording` с более осторожной настройкой из-за higher false-positive risk
 
 `NormBundle` должен включать:
 
@@ -720,6 +722,57 @@ Prod model:
 - `5d` не меняет generation prompt
 - `5d` не меняет budget
 - `5d` не меняет public assistant actions
+
+## Текущий implemented checkpoint по `5d.1`
+
+`5d.1` зафиксирован коммитом `5600227`.
+
+Это acceptance / evaluator-only расширение после `5d`, а не новый runtime layer.
+
+`5d.1` расширил companion-aware checks на `attorney_rights` scenarios:
+
+- `self-no-lawyer-on-detention`
+- `alt-attorney-admit-defender-on-detention`
+- `trustor-no-call`
+
+Для этих сценариев включены:
+
+- `activateCompanionChecks`
+- `requiredCompanionRelations: ["procedure_companion"]`
+- `forbiddenCompanionAsPrimary: ["procedure_companion"]`
+
+Что именно важно в `5d.1`:
+
+- `attorney_rights` теперь покрыт relation-level companion checks
+- exact `article / part` targets намеренно не добавлялись
+- `requiredCompanionTargets` не расширялись, потому что stable corpus signal для таких точных привязок пока не фиксировали
+- для `trustor-no-call` сохранён special-case:
+  - primary должен оставаться `procedural_code`
+  - `advocacy_law` не должен подменять primary basis
+
+Источник данных для evaluator не менялся:
+
+- `selected_norm_roles`
+- `primary_basis_eligibility`
+- `direct_basis_status`
+- `NormBundle / projection diagnostics`
+
+Важно:
+
+- `internal-ai-legal-core.ts` в `5d.1` не менялся
+- `5d.1` не меняет retrieval
+- `5d.1` не меняет selection / `PrimaryBasisEligibility`
+- `5d.1` не меняет `source-excerpt`
+- `5d.1` не меняет generation context projection
+- `5d.1` не меняет generation prompt
+- `5d.1` не меняет budget
+- `5d.1` не меняет public assistant actions
+
+Следующий наиболее вероятный companion-aware candidate после `5d.1`:
+
+- `bodycam_and_recording`
+
+Но его лучше делать отдельным slice, потому что там выше риск false positives и weaker direct-basis signal, чем в `attorney_request` и `attorney_rights`.
 
 ## VPS smoke policy
 
