@@ -11,7 +11,7 @@ type PrimaryShellProps = Readonly<{
 export function PrimaryShell({ children, context }: PrimaryShellProps) {
   return (
     <div className="min-h-screen">
-      <div className="px-6 pt-6">
+      <div className="sticky top-0 z-40 px-6 pt-4">
         <div className="mx-auto w-full max-w-6xl">
           <PrimaryHeader context={context} />
         </div>
