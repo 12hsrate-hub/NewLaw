@@ -10,9 +10,13 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { buildCharactersBridgePath } from "@/server/document-area/context";
-import type { DocumentEntryCapabilities } from "@/server/navigation/capabilities";
+import type {
+  DocumentEntryCapabilities,
+  WorkspaceCapabilities,
+} from "@/server/navigation/capabilities";
 import type { ServerHubRouteContext } from "@/server/server-directory/hub";
 import { cn } from "@/utils/cn";
+import { buildAccountCharactersFocusHref } from "@/lib/routes/account-characters";
 
 function HubLink(props: {
   href: string;
@@ -169,6 +173,59 @@ function DocumentsCard(props: {
   );
 }
 
+function LawyerWorkspaceCard(props: {
+  serverCode: string;
+  serverSlug: string;
+  canOpenLawyerWorkspace: boolean;
+  selectedCharacterSummary: {
+    fullName: string;
+  } | null;
+  workspaceCapabilities?: WorkspaceCapabilities;
+}) {
+  const blockReasons = props.workspaceCapabilities?.blockReasons ?? [];
+  const needsCharacter = props.selectedCharacterSummary === null;
+  const needsAdvocateAccess =
+    !needsCharacter && !props.canOpenLawyerWorkspace && blockReasons.includes("advocate_character_required");
+  const canRequestAccess = blockReasons.includes("access_request_required");
+
+  return (
+    <Card className="space-y-4">
+      <div className="space-y-2">
+        <p className="text-xs uppercase tracking-[0.22em] text-[var(--accent)]">Раздел</p>
+        <h2 className="text-2xl font-semibold">Адвокатский кабинет</h2>
+        <p className="text-sm leading-6 text-[var(--muted)]">
+          Отдельный модуль для адвокатских сценариев по выбранному серверу. Здесь собраны входы в
+          доверителей, договоры и адвокатские запросы.
+        </p>
+        {needsCharacter ? (
+          <p className="text-sm leading-6 text-[var(--muted)]">
+            Для адвокатского кабинета сначала нужен персонаж на этом сервере.
+          </p>
+        ) : null}
+        {needsAdvocateAccess ? (
+          <p className="text-sm leading-6 text-[var(--muted)]">
+            Для адвокатского кабинета нужен персонаж с адвокатским доступом.
+          </p>
+        ) : null}
+        {needsAdvocateAccess && canRequestAccess ? (
+          <p className="text-sm leading-6 text-[var(--muted)]">
+            Если персонаж уже готов, доступ оформляется через его заявку и дальнейшее рассмотрение.
+          </p>
+        ) : null}
+      </div>
+      <div className="flex flex-wrap gap-3">
+        {props.canOpenLawyerWorkspace ? (
+          <HubLink href={`/servers/${props.serverSlug}/lawyer`}>Открыть адвокатский кабинет</HubLink>
+        ) : (
+          <HubLink href={buildAccountCharactersFocusHref(props.serverCode)}>
+            Открыть персонажей сервера
+          </HubLink>
+        )}
+      </div>
+    </Card>
+  );
+}
+
 export function AuthenticatedServerHub(props: {
   context: ServerHubRouteContext;
 }) {
@@ -228,7 +285,7 @@ export function AuthenticatedServerHub(props: {
         </div>
       </Card>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid gap-4 lg:grid-cols-3">
         <AssistantCard
           availability={assistantUi}
           isInteractive={assistantInteractive}
@@ -241,6 +298,13 @@ export function AuthenticatedServerHub(props: {
           serverCode={props.context.server.code}
           serverSlug={props.context.server.slug}
           state={props.context.documentsAvailabilityForViewer}
+        />
+        <LawyerWorkspaceCard
+          canOpenLawyerWorkspace={props.context.workspaceCapabilities?.canOpenLawyerWorkspace ?? false}
+          selectedCharacterSummary={props.context.selectedCharacterSummary}
+          serverCode={props.context.server.code}
+          serverSlug={props.context.server.slug}
+          workspaceCapabilities={props.context.workspaceCapabilities}
         />
       </div>
     </div>

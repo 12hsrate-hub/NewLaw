@@ -9,7 +9,7 @@ import ServerHubPage from "@/app/servers/[serverSlug]/page";
 import { getProtectedServerHubContext } from "@/server/server-directory/hub";
 
 describe("/servers/[serverSlug] page", () => {
-  it("использует только serverSlug из URL и рендерит две top-level cards", async () => {
+  it("при наличии доступа ведёт в отдельный адвокатский кабинет", async () => {
     vi.mocked(getProtectedServerHubContext).mockResolvedValue({
       status: "ready",
       viewer: {
@@ -29,23 +29,23 @@ describe("/servers/[serverSlug] page", () => {
       workspaceCapabilities: {
         canOpenAssistant: true,
         canOpenDocumentsWorkspace: true,
-        canOpenLawyerWorkspace: false,
+        canOpenLawyerWorkspace: true,
         canManageCharacters: true,
         canManageTrustors: true,
         requiresServer: true,
         requiresCharacter: false,
         requiresAdvocateCharacter: false,
-        blockReasons: ["advocate_character_required"],
+        blockReasons: [],
       },
       documentEntryCapabilities: {
         canCreateSelfComplaint: true,
         canCreateClaims: true,
-        canCreateAttorneyRequest: false,
-        canCreateLegalServicesAgreement: false,
+        canCreateAttorneyRequest: true,
+        canCreateLegalServicesAgreement: true,
         requiresServer: true,
         requiresCharacter: true,
         requiresAdvocateCharacter: false,
-        blockReasons: ["advocate_character_required"],
+        blockReasons: [],
       },
       selectedCharacterSummary: {
         id: "character-1",
@@ -68,10 +68,12 @@ describe("/servers/[serverSlug] page", () => {
       nextPath: "/servers/blackberry",
     });
     expect(html).toContain("Юридический помощник");
+    expect(html).toContain("Адвокатский кабинет");
     expect(html).toContain("Blackberry");
     expect(html).toContain("/assistant/blackberry");
     expect(html).toContain("/servers/blackberry/documents");
-    expect(html).toContain("Для адвокатских документов потребуется персонаж с адвокатским доступом.");
+    expect(html).toContain("/servers/blackberry/lawyer");
+    expect(html).toContain("Открыть адвокатский кабинет");
     expect(html).not.toContain("Claims");
     expect(html).not.toContain("OGP complaints");
   });
@@ -208,7 +210,68 @@ describe("/servers/[serverSlug] page", () => {
     expect(html).toContain("Нужен персонаж");
     expect(html).toContain("/servers/blackberry/documents");
     expect(html).toContain("для жалоб и исков сначала нужен персонаж");
-    expect(html).toContain("/account/characters?server=blackberry#create-character-blackberry");
+    expect(html).toContain("Для адвокатского кабинета сначала нужен персонаж на этом сервере.");
+    expect(html).toContain('/account/characters?server=blackberry"');
+  });
+
+  it("без адвокатского доступа оставляет lawyer card видимой и показывает blocked copy", async () => {
+    vi.mocked(getProtectedServerHubContext).mockResolvedValue({
+      status: "ready",
+      viewer: {
+        accountId: "account-1",
+        email: "user@example.com",
+        login: "tester",
+      },
+      server: {
+        id: "server-1",
+        code: "blackberry",
+        slug: "blackberry",
+        name: "Blackberry",
+        directoryAvailability: "active",
+      },
+      assistantStatus: "current_corpus_ready",
+      documentsAvailabilityForViewer: "available",
+      workspaceCapabilities: {
+        canOpenAssistant: true,
+        canOpenDocumentsWorkspace: true,
+        canOpenLawyerWorkspace: false,
+        canManageCharacters: true,
+        canManageTrustors: true,
+        requiresServer: true,
+        requiresCharacter: false,
+        requiresAdvocateCharacter: false,
+        blockReasons: ["advocate_character_required"],
+      },
+      documentEntryCapabilities: {
+        canCreateSelfComplaint: true,
+        canCreateClaims: true,
+        canCreateAttorneyRequest: false,
+        canCreateLegalServicesAgreement: false,
+        requiresServer: true,
+        requiresCharacter: true,
+        requiresAdvocateCharacter: false,
+        blockReasons: ["advocate_character_required"],
+      },
+      selectedCharacterSummary: {
+        id: "character-1",
+        fullName: "Игорь Юристов",
+        passportNumber: "AA-001",
+        source: "last_used",
+      },
+    });
+
+    const html = renderToStaticMarkup(
+      await ServerHubPage({
+        params: Promise.resolve({
+          serverSlug: "blackberry",
+        }),
+      }),
+    );
+
+    expect(html).toContain("Адвокатский кабинет");
+    expect(html).toContain("Для адвокатского кабинета нужен персонаж с адвокатским доступом.");
+    expect(html).toContain('/account/characters?server=blackberry"');
+    expect(html).not.toContain("/servers/blackberry/lawyer");
   });
 
   it("показывает honest server_unavailable state для недоступного сервера", async () => {
