@@ -899,6 +899,14 @@ function isDuplicateProjectionText(left: string, right: string) {
   );
 }
 
+function stripProjectionSegmentMarkerPrefix(value: string) {
+  return value
+    .trim()
+    .replace(/^…\s*/, "")
+    .replace(/^(ч\.\s*\d+\s*|Примечание:?\s*)/i, "")
+    .trim();
+}
+
 function detectPrimaryExcerptSegmentKey(value: string) {
   const normalized = value.trim();
   const partMatch = normalized.match(/^(ч\.\s*(\d+))/i);
@@ -912,6 +920,144 @@ function detectPrimaryExcerptSegmentKey(value: string) {
   }
 
   return null;
+}
+
+function primaryExcerptContainsCompanionMarker(input: {
+  primaryExcerptText: string;
+  marker: string | null | undefined;
+  partNumber: string | null | undefined;
+}) {
+  if (input.partNumber) {
+    return new RegExp(`ч\\.\\s*${escapeRegExp(input.partNumber)}\\b`, "i").test(
+      input.primaryExcerptText,
+    );
+  }
+
+  if (input.marker === "Примечание") {
+    return /Примечание/i.test(input.primaryExcerptText);
+  }
+
+  if (input.marker) {
+    return input.primaryExcerptText.includes(input.marker);
+  }
+
+  return false;
+}
+
+function primaryExcerptOverlapsCompanion(input: {
+  primaryExcerptText: string;
+  companionText: string;
+}) {
+  const normalizedPrimary = normalizeProjectionComparableText(input.primaryExcerptText);
+  const normalizedCompanion = normalizeProjectionComparableText(input.companionText);
+  const cleanedPrimary = normalizeProjectionComparableText(
+    stripProjectionSegmentMarkerPrefix(input.primaryExcerptText),
+  );
+  const cleanedCompanion = normalizeProjectionComparableText(
+    stripProjectionSegmentMarkerPrefix(input.companionText),
+  );
+  const fragment = cleanedCompanion.slice(0, Math.min(72, cleanedCompanion.length)).trim();
+
+  return (
+    isDuplicateProjectionText(normalizedPrimary, normalizedCompanion) ||
+    (cleanedCompanion.length >= 20 && cleanedPrimary.includes(cleanedCompanion)) ||
+    (cleanedPrimary.length >= 20 && cleanedCompanion.includes(cleanedPrimary)) ||
+    (fragment.length >= 20 && cleanedPrimary.includes(fragment))
+  );
+}
+
+function buildCompanionProjectionExcerpt(input: {
+  relationType: AssistantProjectableBundleRelationType;
+  text: string;
+  budget: number;
+}) {
+  const normalized = normalizeSectionText(input.text);
+  const maxBudgetByRelation: Record<
+    AssistantProjectableBundleRelationType,
+    number
+  > = {
+    same_article_part: 92,
+    article_note: 88,
+    article_comment: 88,
+    exception: 100,
+    definition: 88,
+    procedure_companion: 96,
+    sanction_companion: 96,
+    evidence_companion: 96,
+    remedy_companion: 92,
+    citation_companion: 92,
+    nearby_context: 88,
+  };
+  const signalTermsByRelation: Record<
+    AssistantProjectableBundleRelationType,
+    string[]
+  > = {
+    same_article_part: [],
+    article_note: ["примечание", "необходимо"],
+    article_comment: [],
+    exception: ["может быть отказано", "основания отказа", "не располагает", "тайна"],
+    definition: ["далее", "определяется", "вправе направлять"],
+    procedure_companion: ["должны дать", "ответ", "в течение", "календарного дня"],
+    sanction_companion: [
+      "неправомерный отказ",
+      "нарушение сроков",
+      "влекут ответственность",
+      "влечет ответственность",
+    ],
+    evidence_companion: ["видеозаписи", "аудиозаписи", "не вправе уничтожать", "срок давности"],
+    remedy_companion: ["обжал", "ходатайств", "требовать"],
+    citation_companion: [],
+    nearby_context: [],
+  };
+  const limit = Math.min(input.budget, maxBudgetByRelation[input.relationType] ?? 92);
+
+  if (normalized.length <= limit) {
+    return {
+      text: normalized,
+      trimmed: false,
+    };
+  }
+
+  const signalTerms = signalTermsByRelation[input.relationType] ?? [];
+  const lowered = normalized.toLowerCase();
+  let bestIndex = -1;
+  let matchedTermLength = 0;
+
+  for (const term of signalTerms) {
+    const index = lowered.indexOf(term.toLowerCase());
+
+    if (index >= 0 && (bestIndex < 0 || index < bestIndex)) {
+      bestIndex = index;
+      matchedTermLength = term.length;
+    }
+  }
+
+  if (bestIndex < 0) {
+    return clampAssistantPromptExcerpt(normalized, limit);
+  }
+
+  const contextLead = Math.max(0, Math.floor((limit - matchedTermLength) / 3));
+  let start = Math.max(0, bestIndex - contextLead);
+  const end = Math.min(normalized.length, start + limit);
+
+  if (end - start < limit) {
+    start = Math.max(0, end - limit);
+  }
+
+  let excerpt = normalized.slice(start, end).trim();
+
+  if (start > 0) {
+    excerpt = `…${excerpt}`;
+  }
+
+  if (end < normalized.length) {
+    excerpt = `${excerpt}…`;
+  }
+
+  return {
+    text: excerpt,
+    trimmed: start > 0 || end < normalized.length,
+  };
 }
 
 function buildAssistantLawSourceExcerpt(input: {
@@ -967,11 +1113,11 @@ function getNormBundleProjectionRelationRank(input: {
 
   if (plan.primaryLegalIssueType === "refusal_question") {
     switch (relationType) {
-      case "exception":
-        return 0;
       case "procedure_companion":
-        return 1;
+        return 0;
       case "sanction_companion":
+        return 1;
+      case "exception":
         return 2;
       case "evidence_companion":
         return 3;
@@ -1135,7 +1281,10 @@ function buildAssistantLawSourceBundleProjection(input: {
 
     if (
       typeof candidateText === "string" &&
-      isDuplicateProjectionText(candidateText, normalizedPrimaryExcerpt)
+      primaryExcerptOverlapsCompanion({
+        primaryExcerptText: primaryExcerpt.text,
+        companionText: candidateText,
+      })
     ) {
       primaryMatchedSegmentKeys.add(`${item.marker ?? ""}:${item.part_number ?? ""}`);
     }
@@ -1161,10 +1310,18 @@ function buildAssistantLawSourceBundleProjection(input: {
     const segmentKey = `${item.marker ?? ""}:${item.part_number ?? ""}`;
 
     if (
+      primaryExcerptContainsCompanionMarker({
+        primaryExcerptText: primaryExcerpt.text,
+        marker: item.marker,
+        partNumber: item.part_number,
+      }) ||
       (primaryMatchedSegmentKeys.size > 0 && primaryMatchedSegmentKeys.has(segmentKey)) ||
       (typeof normalizedCompanionText === "string" &&
         normalizedCompanionText.length > 0 &&
-        isDuplicateProjectionText(normalizedCompanionText, normalizedPrimaryExcerpt))
+        primaryExcerptOverlapsCompanion({
+          primaryExcerptText: normalizedPrimaryExcerpt,
+          companionText: normalizedCompanionText,
+        }))
     ) {
       excludedCompanions.push({
         marker: item.marker ?? null,
@@ -1207,10 +1364,11 @@ function buildAssistantLawSourceBundleProjection(input: {
       continue;
     }
 
-    const companionExcerpt = clampAssistantPromptExcerpt(
-      companionTextSource,
-      Math.min(140, remainingCompanionBudget),
-    );
+    const companionExcerpt = buildCompanionProjectionExcerpt({
+      relationType: item.relation_type,
+      text: companionTextSource,
+      budget: Math.min(110, remainingCompanionBudget),
+    });
     includedCompanions.push({
       item,
       text: companionExcerpt.text,

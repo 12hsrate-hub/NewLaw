@@ -2307,13 +2307,39 @@ describe("answer pipeline", () => {
       },
     );
 
+    const promptInput = requestAssistantProxyCompletion.mock.calls[0]?.[0]?.userPrompt as string;
+    expect(promptInput).toContain("companion[procedure_companion]");
+    expect(promptInput).toContain("companion[sanction_companion]");
+    expect(promptInput).not.toContain("companion[exception]");
+
     const aiRequestPayload = createAIRequest.mock.calls[0]?.[0];
     expect(aiRequestPayload.requestPayloadJson.bundle_budget_trimmed).toBe(true);
+    expect(aiRequestPayload.requestPayloadJson.bundle_projection_companion_items).toEqual([
+      expect.objectContaining({
+        law_id: "law-1",
+        law_block_id: "law-block-1",
+        items: expect.arrayContaining([
+          expect.objectContaining({
+            marker: "ч. 2",
+            relation_type: "procedure_companion",
+          }),
+          expect.objectContaining({
+            marker: "ч. 5",
+            relation_type: "sanction_companion",
+          }),
+        ]),
+      }),
+    ]);
     expect(aiRequestPayload.requestPayloadJson.bundle_projection_excluded_items).toEqual([
       expect.objectContaining({
         law_id: "law-1",
         law_block_id: "law-block-1",
         items: expect.arrayContaining([
+          expect.objectContaining({
+            marker: "ч. 4",
+            relation_type: "exception",
+            reason_code: "duplicate_of_primary_excerpt",
+          }),
           expect.objectContaining({
             reason_code: expect.stringMatching(/^(projection_|duplicate_of_primary_excerpt)/),
           }),
