@@ -700,7 +700,7 @@ export function ClaimsPersistedEditor(props: {
                     : "От своего имени",
               },
             ]}
-            description="Ключевые сведения о документе собраны рядом, чтобы не терять контекст во время редактирования."
+            description="Ключевые сведения о документе для быстрой сверки."
             items={[
               { label: "Сервер", value: props.document.server.name },
               { label: "Персонаж", value: props.document.authorSnapshot.fullName },
@@ -708,7 +708,7 @@ export function ClaimsPersistedEditor(props: {
               { label: "Создано", value: new Date(props.document.createdAt).toLocaleString("ru-RU") },
               { label: "Обновлено", value: new Date(props.document.updatedAt).toLocaleString("ru-RU") },
               {
-                label: "Данные автора зафиксированы",
+                label: "Снимок данных",
                 value: new Date(props.document.snapshotCapturedAt).toLocaleString("ru-RU"),
               },
             ]}
@@ -716,8 +716,8 @@ export function ClaimsPersistedEditor(props: {
           />
 
           <EditorProgressSummary
-            description="Этот блок помогает быстро понять, что уже готово, а что стоит проверить перед следующей сборкой."
-            helperText="Сервер, персонаж и вид документа после первого сохранения не меняются."
+            description="Показывает, что уже готово к следующей сборке."
+            helperText="Сервер, персонаж и вид документа уже зафиксированы."
             items={[
               {
                 label: "Последняя сборка",
@@ -739,11 +739,11 @@ export function ClaimsPersistedEditor(props: {
           />
 
           <EditorActionSummary
-            description="Здесь собраны только подсказки по текущему состоянию. Все действия по-прежнему выполняются в основной колонке."
+            description="Подсказывает следующий шаг."
             helperText={
               props.document.isModifiedAfterGeneration
-                ? "После последней сборки в документе есть изменения. Перед использованием лучше собрать текст заново."
-                : "После последней сборки документ не менялся."
+                ? "После сборки есть изменения. Перед использованием соберите документ заново."
+                : "После сборки изменений нет."
             }
             items={[
               { label: "Черновик", value: savedDraftLabel },
@@ -897,7 +897,7 @@ export function AttorneyRequestPersistedEditor(props: {
                 tone: props.document.signatureSnapshot ? "success" : "warning",
               },
             ]}
-            description="Справа собраны ключевые сведения по запросу, чтобы их можно было быстро сверять во время редактирования."
+            description="Ключевые сведения по запросу для быстрой сверки."
             items={[
               { label: "Сервер", value: props.document.server.name },
               { label: "Персонаж", value: props.document.authorSnapshot.fullName },
@@ -910,7 +910,7 @@ export function AttorneyRequestPersistedEditor(props: {
               { label: "Номер договора", value: withFallback(props.document.payload.contractNumber) },
               { label: "Адресат", value: addresseeLabel },
               {
-                label: "Должность в документе",
+                label: "Должность",
                 value:
                   props.document.payload.signerTitleSnapshot?.bodyRu ??
                   props.document.authorSnapshot.position ??
@@ -919,7 +919,7 @@ export function AttorneyRequestPersistedEditor(props: {
               { label: "Создано", value: new Date(props.document.createdAt).toLocaleString("ru-RU") },
               { label: "Обновлено", value: new Date(props.document.updatedAt).toLocaleString("ru-RU") },
               {
-                label: "Данные автора зафиксированы",
+                label: "Снимок данных",
                 value: new Date(props.document.snapshotCapturedAt).toLocaleString("ru-RU"),
               },
             ]}
@@ -927,8 +927,8 @@ export function AttorneyRequestPersistedEditor(props: {
           />
 
           <EditorProgressSummary
-            description="Эти подсказки помогают понять, можно ли уже собирать итоговые файлы или сначала стоит обновить данные."
-            helperText="Доверитель и данные подписи фиксируются в документе и дальше не зависят от изменений в карточках аккаунта."
+            description="Показывает, можно ли уже собирать итоговые файлы."
+            helperText="Доверитель и подпись фиксируются в документе."
             items={[
               {
                 label: "Последняя сборка",
@@ -959,11 +959,11 @@ export function AttorneyRequestPersistedEditor(props: {
           />
 
           <EditorActionSummary
-            description="Здесь нет новых действий: блок только подсказывает, что удобнее сделать следующим шагом."
+            description="Подсказывает следующий шаг."
             helperText={
               props.document.isModifiedAfterGeneration
-                ? "После последней сборки документ менялся. Перед использованием лучше собрать его заново."
-                : "После последней сборки документ не менялся."
+                ? "После сборки есть изменения. Перед использованием соберите документ заново."
+                : "После сборки изменений нет."
             }
             items={[
               { label: "Черновик", value: savedDraftLabel },
@@ -1089,7 +1089,7 @@ export function LegalServicesAgreementPersistedEditor(props: {
                 tone: props.document.generatedArtifact ? "success" : "warning",
               },
             ]}
-            description="Справа собраны сведения о договоре, доверителе и текущем результате сборки, чтобы их было удобно сверять во время редактирования."
+            description="Ключевые сведения по договору для быстрой сверки."
             items={[
               { label: "Сервер", value: props.document.server.name },
               { label: "Персонаж", value: props.document.authorSnapshot.fullName },
@@ -1110,7 +1110,7 @@ export function LegalServicesAgreementPersistedEditor(props: {
               { label: "Создано", value: new Date(props.document.createdAt).toLocaleString("ru-RU") },
               { label: "Обновлено", value: new Date(props.document.updatedAt).toLocaleString("ru-RU") },
               {
-                label: "Данные автора зафиксированы",
+                label: "Снимок данных",
                 value: new Date(props.document.snapshotCapturedAt).toLocaleString("ru-RU"),
               },
             ]}
@@ -1118,8 +1118,8 @@ export function LegalServicesAgreementPersistedEditor(props: {
           />
 
           <EditorProgressSummary
-            description="Этот блок помогает быстро понять, готовы ли страницы для проверки и не нужно ли заново собрать документ."
-            helperText="Подписи персонажа и доверителя подставляются по сохранённым данным договора и появляются в итоговых страницах после сборки."
+            description="Показывает, готовы ли страницы к проверке."
+            helperText="Подписи появятся в итоговых страницах после сборки."
             items={[
               {
                 label: "Последняя сборка",
@@ -1157,16 +1157,16 @@ export function LegalServicesAgreementPersistedEditor(props: {
           />
 
           <EditorActionSummary
-            description="Блок справа не запускает действия, а только подсказывает, на что обратить внимание перед следующей сборкой или скачиванием."
+            description="Подсказывает следующий шаг."
             helperText={
               props.document.isModifiedAfterGeneration
-                ? "После последней сборки документ менялся. Перед использованием лучше собрать его заново."
-                : "После последней сборки документ не менялся."
+                ? "После сборки есть изменения. Перед использованием соберите документ заново."
+                : "После сборки изменений нет."
             }
             items={[
               { label: "Черновик", value: savedDraftLabel },
               {
-                label: "Страниц в результате",
+                label: "Страницы",
                 value: props.document.generatedArtifact ? `${props.document.generatedArtifact.pageCount}` : noDataLabel,
                 tone: props.document.generatedArtifact ? "success" : "neutral",
               },

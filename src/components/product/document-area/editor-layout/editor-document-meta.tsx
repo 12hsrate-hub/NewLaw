@@ -32,10 +32,10 @@ export function EditorDocumentMeta(props: {
       }
       title={props.title ?? "О документе"}
     >
-      <dl className="space-y-3 text-sm leading-6">
+      <dl className="space-y-2.5 text-sm leading-6">
         {props.items.map((item) => (
-          <div className="min-w-0 space-y-1" key={`${item.label}:${item.value}`}>
-            <dt className="text-[var(--muted)]">{item.label}</dt>
+          <div className="min-w-0 space-y-0.5" key={`${item.label}:${item.value}`}>
+            <dt className="text-xs uppercase tracking-[0.16em] text-[var(--muted)]">{item.label}</dt>
             <dd className="break-words text-[var(--foreground)]">{item.value}</dd>
           </div>
         ))}
