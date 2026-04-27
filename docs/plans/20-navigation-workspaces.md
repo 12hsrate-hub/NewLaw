@@ -272,6 +272,10 @@ Acceptance criteria:
 - create-document entry по capabilities
 - lawyer-only document families
 - запрет на свободный mode switch
+- global server switcher в primary shell реализуется отдельными безопасными подшагами:
+- сначала route-target resolver и action wiring
+- затем client-based switcher в `PrimaryHeader`
+- nested layouts только ради `currentPath` в этой линии не добавляются
 
 ### 20.4 — Lawyer workspace
 

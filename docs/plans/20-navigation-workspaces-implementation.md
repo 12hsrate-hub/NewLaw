@@ -197,31 +197,103 @@ Acceptance criteria для UI baseline:
 - Вероятно менять:
   - новый shell/header из `20.3.2`
   - `src/server/actions/shell.ts`
-  - `src/server/app-shell/context.ts`
-  - `src/server/app-shell/state.ts`
+  - новый pure helper для route-target resolver
+  - `src/server/primary-shell/context.ts`
 - Нельзя трогать:
   - `src/server/account-zone/characters.ts`
   - `src/server/document-area/context.ts` behavior around snapshots
   - auth/access logic
 - Что именно должно измениться:
   - persisted active server используется и в новом primary shell, и в старом `/app`
-  - switching rules фиксируются по route family:
+  - `selectActiveServerAction` остаётся общим action для compatibility `/app` и нового primary shell
+  - switching rules фиксируются через pure route-target resolver:
+  - `/assistant` -> `/assistant`
   - `/assistant/[serverSlug]` -> `/assistant/[newServerSlug]`
+  - `/servers` -> `/servers`
   - `/servers/[serverSlug]` -> `/servers/[newServerSlug]`
   - `/servers/[serverSlug]/documents/...` -> `/servers/[newServerSlug]/documents`
-  - из `/`, `/assistant`, `/servers`, `/account/...` сервер обновляет global state без обязательного выбора персонажа
+  - `/account/...` сохраняет path и обычные query-параметры, но `server=old` должен заменяться на `server=new`; если заменить значение нельзя, `server` query удаляется
+  - root `/` в этой линии не трогается
+  - `/app` compatibility behavior не ломается и не переводится на новую ordinary IA
+  - global switcher в primary shell реализуется через client-компонент внутри `PrimaryHeader`
+  - client-компонент берёт текущий `pathname/search` через `usePathname()` и `useSearchParams()`, собирает `redirectTo` и передаёт его в `selectActiveServerAction`
+  - nested layouts не добавляются только ради `currentPath`, чтобы не создавать риск двойного `PrimaryShell/header`
 - Риски:
   - попытка сохранять слишком глубокий document route при смене сервера приведёт к битым `documentId`
+  - blind-сохранение account query может привести к конфликту между active server в header и account filter по `?server=...`
+  - nested layouts для path-aware shell ownership могут создать двойной ordinary header
   - revalidation только `/app` станет недостаточной
 - Какие тесты запускать:
   - `pnpm lint`
   - `pnpm typecheck`
-  - `pnpm vitest run src/server/actions/shell.test.ts src/server/app-shell/context.test.ts src/app/servers/page.test.ts src/app/servers/[serverSlug]/page.test.ts`
-  - manual smoke: switch from `/assistant/[serverSlug]`, `/servers/[serverSlug]`, `/account`
+  - `pnpm vitest run src/server/actions/shell.test.ts`
+  - unit tests для route-target resolver
+  - tests для `PrimaryHeader`/server switcher
+  - route smoke tests:
+  - `/assistant`
+  - `/assistant/[serverSlug]`
+  - `/servers`
+  - `/servers/[serverSlug]`
+  - `/servers/[serverSlug]/documents`
+  - `/account`
+  - затем полный `pnpm vitest run`
 - Критерии готовности:
   - active server меняется из основных зон
   - смена сервера не ломает route semantics
   - server switch не требует character selection
+  - `/assistant` и `/servers` не уводят пользователя на конкретный server route автоматически
+  - `/account/...` не остаётся с устаревшим `server=old` в query после переключения
+- Нужен ли отдельный коммит:
+  - да
+
+#### 20.3.3a — Route-target resolver и action wiring
+
+- Цель:
+  - сначала стабилизировать redirect semantics и persisted active server state без визуального изменения ordinary header
+- Что именно должно измениться:
+  - появляется pure route-target resolver для primary-shell server switching
+  - `selectActiveServerAction` расширяется так, чтобы использовать resolver и корректно поддерживать:
+  - `/assistant`
+  - `/assistant/[serverSlug]`
+  - `/servers`
+  - `/servers/[serverSlug]`
+  - `/servers/[serverSlug]/documents/...`
+  - `/account/...`
+  - `/app...`
+  - `server` query на `/account/...` обновляется с `old` на `new`, а если корректная замена невозможна, удаляется
+  - visual shell/header на этом подшаге не меняется
+- Какие тесты запускать:
+  - `pnpm lint`
+  - `pnpm typecheck`
+  - unit tests для route-target resolver
+  - `pnpm vitest run src/server/actions/shell.test.ts`
+- Критерии готовности:
+  - action умеет безопасно считать next target для ordinary routes
+  - compatibility `/app` не ломается
+- Нужен ли отдельный коммит:
+  - да
+
+#### 20.3.3b — Server switcher UI в `PrimaryHeader`
+
+- Цель:
+  - после стабилизации route semantics добавить компактный global server switcher в новый primary shell
+- Что именно должно измениться:
+  - в `PrimaryHeader` появляется client-компонент server switcher
+  - он использует `usePathname()` и `useSearchParams()` для сборки `redirectTo`
+  - он показывает текущий активный сервер, список серверов и action переключения
+  - `character picker` не добавляется
+  - `lawyer workspace` link не добавляется
+  - `/internal` не смешивается с ordinary switcher UI
+- Какие тесты запускать:
+  - `pnpm lint`
+  - `pnpm typecheck`
+  - tests для `PrimaryHeader` и нового server switcher client-компонента
+  - route smoke tests для `/assistant`, `/assistant/[serverSlug]`, `/servers`, `/servers/[serverSlug]`, `/servers/[serverSlug]/documents`, `/account`
+  - затем полный `pnpm vitest run`
+- Критерии готовности:
+  - ordinary user может переключить active server из primary shell
+  - верхнеуровневые hub pages `/assistant` и `/servers` не делают неожиданный автопереход
+  - server-scoped routes переходят только в безопасные server-scoped targets
 - Нужен ли отдельный коммит:
   - да
 
