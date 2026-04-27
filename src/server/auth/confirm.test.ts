@@ -8,7 +8,13 @@ function createConfirmClientMock() {
       verifyOtp: vi.fn(),
       getUser: vi.fn().mockResolvedValue({
         data: {
-          user: null,
+          user: {
+            id: "fd790c10-133b-4747-af87-0fa8731f8b40",
+            email: "user@example.com",
+            user_metadata: {
+              login: "lawyer_user",
+            },
+          },
         },
         error: null,
       }),
@@ -45,6 +51,11 @@ describe("auth confirm helpers", () => {
 
   it("подтверждает email и возвращает redirect в защищённую часть", async () => {
     const client = createConfirmClientMock();
+    const syncAccountFromSupabaseUser = vi.fn().mockResolvedValue({
+      id: "fd790c10-133b-4747-af87-0fa8731f8b40",
+      email: "user@example.com",
+      login: "lawyer_user",
+    });
 
     client.auth.verifyOtp.mockResolvedValue({
       error: null,
@@ -55,6 +66,10 @@ describe("auth confirm helpers", () => {
       new URL(
         "https://lawyer5rp.ru/auth/confirm?token_hash=abc123&type=email&next=%2Fapp",
       ),
+      {
+        syncAccountFromSupabaseUser,
+        createAuditLog: vi.fn(),
+      },
     );
 
     expect(result).toEqual({
@@ -64,6 +79,13 @@ describe("auth confirm helpers", () => {
     expect(client.auth.verifyOtp).toHaveBeenCalledWith({
       token_hash: "abc123",
       type: "email",
+    });
+    expect(syncAccountFromSupabaseUser).toHaveBeenCalledWith({
+      id: "fd790c10-133b-4747-af87-0fa8731f8b40",
+      email: "user@example.com",
+      user_metadata: {
+        login: "lawyer_user",
+      },
     });
   });
 
@@ -138,6 +160,34 @@ describe("auth confirm helpers", () => {
         flow: "self_service",
       },
     });
+  });
+
+  it("падает безопасно вверх по стеку, если после confirm нельзя получить пользователя с email", async () => {
+    const client = createConfirmClientMock();
+
+    client.auth.verifyOtp.mockResolvedValue({
+      error: null,
+    });
+    client.auth.getUser.mockResolvedValue({
+      data: {
+        user: {
+          id: "fd790c10-133b-4747-af87-0fa8731f8b40",
+          email: null,
+        },
+      },
+      error: null,
+    });
+
+    await expect(
+      confirmEmailFromUrl(
+        client,
+        new URL("https://lawyer5rp.ru/auth/confirm?token_hash=abc123&type=email"),
+        {
+          syncAccountFromSupabaseUser: vi.fn(),
+          createAuditLog: vi.fn(),
+        },
+      ),
+    ).rejects.toThrow("Confirmed auth user is missing id or email");
   });
 
   it("возвращает invalid-сценарий для битой ссылки", async () => {

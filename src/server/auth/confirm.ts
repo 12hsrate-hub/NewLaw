@@ -58,6 +58,20 @@ type AuthConfirmResult = {
   status: "success" | "expired" | "invalid";
 };
 
+async function getConfirmedUserOrThrow(client: ConfirmationClientLike) {
+  const { data, error } = await client.auth.getUser();
+
+  if (error) {
+    throw error;
+  }
+
+  if (!data.user?.id || !data.user.email) {
+    throw new Error("Confirmed auth user is missing id or email");
+  }
+
+  return data.user;
+}
+
 function buildConfirmationInvalidPath() {
   return buildStatusPath("/sign-in", "confirmation-invalid");
 }
@@ -154,26 +168,28 @@ export async function confirmEmailFromUrl(
   }
 
   if (parsed.type === "email_change") {
-    const { data } = await client.auth.getUser();
+    const user = await getConfirmedUserOrThrow(client);
 
-    if (data.user?.id && data.user.email) {
-      await dependencies.syncAccountFromSupabaseUser(data.user);
-      await dependencies.createAuditLog({
-        actionKey: "email_change_completed",
-        status: "success",
-        actorAccountId: data.user.id,
-        targetAccountId: data.user.id,
-        metadataJson: {
-          flow: "self_service",
-        },
-      });
-    }
+    await dependencies.syncAccountFromSupabaseUser(user);
+    await dependencies.createAuditLog({
+      actionKey: "email_change_completed",
+      status: "success",
+      actorAccountId: user.id,
+      targetAccountId: user.id,
+      metadataJson: {
+        flow: "self_service",
+      },
+    });
 
     return {
       status: "success",
       redirectPath: buildEmailChangeSuccessPath(),
     };
   }
+
+  const user = await getConfirmedUserOrThrow(client);
+
+  await dependencies.syncAccountFromSupabaseUser(user);
 
   return {
     status: "success",
