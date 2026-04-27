@@ -1,7 +1,10 @@
 import Link from "next/link";
 
-import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
+import { ProductActionCard } from "@/components/product/foundation/product-action-card";
+import { WorkspaceCard } from "@/components/product/foundation/workspace-card";
+import { EmbeddedCard } from "@/components/ui/embedded-card";
+import { SectionHeader } from "@/components/ui/section-header";
+import { StatusBadge } from "@/components/ui/status-badge";
 import type { HomeDashboardContext } from "@/server/home/dashboard";
 import { cn } from "@/utils/cn";
 
@@ -16,38 +19,14 @@ function DashboardLink(props: {
       className={cn(
         "inline-flex items-center justify-center rounded-2xl border px-4 py-2.5 text-sm font-medium transition",
         props.variant === "primary"
-          ? "border-[var(--accent)] bg-[rgba(141,79,49,0.12)] text-[var(--foreground)] hover:bg-[rgba(141,79,49,0.18)]"
-          : "border-[var(--border)] bg-white/70 text-[var(--foreground)] hover:bg-white",
+          ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--foreground)] hover:bg-[var(--accent-soft-strong)]"
+          : "border-[var(--border)] bg-[var(--surface-subtle)] text-[var(--foreground)] hover:bg-[var(--surface-hover)]",
         props.className,
       )}
       href={props.href}
     >
       {props.children}
     </Link>
-  );
-}
-
-function ToolCard(props: {
-  title: string;
-  description: string;
-  href: string;
-  actionLabel: string;
-  helperText?: string | null;
-}) {
-  return (
-    <Card className="space-y-4">
-      <div className="space-y-2">
-        <p className="text-xs uppercase tracking-[0.22em] text-[var(--accent)]">Инструмент</p>
-        <h2 className="text-2xl font-semibold">{props.title}</h2>
-        <p className="text-sm leading-6 text-[var(--muted)]">{props.description}</p>
-        {props.helperText ? (
-          <p className="text-sm leading-6 text-[var(--muted)]">{props.helperText}</p>
-        ) : null}
-      </div>
-      <div className="flex flex-wrap gap-3">
-        <DashboardLink href={props.href}>{props.actionLabel}</DashboardLink>
-      </div>
-    </Card>
   );
 }
 
@@ -58,33 +37,27 @@ export function ProductDashboard(props: {
 
   return (
     <div className="space-y-6">
-      <Card className="space-y-4">
-        <div className="space-y-3">
-          <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">Главная</p>
-          <h1 className="text-3xl font-semibold">Панель инструментов</h1>
-          <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
-            Это точка входа в юридический помощник, серверы, документы и настройки аккаунта. Главная
-            страница не заменяет раздел документов и не подменяет собой личный кабинет.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2 text-sm leading-6 text-[var(--muted)]">
-          {context.activeServer.name ? (
-            <Badge>Активный сервер: {context.activeServer.name}</Badge>
-          ) : (
-            <Badge>Активный сервер пока не выбран</Badge>
-          )}
-        </div>
-      </Card>
+      <EmbeddedCard className="space-y-5">
+        <SectionHeader
+          description="Это точка входа в юридический помощник, серверы, документы и настройки аккаунта. Главная страница не заменяет раздел документов и не подменяет собой личный кабинет."
+          eyebrow="Главная"
+          meta={
+            context.activeServer.name ? (
+              <StatusBadge tone="warning">Активный сервер: {context.activeServer.name}</StatusBadge>
+            ) : (
+              <StatusBadge tone="neutral">Активный сервер пока не выбран</StatusBadge>
+            )
+          }
+          title="Панель инструментов"
+        />
+      </EmbeddedCard>
 
-      <Card className="space-y-4">
-        <div className="space-y-2">
-          <p className="text-xs uppercase tracking-[0.22em] text-[var(--accent)]">Быстрые действия</p>
-          <h2 className="text-2xl font-semibold">С чего начать</h2>
-          <p className="text-sm leading-6 text-[var(--muted)]">
-            Выберите нужный инструмент и продолжайте работу из общей панели без перехода через
-            account-first landing.
-          </p>
-        </div>
+      <EmbeddedCard className="space-y-4">
+        <SectionHeader
+          description="Выберите нужный инструмент и продолжайте работу из общей панели без перехода через account-first landing."
+          eyebrow="Быстрые действия"
+          title="С чего начать"
+        />
         <div className="flex flex-wrap gap-3">
           <DashboardLink href={context.quickActions.assistantHref} variant="primary">
             Открыть юридический помощник
@@ -106,74 +79,88 @@ export function ProductDashboard(props: {
             {context.quickActions.documentsHelperText}
           </p>
         ) : null}
-      </Card>
+      </EmbeddedCard>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <ToolCard
-          actionLabel="Открыть помощника"
+        <ProductActionCard
+          eyebrow="Инструмент"
           description="Открывайте общий вход в помощник и переходите к нужному серверу, когда понадобится рабочий контекст."
           helperText={context.tools.assistant.helperText}
-          href={context.tools.assistant.href}
+          primaryAction={{
+            href: context.tools.assistant.href,
+            label: "Открыть помощника",
+          }}
           title="Юридический помощник"
         />
 
-        <ToolCard
-          actionLabel={context.tools.documents.actionLabel}
+        <ProductActionCard
+          eyebrow="Инструмент"
           description="Документы открываются по выбранному серверу. Главная только помогает быстро перейти в нужный раздел."
           helperText={context.tools.documents.helperText}
-          href={context.tools.documents.href}
+          primaryAction={{
+            href: context.tools.documents.href,
+            label: context.tools.documents.actionLabel,
+          }}
           title="Документы"
         />
 
         {context.tools.lawyer ? (
-          <ToolCard
-            actionLabel="Открыть адвокатский кабинет"
+          <ProductActionCard
+            eyebrow="Инструмент"
             description="Доверители, договоры, адвокатские запросы и работа в интересах доверителя."
-            href={context.tools.lawyer.href}
+            primaryAction={{
+              href: context.tools.lawyer.href,
+              label: "Открыть адвокатский кабинет",
+            }}
             title="Адвокатский кабинет"
           />
         ) : null}
 
-        <ToolCard
-          actionLabel="Открыть серверы"
+        <ProductActionCard
+          eyebrow="Инструмент"
           description="Открывайте список серверов, чтобы выбрать рабочий контекст и перейти к доступным разделам."
-          href={context.tools.servers.href}
+          primaryAction={{
+            href: context.tools.servers.href,
+            label: "Открыть серверы",
+          }}
           title="Серверы"
         />
 
-        <ToolCard
-          actionLabel="Открыть аккаунт"
+        <ProductActionCard
+          eyebrow="Инструмент"
           description="Настройки аккаунта, безопасность, персонажи, доверители и обзор документов собраны в отдельной зоне."
-          href={context.tools.account.href}
+          primaryAction={{
+            href: context.tools.account.href,
+            label: "Открыть аккаунт",
+          }}
           title="Аккаунт"
         />
 
         {context.tools.internal ? (
-          <ToolCard
-            actionLabel="Открыть служебную зону"
+          <ProductActionCard
+            eyebrow="Инструмент"
             description="Скрытая служебная зона доступна только пользователям с соответствующим доступом."
-            href={context.tools.internal.href}
+            primaryAction={{
+              href: context.tools.internal.href,
+              label: "Открыть служебную зону",
+            }}
             title="Служебная зона"
           />
         ) : null}
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <Card className="space-y-3">
-          <p className="text-xs uppercase tracking-[0.22em] text-[var(--accent)]">Требуется внимание</p>
-          <h2 className="text-2xl font-semibold">Что проверить дальше</h2>
-          <p className="text-sm leading-6 text-[var(--muted)]">
-            {context.placeholders.requiresAttention}
-          </p>
-        </Card>
+        <WorkspaceCard
+          description={context.placeholders.requiresAttention}
+          eyebrow="Требуется внимание"
+          title="Что проверить дальше"
+        />
 
-        <Card className="space-y-3">
-          <p className="text-xs uppercase tracking-[0.22em] text-[var(--accent)]">Последняя активность</p>
-          <h2 className="text-2xl font-semibold">Что появится позже</h2>
-          <p className="text-sm leading-6 text-[var(--muted)]">
-            {context.placeholders.recentActivity}
-          </p>
-        </Card>
+        <WorkspaceCard
+          description={context.placeholders.recentActivity}
+          eyebrow="Последняя активность"
+          title="Что появится позже"
+        />
       </div>
     </div>
   );

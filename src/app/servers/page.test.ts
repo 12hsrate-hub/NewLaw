@@ -32,6 +32,7 @@ describe("/servers page", () => {
     const html = renderToStaticMarkup(await ServersDirectoryPage());
 
     expect(getPublicServerDirectoryContext).toHaveBeenCalledWith();
+    expect(html).toContain('data-variant="wide"');
     expect(html).toContain("Серверы");
     expect(html).toContain("Blackberry");
     expect(html).toContain("Помощник доступен");
@@ -74,6 +75,7 @@ describe("/servers page", () => {
 
     const html = renderToStaticMarkup(await ServersDirectoryPage());
 
+    expect(html).toContain('data-variant="wide"');
     expect(html).toContain("/servers/blackberry/documents");
     expect(html).toContain("Документы доступны");
     expect(html).toContain("Нужен персонаж");
@@ -93,6 +95,7 @@ describe("/servers page", () => {
 
     const html = renderToStaticMarkup(await ServersDirectoryPage());
 
+    expect(html).toContain('data-variant="wide"');
     expect(html).toContain("Пока нет доступных серверов");
   });
 });

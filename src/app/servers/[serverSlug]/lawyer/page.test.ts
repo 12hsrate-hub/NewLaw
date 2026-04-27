@@ -76,6 +76,7 @@ describe("/servers/[serverSlug]/lawyer page", () => {
       serverSlug: "blackberry",
       nextPath: "/servers/blackberry/lawyer",
     });
+    expect(html).toContain('data-variant="wide"');
     expect(html).toContain("Адвокатский кабинет");
     expect(html).toContain("/servers/blackberry/documents/attorney-requests");
     expect(html).toContain("/servers/blackberry/documents/legal-services-agreements");
@@ -102,6 +103,7 @@ describe("/servers/[serverSlug]/lawyer page", () => {
       }),
     );
 
+    expect(html).toContain('data-variant="wide"');
     expect(html).toContain("Сервер не найден");
     expect(html).toContain("unknown");
   });

@@ -10,7 +10,7 @@ export function Card({ children, className }: CardProps) {
   return (
     <section
       className={cn(
-        "rounded-3xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-[0_24px_80px_rgba(23,33,43,0.12)] backdrop-blur",
+        "rounded-3xl border border-[var(--border)] bg-[var(--surface-raised)] p-6 text-[var(--foreground)] shadow-[var(--shadow-soft)] backdrop-blur",
         className,
       )}
     >

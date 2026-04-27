@@ -42,8 +42,8 @@ export function PrimaryNav({
             className={cn(
               baseLinkClass,
               active
-                ? "border-[var(--accent)] bg-[rgba(141,79,49,0.12)] text-[var(--foreground)]"
-                : "border-[var(--border)] bg-white/70 text-[var(--foreground)] hover:bg-white",
+                ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--foreground)]"
+                : "border-[var(--border)] bg-[var(--surface-subtle)] text-[var(--foreground)] hover:bg-[var(--surface-hover)]",
             )}
             href={item.href}
           >
@@ -57,8 +57,8 @@ export function PrimaryNav({
           className={cn(
             baseLinkClass,
             isActive(currentPath, documentsHref)
-              ? "border-[var(--accent)] bg-[rgba(141,79,49,0.12)] text-[var(--foreground)]"
-              : "border-[var(--border)] bg-white/70 text-[var(--foreground)] hover:bg-white",
+              ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--foreground)]"
+              : "border-[var(--border)] bg-[var(--surface-subtle)] text-[var(--foreground)] hover:bg-[var(--surface-hover)]",
           )}
           href={documentsHref}
         >
@@ -71,8 +71,8 @@ export function PrimaryNav({
           className={cn(
             baseLinkClass,
             isActive(currentPath, lawyerWorkspaceHref)
-              ? "border-[var(--accent)] bg-[rgba(141,79,49,0.12)] text-[var(--foreground)]"
-              : "border-[var(--border)] bg-white/70 text-[var(--foreground)] hover:bg-white",
+              ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--foreground)]"
+              : "border-[var(--border)] bg-[var(--surface-subtle)] text-[var(--foreground)] hover:bg-[var(--surface-hover)]",
           )}
           href={lawyerWorkspaceHref}
         >

@@ -21,10 +21,18 @@ export default async function CheckEmailPage({ searchParams }: CheckEmailPagePro
   }
 
   return (
-    <PageContainer>
-      <main className="flex min-h-screen items-center justify-center px-6 py-16">
+    <PageContainer
+      as="main"
+      contentClassName="space-y-6"
+      tone="workspace"
+      variant="readable"
+    >
+      <div className="flex justify-center">
         <CheckEmailCard flow="signup" nextPath={nextPath} />
-      </main>
+      </div>
+      <p className="text-sm leading-6 text-[var(--muted)]">
+        После подтверждения письма откроется обычная рабочая зона проекта, а не отдельный одноразовый кабинет регистрации.
+      </p>
     </PageContainer>
   );
 }

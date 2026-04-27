@@ -2,9 +2,12 @@ import type { ReactNode } from "react";
 
 import Link from "next/link";
 
-import { ProductStateCard } from "@/components/product/states/product-state-card";
+import { AccessBlockedCard } from "@/components/product/foundation/access-blocked-card";
+import { EmptyStateCard } from "@/components/product/foundation/empty-state-card";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import { SectionHeader } from "@/components/ui/section-header";
+import { StatusBadge } from "@/components/ui/status-badge";
 import type { DocumentAreaServerSummary } from "@/server/document-area/context";
 import type {
   DocumentEntryCapabilities,
@@ -24,7 +27,7 @@ function FoundationLink({
   return (
     <Link
       className={cn(
-        "inline-flex items-center justify-center rounded-2xl border border-[var(--border)] bg-white/70 px-4 py-2.5 text-sm font-medium text-[var(--foreground)] transition hover:bg-white",
+        "inline-flex items-center justify-center rounded-2xl border border-[var(--border)] bg-[var(--surface-subtle)] px-4 py-2.5 text-sm font-medium text-[var(--foreground)] transition hover:bg-[var(--surface-hover)]",
         className,
       )}
       href={href}
@@ -40,13 +43,11 @@ export function AccountZoneFoundationIntro(props: {
   return (
     <div className="space-y-6">
       <Card className="space-y-3">
-        <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">Аккаунт</p>
-        <h1 className="text-3xl font-semibold">Аккаунт</h1>
-        <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
-          Здесь собраны настройки аккаунта, безопасность, доступы и служебные обзорные разделы.
-          Работа по конкретному серверу открывается из server-scoped зон, а эта страница помогает
-          быстро перейти к нужным настройкам и совместимым обзорным маршрутам.
-        </p>
+        <SectionHeader
+          description="Здесь собраны настройки аккаунта, безопасность, доступы и служебные обзорные разделы. Работа по конкретному серверу открывается из отдельных серверных зон, а эта страница помогает быстро перейти к нужным настройкам и обзорным разделам."
+          eyebrow="Аккаунт"
+          title="Аккаунт"
+        />
       </Card>
 
       <div className="grid gap-4 lg:grid-cols-2">
@@ -106,7 +107,7 @@ export function AccountZoneFoundationIntro(props: {
             <h2 className="text-2xl font-semibold">Обзор документов</h2>
             <p className="text-sm leading-6 text-[var(--muted)]">
               Этот раздел собирает сохранённые документы по серверам. Создание и редактирование
-              документов по-прежнему открываются из server-scoped document area.
+              документов по-прежнему открываются из разделов конкретного сервера.
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
@@ -142,23 +143,18 @@ export function AccountDocumentsOverview(props: {
   return (
     <div className="space-y-6">
       <Card className="space-y-3">
-        <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">
-          Документы
-        </p>
-        <h1 className="text-3xl font-semibold">Мои документы</h1>
-        <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
-          Здесь собраны ваши документы по всем серверам. Создание и редактирование открываются
-          из раздела конкретного сервера, чтобы не смешивать разные рабочие контексты.
-        </p>
+        <SectionHeader
+          description="Здесь собраны ваши документы по всем серверам. Создание и редактирование открываются из раздела конкретного сервера, чтобы не смешивать разные рабочие контексты."
+          eyebrow="Документы"
+          title="Мои документы"
+        />
       </Card>
 
       {props.servers.length === 0 ? (
-        <Card className="space-y-3">
-          <h2 className="text-2xl font-semibold">Серверы пока не найдены</h2>
-          <p className="text-sm leading-6 text-[var(--muted)]">
-            Пока у аккаунта нет доступных серверов, список документов будет пустым.
-          </p>
-        </Card>
+        <EmptyStateCard
+          description="Пока у аккаунта нет доступных серверов, список документов будет пустым."
+          title="Серверы пока не найдены"
+        />
       ) : (
         <div className="grid gap-4 md:grid-cols-2">
           {props.servers.map((server) => (
@@ -197,7 +193,7 @@ export function DocumentServerNotFoundState(props: {
 }) {
   return (
     <div className="space-y-6">
-      <ProductStateCard
+      <EmptyStateCard
         description={`Не удалось открыть сервер с адресом ${props.requestedServerSlug}. Выберите другой сервер и откройте документы в нужном рабочем контексте.`}
         eyebrow="Документы"
         primaryAction={{
@@ -232,7 +228,7 @@ export function DocumentNoCharactersState(props: {
 }) {
   return (
     <div className="space-y-6">
-      <ProductStateCard
+      <AccessBlockedCard
         badges={[`Сервер: ${props.server.name}`]}
         description="Для этого действия нужен персонаж на выбранном сервере."
         eyebrow="Документы"
@@ -289,32 +285,31 @@ export function ServerDocumentsHub(props: {
   return (
     <div className="space-y-6">
       <Card className="space-y-3">
-        <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">
-          Документы сервера
-        </p>
-        <h1 className="text-3xl font-semibold">{props.server.name}</h1>
-        <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
-          Здесь собраны общие документы по выбранному серверу. Адвокатские сценарии и работа с
-          доверителями открываются из отдельного адвокатского кабинета.
-        </p>
-        <div className="flex flex-wrap items-center gap-2 text-sm leading-6 text-[var(--muted)]">
-          {props.selectedCharacter ? (
-            <>
-              <Badge>Персонаж: {props.selectedCharacter.fullName}</Badge>
-              <span>
-                Выбор:{" "}
-                {props.selectedCharacter.source === "last_used"
-                  ? "последний использованный"
-                  : "первый доступный"}
-              </span>
-            </>
-          ) : (
-            <Badge>Персонаж пока не выбран</Badge>
-          )}
-          {typeof props.ogpComplaintDocumentCount === "number" ? (
-            <span>Жалоб в ОГП: {props.ogpComplaintDocumentCount}</span>
-          ) : null}
-        </div>
+        <SectionHeader
+          description="Здесь собраны общие документы по выбранному серверу. Адвокатские сценарии и работа с доверителями открываются из отдельного адвокатского кабинета."
+          eyebrow="Документы сервера"
+          meta={
+            <div className="flex flex-wrap items-center gap-2 text-sm leading-6 text-[var(--muted)]">
+              {props.selectedCharacter ? (
+                <>
+                  <StatusBadge tone="warning">Персонаж: {props.selectedCharacter.fullName}</StatusBadge>
+                  <span>
+                    Выбор:{" "}
+                    {props.selectedCharacter.source === "last_used"
+                      ? "последний использованный"
+                      : "первый доступный"}
+                  </span>
+                </>
+              ) : (
+                <StatusBadge tone="neutral">Персонаж пока не выбран</StatusBadge>
+              )}
+              {typeof props.ogpComplaintDocumentCount === "number" ? (
+                <span>Жалоб в ОГП: {props.ogpComplaintDocumentCount}</span>
+              ) : null}
+            </div>
+          }
+          title={props.server.name}
+        />
       </Card>
 
       <div className="grid gap-4 lg:grid-cols-2">
@@ -425,16 +420,11 @@ export function ServerDocumentsHub(props: {
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card className="space-y-4">
-          <div className="space-y-2">
-            <p className="text-xs uppercase tracking-[0.22em] text-[var(--accent)]">
-              Прямые маршруты
-            </p>
-            <h2 className="text-2xl font-semibold">Совместимые маршруты сохраняются</h2>
-            <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
-              Старые прямые маршруты для адвокатских запросов и договоров продолжают работать.
-              Основной вход для этих сценариев теперь собран в отдельном адвокатском кабинете.
-            </p>
-          </div>
+          <SectionHeader
+            description="Прямые маршруты для адвокатских запросов и договоров продолжают работать. Основной вход для этих сценариев теперь собран в отдельном адвокатском кабинете."
+            eyebrow="Дополнительные входы"
+            title="Прямые маршруты сохраняются"
+          />
           <div className="flex flex-wrap gap-3">
             <FoundationLink href={`/servers/${props.server.code}/documents/attorney-requests`}>
               Открыть адвокатские запросы
@@ -481,19 +471,19 @@ export function OgpComplaintFoundation(props: {
   return (
     <div className="space-y-6">
       <Card className="space-y-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">
-            Жалоба в ОГП
-          </p>
-          {props.mode === "editor" ? <Badge>только для владельца</Badge> : null}
-        </div>
-        <h1 className="text-3xl font-semibold">{title}</h1>
-        <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">{description}</p>
-        <div className="flex flex-wrap items-center gap-2 text-sm leading-6 text-[var(--muted)]">
-          <Badge>Сервер: {props.server.name}</Badge>
-          <Badge>Персонаж: {props.selectedCharacter.fullName}</Badge>
-          <span>Паспорт: {props.selectedCharacter.passportNumber}</span>
-        </div>
+        <SectionHeader
+          description={description}
+          eyebrow="Жалоба в ОГП"
+          meta={
+            <div className="flex flex-wrap items-center gap-2 text-sm leading-6 text-[var(--muted)]">
+              {props.mode === "editor" ? <StatusBadge tone="info">только для владельца</StatusBadge> : null}
+              <StatusBadge tone="warning">Сервер: {props.server.name}</StatusBadge>
+              <StatusBadge tone="warning">Персонаж: {props.selectedCharacter.fullName}</StatusBadge>
+              <span>Паспорт: {props.selectedCharacter.passportNumber}</span>
+            </div>
+          }
+          title={title}
+        />
       </Card>
 
       <Card className="space-y-4">
@@ -558,27 +548,36 @@ export function ClaimsFamilyFoundation(props: {
   return (
     <div className="space-y-6">
       <Card className="space-y-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">Иски</p>
-          {props.selectedSubtype ? <Badge>Вид документа: {formatClaimSubtypeLabel(props.selectedSubtype)}</Badge> : null}
-        </div>
-        <h1 className="text-3xl font-semibold">{title}</h1>
-        <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">{description}</p>
-        <div className="flex flex-wrap items-center gap-2 text-sm leading-6 text-[var(--muted)]">
-          <Badge>Сервер: {props.server.name}</Badge>
-          {props.selectedCharacter ? (
-            <>
-              <Badge>Персонаж: {props.selectedCharacter.fullName}</Badge>
-              <span>Паспорт: {props.selectedCharacter.passportNumber}</span>
-              <span>
-                Сейчас выбран{" "}
-                {props.selectedCharacter.source === "last_used" ? "последний использованный" : "первый доступный"} персонаж
-              </span>
-            </>
-          ) : (
-            <Badge>Персонаж пока не выбран</Badge>
-          )}
-        </div>
+        <SectionHeader
+          description={description}
+          eyebrow="Иски"
+          meta={
+            <div className="flex flex-wrap items-center gap-2 text-sm leading-6 text-[var(--muted)]">
+              {props.selectedSubtype ? (
+                <StatusBadge tone="info">
+                  Вид документа: {formatClaimSubtypeLabel(props.selectedSubtype)}
+                </StatusBadge>
+              ) : null}
+              <StatusBadge tone="warning">Сервер: {props.server.name}</StatusBadge>
+              {props.selectedCharacter ? (
+                <>
+                  <StatusBadge tone="warning">Персонаж: {props.selectedCharacter.fullName}</StatusBadge>
+                  <span>Паспорт: {props.selectedCharacter.passportNumber}</span>
+                  <span>
+                    Сейчас выбран{" "}
+                    {props.selectedCharacter.source === "last_used"
+                      ? "последний использованный"
+                      : "первый доступный"}{" "}
+                    персонаж
+                  </span>
+                </>
+              ) : (
+                <StatusBadge tone="neutral">Персонаж пока не выбран</StatusBadge>
+              )}
+            </div>
+          }
+          title={title}
+        />
       </Card>
 
       <Card className="space-y-4">

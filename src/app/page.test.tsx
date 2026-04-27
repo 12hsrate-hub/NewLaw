@@ -165,6 +165,7 @@ describe("/ page", () => {
       },
     });
     expect(html).toContain("Lawyer5RP");
+    expect(html).toContain('data-variant="wide"');
     expect(html).toContain("Панель инструментов");
     expect(html).toContain("Открыть юридический помощник");
     expect(html).toContain("Создать документ");

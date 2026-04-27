@@ -13,10 +13,18 @@ export default async function ForgotPasswordCheckEmailPage() {
   }
 
   return (
-    <PageContainer>
-      <main className="flex min-h-screen items-center justify-center px-6 py-16">
+    <PageContainer
+      as="main"
+      contentClassName="space-y-6"
+      tone="workspace"
+      variant="readable"
+    >
+      <div className="flex justify-center">
         <CheckEmailCard flow="recovery" />
-      </main>
+      </div>
+      <p className="text-sm leading-6 text-[var(--muted)]">
+        Когда письмо придёт, открой самую свежую ссылку восстановления и задай новый пароль. Рабочие документы и серверные данные при этом не меняются.
+      </p>
     </PageContainer>
   );
 }

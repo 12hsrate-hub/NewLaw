@@ -8,7 +8,7 @@ export function Select({ children, className, ...props }: SelectProps) {
   return (
     <select
       className={cn(
-        "w-full rounded-2xl border border-[var(--border)] bg-white/80 px-4 py-2.5 text-sm text-[var(--foreground)] outline-none transition focus:border-[var(--accent)] focus:bg-white",
+        "w-full rounded-2xl border border-[var(--border)] bg-[var(--surface-input)] px-4 py-2.5 text-sm text-[var(--foreground)] outline-none transition focus:border-[var(--accent)] focus:bg-[var(--surface-hover)]",
         className,
       )}
       {...props}

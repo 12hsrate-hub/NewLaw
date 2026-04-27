@@ -79,6 +79,7 @@ describe("account layout", () => {
 
     expect(html).toContain("Навигация аккаунта");
     expect(html).toContain("Lawyer5RP");
+    expect(html).toContain('data-variant="wide"');
     expect(html).toContain("Аккаунт");
     expect(html).toContain("Здесь находятся настройки аккаунта, безопасность, доступы и служебные обзорные разделы.");
     expect(html).toContain('href="/assistant"');
@@ -139,6 +140,7 @@ describe("account layout", () => {
 
     expect(html).toContain('href="/internal/access-requests"');
     expect(html).toContain('href="/internal"');
+    expect(html).toContain('data-variant="wide"');
     expect(html).toContain("Заявки на доступ");
     expect(html).toContain("Служебная зона");
   });

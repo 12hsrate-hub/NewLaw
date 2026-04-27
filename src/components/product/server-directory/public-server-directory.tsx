@@ -1,12 +1,13 @@
 import Link from "next/link";
 
+import { WorkspaceCard } from "@/components/product/foundation/workspace-card";
 import {
   resolveAssistantStatusUi,
   resolveDirectoryAvailabilityUi,
   resolveDocumentsAvailabilityUi,
 } from "@/components/product/server-directory/status-ui";
-import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
+import { EmptyStateCard } from "@/components/product/foundation/empty-state-card";
+import { StatusBadge } from "@/components/ui/status-badge";
 import type { PublicServerDirectoryItem } from "@/server/server-directory/context";
 
 type PublicServerDirectoryProps = {
@@ -21,7 +22,7 @@ function DocumentsAction({ server }: { server: PublicServerDirectoryItem }) {
     return (
       <Link
         href={documentsHref}
-        className="inline-flex items-center rounded-full border border-[var(--border)] px-3 py-1 text-xs font-medium text-[var(--foreground)] transition hover:bg-white/80"
+        className="inline-flex items-center rounded-full border border-[var(--border)] bg-[var(--surface-subtle)] px-3 py-1 text-xs font-medium text-[var(--foreground)] transition hover:bg-[var(--surface-hover)]"
       >
         Документы
       </Link>
@@ -29,7 +30,7 @@ function DocumentsAction({ server }: { server: PublicServerDirectoryItem }) {
   }
 
   return (
-    <span className="inline-flex items-center rounded-full border border-dashed border-[var(--border)] px-3 py-1 text-xs font-medium text-[var(--muted)]">
+    <span className="inline-flex items-center rounded-full border border-dashed border-[var(--border)] bg-[var(--surface-subtle)] px-3 py-1 text-xs font-medium text-[var(--muted)]">
       {documentsUi.label}
     </span>
   );
@@ -40,7 +41,7 @@ function AssistantAction({ server }: { server: PublicServerDirectoryItem }) {
 
   if (server.directoryAvailability !== "active") {
     return (
-      <span className="inline-flex items-center rounded-full border border-dashed border-[var(--border)] px-3 py-1 text-xs font-medium text-[var(--muted)]">
+      <span className="inline-flex items-center rounded-full border border-dashed border-[var(--border)] bg-[var(--surface-subtle)] px-3 py-1 text-xs font-medium text-[var(--muted)]">
         Помощник временно недоступен
       </span>
     );
@@ -49,7 +50,7 @@ function AssistantAction({ server }: { server: PublicServerDirectoryItem }) {
   return (
     <Link
       href={assistantHref}
-      className="inline-flex items-center rounded-full border border-[var(--border)] px-3 py-1 text-xs font-medium text-[var(--foreground)] transition hover:bg-white/80"
+      className="inline-flex items-center rounded-full border border-[var(--border)] bg-[var(--surface-subtle)] px-3 py-1 text-xs font-medium text-[var(--foreground)] transition hover:bg-[var(--surface-hover)]"
     >
       Юридический помощник
     </Link>
@@ -59,12 +60,10 @@ function AssistantAction({ server }: { server: PublicServerDirectoryItem }) {
 export function PublicServerDirectory({ servers }: PublicServerDirectoryProps) {
   if (servers.length === 0) {
     return (
-      <Card className="space-y-3">
-        <h1 className="text-2xl font-semibold">Пока нет доступных серверов</h1>
-        <p className="max-w-2xl text-sm leading-7 text-[var(--muted)]">
-          Список серверов появится здесь позже.
-        </p>
-      </Card>
+      <EmptyStateCard
+        description="Список серверов появится здесь позже."
+        title="Пока нет доступных серверов"
+      />
     );
   }
 
@@ -76,21 +75,25 @@ export function PublicServerDirectory({ servers }: PublicServerDirectoryProps) {
         const documentsUi = resolveDocumentsAvailabilityUi(server.documentsAvailabilityForViewer);
 
         return (
-          <Card key={server.id} className="flex h-full flex-col gap-4">
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge>{server.name}</Badge>
-              <Badge className="bg-[rgba(32,99,69,0.12)] text-[#206345]">
-                {availabilityUi.label}
-              </Badge>
-            </div>
-
-            <div className="space-y-2">
-              <h2 className="text-2xl font-semibold">{server.name}</h2>
-              <p className="text-sm leading-7 text-[var(--muted)]">{availabilityUi.description}</p>
-            </div>
-
+          <WorkspaceCard
+            className="h-full"
+            description={availabilityUi.description}
+            eyebrow="Сервер"
+            key={server.id}
+            meta={
+              <>
+                <StatusBadge tone="warning">{server.name}</StatusBadge>
+                <StatusBadge
+                  tone={server.directoryAvailability === "active" ? "success" : "neutral"}
+                >
+                  {availabilityUi.label}
+                </StatusBadge>
+              </>
+            }
+            title={server.name}
+          >
             <div className="grid gap-3 md:grid-cols-2">
-              <div className="rounded-2xl border border-[var(--border)] bg-white/50 p-4">
+              <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4">
                 <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">
                   Юридический помощник
                 </p>
@@ -100,7 +103,7 @@ export function PublicServerDirectory({ servers }: PublicServerDirectoryProps) {
                 </p>
               </div>
 
-              <div className="rounded-2xl border border-[var(--border)] bg-white/50 p-4">
+              <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4">
                 <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">
                   Документы по серверу
                 </p>
@@ -115,7 +118,7 @@ export function PublicServerDirectory({ servers }: PublicServerDirectoryProps) {
               <AssistantAction server={server} />
               <DocumentsAction server={server} />
             </div>
-          </Card>
+          </WorkspaceCard>
         );
       })}
     </div>

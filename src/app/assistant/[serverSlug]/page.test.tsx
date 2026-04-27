@@ -59,6 +59,7 @@ describe("/assistant/[serverSlug] page", () => {
       }),
     );
 
+    expect(html).toContain('data-variant="wide"');
     expect(html).toContain("Сервер не найден");
     expect(html).toContain("Выбрать другой сервер");
   });
@@ -112,6 +113,7 @@ describe("/assistant/[serverSlug] page", () => {
     );
 
     expect(getServerByCode).toHaveBeenCalledWith("blackberry");
+    expect(html).toContain('data-variant="wide"');
     expect(html).toContain("assistant-form:blackberry:Blackberry");
   });
 
@@ -163,6 +165,7 @@ describe("/assistant/[serverSlug] page", () => {
       }),
     );
 
+    expect(html).toContain('data-variant="wide"');
     expect(html).toContain("Помощник временно недоступен");
     expect(html).toContain("Для этого сервера пока недостаточно правовых материалов");
     expect(html).toContain("Выбрать другой сервер");

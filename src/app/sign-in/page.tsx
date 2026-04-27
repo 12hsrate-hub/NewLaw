@@ -1,7 +1,9 @@
 import { redirect } from "next/navigation";
 
 import { sanitizeNextPath } from "@/lib/auth/email-auth";
+import { ContextPanel } from "@/components/product/foundation/context-panel";
 import { SignInForm } from "@/components/product/auth/sign-in-form";
+import { EmbeddedCard } from "@/components/ui/embedded-card";
 import { PageContainer } from "@/components/ui/page-container";
 import { getCurrentUser } from "@/server/auth/helpers";
 
@@ -49,15 +51,33 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
       : null;
 
   return (
-    <PageContainer>
-      <main className="flex min-h-screen flex-col items-center justify-center gap-4 px-6 py-16">
+    <PageContainer
+      as="main"
+      contentClassName="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start xl:gap-10"
+      tone="workspace"
+      variant="split"
+    >
+      <div className="space-y-4 lg:max-w-xl">
         {statusMessage ? (
-          <p className="max-w-md rounded-2xl border border-[var(--border)] bg-white/70 px-4 py-3 text-sm leading-6">
-            {statusMessage}
-          </p>
+          <EmbeddedCard>
+            <p className="text-sm leading-6">{statusMessage}</p>
+          </EmbeddedCard>
         ) : null}
         <SignInForm nextPath={nextPath} />
-      </main>
+      </div>
+
+      <ContextPanel
+        description="Юридический workspace NewLaw помогает работать с серверами, документами и адвокатскими сценариями Lawyer5RP без смешения с настройками аккаунта."
+        eyebrow="Lawyer5RP"
+        footer="Если вход ещё не подтверждён по email, сначала открой самую свежую ссылку из письма."
+        title="Тёмный юридический workspace для GTA5RP"
+      >
+        <ul className="space-y-3 text-sm leading-6 text-[var(--muted)]">
+          <li>Работа открывается по серверам, а документы и адвокатские сценарии собраны в отдельных рабочих зонах.</li>
+          <li>Безопасность аккаунта и восстановление доступа вынесены в отдельные сценарии, чтобы не перегружать рабочие страницы.</li>
+          <li>После входа можно быстро перейти к помощнику, документам и доступным серверным кабинетам.</li>
+        </ul>
+      </ContextPanel>
     </PageContainer>
   );
 }

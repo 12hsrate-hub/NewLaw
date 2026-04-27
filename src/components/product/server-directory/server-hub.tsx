@@ -2,13 +2,15 @@ import type { ReactNode } from "react";
 
 import Link from "next/link";
 
+import { AccessBlockedCard } from "@/components/product/foundation/access-blocked-card";
+import { EmptyStateCard } from "@/components/product/foundation/empty-state-card";
+import { SectionHeader } from "@/components/ui/section-header";
+import { StatusBadge } from "@/components/ui/status-badge";
 import {
   resolveAssistantStatusUi,
   resolveDirectoryAvailabilityUi,
   resolveDocumentsAvailabilityUi,
 } from "@/components/product/server-directory/status-ui";
-import { ProductStateCard } from "@/components/product/states/product-state-card";
-import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { buildCharactersBridgePath } from "@/server/document-area/context";
 import type {
@@ -27,7 +29,7 @@ function HubLink(props: {
   return (
     <Link
       className={cn(
-        "inline-flex items-center justify-center rounded-2xl border border-[var(--border)] bg-white/70 px-4 py-2.5 text-sm font-medium text-[var(--foreground)] transition hover:bg-white",
+        "inline-flex items-center justify-center rounded-2xl border border-[var(--border)] bg-[var(--surface-subtle)] px-4 py-2.5 text-sm font-medium text-[var(--foreground)] transition hover:bg-[var(--surface-hover)]",
         props.className,
       )}
       href={props.href}
@@ -40,7 +42,7 @@ function HubLink(props: {
 function ServerHubNotFoundState() {
   return (
     <div className="space-y-6">
-      <ProductStateCard
+      <EmptyStateCard
         description="Не удалось найти сервер с таким адресом. Выберите другой сервер и откройте нужный рабочий контекст снова."
         eyebrow="Сервер"
         primaryAction={{
@@ -60,7 +62,7 @@ function ServerHubUnavailableState(props: {
 }) {
   return (
     <div className="space-y-6">
-      <ProductStateCard
+      <AccessBlockedCard
         badges={[`Сервер: ${props.server.name}`]}
         description="Этот сервер временно недоступен. Выберите другой сервер или вернитесь позже."
         eyebrow="Сервер"
@@ -91,7 +93,7 @@ function AssistantCard(props: {
         {props.isInteractive ? (
           <HubLink href={`/assistant/${props.serverSlug}`}>Открыть помощника</HubLink>
         ) : (
-          <span className="inline-flex items-center rounded-2xl border border-dashed border-[var(--border)] px-4 py-2.5 text-sm font-medium text-[var(--muted)]">
+          <span className="inline-flex items-center rounded-2xl border border-dashed border-[var(--border)] bg-[var(--surface-subtle)] px-4 py-2.5 text-sm font-medium text-[var(--muted)]">
             Помощник временно недоступен
           </span>
         )}
@@ -158,7 +160,7 @@ function DocumentsCard(props: {
           </>
         ) : null}
         {props.state === "unavailable" || !props.canOpenDocumentsWorkspace ? (
-          <span className="inline-flex items-center rounded-2xl border border-dashed border-[var(--border)] px-4 py-2.5 text-sm font-medium text-[var(--muted)]">
+          <span className="inline-flex items-center rounded-2xl border border-dashed border-[var(--border)] bg-[var(--surface-subtle)] px-4 py-2.5 text-sm font-medium text-[var(--muted)]">
             Документы временно недоступны
           </span>
         ) : null}
@@ -249,31 +251,35 @@ export function AuthenticatedServerHub(props: {
   return (
     <div className="space-y-6">
       <Card className="space-y-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">Сервер</p>
-          <Badge>{availabilityUi.label}</Badge>
-        </div>
-        <h1 className="text-3xl font-semibold">{props.context.server.name}</h1>
-        <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
-          Здесь собраны основные действия и разделы для выбранного сервера.
-        </p>
+        <SectionHeader
+          description="Здесь собраны основные действия и разделы для выбранного сервера."
+          eyebrow="Сервер"
+          meta={
+            <div className="flex flex-wrap items-center gap-2 text-sm leading-6 text-[var(--muted)]">
+              <StatusBadge tone={props.context.server.directoryAvailability === "active" ? "success" : "neutral"}>
+                {availabilityUi.label}
+              </StatusBadge>
+              {props.context.selectedCharacterSummary ? (
+                <>
+                  <StatusBadge tone="warning">
+                    Персонаж: {props.context.selectedCharacterSummary.fullName}
+                  </StatusBadge>
+                  <span>Паспорт: {props.context.selectedCharacterSummary.passportNumber}</span>
+                  <span>
+                    Выбран персонаж:{" "}
+                    {props.context.selectedCharacterSummary.source === "last_used"
+                      ? "последний использованный"
+                      : "первый доступный"}
+                  </span>
+                </>
+              ) : (
+                <StatusBadge tone="neutral">Персонаж на сервере пока не выбран</StatusBadge>
+              )}
+            </div>
+          }
+          title={props.context.server.name}
+        />
         <p className="text-sm leading-6 text-[var(--muted)]">{availabilityUi.description}</p>
-        <div className="flex flex-wrap items-center gap-2 text-sm leading-6 text-[var(--muted)]">
-          {props.context.selectedCharacterSummary ? (
-            <>
-              <Badge>Персонаж: {props.context.selectedCharacterSummary.fullName}</Badge>
-              <span>Паспорт: {props.context.selectedCharacterSummary.passportNumber}</span>
-              <span>
-                Выбран персонаж:{" "}
-                {props.context.selectedCharacterSummary.source === "last_used"
-                  ? "последний использованный"
-                  : "первый доступный"}
-              </span>
-            </>
-          ) : (
-            <Badge>Персонаж на сервере пока не выбран</Badge>
-          )}
-        </div>
         <div className="flex flex-wrap gap-3">
           <HubLink href="/servers">Вернуться к каталогу серверов</HubLink>
         </div>

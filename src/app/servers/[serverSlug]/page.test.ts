@@ -67,6 +67,7 @@ describe("/servers/[serverSlug] page", () => {
       serverSlug: "blackberry",
       nextPath: "/servers/blackberry",
     });
+    expect(html).toContain('data-variant="wide"');
     expect(html).toContain("Юридический помощник");
     expect(html).toContain("Адвокатский кабинет");
     expect(html).toContain("Blackberry");
@@ -97,6 +98,7 @@ describe("/servers/[serverSlug] page", () => {
       }),
     );
 
+    expect(html).toContain('data-variant="wide"');
     expect(html).toContain("Сервер не найден");
     expect(html).toContain("Вернуться к серверам");
   });
@@ -150,6 +152,7 @@ describe("/servers/[serverSlug] page", () => {
       }),
     );
 
+    expect(html).toContain('data-variant="wide"');
     expect(html).toContain("Технические работы");
     expect(html).toContain("Помощник временно недоступен");
     expect(html).toContain("Документы временно недоступны");
@@ -206,6 +209,7 @@ describe("/servers/[serverSlug] page", () => {
       }),
     );
 
+    expect(html).toContain('data-variant="wide"');
     expect(html).toContain("/assistant/blackberry");
     expect(html).toContain("Нужен персонаж");
     expect(html).toContain("/servers/blackberry/documents");
@@ -268,6 +272,7 @@ describe("/servers/[serverSlug] page", () => {
       }),
     );
 
+    expect(html).toContain('data-variant="wide"');
     expect(html).toContain("Адвокатский кабинет");
     expect(html).toContain("Для этого действия нужен персонаж с адвокатским доступом.");
     expect(html).toContain('/account/characters?server=blackberry"');
@@ -299,6 +304,7 @@ describe("/servers/[serverSlug] page", () => {
       }),
     );
 
+    expect(html).toContain('data-variant="wide"');
     expect(html).toContain("Сервер временно недоступен");
     expect(html).toContain("Legacy");
     expect(html).toContain("/servers");

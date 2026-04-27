@@ -2,9 +2,11 @@ import type { ReactNode } from "react";
 
 import Link from "next/link";
 
-import { ProductStateCard } from "@/components/product/states/product-state-card";
-import { Badge } from "@/components/ui/badge";
+import { AccessBlockedCard } from "@/components/product/foundation/access-blocked-card";
+import { EmptyStateCard } from "@/components/product/foundation/empty-state-card";
 import { Card } from "@/components/ui/card";
+import { SectionHeader } from "@/components/ui/section-header";
+import { StatusBadge } from "@/components/ui/status-badge";
 import type { LawyerWorkspaceRouteContext } from "@/server/lawyer-workspace/context";
 import { cn } from "@/utils/cn";
 
@@ -16,7 +18,7 @@ function WorkspaceLink(props: {
   return (
     <Link
       className={cn(
-        "inline-flex items-center justify-center rounded-2xl border border-[var(--border)] bg-white/70 px-4 py-2.5 text-sm font-medium text-[var(--foreground)] transition hover:bg-white",
+        "inline-flex items-center justify-center rounded-2xl border border-[var(--border)] bg-[var(--surface-subtle)] px-4 py-2.5 text-sm font-medium text-[var(--foreground)] transition hover:bg-[var(--surface-hover)]",
         props.className,
       )}
       href={props.href}
@@ -30,7 +32,7 @@ function LawyerWorkspaceNotFoundState(props: {
   requestedServerSlug: string;
 }) {
   return (
-    <ProductStateCard
+    <EmptyStateCard
       description={`Не удалось открыть сервер с адресом ${props.requestedServerSlug}. Выберите другой сервер и вернитесь к нужному рабочему контексту.`}
       eyebrow="Адвокатский кабинет"
       primaryAction={{
@@ -53,7 +55,7 @@ function LawyerWorkspaceBlockedState(props: {
 }) {
   return (
     <div className="space-y-6">
-      <ProductStateCard
+      <AccessBlockedCard
         badges={[`Сервер: ${props.server.name}`]}
         description={props.description}
         eyebrow="Адвокатский кабинет"
@@ -152,25 +154,24 @@ export function LawyerWorkspaceFoundation(props: {
   return (
     <div className="space-y-6">
       <Card className="space-y-4">
-        <div className="space-y-3">
-          <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">Адвокатский кабинет</p>
-          <h1 className="text-3xl font-semibold">Адвокатский кабинет</h1>
-          <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
-            Здесь собраны основные адвокатские действия по выбранному серверу: доверители,
-            договоры, запросы и работа в интересах доверителя.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2 text-sm leading-6 text-[var(--muted)]">
-          <Badge>Сервер: {context.server.name}</Badge>
-          <Badge>Персонаж: {context.selectedCharacter.fullName}</Badge>
-          <span>Паспорт: {context.selectedCharacter.passportNumber}</span>
-          <span>
-            Выбор:{" "}
-            {context.selectedCharacter.source === "last_used"
-              ? "последний использованный"
-              : "первый доступный"}
-          </span>
-        </div>
+        <SectionHeader
+          description="Здесь собраны основные адвокатские действия по выбранному серверу: доверители, договоры, запросы и работа в интересах доверителя."
+          eyebrow="Адвокатский кабинет"
+          meta={
+            <div className="flex flex-wrap items-center gap-2 text-sm leading-6 text-[var(--muted)]">
+              <StatusBadge tone="warning">Сервер: {context.server.name}</StatusBadge>
+              <StatusBadge tone="warning">Персонаж: {context.selectedCharacter.fullName}</StatusBadge>
+              <span>Паспорт: {context.selectedCharacter.passportNumber}</span>
+              <span>
+                Выбор:{" "}
+                {context.selectedCharacter.source === "last_used"
+                  ? "последний использованный"
+                  : "первый доступный"}
+              </span>
+            </div>
+          }
+          title="Адвокатский кабинет"
+        />
         <div className="flex flex-wrap gap-3">
           <WorkspaceLink href={context.compatibilityHrefs.trustorsHref}>
             Открыть доверителей

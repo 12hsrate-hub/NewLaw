@@ -8,10 +8,8 @@ type ServerDocumentsLayoutProps = Readonly<{
 
 export default function ServerDocumentsLayout({ children }: ServerDocumentsLayoutProps) {
   return (
-    <PageContainer>
-      <main className="min-h-screen px-6 py-10">
-        <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">{children}</div>
-      </main>
+    <PageContainer as="main" contentClassName="flex flex-col gap-6" variant="wide">
+      {children}
     </PageContainer>
   );
 }

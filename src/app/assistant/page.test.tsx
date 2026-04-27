@@ -35,6 +35,7 @@ describe("/assistant page", () => {
 
     const html = renderToStaticMarkup(await AssistantLandingPage());
 
+    expect(html).toContain('data-variant="wide"');
     expect(html).toContain("Юридический помощник по законодательству сервера");
     expect(html).toContain("Blackberry");
     expect(html).toContain("/assistant/blackberry");

@@ -24,10 +24,11 @@ export function Button({
         "inline-flex items-center justify-center rounded-2xl px-4 py-2.5 text-sm font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60",
         fullWidth && "w-full",
         variant === "primary" &&
-          "bg-[var(--accent)] text-white shadow-[0_16px_40px_rgba(141,79,49,0.24)] hover:opacity-90",
+          "bg-[var(--accent)] text-[var(--accent-foreground)] shadow-[0_12px_32px_rgba(0,0,0,0.18)] hover:bg-[var(--accent-strong)]",
         variant === "secondary" &&
-          "border border-[var(--border)] bg-white/70 text-[var(--foreground)] hover:bg-white",
-        variant === "ghost" && "text-[var(--foreground)] hover:bg-white/60",
+          "border border-[var(--border)] bg-[var(--surface-embedded)] text-[var(--foreground)] hover:bg-[var(--surface-hover)]",
+        variant === "ghost" &&
+          "text-[var(--foreground)] hover:bg-[var(--surface-subtle)]",
         className,
       )}
       {...props}

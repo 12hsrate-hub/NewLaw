@@ -26,12 +26,8 @@ export default async function HomePage() {
 
   return (
     <PrimaryShell context={shellContext}>
-      <PageContainer>
-        <main className="min-h-screen px-6 py-10">
-          <div className="mx-auto w-full max-w-6xl">
-            <ProductDashboard context={dashboardContext} />
-          </div>
-        </main>
+      <PageContainer as="main" contentClassName="space-y-6" variant="wide">
+        <ProductDashboard context={dashboardContext} />
       </PageContainer>
     </PrimaryShell>
   );

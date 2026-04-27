@@ -1,8 +1,8 @@
 import Link from "next/link";
 
-import { ProductStateCard } from "@/components/product/states/product-state-card";
-import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
+import { EmptyStateCard } from "@/components/product/foundation/empty-state-card";
+import { WorkspaceCard } from "@/components/product/foundation/workspace-card";
+import { StatusBadge } from "@/components/ui/status-badge";
 
 type AssistantServerSelectorProps = {
   servers: Array<{
@@ -24,7 +24,7 @@ export function AssistantServerSelector({
 }: AssistantServerSelectorProps) {
   if (servers.length === 0) {
     return (
-      <ProductStateCard
+      <EmptyStateCard
         description="Для юридического помощника сейчас нет доступных серверов. Попробуйте открыть другой раздел или вернитесь позже."
         eyebrow="Юридический помощник"
         primaryAction={{
@@ -44,20 +44,22 @@ export function AssistantServerSelector({
 
         return (
           <Link key={server.id} href={href}>
-            <Card className="h-full space-y-3 transition hover:translate-y-[-1px] hover:bg-white/80">
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge>{server.name}</Badge>
-                {isCurrent ? <Badge className="bg-[rgba(32,99,69,0.12)] text-[#206345]">Текущий сервер</Badge> : null}
-              </div>
-              <p className="text-sm leading-6 text-[var(--muted)]">
-                {server.hasUsableAssistantCorpus
+            <WorkspaceCard
+              className="h-full transition hover:translate-y-[-1px] hover:bg-[var(--surface-hover)]"
+              description={
+                server.hasUsableAssistantCorpus
                   ? `Доступно: ${server.currentPrimaryLawCount} норм закона и ${server.currentPrecedentCount} судебных прецедентов.`
-                  : "Для этого сервера пока не хватает подтверждённых правовых материалов."}
-              </p>
-              <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">
-                Открыть помощника
-              </p>
-            </Card>
+                  : "Для этого сервера пока не хватает подтверждённых правовых материалов."
+              }
+              eyebrow="Сервер"
+              meta={
+                <>
+                  <StatusBadge tone="warning">{server.name}</StatusBadge>
+                  {isCurrent ? <StatusBadge tone="success">Текущий сервер</StatusBadge> : null}
+                </>
+              }
+              title="Открыть помощника"
+            />
           </Link>
         );
       })}

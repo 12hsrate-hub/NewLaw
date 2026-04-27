@@ -4,6 +4,7 @@ import { AssistantQuestionForm } from "@/components/product/legal-assistant/assi
 import { AssistantServerSelector } from "@/components/product/legal-assistant/assistant-server-selector";
 import { ProductStateCard } from "@/components/product/states/product-state-card";
 import { PageContainer } from "@/components/ui/page-container";
+import { EmbeddedCard } from "@/components/ui/embedded-card";
 import { getServerByCode, listAssistantServers } from "@/db/repositories/server.repository";
 import { type AssistantQuestionActionState } from "@/server/actions/legal-assistant";
 import { parseAssistantAnswerSections } from "@/server/legal-assistant/answer-pipeline";
@@ -83,22 +84,18 @@ export default async function AssistantServerPage({ params }: AssistantServerPag
 
   if (!selectedServer) {
     return (
-      <PageContainer>
-        <main className="min-h-screen px-6 py-10">
-          <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
-            <ProductStateCard
-              description="Такой сервер сейчас не найден среди доступных для помощника. Выберите другой сервер и попробуйте снова."
-              eyebrow="Юридический помощник"
-              primaryAction={{
-                href: "/assistant",
-                label: "Выбрать другой сервер",
-              }}
-              title="Сервер не найден"
-            />
+      <PageContainer as="main" contentClassName="flex flex-col gap-6" variant="wide">
+        <ProductStateCard
+          description="Такой сервер сейчас не найден среди доступных для помощника. Выберите другой сервер и попробуйте снова."
+          eyebrow="Юридический помощник"
+          primaryAction={{
+            href: "/assistant",
+            label: "Выбрать другой сервер",
+          }}
+          title="Сервер не найден"
+        />
 
-            <AssistantServerSelector servers={servers} />
-          </div>
-        </main>
+        <AssistantServerSelector servers={servers} />
       </PageContainer>
     );
   }
@@ -110,43 +107,38 @@ export default async function AssistantServerPage({ params }: AssistantServerPag
   });
 
   return (
-    <PageContainer>
-      <main className="min-h-screen px-6 py-10">
-        <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
-          <div className="flex flex-wrap items-center gap-3 text-sm leading-6 text-[var(--muted)]">
-            <Link className="text-[var(--accent)] underline" href="/assistant">
-              Все серверы
-            </Link>
-            <span>Выбран сервер: {selectedServer.name}</span>
-          </div>
-
-          <AssistantServerSelector
-            currentServerCode={selectedServer.code}
-            servers={servers}
-          />
-
-          {!selectedServer.hasUsableAssistantCorpus ? (
-            <ProductStateCard
-              badges={[`Сервер: ${selectedServer.name}`]}
-              description="Для этого сервера пока недостаточно правовых материалов. Выберите другой сервер или вернитесь позже."
-              eyebrow="Юридический помощник"
-              primaryAction={{
-                href: "/assistant",
-                label: "Выбрать другой сервер",
-              }}
-              title="Помощник временно недоступен"
-            />
-          ) : (
-            <AssistantQuestionForm
-              initialState={initialState}
-              isAssistantAvailable
-              isAuthenticated={viewer.isAuthenticated}
-              serverName={selectedServer.name}
-              serverSlug={selectedServer.code}
-            />
-          )}
+    <PageContainer as="main" contentClassName="flex flex-col gap-6" variant="wide">
+      <EmbeddedCard className="space-y-4">
+        <div className="flex flex-wrap items-center gap-3 text-sm leading-6 text-[var(--muted)]">
+          <Link className="font-medium text-[var(--info)] underline-offset-4 transition hover:underline" href="/assistant">
+            Все серверы
+          </Link>
+          <span>Выбран сервер: {selectedServer.name}</span>
         </div>
-      </main>
+      </EmbeddedCard>
+
+      <AssistantServerSelector currentServerCode={selectedServer.code} servers={servers} />
+
+      {!selectedServer.hasUsableAssistantCorpus ? (
+        <ProductStateCard
+          badges={[`Сервер: ${selectedServer.name}`]}
+          description="Для этого сервера пока недостаточно правовых материалов. Выберите другой сервер или вернитесь позже."
+          eyebrow="Юридический помощник"
+          primaryAction={{
+            href: "/assistant",
+            label: "Выбрать другой сервер",
+          }}
+          title="Помощник временно недоступен"
+        />
+      ) : (
+        <AssistantQuestionForm
+          initialState={initialState}
+          isAssistantAvailable
+          isAuthenticated={viewer.isAuthenticated}
+          serverName={selectedServer.name}
+          serverSlug={selectedServer.code}
+        />
+      )}
     </PageContainer>
   );
 }
