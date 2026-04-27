@@ -1337,6 +1337,9 @@ function buildExpectationProfileForScenario(
         notesForReview: [
           "Один и тот же semantic cluster должен запускаться на нескольких server_id и law_version без ручной подгонки под один корпус.",
         ],
+        activateCompanionChecks: true,
+        requiredCompanionRelations: ["procedure_companion", "sanction_companion"],
+        forbiddenCompanionAsPrimary: ["sanction_companion", "exception"],
       };
     default:
       return undefined;

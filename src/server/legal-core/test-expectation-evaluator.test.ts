@@ -669,6 +669,129 @@ describe("ai legal core expectation evaluator", () => {
     );
   });
 
+  it("проверяет multi_server_variance companion expectations на relation-level без exact targets", () => {
+    const result = evaluateScenarioExpectations({
+      expectationProfile: {
+        requiredLawFamilies: ["advocacy_law"],
+        requiredNormRoles: ["primary_basis"],
+        activateCompanionChecks: true,
+        requiredCompanionRelations: ["procedure_companion", "sanction_companion"],
+        forbiddenCompanionAsPrimary: ["sanction_companion", "exception"],
+      },
+      snapshot: {
+        selected_norm_roles: [
+          {
+            law_id: "law-adv",
+            law_version: "version-2",
+            law_block_id: "block-adv",
+            law_family: "advocacy_law",
+            norm_role: "primary_basis",
+          },
+          {
+            law_id: "law-criminal",
+            law_version: "version-2",
+            law_block_id: "block-criminal",
+            law_family: "criminal_code",
+            norm_role: "sanction",
+          },
+        ],
+        primary_basis_eligibility: [
+          {
+            law_id: "law-adv",
+            law_version: "version-2",
+            law_block_id: "block-adv",
+            primary_basis_eligibility: "eligible",
+          },
+        ],
+        direct_basis_status: "direct_basis_present",
+        norm_bundle_diagnostics: {
+          companion_relation_types: ["procedure_companion", "sanction_companion"],
+          missing_expected_companion: [],
+          included_article_segments: [
+            {
+              law_id: "law-adv",
+              law_family: "advocacy_law",
+              article_number: "11",
+              marker: "ч. 2",
+              part_number: "2",
+              relation_type: "procedure_companion",
+              reason_code: "selected_procedure_role",
+            },
+            {
+              law_id: "law-adv",
+              law_family: "advocacy_law",
+              article_number: "11",
+              marker: "ч. 5",
+              part_number: "5",
+              relation_type: "sanction_companion",
+              reason_code: "selected_sanction_role",
+            },
+          ],
+          excluded_article_segments: [],
+          bundle_projection_excluded_items: [],
+        },
+      },
+    });
+
+    expect(result.passed_expectations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          key: "requiredCompanionRelations",
+          status: "passed",
+        }),
+        expect.objectContaining({
+          key: "forbiddenCompanionAsPrimary",
+          status: "passed",
+        }),
+      ]),
+    );
+  });
+
+  it("проваливает multi_server_variance expectation при отсутствии sanction companion", () => {
+    const result = evaluateScenarioExpectations({
+      expectationProfile: {
+        activateCompanionChecks: true,
+        requiredCompanionRelations: ["procedure_companion", "sanction_companion"],
+      },
+      snapshot: {
+        selected_norm_roles: [
+          {
+            law_id: "law-adv",
+            law_version: "version-2",
+            law_block_id: "block-adv",
+            law_family: "advocacy_law",
+            norm_role: "primary_basis",
+          },
+        ],
+        primary_basis_eligibility: [
+          {
+            law_id: "law-adv",
+            law_version: "version-2",
+            law_block_id: "block-adv",
+            primary_basis_eligibility: "eligible",
+          },
+        ],
+        direct_basis_status: "direct_basis_present",
+        norm_bundle_diagnostics: {
+          companion_relation_types: ["procedure_companion"],
+          missing_expected_companion: ["sanction_companion"],
+          included_article_segments: [],
+          excluded_article_segments: [],
+          bundle_projection_excluded_items: [],
+        },
+      },
+    });
+
+    expect(result.failed_expectations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          key: "requiredCompanionRelations",
+          status: "failed",
+        }),
+      ]),
+    );
+  });
+
   it("проваливает activated bodycam access scenario при отсутствии обязательного procedure_companion", () => {
     const result = evaluateScenarioExpectations({
       expectationProfile: {

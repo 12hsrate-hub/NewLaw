@@ -289,6 +289,9 @@ describe("ai legal core test scenarios registry", () => {
       serverSelectionHint: "run_on_multiple_servers",
       expectationProfile: expect.objectContaining({
         requiredLawFamilies: ["advocacy_law"],
+        activateCompanionChecks: true,
+        requiredCompanionRelations: ["procedure_companion", "sanction_companion"],
+        forbiddenCompanionAsPrimary: ["sanction_companion", "exception"],
       }),
     });
 

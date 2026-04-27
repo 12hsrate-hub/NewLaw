@@ -577,11 +577,13 @@ AI не должен показывать сомнения напрямую.
 - `5d` — companion-aware expectation layer для scenario suites и internal evaluator без изменения runtime AI Legal Core
 - `5d.1` — расширение companion-aware expectations на `attorney_rights` на relation-level без точных article/part targets
 - `5d.2` — минимальное расширение companion-aware expectations на `bodycam_and_recording` только для access-сценариев
+- `5d.3` — укрупнённое acceptance-only расширение на `multi_server_variance` с relation-level companions без exact targets
 
 Текущий ещё не закрытый объём:
 
-- постепенное расширение companion-aware expectation checks за пределы `attorney_request`, `attorney_rights` и bodycam access-сценариев
+- постепенное расширение companion-aware expectation checks за пределы `attorney_request`, `attorney_rights`, bodycam access-сценариев и `multi_server_variance`
 - отдельные более строгие slices для general bodycam / missing recording scenarios, где false-positive risk остаётся выше
+- отдельный analysis-first шаг для `detention_procedure`, `evidence_strength`, `qualification_check`, `mask_and_identity`, `bad_input_and_slang` и `hallucination_pressure`, где companion signal пока недостаточно устойчив
 
 `NormBundle` должен включать:
 
@@ -829,6 +831,66 @@ Prod model:
 - `5d.2` не меняет generation prompt
 - `5d.2` не меняет budget
 - `5d.2` не меняет public assistant actions
+
+## Текущий implemented checkpoint по `5d.3`
+
+`5d.3` пока не задеплоен и зафиксирован только как acceptance / evaluator-only slice в repo-state.
+
+Это acceptance / evaluator-only расширение после `5d.2`, а не новый runtime layer.
+
+`5d.3` после analysis-first прохода активировал companion-aware checks только для:
+
+- `multi_server_variance`
+  - `general-attorney-request-other-server`
+
+Для этого сценария включены:
+
+- `activateCompanionChecks`
+- `requiredCompanionRelations: ["procedure_companion", "sanction_companion"]`
+- `forbiddenCompanionAsPrimary: ["sanction_companion", "exception"]`
+
+Что именно важно в `5d.3`:
+
+- это расширение осталось relation-level only
+- `requiredCompanionTargets` не добавлялись
+- exact `article / part / marker` targets не добавлялись, потому что multi-server corpus может отличаться
+- acceptance проверяет companion package без привязки к одному конкретному corpus snapshot
+
+Какие группы и сценарии намеренно оставлены future_reserved после analysis:
+
+- `mask_and_identity`
+  - companion signal существует, но для текущего active snapshot ещё не выглядит достаточно устойчивым для жёсткой activation без риска ложных падений
+- `detention_procedure`
+  - там primary сам по себе уже procedural, поэтому companion layer пока не даёт безопасного и устойчивого acceptance win
+- `evidence_strength`
+  - связь между `evidence_companion`, `remedy` и `sanction` пока слишком неоднородна
+- `qualification_check`
+  - сценарии больше про fit/facts, чем про устойчивый companion package
+- `bad_input_and_slang`
+  - это normalizer/actor-context line, а не companion-first line
+- `hallucination_pressure`
+  - там главная цель не companion package, а антигаллюцинаторная дисциплина
+- general bodycam / missing recording scenarios
+  - остаются отдельной осторожной линией из-за higher false-positive risk
+
+Источник данных для evaluator не менялся:
+
+- `selected_norm_roles`
+- `primary_basis_eligibility`
+- `direct_basis_status`
+- `NormBundle / projection diagnostics`
+
+Важно:
+
+- `test-expectation-evaluator.ts` в `5d.3` не менялся
+- `internal-ai-legal-core.ts` в `5d.3` не менялся
+- `5d.3` не меняет retrieval
+- `5d.3` не меняет selection / `PrimaryBasisEligibility`
+- `5d.3` не меняет `source-excerpt`
+- `5d.3` не меняет generation context projection
+- `5d.3` не меняет generation prompt
+- `5d.3` не меняет budget
+- `5d.3` не меняет public assistant actions
 
 ## VPS smoke policy
 
