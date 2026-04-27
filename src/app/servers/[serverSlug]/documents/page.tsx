@@ -1,5 +1,4 @@
 import {
-  DocumentNoCharactersState,
   DocumentServerNotFoundState,
   ServerDocumentsHub,
 } from "@/components/product/document-area/document-area-foundation";
@@ -34,9 +33,15 @@ export default async function ServerDocumentsPage({ params }: ServerDocumentsPag
 
   if (context.status === "no_characters") {
     return (
-      <DocumentNoCharactersState
+      <ServerDocumentsHub
+        attorneyRequestDocumentCount={context.attorneyRequestDocumentCount}
         bridgeHref={buildCharactersBridgePath(context.server.code)}
+        documentEntryCapabilities={context.documentEntryCapabilities}
+        legalServicesAgreementDocumentCount={context.legalServicesAgreementDocumentCount}
+        ogpComplaintDocumentCount={context.ogpComplaintDocumentCount}
+        selectedCharacter={null}
         server={context.server}
+        workspaceCapabilities={context.workspaceCapabilities}
       />
     );
   }
@@ -49,6 +54,7 @@ export default async function ServerDocumentsPage({ params }: ServerDocumentsPag
       ogpComplaintDocumentCount={context.ogpComplaintDocumentCount}
       selectedCharacter={context.selectedCharacter}
       server={context.server}
+      workspaceCapabilities={context.workspaceCapabilities}
     />
   );
 }

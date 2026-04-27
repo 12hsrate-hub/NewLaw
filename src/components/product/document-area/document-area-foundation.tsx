@@ -5,7 +5,10 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import type { DocumentAreaServerSummary } from "@/server/document-area/context";
-import type { DocumentEntryCapabilities } from "@/server/navigation/capabilities";
+import type {
+  DocumentEntryCapabilities,
+  WorkspaceCapabilities,
+} from "@/server/navigation/capabilities";
 import { cn } from "@/utils/cn";
 
 function FoundationLink({
@@ -257,29 +260,30 @@ export function ServerDocumentsHub(props: {
     fullName: string;
     passportNumber: string;
     source: "last_used" | "first_available";
-  };
+  } | null;
+  bridgeHref?: string;
   ogpComplaintDocumentCount?: number;
   attorneyRequestDocumentCount?: number;
   documentEntryCapabilities?: DocumentEntryCapabilities;
   legalServicesAgreementDocumentCount?: number;
+  workspaceCapabilities?: WorkspaceCapabilities;
 }) {
   const blockReasons = props.documentEntryCapabilities?.blockReasons ?? [];
+  const workspaceBlockReasons = props.workspaceCapabilities?.blockReasons ?? [];
+  const hasCharacter = props.selectedCharacter !== null;
+  const canOpenLawyerWorkspace = props.workspaceCapabilities?.canOpenLawyerWorkspace ?? false;
   const showGeneralCharacterNote =
     blockReasons.includes("character_required") &&
     (!props.documentEntryCapabilities?.canCreateSelfComplaint ||
       !props.documentEntryCapabilities?.canCreateClaims);
-  const showAttorneyAdvocateNote =
-    blockReasons.includes("advocate_character_required") &&
-    !props.documentEntryCapabilities?.canCreateAttorneyRequest;
-  const showAgreementAdvocateNote =
-    blockReasons.includes("advocate_character_required") &&
-    !props.documentEntryCapabilities?.canCreateLegalServicesAgreement;
-  const showAttorneyTrustorNote =
+  const showLawyerAdvocateNote =
+    workspaceBlockReasons.includes("advocate_character_required") && !canOpenLawyerWorkspace;
+  const showLawyerAccessRequestHint =
+    showLawyerAdvocateNote && workspaceBlockReasons.includes("access_request_required");
+  const showLawyerTrustorNote =
     blockReasons.includes("trustor_required_temporarily") &&
-    !props.documentEntryCapabilities?.canCreateAttorneyRequest;
-  const showAgreementTrustorNote =
-    blockReasons.includes("trustor_required_temporarily") &&
-    !props.documentEntryCapabilities?.canCreateLegalServicesAgreement;
+    (!props.documentEntryCapabilities?.canCreateAttorneyRequest ||
+      !props.documentEntryCapabilities?.canCreateLegalServicesAgreement);
 
   return (
     <div className="space-y-6">
@@ -289,21 +293,25 @@ export function ServerDocumentsHub(props: {
         </p>
         <h1 className="text-3xl font-semibold">{props.server.name}</h1>
         <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
-          Здесь собраны документы и действия для выбранного сервера.
+          Здесь собраны общие документы по выбранному серверу. Адвокатские сценарии и работа с
+          доверителями открываются из отдельного адвокатского кабинета.
         </p>
         <div className="flex flex-wrap items-center gap-2 text-sm leading-6 text-[var(--muted)]">
-          <Badge>Персонаж: {props.selectedCharacter.fullName}</Badge>
-          <span>
-            Выбор: {props.selectedCharacter.source === "last_used" ? "последний использованный" : "первый доступный"}
-          </span>
+          {props.selectedCharacter ? (
+            <>
+              <Badge>Персонаж: {props.selectedCharacter.fullName}</Badge>
+              <span>
+                Выбор:{" "}
+                {props.selectedCharacter.source === "last_used"
+                  ? "последний использованный"
+                  : "первый доступный"}
+              </span>
+            </>
+          ) : (
+            <Badge>Персонаж пока не выбран</Badge>
+          )}
           {typeof props.ogpComplaintDocumentCount === "number" ? (
             <span>Жалоб в ОГП: {props.ogpComplaintDocumentCount}</span>
-          ) : null}
-          {typeof props.attorneyRequestDocumentCount === "number" ? (
-            <span>Адвокатских запросов: {props.attorneyRequestDocumentCount}</span>
-          ) : null}
-          {typeof props.legalServicesAgreementDocumentCount === "number" ? (
-            <span>Договоров: {props.legalServicesAgreementDocumentCount}</span>
           ) : null}
         </div>
       </Card>
@@ -337,72 +345,6 @@ export function ServerDocumentsHub(props: {
             <p className="text-xs uppercase tracking-[0.22em] text-[var(--accent)]">
               Раздел документов
             </p>
-            <h2 className="text-2xl font-semibold">Договоры на оказание юридических услуг</h2>
-            <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
-              Создавайте и редактируйте договоры на оказание юридических услуг. После заполнения
-              данных можно собрать страницы договора для проверки и скачивания.
-            </p>
-            {showAgreementAdvocateNote ? (
-              <p className="text-sm leading-6 text-[var(--muted)]">
-                Для договора нужен персонаж с адвокатским доступом.
-              </p>
-            ) : null}
-            {showAgreementTrustorNote ? (
-              <p className="text-sm leading-6 text-[var(--muted)]">
-                В текущей версии для этого действия нужен сохранённый доверитель.
-              </p>
-            ) : null}
-          </div>
-          <div className="flex flex-wrap gap-3">
-            <FoundationLink
-              href={`/servers/${props.server.code}/documents/legal-services-agreements`}
-            >
-              Открыть договоры
-            </FoundationLink>
-            <FoundationLink
-              href={`/servers/${props.server.code}/documents/legal-services-agreements/new`}
-            >
-              Создать договор
-            </FoundationLink>
-          </div>
-        </Card>
-
-        <Card className="space-y-4">
-          <div className="space-y-2">
-            <p className="text-xs uppercase tracking-[0.22em] text-[var(--accent)]">
-              Раздел документов
-            </p>
-            <h2 className="text-2xl font-semibold">Адвокатские запросы</h2>
-            <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
-              Создавайте запросы от имени адвоката, фиксируя персонажа и доверителя в сохранённом
-              документе.
-            </p>
-            {showAttorneyAdvocateNote ? (
-              <p className="text-sm leading-6 text-[var(--muted)]">
-                Для адвокатского запроса нужен персонаж с адвокатским доступом.
-              </p>
-            ) : null}
-            {showAttorneyTrustorNote ? (
-              <p className="text-sm leading-6 text-[var(--muted)]">
-                В текущей версии для этого действия нужен сохранённый доверитель.
-              </p>
-            ) : null}
-          </div>
-          <div className="flex flex-wrap gap-3">
-            <FoundationLink href={`/servers/${props.server.code}/documents/attorney-requests`}>
-              Открыть адвокатские запросы
-            </FoundationLink>
-            <FoundationLink href={`/servers/${props.server.code}/documents/attorney-requests/new`}>
-              Создать запрос
-            </FoundationLink>
-          </div>
-        </Card>
-
-        <Card className="space-y-4">
-          <div className="space-y-2">
-            <p className="text-xs uppercase tracking-[0.22em] text-[var(--accent)]">
-              Раздел документов
-            </p>
             <h2 className="text-2xl font-semibold">Иски</h2>
             <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
               Отдельный раздел для исковых документов. Он не смешивается с жалобами в ОГП.
@@ -419,6 +361,87 @@ export function ServerDocumentsHub(props: {
             </FoundationLink>
             <FoundationLink href={`/servers/${props.server.code}/documents/claims/new`}>
               Выбрать тип иска
+            </FoundationLink>
+          </div>
+        </Card>
+      </div>
+
+      <Card className="space-y-4">
+        <div className="space-y-2">
+          <p className="text-xs uppercase tracking-[0.22em] text-[var(--accent)]">
+            Отдельный модуль
+          </p>
+          <h2 className="text-2xl font-semibold">Адвокатские документы</h2>
+          <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
+            Адвокатские запросы, договоры на оказание юридических услуг и работа в интересах
+            доверителя открываются из отдельного адвокатского кабинета.
+          </p>
+          {!hasCharacter ? (
+            <p className="text-sm leading-6 text-[var(--muted)]">
+              Для адвокатских документов сначала нужен персонаж на этом сервере.
+            </p>
+          ) : null}
+          {showLawyerAdvocateNote ? (
+            <p className="text-sm leading-6 text-[var(--muted)]">
+              Для адвокатских документов нужен персонаж с адвокатским доступом.
+            </p>
+          ) : null}
+          {showLawyerAccessRequestHint ? (
+            <p className="text-sm leading-6 text-[var(--muted)]">
+              Если персонаж уже готов, доступ оформляется через его заявку и дальнейшее
+              рассмотрение.
+            </p>
+          ) : null}
+          {showLawyerTrustorNote ? (
+            <p className="text-sm leading-6 text-[var(--muted)]">
+              В текущей версии для этого действия нужен сохранённый доверитель.
+            </p>
+          ) : null}
+        </div>
+        <div className="flex flex-wrap items-center gap-2 text-sm leading-6 text-[var(--muted)]">
+          {typeof props.attorneyRequestDocumentCount === "number" ? (
+            <span>Адвокатских запросов: {props.attorneyRequestDocumentCount}</span>
+          ) : null}
+          {typeof props.legalServicesAgreementDocumentCount === "number" ? (
+            <span>Договоров: {props.legalServicesAgreementDocumentCount}</span>
+          ) : null}
+        </div>
+        <ul className="space-y-2 text-sm leading-6 text-[var(--muted)]">
+          <li>Адвокатские запросы.</li>
+          <li>Договоры на оказание юридических услуг.</li>
+          <li>Работа с доверителями и документами в их интересах.</li>
+        </ul>
+        <div className="flex flex-wrap gap-3">
+          {canOpenLawyerWorkspace ? (
+            <FoundationLink href={`/servers/${props.server.code}/lawyer`}>
+              Открыть адвокатский кабинет
+            </FoundationLink>
+          ) : props.bridgeHref ? (
+            <FoundationLink href={props.bridgeHref}>Открыть персонажей сервера</FoundationLink>
+          ) : null}
+        </div>
+      </Card>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card className="space-y-4">
+          <div className="space-y-2">
+            <p className="text-xs uppercase tracking-[0.22em] text-[var(--accent)]">
+              Прямые маршруты
+            </p>
+            <h2 className="text-2xl font-semibold">Совместимые маршруты сохраняются</h2>
+            <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
+              Старые прямые маршруты для адвокатских запросов и договоров продолжают работать.
+              Основной вход для этих сценариев теперь собран в отдельном адвокатском кабинете.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <FoundationLink href={`/servers/${props.server.code}/documents/attorney-requests`}>
+              Открыть адвокатские запросы
+            </FoundationLink>
+            <FoundationLink
+              href={`/servers/${props.server.code}/documents/legal-services-agreements`}
+            >
+              Открыть договоры
             </FoundationLink>
           </div>
         </Card>

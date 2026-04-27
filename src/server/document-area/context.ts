@@ -13,7 +13,9 @@ import { requireProtectedAccountContext } from "@/server/auth/protected";
 import { resolveActiveCharacterId } from "@/server/app-shell/state";
 import {
   buildDocumentEntryCapabilities,
+  buildWorkspaceCapabilities,
   type DocumentEntryCapabilities,
+  type WorkspaceCapabilities,
 } from "@/server/navigation/capabilities";
 import { getAccountForumConnectionSummary } from "@/server/forum-integration/service";
 import {
@@ -156,6 +158,7 @@ type ReadyServerDocumentsRouteContext = {
   attorneyRequestDocumentCount?: number;
   legalServicesAgreementDocumentCount?: number;
   documentEntryCapabilities?: DocumentEntryCapabilities;
+  workspaceCapabilities?: WorkspaceCapabilities;
 };
 
 type NoCharactersServerDocumentsRouteContext = {
@@ -172,6 +175,7 @@ type NoCharactersServerDocumentsRouteContext = {
   attorneyRequestDocumentCount?: number;
   legalServicesAgreementDocumentCount?: number;
   documentEntryCapabilities?: DocumentEntryCapabilities;
+  workspaceCapabilities?: WorkspaceCapabilities;
 };
 
 type ServerNotFoundDocumentsRouteContext = {
@@ -665,6 +669,19 @@ function buildDocumentEntryCapabilitiesForContext(input: {
   });
 }
 
+function buildWorkspaceCapabilitiesForContext(input: {
+  selectedCharacter: SelectedCharacterSummary | null;
+}) {
+  return buildWorkspaceCapabilities({
+    isAuthenticated: true,
+    hasServer: true,
+    hasAssistantMaterials: true,
+    hasSelectedCharacter: input.selectedCharacter !== null,
+    hasAdvocateCharacter: input.selectedCharacter?.canUseRepresentative === true,
+    includeAccessRequestRequired: true,
+  });
+}
+
 function buildInvalidDocumentDataEditorRouteContext(input: {
   account: AccountDocumentsOverviewContext["account"];
   server: {
@@ -900,6 +917,9 @@ export async function getServerDocumentsRouteContext(input: {
     selectedCharacter,
     trustorRegistryCount: trustorRegistry.length,
   });
+  const workspaceCapabilities = buildWorkspaceCapabilitiesForContext({
+    selectedCharacter,
+  });
 
   if (!selectedCharacter) {
     return {
@@ -912,6 +932,7 @@ export async function getServerDocumentsRouteContext(input: {
       attorneyRequestDocumentCount,
       legalServicesAgreementDocumentCount,
       documentEntryCapabilities,
+      workspaceCapabilities,
     };
   }
 
@@ -928,6 +949,7 @@ export async function getServerDocumentsRouteContext(input: {
     attorneyRequestDocumentCount,
     legalServicesAgreementDocumentCount,
     documentEntryCapabilities,
+    workspaceCapabilities,
   };
 }
 

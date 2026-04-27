@@ -57,8 +57,21 @@ describe("/servers/[serverSlug]/documents page", () => {
         requiresAdvocateCharacter: false,
         blockReasons: ["trustor_required_temporarily"],
       },
+      workspaceCapabilities: {
+        canOpenAssistant: true,
+        canOpenDocumentsWorkspace: true,
+        canOpenLawyerWorkspace: true,
+        canManageCharacters: true,
+        canManageTrustors: true,
+        requiresServer: true,
+        requiresCharacter: false,
+        requiresAdvocateCharacter: false,
+        blockReasons: [],
+      },
       ogpComplaintDocumentCount: 2,
       claimsDocumentCount: 0,
+      attorneyRequestDocumentCount: 4,
+      legalServicesAgreementDocumentCount: 2,
     });
 
     const html = renderToStaticMarkup(
@@ -73,14 +86,20 @@ describe("/servers/[serverSlug]/documents page", () => {
       serverSlug: "blackberry",
       nextPath: "/servers/blackberry/documents",
     });
-    expect(html).toContain("Здесь собраны документы и действия для выбранного сервера");
+    expect(html).toContain(
+      "Здесь собраны общие документы по выбранному серверу. Адвокатские сценарии и работа с доверителями открываются из отдельного адвокатского кабинета.",
+    );
     expect(html).toContain("Жалобы в ОГП");
     expect(html).toContain("Иски");
+    expect(html).toContain("Адвокатские документы");
+    expect(html).toContain("/servers/blackberry/lawyer");
+    expect(html).not.toContain("Создать договор");
+    expect(html).not.toContain("Создать запрос");
     expect(html).toContain("В текущей версии для этого действия нужен сохранённый доверитель.");
     expect(html).toContain("/servers/blackberry/documents/claims");
   });
 
-  it("показывает empty state с CTA, если на сервере нет персонажей", async () => {
+  it("без персонажей оставляет documents hub доступным и показывает helper-state", async () => {
     vi.mocked(getServerDocumentsRouteContext).mockResolvedValue({
       status: "no_characters",
       account: {
@@ -96,8 +115,31 @@ describe("/servers/[serverSlug]/documents page", () => {
         name: "Blackberry",
       },
       servers: [],
+      documentEntryCapabilities: {
+        canCreateSelfComplaint: false,
+        canCreateClaims: false,
+        canCreateAttorneyRequest: false,
+        canCreateLegalServicesAgreement: false,
+        requiresServer: true,
+        requiresCharacter: true,
+        requiresAdvocateCharacter: false,
+        blockReasons: ["character_required"],
+      },
+      workspaceCapabilities: {
+        canOpenAssistant: true,
+        canOpenDocumentsWorkspace: true,
+        canOpenLawyerWorkspace: false,
+        canManageCharacters: true,
+        canManageTrustors: true,
+        requiresServer: true,
+        requiresCharacter: false,
+        requiresAdvocateCharacter: false,
+        blockReasons: ["character_required"],
+      },
       ogpComplaintDocumentCount: 0,
       claimsDocumentCount: 0,
+      attorneyRequestDocumentCount: 0,
+      legalServicesAgreementDocumentCount: 0,
     });
 
     const html = renderToStaticMarkup(
@@ -108,7 +150,10 @@ describe("/servers/[serverSlug]/documents page", () => {
       }),
     );
 
-    expect(html).toContain("нет персонажей");
+    expect(html).toContain("Документы сервера");
+    expect(html).toContain("Персонаж пока не выбран");
+    expect(html).toContain("Чтобы начать жалобу, сначала нужен персонаж на этом сервере.");
+    expect(html).toContain("Для адвокатских документов сначала нужен персонаж на этом сервере.");
     expect(html).toContain("/account/characters?server=blackberry#create-character-blackberry");
     expect(buildCharactersBridgePath).toHaveBeenCalledWith("blackberry");
   });
