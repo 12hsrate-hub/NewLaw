@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next/navigation", () => ({
   redirect: vi.fn((path: string) => {
@@ -15,6 +15,10 @@ import { redirect } from "next/navigation";
 import { requireSuperAdminAccountContext } from "@/server/auth/protected";
 
 describe("/app/admin-laws", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it("ведет super_admin в новый internal contour", async () => {
     vi.mocked(requireSuperAdminAccountContext).mockResolvedValue({
       account: {
@@ -45,6 +49,6 @@ describe("/app/admin-laws", () => {
       "redirect:/account/security?status=admin-access-denied",
     );
 
-    expect(redirect).not.toHaveBeenCalledWith("/internal/laws");
+    expect(redirect).not.toHaveBeenCalled();
   });
 });

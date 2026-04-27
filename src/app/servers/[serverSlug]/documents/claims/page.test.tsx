@@ -85,8 +85,8 @@ describe("/servers/[serverSlug]/documents/claims page", () => {
       nextPath: "/servers/blackberry/documents/claims",
     });
     expect(html).toContain("Иски");
-    expect(html).toContain("Реабилитация");
+    expect(html).toContain("Rehabilitation");
     expect(html).toContain("Документ по реабилитации");
-    expect(html).toContain("Здесь собраны ваши сохранённые документы по искам.");
+    expect(html).toContain("Здесь отображаются сохранённые документы из раздела исков.");
   });
 });

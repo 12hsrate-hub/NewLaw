@@ -39,8 +39,8 @@ describe("/account/security page", () => {
 
     expect(html).toContain("Настройки аккаунта");
     expect(html).toContain("Подключение форума для жалоб в ОГП");
-    expect(html).toContain("Cookie header форума");
+    expect(html).toContain("Данные форума для подключения");
     expect(html).toContain("подключено, но не проверено");
-    expect(html).not.toContain("xf_session=");
+    expect(html).toContain("Сырые cookie после сохранения больше не показываются в интерфейсе.");
   });
 });

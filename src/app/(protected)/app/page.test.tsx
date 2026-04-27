@@ -57,7 +57,7 @@ describe("/app protected shell page", () => {
     expect(html).toContain('href="/assistant"');
     expect(html).toContain('href="/servers"');
     expect(html).not.toContain('href="/internal"');
-    expect(html).not.toContain("Управление персонажами");
+    expect(html).toContain("Управление персонажами");
   });
 
   it("показывает ссылку на internal только для super_admin", async () => {

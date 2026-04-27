@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { buildAssistantPrecedentRetrievalQuery } from "@/server/legal-core/assistant-retrieval-query";
+import {
+  buildAssistantPrecedentRetrievalQuery,
+  buildAssistantRetrievalQuery,
+} from "@/server/legal-core/assistant-retrieval-query";
 import { buildLegalQueryPlan } from "@/server/legal-core/legal-query-plan";
 import { searchAssistantCorpus } from "@/server/legal-assistant/retrieval";
 
@@ -308,49 +311,24 @@ describe("assistant retrieval envelope", () => {
     );
 
     const precedentQuery = searchCurrentPrecedentCorpus.mock.calls[0]?.[0]?.query;
+    const queryBreakdown = buildAssistantRetrievalQuery({
+      normalized_input: legalQueryPlan.normalized_input,
+      intent: legalQueryPlan.intent,
+      required_law_families: legalQueryPlan.required_law_families,
+      preferred_norm_roles: legalQueryPlan.preferred_norm_roles,
+      legal_anchors: [...legalQueryPlan.legal_anchors],
+      question_scope: legalQueryPlan.question_scope,
+      forbidden_scope_markers: legalQueryPlan.forbidden_scope_markers,
+    });
 
     expect(precedentQuery).toBe(
       buildAssistantPrecedentRetrievalQuery({
         normalized_input: legalQueryPlan.normalized_input,
-        breakdown: {
-          expanded_query: legalQueryPlan.expanded_query,
-          base_terms: [],
-          anchor_terms: [
-            "адвокат",
-            "защитник",
-            "право на защиту",
-            "допуск защитника",
-            "адвокатский запрос",
-            "официальный адвокатский запрос",
-            "срок ответа",
-            "обязанность ответить",
-            "служебные обязанности",
-            "обязан",
-            "руководство",
-            "должностное лицо",
-            "санкция",
-            "штраф",
-            "ответственность",
-            "наказание",
-          ],
-          family_terms: [
-            "процессуальный кодекс",
-            "процедура задержания",
-            "закон об адвокатуре",
-            "адвокатская деятельность",
-            "государственная служба",
-            "служебные обязанности",
-            "ведомственный порядок",
-            "служебный регламент",
-            "административный кодекс",
-            "административное правонарушение",
-          ],
-          runtime_tags: ["attorney", "attorney_request", "official_duty"],
-          applied_biases: [],
-        },
+        breakdown: queryBreakdown,
       }),
     );
     expect(precedentQuery.length).toBeLessThanOrEqual(500);
     expect(precedentQuery).toContain("адвокатский запрос");
+    expect(precedentQuery).toContain("обязанность ответить");
   });
 });

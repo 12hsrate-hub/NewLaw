@@ -78,7 +78,7 @@ describe("/servers/[serverSlug]/documents/claims/new page", () => {
     expect(html).toContain("Черновик документа");
     expect(html).toContain("Вид документа: Реабилитация");
     expect(html).toContain("Создать черновик");
-    expect(html).toContain("После первого сохранения вид документа и данные автора фиксируются в черновике.");
+    expect(html).toContain("После этого вид документа и данные автора фиксируются в черновике.");
   });
 
   it("без выбранного вида документа остаётся на шаге выбора", async () => {
