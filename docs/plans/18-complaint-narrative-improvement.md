@@ -2,7 +2,7 @@
 
 ## Статус
 
-`post-MVP / planned`
+`post-MVP / active / partial / deployed`
 
 ## Текущий implemented checkpoint по `18.1`
 
@@ -104,6 +104,56 @@
 - richer legal basis display
 - BBCode integration
 - Prisma/schema changes
+
+## Post-deploy checkpoint по `18.4`
+
+Production deploy для UI slice `18.4` выполнен на commit `be0f509`.
+
+Подтверждено:
+
+- active release: `be0f50953ca7b139d7b75f3337fc808e4a6bb966`
+- `/srv/newlaw/app/current` указывает на `/srv/newlaw/app/releases/be0f509`
+- `/api/health` = `ok`
+- production model для этого flow: `gpt-5.4-mini`
+- для env/smoke использовался только:
+
+```text
+node --env-file=/srv/newlaw/app/shared/.env.production ...
+```
+
+- `bash source .env.production` не использовался
+
+### Targeted UI smoke outcomes
+
+Подтверждено:
+
+1. Кнопка `Улучшить описание` отображается рядом с полем `Подробное описание ситуации` и не является primary submit action.
+2. `blocked/preflight` branch работает безопасно:
+   - при отсутствии ФИО доверителя в представительской жалобе backend возвращает safe blocked message
+   - AI provider не вызывается
+3. `success preview` работает:
+   - preview panel показывается
+   - `improved_text` получен
+   - `missing_facts`, `review_notes` и `risk_flags` показываются отдельно
+   - `legal_basis_used` может оставаться пустым при слабом или отсутствующем legal context
+   - `should_send_to_review = true` показывается как warning
+   - текст не применяется автоматически
+4. `apply` semantics работают:
+   - меняется только `situation_description`
+   - не меняются `violationSummary`, `evidenceItems`, `incidentAt`, `objectOrganization`, `objectFullName`, `trustorSnapshot`, `BBCode`
+5. `evidenceItems` остаётся optional:
+   - пустой список доказательств не блокирует improvement
+6. Safe ветки `provider unavailable / invalid output` на production не форсировались, но уже покрыты тестами.
+
+### Future polish note
+
+Во время одного `success preview` был замечен неидеальный role phrasing:
+
+- `в статусе представителя адвоката`
+
+Это не блокировало smoke и не влияло на безопасность flow, но зафиксировано как future polish:
+
+- нормализация role phrase для applicant / representative / advocate wording
 
 ## Назначение линии
 

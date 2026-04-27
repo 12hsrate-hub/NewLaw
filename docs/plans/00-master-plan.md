@@ -321,6 +321,7 @@
 - зафиксировать `18.2` как owner-only backend action + AI invocation slice без UI, BBCode и Prisma/schema changes
 - зафиксировать `18.3` как draft adapter slice для реального `ogp_complaint` backend context без UI wiring и без apply-in-draft
 - зафиксировать `18.4` как narrow UI integration slice с preview-before-apply для `situation_description`, без автоприменения текста, без изменения `BBCode` и без изменения complaint structure
+- зафиксировать production deploy `18.4` на release `be0f509` с успешным targeted UI smoke для `Complaint Narrative Improvement v1`
 
 Границы:
 
