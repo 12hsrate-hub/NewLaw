@@ -302,7 +302,7 @@
 
 ### `18-complaint-narrative-improvement`
 
-Статус: `post-MVP / active / partial`
+Статус: `post-MVP / current-stage closed`
 
 Это отдельная post-MVP линия document AI для `ogp_complaint`, но не часть `AI Legal Core`.
 
@@ -328,6 +328,18 @@
   - более понятные risk flag labels
   - polish review copy и clean empty-state для `legal_basis_used`
   - без изменения `BBCode`, `Prisma/schema` и без расширения в отдельный analytics/history contour
+- зафиксировать, что `Complaint Narrative Improvement v1` на текущем уровне закрыт как complaint-specific document AI flow:
+  - backend contract / prompt builder / validator закрыты
+  - backend invocation / action закрыты
+  - draft adapter закрыт
+  - UI preview-before-apply закрыт и задеплоен
+  - post-release QA matrix и quick polish закрыты
+  - `apply` меняет только `situationDescription`
+  - `evidence_list` остаётся optional
+  - `preflight` blocking срабатывает до provider call
+  - `BBCode generation` и `Prisma/schema` не менялись
+- зафиксировать, что AI result history, cost tracking, richer review UX, richer legal basis display, broader manual QA после реального usage и analytics по apply/acceptance behavior остаются отдельными future линиями
+- зафиксировать, что следующий крупный product/AI этап после `18` должен выбираться отдельно, а не как автоматическое расширение complaint narrative flow
 
 Границы:
 

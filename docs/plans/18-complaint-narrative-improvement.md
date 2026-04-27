@@ -2,7 +2,57 @@
 
 ## Статус
 
-`post-MVP / active / partial / deployed`
+`post-MVP / current-stage closed / deployed`
+
+## Финальный checkpoint по текущему этапу
+
+`Complaint Narrative Improvement v1` закрыт на текущем MVP/post-MVP уровне как отдельный complaint-specific document AI flow для `ogp_complaint`.
+
+### Что входит в завершённый scope
+
+На текущем уровне уже закрыты:
+
+- backend contract
+- prompt builder
+- structured validator / parser
+- backend AI invocation и owner-only action
+- draft adapter для реального `ogp_complaint`
+- UI integration в persisted editor
+- preview-before-apply flow
+- production deploy
+- targeted smoke
+- post-release manual QA matrix
+- quick polish по role phrasing, review copy и risk labels
+
+### Current guarantees
+
+На текущем уровне зафиксировано:
+
+- `apply` меняет только `situationDescription`
+- `evidence_list` остаётся optional context
+- `preflight` blocking срабатывает до provider call
+- `BBCode generation` не меняется
+- `Prisma/schema` не меняются
+- `Step 16 AI Legal Core` не меняется
+- `Step 17 AI Quality Review / gate` не меняется
+- `citation behavior contract` не меняется
+
+### Что intentionally остаётся future
+
+Вне текущего завершённого этапа остаются:
+
+- AI result history
+- feature-level cost tracking
+- richer review UX
+- richer legal basis display
+- broader manual QA wave после накопления реального usage
+- analytics по apply / acceptance behavior
+
+### Правило следующего шага
+
+Следующий крупный product/AI этап после `Complaint Narrative Improvement v1` должен выбираться отдельно.
+
+Эту линию не нужно автоматически продолжать как бесконечное расширение `18`.
 
 ## Текущий implemented checkpoint по `18.1`
 
@@ -779,12 +829,14 @@ UI уже минимально подключён и должен остават
 - подменять `violation_summary`
 - встраивать полные example complaints в runtime prompt
 
-## Practical next step
+## Practical future options
 
-Следующий безопасный инженерный шаг после `18.4`:
+После закрытия текущего этапа как finished post-MVP slice возможны отдельные future-направления:
 
 - broader manual QA wave по реальным archetypes после накопления usage
 - richer review UX без изменения backend contract
 - optional apply/persist flow refinement внутри wizard
 - feature-level analytics / cost tracking
-- без изменения `BBCode` generation contract
+- richer legal basis display
+
+Но их нужно выбирать отдельно, а не считать автоматическим продолжением текущего закрытого этапа.
