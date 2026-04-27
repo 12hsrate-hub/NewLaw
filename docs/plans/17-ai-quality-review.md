@@ -560,6 +560,140 @@ Gate readiness применяется только если:
 - `law_basis_gate_status` остаётся отдельным gate-readiness layer
 - suite pass/fail по-прежнему не переопределяется автоматически review-layer сигналами
 
+## Текущий implemented checkpoint по `17.2a`
+
+`17.2a` зафиксирован как usage validation и runbook для narrow internal-only `law_basis_gate_status`.
+
+Это docs-first operational slice:
+
+- без расширения allowlist
+- без новых blocking flags
+- без public assistant behavior changes
+- без изменения runtime `Step 16`
+- без deploy
+
+### Поддерживаемые mode values
+
+`lawBasisGateMode` в internal runner сейчас поддерживает только:
+
+- `off`
+- `sanction_primary_allowlist`
+
+Если mode не передан:
+
+- используется значение по умолчанию `off`
+
+### Как включается opt-in gate mode
+
+Внутри internal runner mode передаётся через `FormData` field:
+
+- `lawBasisGateMode=off`
+- `lawBasisGateMode=sanction_primary_allowlist`
+
+Это internal-only параметр:
+
+- он не влияет на public assistant surface
+- он не меняет production answer generation
+- он не включает gate глобально
+
+### Что делает mode `off`
+
+При `lawBasisGateMode=off`:
+
+- `law_basis_gate_status.enabled = false`
+- `law_basis_gate_status.blocked = false`
+- `blocking_flag_codes = []`
+- aggregate `gate_enabled = false`
+
+Это baseline-safe режим по умолчанию.
+
+### Что делает mode `sanction_primary_allowlist`
+
+При `lawBasisGateMode=sanction_primary_allowlist`:
+
+- gate активируется только для allowlist groups:
+  - `attorney_request`
+  - `multi_server_variance`
+- gate блокирует только:
+  - `sanction_or_exception_used_as_primary`
+
+Даже в этом mode gate не блокирует:
+
+- `missing_primary_basis_norm`
+- `law_family_mismatch`
+- `weak_direct_basis`
+- `missing_required_companion_context`
+- `unresolved_explicit_citation_used_as_basis`
+
+### Как читать per-scenario `law_basis_gate_status`
+
+`enabled`
+
+- `true`: scenario group попал в allowlist и mode реально активировал gate logic
+- `false`: gate mode off или scenario group вне allowlist
+
+`blocked`
+
+- `true`: найден blocking flag из narrow gate scope
+- `false`: blocking flag не найден или gate не активен для этого scenario
+
+`blocking_flag_codes`
+
+- список только реально blocking flag codes
+- в `17.2/17.2a` это практически должен быть только:
+  - `sanction_or_exception_used_as_primary`
+
+`scope.mode`
+
+- показывает, какой internal mode был запрошен
+
+`scope.allowed_groups`
+
+- показывает текущий жёсткий allowlist
+
+`scope.active_group`
+
+- показывает effective scenario suite group для данного scenario result
+
+### Как читать aggregate `law_basis_gate_status_summary`
+
+`gate_enabled`
+
+- показывает, был ли в этом test run запрошен opt-in gate mode
+
+`scenarios_blocked_by_law_basis_gate`
+
+- список scenario ids, которые попали под narrow blocking condition
+- это reporting signal
+- он не должен трактоваться как automatic suite failure
+
+`counts_by_gate_status`
+
+- `disabled`: scenario result вне active gate scope
+- `pass`: gate был активен, но blocking flags не обнаружены
+- `blocked`: gate был активен и blocking condition сработала
+
+`top_blocking_law_basis_gate_flag_codes`
+
+- текущий ranking blocking signals
+- в narrow scope `17.2/17.2a` ожидается только:
+  - `sanction_or_exception_used_as_primary`
+
+`groups_blocked_by_law_basis_gate`
+
+- показывает, в каких allowlist groups реально сработал narrow gate
+- помогает вручную проверить, не уходит ли blocking condition в unexpected noisy zone
+
+### Что это значит practically
+
+На этапе `17.2a`:
+
+- `law_basis_gate_status` — это internal readiness layer
+- `expectation_summary` остаётся главным acceptance-layer result
+- `law_basis_gate_simulation` остаётся dry-run visibility layer
+- `law_basis_gate_status_summary` не переопределяет suite result
+- broader gate по `missing_primary_basis_norm` и `law_family_mismatch` остаётся future
+
 ## `law_basis_issue`
 
 В шаге `17` должен быть отдельный класс проблем `law_basis_issue`.

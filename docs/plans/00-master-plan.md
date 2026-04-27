@@ -282,6 +282,7 @@
 - зафиксировать `17.1d` как non-blocking gate simulation для deterministic review flags без изменения suite result и без изменения runtime/public behavior
 - зафиксировать `17.1e` как dry-run calibration report для `law_basis_gate_simulation` без blocking policy и без изменения runtime/public behavior
 - зафиксировать `17.2` как narrow internal-only opt-in gate readiness только для `sanction_or_exception_used_as_primary`, без изменения suite result и без изменения runtime/public behavior
+- зафиксировать `17.2a` как usage validation и runbook для internal-only opt-in law basis gate без расширения blocking scope
 
 Границы:
 
