@@ -38,12 +38,22 @@ export function PrimaryServerSwitcher({
 
   return (
     <div className={compact ? "space-y-1.5" : "space-y-2"}>
-      <p className={compact ? "text-xs font-medium uppercase tracking-[0.18em] text-[var(--muted)]" : "text-sm font-medium text-[var(--foreground)]"}>
+      <p
+        className={
+          compact
+            ? "text-[0.7rem] font-medium uppercase tracking-[0.16em] text-[var(--muted)]"
+            : "text-sm font-medium text-[var(--foreground)]"
+        }
+      >
         Сервер
       </p>
-      <form action={selectActiveServerAction} className="flex flex-col gap-2 sm:flex-row sm:items-center">
+      <form
+        action={selectActiveServerAction}
+        className={compact ? "flex items-center gap-2" : "flex flex-col gap-2 sm:flex-row sm:items-center"}
+      >
         <input name="redirectTo" type="hidden" value={redirectTo} />
         <Select
+          className={compact ? "min-w-[148px] rounded-xl px-3 py-2 text-xs sm:min-w-[170px]" : undefined}
           defaultValue={activeServerId ?? availableServers[0]?.id ?? ""}
           disabled={!hasAvailableServers}
           name="serverId"
@@ -58,8 +68,13 @@ export function PrimaryServerSwitcher({
             ))
           )}
         </Select>
-        <Button disabled={!hasAvailableServers} type="submit" variant="secondary">
-          Переключить
+        <Button
+          className={compact ? "rounded-xl px-3 py-2 text-xs" : undefined}
+          disabled={!hasAvailableServers}
+          type="submit"
+          variant="secondary"
+        >
+          {compact ? "Ок" : "Переключить"}
         </Button>
       </form>
       {compact ? null : !hasAvailableServers ? (

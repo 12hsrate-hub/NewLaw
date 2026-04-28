@@ -20,42 +20,35 @@ export function PrimaryHeader({ context }: PrimaryHeaderProps) {
   return (
     <Card className="space-y-3 border-[var(--divider)] bg-[var(--card)] px-4 py-4 shadow-[0_20px_42px_rgba(0,0,0,0.2)] backdrop-blur-xl md:px-5">
       <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-        <div className="min-w-0 space-y-3 xl:flex xl:min-w-0 xl:items-center xl:gap-4 xl:space-y-0">
+        <div className="min-w-0">
           <Link
             className="inline-flex max-w-fit items-center rounded-2xl text-[var(--foreground)] transition hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus-ring)]"
             href="/"
           >
             <BrandLogo size="md" variant="full" />
           </Link>
-
-          {context.viewer.isAuthenticated ? (
-            <div className="rounded-2xl border border-[var(--divider)] bg-[var(--surface-subtle)] px-3 py-2">
-              <PrimaryServerSwitcher
-                activeServerId={context.activeServer.id}
-                availableServers={context.availableServers}
-                compact
-              />
-            </div>
-          ) : (
-            <div className="inline-flex max-w-fit items-center gap-2 rounded-2xl border border-[var(--divider)] bg-[var(--surface-subtle)] px-3 py-2 text-sm leading-6 text-[var(--muted)]">
-              <span className="uppercase tracking-[0.16em] text-[0.7rem] text-[var(--muted)]">
-                Сервер
-              </span>
-              <span className="font-medium text-[var(--foreground)]">Не выбран</span>
-            </div>
-          )}
         </div>
 
         <div className="flex w-full flex-col items-start gap-2 xl:w-auto xl:min-w-[260px] xl:items-end">
           {context.viewer.isAuthenticated ? (
             <>
-              <div className="inline-flex flex-wrap items-center gap-2 rounded-2xl border border-[var(--divider)] bg-[var(--surface-subtle)] px-3 py-2 text-sm leading-6 text-[var(--muted)]">
-                <span className="uppercase tracking-[0.16em] text-[0.7rem] text-[var(--muted)]">
-                  Аккаунт
-                </span>
-                <span className="font-medium text-[var(--foreground)]">{viewerLabel}</span>
+              <div className="flex w-full flex-col gap-2 rounded-2xl border border-[var(--divider)] bg-[var(--surface-subtle)] px-3 py-2 text-sm leading-6 text-[var(--muted)] xl:w-auto">
+                <div className="inline-flex flex-wrap items-center gap-2">
+                  <span className="uppercase tracking-[0.16em] text-[0.7rem] text-[var(--muted)]">
+                    Аккаунт
+                  </span>
+                  <span className="font-medium text-[var(--foreground)]">{viewerLabel}</span>
+                </div>
+                <PrimaryServerSwitcher
+                  activeServerId={context.activeServer.id}
+                  availableServers={context.availableServers}
+                  compact
+                />
               </div>
               <div className="flex flex-wrap gap-2">
+                <ButtonLink href="/account" variant="secondary">
+                  Аккаунт
+                </ButtonLink>
                 {context.navigation.internalHref ? (
                   <ButtonLink href={context.navigation.internalHref} variant="secondary">
                     Служебная зона
@@ -69,9 +62,17 @@ export function PrimaryHeader({ context }: PrimaryHeaderProps) {
               </div>
             </>
           ) : (
-            <ButtonLink href={signInHref} variant="secondary">
-              Войти
-            </ButtonLink>
+            <>
+              <div className="inline-flex max-w-fit items-center gap-2 rounded-2xl border border-[var(--divider)] bg-[var(--surface-subtle)] px-3 py-2 text-sm leading-6 text-[var(--muted)]">
+                <span className="uppercase tracking-[0.16em] text-[0.7rem] text-[var(--muted)]">
+                  Сервер
+                </span>
+                <span className="font-medium text-[var(--foreground)]">Не выбран</span>
+              </div>
+              <ButtonLink href={signInHref} variant="secondary">
+                Войти
+              </ButtonLink>
+            </>
           )}
         </div>
       </div>

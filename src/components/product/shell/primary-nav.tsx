@@ -28,7 +28,6 @@ export function PrimaryNav({
     { href: "/", label: "Главная" },
     { href: "/assistant", label: "Помощник" },
     { href: "/servers", label: "Серверы" },
-    { href: "/account", label: "Аккаунт" },
   ];
 
   return (

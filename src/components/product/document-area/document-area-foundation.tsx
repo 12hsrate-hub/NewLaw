@@ -534,35 +534,6 @@ export function ServerDocumentsHub(props: {
           ) : null}
         </div>
       </PanelCard>
-
-      <div className="grid gap-4 lg:grid-cols-2">
-        <PanelCard className="space-y-4">
-          <div className="space-y-2">
-            <p className="text-xs uppercase tracking-[0.22em] text-[var(--accent)]">
-              Дополнительные входы
-            </p>
-            <h2 className="text-2xl font-semibold">Прямые маршруты сохраняются</h2>
-            <p className="text-sm leading-6 text-[var(--muted)]">
-              Прямые маршруты для адвокатских запросов и договоров продолжают работать. Основной
-              вход для этих сценариев теперь собран в отдельном адвокатском кабинете.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-3">
-            <ButtonLink
-              href={`/servers/${props.server.code}/documents/attorney-requests`}
-              variant="secondary"
-            >
-              Открыть адвокатские запросы
-            </ButtonLink>
-            <ButtonLink
-              href={`/servers/${props.server.code}/documents/legal-services-agreements`}
-              variant="secondary"
-            >
-              Открыть договоры
-            </ButtonLink>
-          </div>
-        </PanelCard>
-      </div>
     </div>
   );
 }

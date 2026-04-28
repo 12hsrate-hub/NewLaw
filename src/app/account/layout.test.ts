@@ -93,7 +93,7 @@ describe("account layout", () => {
     expect(html).toContain('href="/account/trustors"');
     expect(html).toContain('href="/servers/blackberry/documents"');
     expect(html).toContain('href="/servers/blackberry/lawyer"');
-    expect(html).toContain(">Переключить<");
+    expect(html).toContain(">Ок<");
     expect(html).not.toContain("Кабинет адвоката");
     expect(html).not.toContain("Личный кабинет");
     expect(html).not.toContain('href="/internal/access-requests"');

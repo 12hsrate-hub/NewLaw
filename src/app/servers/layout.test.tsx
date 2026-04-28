@@ -71,7 +71,7 @@ describe("servers layout", () => {
     expect(html).toContain("RP");
     expect(html).toContain('href="/servers/blackberry/documents"');
     expect(html).toContain('href="/servers/blackberry/lawyer"');
-    expect(html).toContain(">Переключить<");
+    expect(html).toContain(">Ок<");
     expect(html).toContain("Servers child");
   });
 });

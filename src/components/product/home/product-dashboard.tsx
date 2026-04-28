@@ -5,7 +5,6 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { QuickActionCard } from "@/components/ui/quick-action-card";
 import { StatCard } from "@/components/ui/stat-card";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { WarningNotice } from "@/components/ui/warning-notice";
 import { WorkspaceSurface } from "@/components/ui/workspace-surface";
 import type { HomeDashboardContext } from "@/server/home/dashboard";
 
@@ -78,47 +77,6 @@ function ShieldIcon() {
   );
 }
 
-function ServerIcon() {
-  return (
-    <DashboardIcon>
-      <rect
-        height="5.5"
-        rx="1.5"
-        stroke="currentColor"
-        strokeWidth="1.6"
-        width="12"
-        x="6"
-        y="5.25"
-      />
-      <rect
-        height="5.5"
-        rx="1.5"
-        stroke="currentColor"
-        strokeWidth="1.6"
-        width="12"
-        x="6"
-        y="13.25"
-      />
-      <path d="M9 8H9.01" stroke="currentColor" strokeLinecap="round" strokeWidth="2" />
-      <path d="M9 16H9.01" stroke="currentColor" strokeLinecap="round" strokeWidth="2" />
-    </DashboardIcon>
-  );
-}
-
-function AccountIcon() {
-  return (
-    <DashboardIcon>
-      <circle cx="12" cy="8.25" r="3.25" stroke="currentColor" strokeWidth="1.6" />
-      <path
-        d="M6.75 18.5C7.73 16.31 9.72 15 12 15C14.28 15 16.27 16.31 17.25 18.5"
-        stroke="currentColor"
-        strokeLinecap="round"
-        strokeWidth="1.6"
-      />
-    </DashboardIcon>
-  );
-}
-
 function InternalIcon() {
   return (
     <DashboardIcon>
@@ -146,14 +104,6 @@ export function ProductDashboard(props: {
     context.quickActions.serversHref,
     context.quickActions.accountHref,
     context.quickActions.internalHref,
-  ].filter(Boolean).length;
-  const availableToolCount = [
-    context.tools.assistant,
-    context.tools.documents,
-    context.tools.lawyer,
-    context.tools.servers,
-    context.tools.account,
-    context.tools.internal,
   ].filter(Boolean).length;
   const toolCards: DashboardToolCard[] = [
     {
@@ -187,24 +137,6 @@ export function ProductDashboard(props: {
           },
         ]
       : []),
-    {
-      title: "Серверы",
-      description:
-        "Открывайте список серверов, чтобы выбрать рабочий контекст и перейти к доступным разделам.",
-      href: context.tools.servers.href,
-      actionLabel: "Открыть серверы",
-      tone: "secondary" as const,
-      icon: <ServerIcon />,
-    },
-    {
-      title: "Аккаунт",
-      description:
-        "Настройки аккаунта, безопасность, персонажи, доверители и обзор документов собраны в отдельной зоне.",
-      href: context.tools.account.href,
-      actionLabel: "Открыть аккаунт",
-      tone: "secondary" as const,
-      icon: <AccountIcon />,
-    },
     ...(context.tools.internal
       ? [
           {
@@ -219,6 +151,7 @@ export function ProductDashboard(props: {
         ]
       : []),
   ];
+  const availableToolCount = toolCards.length;
 
   return (
     <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
@@ -281,13 +214,6 @@ export function ProductDashboard(props: {
             />
           </div>
         </WorkspaceSurface>
-
-        {context.quickActions.documentsHelperText ? (
-          <WarningNotice
-            description={context.quickActions.documentsHelperText}
-            title="Контекст документов"
-          />
-        ) : null}
 
         <section className="space-y-4">
           <div className="space-y-2">

@@ -18,7 +18,7 @@ describe("primary nav", () => {
     expect(html).toContain('href="/assistant"');
     expect(html).toContain("Помощник");
     expect(html).toContain('href="/servers"');
-    expect(html).toContain('href="/account"');
+    expect(html).not.toContain('href="/account"');
     expect(html).toContain('href="/servers/blackberry/documents"');
     expect(html).toContain("Документы");
     expect(html).toContain('href="/servers/blackberry/lawyer"');
