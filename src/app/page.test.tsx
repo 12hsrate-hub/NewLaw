@@ -18,10 +18,6 @@ vi.mock("next/navigation", async (importOriginal) => {
   };
 });
 
-vi.mock("@/server/auth/helpers", () => ({
-  getCurrentUser: vi.fn(),
-}));
-
 vi.mock("@/server/auth/protected", () => ({
   requireProtectedAccountContext: vi.fn(),
 }));
@@ -35,7 +31,6 @@ vi.mock("@/server/home/dashboard", () => ({
 }));
 
 import HomePage from "@/app/page";
-import { getCurrentUser } from "@/server/auth/helpers";
 import { requireProtectedAccountContext } from "@/server/auth/protected";
 import { getHomeDashboardContext } from "@/server/home/dashboard";
 import { getPrimaryShellContext } from "@/server/primary-shell/context";
@@ -48,19 +43,18 @@ describe("/ page", () => {
   });
 
   it("для гостя сохраняет redirect на /sign-in", async () => {
-    vi.mocked(getCurrentUser).mockResolvedValue(null);
+    vi.mocked(requireProtectedAccountContext).mockImplementation(async () => {
+      redirectMock("/sign-in?next=%2F");
+      throw new Error("redirected");
+    });
 
-    await HomePage();
+    await expect(HomePage()).rejects.toThrow("redirected");
 
-    expect(redirectMock).toHaveBeenCalledWith("/sign-in");
-    expect(requireProtectedAccountContext).not.toHaveBeenCalled();
+    expect(redirectMock).toHaveBeenCalledWith("/sign-in?next=%2F");
+    expect(requireProtectedAccountContext).toHaveBeenCalledWith("/");
   });
 
   it("для авторизованного пользователя рендерит dashboard на / с primary shell", async () => {
-    vi.mocked(getCurrentUser).mockResolvedValue({
-      id: "user-1",
-      email: "user@example.com",
-    });
     vi.mocked(requireProtectedAccountContext).mockResolvedValue({
       user: {
         id: "user-1",
@@ -180,10 +174,6 @@ describe("/ page", () => {
   });
 
   it("для mustChangePassword пользователя сохраняет существующий security flow", async () => {
-    vi.mocked(getCurrentUser).mockResolvedValue({
-      id: "user-1",
-      email: "user@example.com",
-    });
     vi.mocked(requireProtectedAccountContext).mockImplementation(async () => {
       redirectMock("/account/security?status=must-change-password");
       throw new Error("redirected");
