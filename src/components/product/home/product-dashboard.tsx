@@ -2,7 +2,6 @@ import type { ReactNode } from "react";
 
 import { ButtonLink } from "@/components/ui/button-link";
 import { EmptyState } from "@/components/ui/empty-state";
-import { PanelCard } from "@/components/ui/panel-card";
 import { QuickActionCard } from "@/components/ui/quick-action-card";
 import { StatCard } from "@/components/ui/stat-card";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -222,7 +221,7 @@ export function ProductDashboard(props: {
   ];
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+    <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
       <div className="space-y-6">
         <WorkspaceSurface className="space-y-6 bg-[linear-gradient(145deg,rgba(194,154,84,0.12),rgba(27,34,43,0.94)_32%,rgba(20,26,32,0.98)_100%)]">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
@@ -236,6 +235,15 @@ export function ProductDashboard(props: {
                   Создавайте документы, работайте с доверителями и открывайте юридический
                   помощник из одной рабочей панели.
                 </p>
+              </div>
+
+              <div className="flex flex-wrap gap-3">
+                <ButtonLink href={context.quickActions.assistantHref} variant="primary">
+                  Открыть помощник
+                </ButtonLink>
+                <ButtonLink href={context.quickActions.documentsHref} variant="secondary">
+                  Создать документ
+                </ButtonLink>
               </div>
             </div>
 
@@ -274,6 +282,13 @@ export function ProductDashboard(props: {
           </div>
         </WorkspaceSurface>
 
+        {context.quickActions.documentsHelperText ? (
+          <WarningNotice
+            description={context.quickActions.documentsHelperText}
+            title="Контекст документов"
+          />
+        ) : null}
+
         <section className="space-y-4">
           <div className="space-y-2">
             <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">Инструменты</p>
@@ -304,50 +319,6 @@ export function ProductDashboard(props: {
       </div>
 
       <div className="space-y-4">
-        <PanelCard className="space-y-4">
-          <div className="space-y-2">
-            <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">
-              Быстрые действия
-            </p>
-            <h2 className="text-2xl font-semibold tracking-[-0.03em]">С чего начать</h2>
-            <p className="text-sm leading-6 text-[var(--muted)]">
-              Выберите ближайший сценарий и продолжайте работу из общей панели.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap gap-3">
-            <ButtonLink href={context.quickActions.assistantHref} variant="primary">
-              Открыть юридический помощник
-            </ButtonLink>
-            <ButtonLink href={context.quickActions.documentsHref} variant="secondary">
-              Создать документ
-            </ButtonLink>
-            {context.quickActions.lawyerWorkspaceHref ? (
-              <ButtonLink href={context.quickActions.lawyerWorkspaceHref} variant="secondary">
-                Открыть адвокатский кабинет
-              </ButtonLink>
-            ) : null}
-            <ButtonLink href={context.quickActions.serversHref} variant="secondary">
-              Открыть серверы
-            </ButtonLink>
-            <ButtonLink href={context.quickActions.accountHref} variant="secondary">
-              Открыть настройки аккаунта
-            </ButtonLink>
-            {context.quickActions.internalHref ? (
-              <ButtonLink href={context.quickActions.internalHref} variant="secondary">
-                Служебная зона
-              </ButtonLink>
-            ) : null}
-          </div>
-
-          {context.quickActions.documentsHelperText ? (
-            <WarningNotice
-              description={context.quickActions.documentsHelperText}
-              title="Документы по текущему серверу"
-            />
-          ) : null}
-        </PanelCard>
-
         <EmptyState
           description={context.placeholders.requiresAttention}
           title="Требуется внимание"
@@ -356,6 +327,16 @@ export function ProductDashboard(props: {
         <EmptyState
           description={context.placeholders.recentActivity}
           title="Последняя активность"
+        />
+
+        <EmptyState
+          description="Когда появятся сохранённые черновики, они будут отображаться здесь без дублирования маршрутов и быстрых кнопок."
+          title="Черновики"
+        />
+
+        <EmptyState
+          description="Служебные уведомления, статусные сигналы и напоминания появятся здесь, когда для них появятся реальные данные."
+          title="Системные уведомления"
         />
       </div>
     </div>

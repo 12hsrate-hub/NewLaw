@@ -17,7 +17,7 @@ function isActive(currentPath: string, href: string) {
 }
 
 const baseLinkClass =
-  "inline-flex items-center justify-center rounded-2xl border px-4 py-2 text-sm font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus-ring)]";
+  "inline-flex items-center justify-center rounded-xl border px-3 py-1.5 text-sm font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus-ring)]";
 
 export function PrimaryNav({
   currentPath,
@@ -26,7 +26,7 @@ export function PrimaryNav({
 }: PrimaryNavProps) {
   const items = [
     { href: "/", label: "Главная" },
-    { href: "/assistant", label: "Юридический помощник" },
+    { href: "/assistant", label: "Помощник" },
     { href: "/servers", label: "Серверы" },
     { href: "/account", label: "Аккаунт" },
   ];
@@ -34,7 +34,7 @@ export function PrimaryNav({
   return (
     <nav
       aria-label="Основная навигация"
-      className="flex flex-wrap gap-2.5 border-t border-[var(--divider)] pt-4"
+      className="flex flex-wrap gap-2 border-t border-[var(--divider)] pt-3"
     >
       {items.map((item) => {
         const active = isActive(currentPath, item.href);
@@ -79,7 +79,7 @@ export function PrimaryNav({
           )}
           href={lawyerWorkspaceHref}
         >
-          Адвокатский кабинет
+          Кабинет
         </Link>
       ) : null}
     </nav>

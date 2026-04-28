@@ -13,6 +13,7 @@ type PrimaryServerSwitcherProps = {
     name: string;
     slug: string;
   }>;
+  compact?: boolean;
 };
 
 function buildRedirectTo(pathname: string | null, searchParams: { toString(): string } | null) {
@@ -28,6 +29,7 @@ function buildRedirectTo(pathname: string | null, searchParams: { toString(): st
 export function PrimaryServerSwitcher({
   activeServerId,
   availableServers,
+  compact = false,
 }: PrimaryServerSwitcherProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -35,8 +37,10 @@ export function PrimaryServerSwitcher({
   const hasAvailableServers = availableServers.length > 0;
 
   return (
-    <div className="space-y-2">
-      <p className="text-sm font-medium text-[var(--foreground)]">Сервер</p>
+    <div className={compact ? "space-y-1.5" : "space-y-2"}>
+      <p className={compact ? "text-xs font-medium uppercase tracking-[0.18em] text-[var(--muted)]" : "text-sm font-medium text-[var(--foreground)]"}>
+        Сервер
+      </p>
       <form action={selectActiveServerAction} className="flex flex-col gap-2 sm:flex-row sm:items-center">
         <input name="redirectTo" type="hidden" value={redirectTo} />
         <Select
@@ -58,7 +62,7 @@ export function PrimaryServerSwitcher({
           Переключить
         </Button>
       </form>
-      {!hasAvailableServers ? (
+      {compact ? null : !hasAvailableServers ? (
         <p className="text-sm leading-6 text-[var(--muted)]">
           Пока нет доступных серверов для переключения.
         </p>

@@ -161,14 +161,15 @@ describe("/ page", () => {
     expect(html).toContain("Lawyer5RP");
     expect(html).toContain('data-variant="wide"');
     expect(html).toContain("Панель управления Lawyer5RP");
-    expect(html).toContain("Открыть юридический помощник");
+    expect(html).toContain("Открыть помощник");
     expect(html).toContain("Создать документ");
+    expect(html).not.toContain("Контекст документов");
     expect(html).toContain("Открыть адвокатский кабинет");
-    expect(html).toContain("Открыть серверы");
-    expect(html).toContain("Открыть настройки аккаунта");
     expect(html).toContain("Служебная зона");
     expect(html).toContain("Требуется внимание");
     expect(html).toContain("Последняя активность");
+    expect(html).toContain("Черновики");
+    expect(html).toContain("Системные уведомления");
     expect(html).toContain("Активный сервер: Blackberry");
     expect(html).toContain("Доверители, договоры, адвокатские запросы и работа в интересах доверителя.");
   });

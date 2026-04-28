@@ -16,12 +16,13 @@ describe("primary nav", () => {
     expect(html).toContain('href="/"');
     expect(html).toContain("Главная");
     expect(html).toContain('href="/assistant"');
+    expect(html).toContain("Помощник");
     expect(html).toContain('href="/servers"');
     expect(html).toContain('href="/account"');
     expect(html).toContain('href="/servers/blackberry/documents"');
     expect(html).toContain("Документы");
     expect(html).toContain('href="/servers/blackberry/lawyer"');
-    expect(html).toContain("Адвокатский кабинет");
+    expect(html).toContain("Кабинет");
   });
 
   it("не показывает documents и lawyer links без безопасного server context", () => {

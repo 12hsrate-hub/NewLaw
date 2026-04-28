@@ -56,7 +56,7 @@ describe("primary header", () => {
     expect(html).toContain('href="/assistant"');
     expect(html).toContain('href="/servers"');
     expect(html).toContain('href="/account"');
-    expect(html).toContain("Сервер не выбран");
+    expect(html).toContain("Не выбран");
     expect(html).toContain('href="/sign-in?next=%2Fassistant"');
     expect(html).not.toContain("Переключить");
     expect(html).not.toContain("Служебная зона");
@@ -107,12 +107,12 @@ describe("primary header", () => {
     expect(html).toContain("Blackberry");
     expect(html).toContain(">Сервер<");
     expect(html).toContain(">Переключить<");
-    expect(html).toContain("Текущий выбор влияет на серверные разделы и документы.");
+    expect(html).not.toContain("Текущий выбор влияет на серверные разделы и документы.");
     expect(html).toContain('name="serverId"');
     expect(html).toContain('value="/account"');
     expect(html).toContain('href="/servers/blackberry/documents"');
     expect(html).toContain('href="/servers/blackberry/lawyer"');
-    expect(html).toContain("Адвокатский кабинет");
+    expect(html).toContain("Кабинет");
     expect(html).toContain('href="/internal"');
     expect(html).toContain("Служебная зона");
   });
@@ -147,7 +147,7 @@ describe("primary header", () => {
     );
 
     expect(html).toContain(">Переключить<");
-    expect(html).toContain("Пока нет доступных серверов для переключения.");
+    expect(html).not.toContain("Пока нет доступных серверов для переключения.");
     expect(html).toContain("Серверов пока нет");
     expect(html).toContain("disabled");
   });
