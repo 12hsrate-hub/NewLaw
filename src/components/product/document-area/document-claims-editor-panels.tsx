@@ -6,7 +6,10 @@ import type {
   ClaimsPreviewState,
 } from "@/components/product/document-area/document-claims-editor-shared";
 import { Button } from "@/components/ui/button";
+import { PanelCard } from "@/components/ui/panel-card";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { Textarea } from "@/components/ui/textarea";
+import { WarningNotice } from "@/components/ui/warning-notice";
 
 function formatClaimsDocumentStatus(status: ClaimsGenerationState["status"]) {
   if (status === "draft") {
@@ -29,20 +32,39 @@ export function ClaimsEditorActionBar(props: {
   onCopyPreview: () => void;
 }) {
   return (
-    <div className="flex flex-wrap items-center gap-3">
-      <Button disabled={!props.isDirty} onClick={props.onSave} type="button">
-        Сохранить черновик
-      </Button>
-      <Button disabled={props.isDirty} onClick={props.onGeneratePreview} type="button" variant="secondary">
-        Обновить предпросмотр
-      </Button>
-      <Button disabled={props.isDirty} onClick={props.onGenerateCheckpoint} type="button" variant="secondary">
-        Сохранить итоговую версию
-      </Button>
-      <Button disabled={!props.hasPreview} onClick={props.onCopyPreview} type="button" variant="secondary">
-        Скопировать текст
-      </Button>
-    </div>
+    <PanelCard className="space-y-4">
+      <div className="space-y-1">
+        <h3 className="text-lg font-semibold">Действия с документом</h3>
+        <ClaimsFieldHint>
+          Сначала сохраните изменения, затем обновите предпросмотр или зафиксируйте итоговую
+          версию документа.
+        </ClaimsFieldHint>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <StatusBadge tone={props.isDirty ? "warning" : "success"}>
+          {props.isDirty ? "Есть несохранённые изменения" : "Черновик синхронизирован"}
+        </StatusBadge>
+        <StatusBadge tone={props.hasPreview ? "success" : "neutral"}>
+          {props.hasPreview ? "Предпросмотр доступен" : "Предпросмотр ещё не собран"}
+        </StatusBadge>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-3">
+        <Button disabled={!props.isDirty} onClick={props.onSave} type="button">
+          Сохранить черновик
+        </Button>
+        <Button disabled={props.isDirty} onClick={props.onGeneratePreview} type="button" variant="secondary">
+          Обновить предпросмотр
+        </Button>
+        <Button disabled={props.isDirty} onClick={props.onGenerateCheckpoint} type="button" variant="secondary">
+          Сохранить итоговую версию
+        </Button>
+        <Button disabled={!props.hasPreview} onClick={props.onCopyPreview} type="button" variant="secondary">
+          Скопировать текст
+        </Button>
+      </div>
+    </PanelCard>
   );
 }
 
@@ -53,13 +75,19 @@ export function ClaimsEditorPreviewPanels(props: {
 }) {
   return (
     <>
-      <div className="space-y-4 rounded-3xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4">
+      <PanelCard className="space-y-4">
         <div className="space-y-1">
           <h3 className="text-lg font-semibold">Сведения о сборке</h3>
           <ClaimsFieldHint>
             Здесь видно, когда в последний раз собирался текст документа и нужно ли обновить его перед использованием.
           </ClaimsFieldHint>
         </div>
+        {props.generationState.isModifiedAfterGeneration ? (
+          <WarningNotice
+            description="После последней сборки документ менялся. Перед использованием лучше обновить предпросмотр и заново сохранить итоговую версию."
+            title="Документ изменён после генерации"
+          />
+        ) : null}
         <ul className="space-y-2 text-sm leading-6 text-[var(--muted)]">
           <li>Статус документа: {formatClaimsDocumentStatus(props.generationState.status)}</li>
           <li>
@@ -83,15 +111,16 @@ export function ClaimsEditorPreviewPanels(props: {
               {props.previewState.blockingReasons.length > 0 ? props.previewState.blockingReasons.join(", ") : "замечаний нет"}
             </li>
           ) : null}
-          {props.isPreviewStale ? (
-            <li>
-              Текущий предпросмотр устарел после последнего сохранения. Обновите его перед использованием.
-            </li>
-          ) : null}
         </ul>
-      </div>
+        {props.isPreviewStale ? (
+          <WarningNotice
+            description="Текущий предпросмотр устарел после последнего сохранения. Обновите его перед использованием, чтобы видеть актуальную версию документа."
+            title="Предпросмотр требует обновления"
+          />
+        ) : null}
+      </PanelCard>
 
-      <div className="space-y-4 rounded-3xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4">
+      <PanelCard className="space-y-4">
         <div className="space-y-1">
           <h3 className="text-lg font-semibold">Предпросмотр документа</h3>
           <ClaimsFieldHint>Здесь показывается текст, который будет использован в итоговой версии документа.</ClaimsFieldHint>
@@ -113,15 +142,15 @@ export function ClaimsEditorPreviewPanels(props: {
             Предпросмотр ещё не собран. Сначала сохраните черновик, затем обновите предпросмотр.
           </div>
         )}
-      </div>
+      </PanelCard>
 
-      <div className="space-y-4 rounded-3xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4">
+      <PanelCard className="space-y-4">
         <div className="space-y-1">
           <h3 className="text-lg font-semibold">Текст для копирования</h3>
           <ClaimsFieldHint>Этот текст можно использовать для просмотра и дальнейшей ручной работы с документом.</ClaimsFieldHint>
         </div>
         <Textarea className="min-h-[320px] font-mono text-xs" readOnly value={props.previewState?.copyText ?? "Предпросмотр ещё не собран."} />
-      </div>
+      </PanelCard>
     </>
   );
 }

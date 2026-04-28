@@ -1,7 +1,6 @@
 "use client";
 
 import { startTransition, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import Link from "next/link";
 
 import {
   applyOgpRewriteSuggestion,
@@ -17,11 +16,14 @@ import {
 } from "@/components/product/document-area/document-ai-review-copy";
 import { DocumentFieldRewritePanel } from "@/components/product/document-area/document-field-rewrite-panel";
 import { DocumentTrustorRegistryPrefill } from "@/components/product/document-area/document-trustor-registry-prefill";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ButtonLink } from "@/components/ui/button-link";
 import { Input } from "@/components/ui/input";
+import { PanelCard } from "@/components/ui/panel-card";
 import { Select } from "@/components/ui/select";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { Textarea } from "@/components/ui/textarea";
+import { WarningNotice } from "@/components/ui/warning-notice";
 import { type OgpChecklistIssue } from "@/lib/ogp/generation-contract";
 import {
   applyTrustorRegistryPrefill,
@@ -81,6 +83,25 @@ function ComplaintFieldHint(props: { children: string }) {
   return <p className="text-xs leading-5 text-[var(--muted)]">{props.children}</p>;
 }
 
+function ComplaintSection(props: {
+  title: string;
+  description: string;
+  children: ReactNode;
+  id?: string;
+}) {
+  return (
+    <div id={props.id}>
+      <PanelCard className="space-y-4">
+        <div className="space-y-1">
+          <h3 className="text-lg font-semibold">{props.title}</h3>
+          <ComplaintFieldHint>{props.description}</ComplaintFieldHint>
+        </div>
+        {props.children}
+      </PanelCard>
+    </div>
+  );
+}
+
 function GenerationChecklistSection(props: {
   title: string;
   issues: OgpChecklistIssue[];
@@ -92,16 +113,13 @@ function GenerationChecklistSection(props: {
   }
 
   return (
-    <div className="space-y-2 rounded-2xl border border-[var(--border)] bg-[var(--surface-raised)] p-4">
+    <PanelCard className="space-y-2 rounded-2xl p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h4 className="text-sm font-semibold text-[var(--foreground)]">{props.title}</h4>
         {props.href && props.hrefLabel ? (
-          <Link
-            className="text-sm font-medium text-[var(--accent)] transition hover:opacity-80"
-            href={props.href}
-          >
+          <ButtonLink className="rounded-xl px-3 py-1.5 text-xs" href={props.href} variant="ghost">
             {props.hrefLabel}
-          </Link>
+          </ButtonLink>
         ) : null}
       </div>
       <ul className="space-y-2 text-sm leading-6 text-[var(--muted)]">
@@ -111,7 +129,7 @@ function GenerationChecklistSection(props: {
           </li>
         ))}
       </ul>
-    </div>
+    </PanelCard>
   );
 }
 
@@ -295,230 +313,262 @@ function ComplaintFormFields(props: {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center gap-2">
-        <Badge>{props.mode === "create" ? "новая жалоба" : "черновик жалобы"}</Badge>
-        <Badge>Подача: {filingModeLabel(payload.filingMode)}</Badge>
-        {props.draftStatusLabel ? (
-          <Badge>
-            Статус: {formatDraftStatus(props.draftStatusLabel)}
-          </Badge>
-        ) : null}
-      </div>
-
-      <div className="rounded-3xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4 text-sm leading-6 text-[var(--muted)]">
-        <p>Сервер и персонаж уже показаны явно. Персонаж: {props.characterLabel}.</p>
+      <PanelCard className="space-y-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <StatusBadge tone="info">
+            {props.mode === "create" ? "Новый черновик" : "Черновик жалобы"}
+          </StatusBadge>
+          <StatusBadge tone="neutral">Подача: {filingModeLabel(payload.filingMode)}</StatusBadge>
+          {props.draftStatusLabel ? (
+            <StatusBadge
+              tone={
+                props.draftStatusLabel === "draft"
+                  ? "neutral"
+                  : props.draftStatusLabel === "generated"
+                    ? "success"
+                    : "info"
+              }
+            >
+              Статус: {formatDraftStatus(props.draftStatusLabel)}
+            </StatusBadge>
+          ) : null}
+          {props.updatedAtLabel ? (
+            <StatusBadge tone="neutral">Последнее сохранение: {props.updatedAtLabel}</StatusBadge>
+          ) : null}
+        </div>
+        <p className="text-sm leading-6 text-[var(--muted)]">
+          Персонаж для этой жалобы: {props.characterLabel}.
+          {props.routeStatus ? ` Состояние экрана: ${props.routeStatus}.` : ""}
+        </p>
         {!props.profileComplete ? (
-          <p className="mt-2 text-[var(--accent)]">
-            Для генерации жалобы в ОГП не хватает данных профиля персонажа. Жалобу можно
-            редактировать, но генерация будет доступна только после заполнения обязательных полей.
-          </p>
+          <WarningNotice
+            description="Профиль персонажа заполнен не полностью. Черновик можно редактировать, но генерация будет доступна только после заполнения обязательных полей."
+            title="Заполните профиль персонажа"
+          />
         ) : null}
         {!props.representativeAllowed ? (
-          <p className="mt-2">
-            Этот персонаж не отмечен как адвокат, поэтому подача как представитель недоступна.
-          </p>
+          <WarningNotice
+            description="Этот персонаж не отмечен как адвокат, поэтому подача как представитель недоступна."
+            title="Представительский режим недоступен"
+          />
         ) : null}
-        {props.routeStatus ? <p className="mt-2">Статус: {props.routeStatus}</p> : null}
-        {props.updatedAtLabel ? <p className="mt-2">Последнее сохранение: {props.updatedAtLabel}</p> : null}
-      </div>
+      </PanelCard>
 
-      <div className="space-y-2" id="document-required-fields-section">
-        <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`${props.mode}-document-title`}>
-          Название документа
-        </label>
-        <Input
-          id={`${props.mode}-document-title`}
-          maxLength={160}
-          onChange={(event) => {
-            props.onStateChange({
-              ...props.state,
-              title: event.target.value,
-            });
-          }}
-          value={props.state.title}
-        />
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2">
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`${props.mode}-filing-mode`}>
-            Способ подачи
-          </label>
-          <Select
-            id={`${props.mode}-filing-mode`}
-            onChange={(event) => {
-              const nextFilingMode = event.target.value as OgpComplaintDraftPayload["filingMode"];
-              props.onStateChange({
-                ...props.state,
-                payload: {
-                  ...payload,
-                  filingMode: nextFilingMode,
-                  trustorSnapshot:
-                    nextFilingMode === "representative"
-                      ? (payload.trustorSnapshot ?? buildEmptyTrustorSnapshot())
-                      : null,
-                },
-              });
-            }}
-            value={payload.filingMode}
-          >
-            <option value="self">От своего имени</option>
-            <option disabled={!props.representativeAllowed} value="representative">
-              Как представитель
-            </option>
-          </Select>
-          <ComplaintFieldHint>
-            Подача как представитель доступна только персонажу с ролью адвоката.
-          </ComplaintFieldHint>
-        </div>
-
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`${props.mode}-appeal-number`}>
-            Номер обращения
-          </label>
-          <Input
-            id={`${props.mode}-appeal-number`}
-            maxLength={120}
-            onChange={(event) => {
-              props.onStateChange({
-                ...props.state,
-                payload: {
-                  ...payload,
-                  appealNumber: event.target.value,
-                },
-              });
-            }}
-            placeholder="Например: 2026001"
-            value={payload.appealNumber}
-          />
-        </div>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2">
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`${props.mode}-object-organization`}>
-            Организация объекта жалобы
-          </label>
-          <Input
-            id={`${props.mode}-object-organization`}
-            maxLength={160}
-            onChange={(event) => {
-              props.onStateChange({
-                ...props.state,
-                payload: {
-                  ...payload,
-                  objectOrganization: event.target.value,
-                },
-              });
-            }}
-            placeholder="Например: LSPD"
-            value={payload.objectOrganization}
-          />
-        </div>
-
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`${props.mode}-object-full-name`}>
-            Объект жалобы
-          </label>
-          <Input
-            id={`${props.mode}-object-full-name`}
-            maxLength={160}
-            onChange={(event) => {
-              props.onStateChange({
-                ...props.state,
-                payload: {
-                  ...payload,
-                  objectFullName: event.target.value,
-                },
-              });
-            }}
-            placeholder="ФИО сотрудника или полное наименование органа"
-            value={payload.objectFullName}
-          />
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`${props.mode}-incident-at`}>
-          Дата и время события
-        </label>
-        <Input
-          id={`${props.mode}-incident-at`}
-          onChange={(event) => {
-            props.onStateChange({
-              ...props.state,
-              payload: {
-                ...payload,
-                incidentAt: event.target.value,
-              },
-            });
-          }}
-          type="datetime-local"
-          value={payload.incidentAt}
-        />
-      </div>
-
-      <div className="space-y-2">
-        <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`${props.mode}-situation-description`}>
-          Подробное описание ситуации
-        </label>
-        <Textarea
-          id={`${props.mode}-situation-description`}
-          onChange={(event) => {
-            props.onStateChange({
-              ...props.state,
-              payload: {
-                ...payload,
-                situationDescription: event.target.value,
-              },
-            });
-          }}
-          placeholder="Опишите, что произошло, где и при каких обстоятельствах."
-          value={payload.situationDescription}
-        />
-        {props.renderRewriteControls?.({
-          sectionKey: "situation_description",
-          sectionLabel: "Описание ситуации",
-        })}
-      </div>
-
-      <div className="space-y-2">
-        <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`${props.mode}-violation-summary`}>
-          Суть нарушения
-        </label>
-        <Textarea
-          id={`${props.mode}-violation-summary`}
-          onChange={(event) => {
-            props.onStateChange({
-              ...props.state,
-              payload: {
-                ...payload,
-                violationSummary: event.target.value,
-              },
-            });
-          }}
-          placeholder="Коротко сформулируйте, в чём именно состоит нарушение."
-          value={payload.violationSummary}
-        />
-        {props.renderRewriteControls?.({
-          sectionKey: "violation_summary",
-          sectionLabel: "Суть нарушения",
-        })}
-      </div>
-
-      {payload.filingMode === "representative" ? (
-        <div
-          className="space-y-4 rounded-3xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4"
-          id="trustor-snapshot-section"
-        >
-          <div className="space-y-1">
-            <h3 className="text-lg font-semibold">Данные доверителя</h3>
-            <ComplaintFieldHint>
-              Эти данные сохраняются внутри жалобы. Если вы подставили доверителя из списка,
-              дальнейшие изменения карточки не изменят уже заполненный документ.
-            </ComplaintFieldHint>
+      <ComplaintSection
+        description="Укажите служебное название документа, способ подачи и номер обращения."
+        id="document-required-fields-section"
+        title="Данные обращения"
+      >
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`${props.mode}-document-title`}>
+              Название документа
+            </label>
+            <Input
+              id={`${props.mode}-document-title`}
+              maxLength={160}
+              onChange={(event) => {
+                props.onStateChange({
+                  ...props.state,
+                  title: event.target.value,
+                });
+              }}
+              value={props.state.title}
+            />
           </div>
 
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`${props.mode}-filing-mode`}>
+                Способ подачи
+              </label>
+              <Select
+                id={`${props.mode}-filing-mode`}
+                onChange={(event) => {
+                  const nextFilingMode = event.target.value as OgpComplaintDraftPayload["filingMode"];
+                  props.onStateChange({
+                    ...props.state,
+                    payload: {
+                      ...payload,
+                      filingMode: nextFilingMode,
+                      trustorSnapshot:
+                        nextFilingMode === "representative"
+                          ? (payload.trustorSnapshot ?? buildEmptyTrustorSnapshot())
+                          : null,
+                    },
+                  });
+                }}
+                value={payload.filingMode}
+              >
+                <option value="self">От своего имени</option>
+                <option disabled={!props.representativeAllowed} value="representative">
+                  Как представитель
+                </option>
+              </Select>
+              <ComplaintFieldHint>
+                Подача как представитель доступна только персонажу с ролью адвоката.
+              </ComplaintFieldHint>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`${props.mode}-appeal-number`}>
+                Номер обращения
+              </label>
+              <Input
+                id={`${props.mode}-appeal-number`}
+                maxLength={120}
+                onChange={(event) => {
+                  props.onStateChange({
+                    ...props.state,
+                    payload: {
+                      ...payload,
+                      appealNumber: event.target.value,
+                    },
+                  });
+                }}
+                placeholder="Например: 2026001"
+                value={payload.appealNumber}
+              />
+            </div>
+          </div>
+        </div>
+      </ComplaintSection>
+
+      <ComplaintSection
+        description="Укажите организацию, объект заявления и момент события так, как это должно отразиться в жалобе."
+        title="Организация и объект заявления"
+      >
+        <div className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`${props.mode}-object-organization`}>
+                Организация объекта жалобы
+              </label>
+              <Input
+                id={`${props.mode}-object-organization`}
+                maxLength={160}
+                onChange={(event) => {
+                  props.onStateChange({
+                    ...props.state,
+                    payload: {
+                      ...payload,
+                      objectOrganization: event.target.value,
+                    },
+                  });
+                }}
+                placeholder="Например: LSPD"
+                value={payload.objectOrganization}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`${props.mode}-object-full-name`}>
+                Объект жалобы
+              </label>
+              <Input
+                id={`${props.mode}-object-full-name`}
+                maxLength={160}
+                onChange={(event) => {
+                  props.onStateChange({
+                    ...props.state,
+                    payload: {
+                      ...payload,
+                      objectFullName: event.target.value,
+                    },
+                  });
+                }}
+                placeholder="ФИО сотрудника или полное наименование органа"
+                value={payload.objectFullName}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`${props.mode}-incident-at`}>
+              Дата и время события
+            </label>
+            <Input
+              id={`${props.mode}-incident-at`}
+              onChange={(event) => {
+                props.onStateChange({
+                  ...props.state,
+                  payload: {
+                    ...payload,
+                    incidentAt: event.target.value,
+                  },
+                });
+              }}
+              type="datetime-local"
+              value={payload.incidentAt}
+            />
+          </div>
+        </div>
+      </ComplaintSection>
+
+      <ComplaintSection
+        description="Опишите последовательность событий, участников и контекст так, чтобы текст было удобно проверить перед генерацией."
+        title="Описание ситуации"
+      >
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`${props.mode}-situation-description`}>
+            Подробное описание ситуации
+          </label>
+          <Textarea
+            id={`${props.mode}-situation-description`}
+            onChange={(event) => {
+              props.onStateChange({
+                ...props.state,
+                payload: {
+                  ...payload,
+                  situationDescription: event.target.value,
+                },
+              });
+            }}
+            placeholder="Опишите, что произошло, где и при каких обстоятельствах."
+            value={payload.situationDescription}
+          />
+          {props.renderRewriteControls?.({
+            sectionKey: "situation_description",
+            sectionLabel: "Описание ситуации",
+          })}
+        </div>
+      </ComplaintSection>
+
+      <ComplaintSection
+        description="Сформулируйте ключевое нарушение коротко и по существу. Эта часть используется при итоговой сборке текста."
+        title="Краткая формулировка нарушения"
+      >
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`${props.mode}-violation-summary`}>
+            Суть нарушения
+          </label>
+          <Textarea
+            id={`${props.mode}-violation-summary`}
+            onChange={(event) => {
+              props.onStateChange({
+                ...props.state,
+                payload: {
+                  ...payload,
+                  violationSummary: event.target.value,
+                },
+              });
+            }}
+            placeholder="Коротко сформулируйте, в чём именно состоит нарушение."
+            value={payload.violationSummary}
+          />
+          {props.renderRewriteControls?.({
+            sectionKey: "violation_summary",
+            sectionLabel: "Суть нарушения",
+          })}
+        </div>
+      </ComplaintSection>
+
+      {payload.filingMode === "representative" ? (
+        <ComplaintSection
+          description="Данные потерпевшего фиксируются в жалобе. Если вы подставили доверителя из списка, дальнейшие изменения карточки не изменят уже заполненный документ."
+          id="trustor-snapshot-section"
+          title="Потерпевший и ксерокопия паспорта"
+        >
           <DocumentTrustorRegistryPrefill
             items={props.trustorRegistry}
             onApply={(trustor) => {
@@ -695,22 +745,17 @@ function ComplaintFormFields(props: {
                 });
               }}
               placeholder="Дополнительная пометка по доверителю."
-              value={payload.trustorSnapshot?.note ?? ""}
-            />
-          </div>
-        </div>
+                value={payload.trustorSnapshot?.note ?? ""}
+              />
+            </div>
+        </ComplaintSection>
       ) : null}
 
-      <div
-        className="space-y-4 rounded-3xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4"
+      <ComplaintSection
+        description="Добавьте ссылки на материалы, которые подтверждают обстоятельства жалобы и пригодятся перед генерацией."
         id="evidence-links-section"
+        title="Доказательства"
       >
-        <div className="space-y-1">
-          <h3 className="text-lg font-semibold">Доказательства</h3>
-          <ComplaintFieldHint>
-            Добавьте ссылки на материалы, которые подтверждают обстоятельства жалобы.
-          </ComplaintFieldHint>
-        </div>
         <EvidenceItemsEditor
           evidenceItems={payload.evidenceItems}
           onChange={(items) => {
@@ -723,27 +768,32 @@ function ComplaintFormFields(props: {
             });
           }}
         />
-      </div>
+      </ComplaintSection>
 
-      <div className="space-y-2">
-        <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`${props.mode}-working-notes`}>
-          Рабочие заметки
-        </label>
-        <Textarea
-          id={`${props.mode}-working-notes`}
-          onChange={(event) => {
-            props.onStateChange({
-              ...props.state,
-              payload: {
-                ...payload,
-                workingNotes: event.target.value,
-              },
-            });
-          }}
-          placeholder="Внутренние рабочие пометки по жалобе."
-          value={payload.workingNotes}
-        />
-      </div>
+      <ComplaintSection
+        description="Эти пометки не участвуют в обязательной проверке, но помогают сохранить рабочий контекст по жалобе."
+        title="Рабочие заметки"
+      >
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`${props.mode}-working-notes`}>
+            Рабочие заметки
+          </label>
+          <Textarea
+            id={`${props.mode}-working-notes`}
+            onChange={(event) => {
+              props.onStateChange({
+                ...props.state,
+                payload: {
+                  ...payload,
+                  workingNotes: event.target.value,
+                },
+              });
+            }}
+            placeholder="Внутренние рабочие пометки по жалобе."
+            value={payload.workingNotes}
+          />
+        </div>
+      </ComplaintSection>
     </div>
   );
 }
@@ -782,42 +832,94 @@ export function OgpComplaintDraftCreateClient(props: OgpComplaintDraftCreateClie
       <input name="title" type="hidden" value={editorState.title} />
       <input name="payloadJson" type="hidden" value={JSON.stringify(editorState.payload)} />
 
-      <div className="space-y-2">
-        <label className="text-sm font-medium text-[var(--foreground)]" htmlFor="create-character-id">
-          Персонаж для жалобы
-        </label>
-        <Select
-          id="create-character-id"
-          onChange={(event) => {
-            setSelectedCharacterId(event.target.value);
-          }}
-          value={selectedCharacterId}
-        >
-          {props.characters.map((character) => (
-            <option key={character.id} value={character.id}>
-              {character.fullName} ({character.passportNumber})
-            </option>
-          ))}
-        </Select>
-        <ComplaintFieldHint>
-          До первого сохранения персонажа можно сменить. После сохранения жалоба продолжит
-          использовать выбранного персонажа.
-        </ComplaintFieldHint>
-      </div>
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_20rem]">
+        <div className="space-y-6">
+          <ComplaintSection
+            description="До первого сохранения персонажа можно сменить. После сохранения жалоба продолжит использовать выбранный профиль."
+            title="Персонаж для жалобы"
+          >
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-[var(--foreground)]" htmlFor="create-character-id">
+                Персонаж для жалобы
+              </label>
+              <Select
+                id="create-character-id"
+                onChange={(event) => {
+                  setSelectedCharacterId(event.target.value);
+                }}
+                value={selectedCharacterId}
+              >
+                {props.characters.map((character) => (
+                  <option key={character.id} value={character.id}>
+                    {character.fullName} ({character.passportNumber})
+                  </option>
+                ))}
+              </Select>
+            </div>
+          </ComplaintSection>
 
-      <ComplaintFormFields
-        characterLabel={`${selectedCharacter.fullName} (${selectedCharacter.passportNumber})`}
-        mode="create"
-        onStateChange={setEditorState}
-        profileComplete={selectedCharacter.isProfileComplete}
-        representativeAllowed={selectedCharacter.canUseRepresentative}
-        serverCode={props.server.code}
-        state={editorState}
-        trustorRegistry={props.trustorRegistry}
-      />
+          <ComplaintFormFields
+            characterLabel={`${selectedCharacter.fullName} (${selectedCharacter.passportNumber})`}
+            mode="create"
+            onStateChange={setEditorState}
+            profileComplete={selectedCharacter.isProfileComplete}
+            representativeAllowed={selectedCharacter.canUseRepresentative}
+            serverCode={props.server.code}
+            state={editorState}
+            trustorRegistry={props.trustorRegistry}
+          />
+        </div>
 
-      <div className="flex flex-wrap gap-3">
-        <Button type="submit">Создать черновик жалобы</Button>
+        <aside className="space-y-4 xl:sticky xl:top-6 xl:self-start">
+          <PanelCard className="space-y-3">
+            <p className="text-xs uppercase tracking-[0.22em] text-[var(--accent)]">Состояние</p>
+            <div className="flex flex-wrap gap-2">
+              <StatusBadge tone="info">Сервер: {props.server.name}</StatusBadge>
+              <StatusBadge tone="success">Персонаж: {selectedCharacter.fullName}</StatusBadge>
+              <StatusBadge
+                tone={selectedCharacter.canUseRepresentative ? "success" : "neutral"}
+              >
+                Представитель: {selectedCharacter.canUseRepresentative ? "доступен" : "недоступен"}
+              </StatusBadge>
+            </div>
+            <div className="space-y-2 text-sm leading-6 text-[var(--muted)]">
+              <p>
+                Паспорт:{" "}
+                <span className="font-medium text-[var(--foreground)]">
+                  {selectedCharacter.passportNumber}
+                </span>
+              </p>
+              <p>
+                Профиль персонажа:{" "}
+                <span className="font-medium text-[var(--foreground)]">
+                  {selectedCharacter.isProfileComplete ? "готов" : "нужно дополнить"}
+                </span>
+              </p>
+            </div>
+          </PanelCard>
+
+          {!selectedCharacter.isProfileComplete ? (
+            <WarningNotice
+              description="Заполните обязательные поля профиля персонажа до генерации. Черновик жалобы при этом можно создать уже сейчас."
+              title="Нужно дополнить профиль"
+            />
+          ) : null}
+
+          <WarningNotice
+            description="Перед созданием проверьте номер обращения, объект заявления и хотя бы одно доказательство. После сохранения данные будут зафиксированы в черновике."
+            title="Что проверить перед сохранением"
+          />
+
+          <PanelCard className="space-y-4">
+            <div className="space-y-2">
+              <h3 className="text-lg font-semibold">Действия</h3>
+              <ComplaintFieldHint>
+                Сначала создайте черновик. Проверка обязательных полей и сборка BBCode откроются уже в сохранённом документе.
+              </ComplaintFieldHint>
+            </div>
+            <Button type="submit">Создать черновик жалобы</Button>
+          </PanelCard>
+        </aside>
       </div>
     </form>
   );
@@ -1880,40 +1982,44 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
         updatedAtLabel={new Date(savedUpdatedAt).toLocaleString("ru-RU")}
       />
 
-      <div className="flex flex-wrap items-center gap-3">
-        <Button
-          disabled={!isDirty}
-          onClick={() => {
-            startTransition(() => {
-              void performSave("manual");
-            });
-          }}
-          type="button"
-        >
-          Сохранить черновик
-        </Button>
-        <Button
-          disabled={!canGenerateFromPersistedState}
-          onClick={() => {
-            startTransition(() => {
-              void handleGenerate();
-            });
-          }}
-          type="button"
-          variant="secondary"
-        >
-          Собрать текст для форума
-        </Button>
-        <Button onClick={handleClearComplaintTemplate} type="button" variant="secondary">
-          Очистить форму жалобы
-        </Button>
-        <span className="text-sm text-[var(--muted)]">{generationReadinessLabel}</span>
-      </div>
+      <PanelCard className="space-y-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <Button
+            disabled={!isDirty}
+            onClick={() => {
+              startTransition(() => {
+                void performSave("manual");
+              });
+            }}
+            type="button"
+          >
+            Сохранить черновик
+          </Button>
+          <Button
+            disabled={!canGenerateFromPersistedState}
+            onClick={() => {
+              startTransition(() => {
+                void handleGenerate();
+              });
+            }}
+            type="button"
+            variant="secondary"
+          >
+            Собрать текст для форума
+          </Button>
+          <Button onClick={handleClearComplaintTemplate} type="button" variant="secondary">
+            Очистить форму жалобы
+          </Button>
+          <StatusBadge tone={canGenerateFromPersistedState ? "success" : "warning"}>
+            {generationReadinessLabel}
+          </StatusBadge>
+        </div>
 
-      {saveMessage ? <p className="text-sm text-[var(--muted)]">{saveMessage}</p> : null}
-      {generationMessage ? <p className="text-sm text-[var(--muted)]">{generationMessage}</p> : null}
+        {saveMessage ? <p className="text-sm text-[var(--muted)]">{saveMessage}</p> : null}
+        {generationMessage ? <p className="text-sm text-[var(--muted)]">{generationMessage}</p> : null}
+      </PanelCard>
 
-      <div className="space-y-4 rounded-3xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4">
+      <PanelCard className="space-y-4">
         <div className="space-y-1">
           <h3 className="text-lg font-semibold">Проверка перед генерацией</h3>
           <ComplaintFieldHint>
@@ -1928,7 +2034,7 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
           </span>
         </p>
         {persistedGenerationBlockState.readyState === "generation_ready" ? (
-          <div className="rounded-2xl border border-[#4a8a68]/30 bg-[#4a8a68]/15 p-4 text-sm leading-6 text-[#9ed8b3]">
+          <div className="rounded-3xl border border-[var(--status-success-border)] bg-[var(--status-success-bg)] p-4 text-sm leading-6 text-[var(--status-success-fg)]">
             Сохранённые данные готовы к генерации. Генератор возьмёт данные персонажа,
             доверителя и жалобы из текущего документа.
           </div>
@@ -1982,9 +2088,9 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
           issues={persistedGenerationBlockState.documentIssues}
           title="Что исправить в жалобе"
         />
-      </div>
+      </PanelCard>
 
-      <div className="space-y-4 rounded-3xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4">
+      <PanelCard className="space-y-4">
         <div className="space-y-1">
           <h3 className="text-lg font-semibold">Сведения о сборке</h3>
           <ComplaintFieldHint>
@@ -2012,9 +2118,9 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
               : "ещё не публиковался"}
           </li>
         </ul>
-      </div>
+      </PanelCard>
 
-      <div className="space-y-4 rounded-3xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4">
+      <PanelCard className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="space-y-1">
             <h3 className="text-lg font-semibold">Готовый текст для форума</h3>
@@ -2040,16 +2146,16 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
           readOnly
           value={generationState.lastGeneratedBbcode ?? "Текст для форума ещё не собран."}
         />
-      </div>
+      </PanelCard>
 
-      <div className="space-y-4 rounded-3xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4">
+      <PanelCard className="space-y-4">
         <div className="space-y-1">
           <h3 className="text-lg font-semibold">Публикация на форуме</h3>
           <ComplaintFieldHint>
             Здесь можно сохранить ссылку на тему форума или опубликовать жалобу через подключение форума.
           </ComplaintFieldHint>
         </div>
-        <div className="rounded-2xl border border-[#5e82ac]/30 bg-[#24384d]/22 px-4 py-3 text-sm leading-6 text-[#b8d1eb]">
+        <div className="rounded-3xl border border-[var(--divider)] bg-[var(--surface-raised)] px-4 py-3 text-sm leading-6 text-[var(--muted)]">
           <p>
             Подключение форума:{" "}
             <span className="font-medium text-[var(--foreground)]">
@@ -2070,13 +2176,14 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
                 : "ещё не подтверждалась"}
             </span>
           </p>
-          {props.forumConnection.lastValidationError ? (
-            <p className="mt-2 text-[#f2b8ad]">
-              Подключение требует повторной проверки в настройках аккаунта.
-            </p>
-          ) : null}
           <p className="mt-2">Подключение форума управляется в настройках аккаунта.</p>
         </div>
+        {props.forumConnection.lastValidationError ? (
+          <WarningNotice
+            description="Подключение требует повторной проверки в настройках аккаунта."
+            title="Проверьте подключение форума"
+          />
+        ) : null}
         <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-raised)] px-4 py-3 text-sm leading-6 text-[var(--muted)]">
           <p>
             Готовность к публикации:{" "}
@@ -2106,16 +2213,17 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
                 : "ещё не публиковался"}
             </span>
           </p>
-          {generationState.forumLastSyncError ? (
-            <p className="mt-2 text-[#f2b8ad]">
-              Не удалось подтвердить последнюю публикацию. Проверьте подключение форума и попробуйте ещё раз.
-            </p>
-          ) : null}
           <p className="mt-2">
             Автопубликация доступна только для жалобы в ОГП. Если жалоба изменилась после
             публикации, её можно обновить на форуме.
           </p>
         </div>
+        {generationState.forumLastSyncError ? (
+          <WarningNotice
+            description="Не удалось подтвердить последнюю публикацию. Проверьте подключение форума и попробуйте ещё раз."
+            title="Публикация требует повторной проверки"
+          />
+        ) : null}
         <div className="space-y-2">
           <label className="text-sm font-medium text-[var(--foreground)]" htmlFor="publication-url">
             Ссылка на публикацию
@@ -2187,7 +2295,7 @@ export function DocumentDraftEditorClient(props: OgpComplaintDraftEditorClientPr
           </span>
         </div>
         {publicationMessage ? <p className="text-sm text-[var(--muted)]">{publicationMessage}</p> : null}
-      </div>
+      </PanelCard>
     </div>
   );
 }

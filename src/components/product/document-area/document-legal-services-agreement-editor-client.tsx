@@ -4,11 +4,12 @@ import { useMemo, useState, type ReactNode } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { EmbeddedCard } from "@/components/ui/embedded-card";
 import { Input } from "@/components/ui/input";
+import { PanelCard } from "@/components/ui/panel-card";
 import { Select } from "@/components/ui/select";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Textarea } from "@/components/ui/textarea";
+import { WarningNotice } from "@/components/ui/warning-notice";
 import {
   createLegalServicesAgreementDraftAction,
   generateLegalServicesAgreementPreviewAction,
@@ -28,6 +29,7 @@ type CharacterOption = {
   fullName: string;
   passportNumber: string;
   isProfileComplete: boolean;
+  hasActiveSignature?: boolean;
 };
 
 type LegalServicesAgreementDraftCreateClientProps = {
@@ -100,6 +102,26 @@ function formatDocumentStatus(status: "draft" | "generated" | "published") {
   return "Опубликован";
 }
 
+function AgreementSection(props: {
+  title: string;
+  description: string;
+  badge?: string;
+  children: ReactNode;
+}) {
+  return (
+    <PanelCard className="space-y-4">
+      <div className="space-y-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <h3 className="text-xl font-semibold tracking-[-0.02em]">{props.title}</h3>
+          {props.badge ? <Badge>{props.badge}</Badge> : null}
+        </div>
+        <p className="text-sm leading-6 text-[var(--muted)]">{props.description}</p>
+      </div>
+      {props.children}
+    </PanelCard>
+  );
+}
+
 export function LegalServicesAgreementDraftCreateClient(
   props: LegalServicesAgreementDraftCreateClientProps,
 ) {
@@ -115,64 +137,116 @@ export function LegalServicesAgreementDraftCreateClient(
       <input name="serverSlug" type="hidden" value={props.server.code} />
       <input name="payloadJson" type="hidden" value={buildInitialPayloadJson()} />
 
-      <div className="grid gap-4 md:grid-cols-2">
+      <AgreementSection
+        badge="черновик"
+        description="Задайте рабочее название документа. После первого сохранения договор перейдёт в обычный редактор с сохранёнными снимками данных."
+        title="Данные договора"
+      >
         <label className="space-y-2">
           <span className="text-sm font-medium">Название черновика</span>
           <Input name="title" onChange={(event) => setTitle(event.target.value)} value={title} />
         </label>
+      </AgreementSection>
 
-        <label className="space-y-2">
-          <span className="text-sm font-medium">Персонаж</span>
-          <Select
-            name="characterId"
-            onChange={(event) => setSelectedCharacterId(event.target.value)}
-            value={selectedCharacterId}
-          >
-            {props.characters.map((character) => (
-              <option key={character.id} value={character.id}>
-                {character.fullName} · паспорт {character.passportNumber}
-              </option>
-            ))}
-          </Select>
-        </label>
+      <AgreementSection
+        description="Выберите персонажа и доверителя. Этот контекст закрепится за документом после первого сохранения."
+        title="Представитель и доверитель"
+      >
+        <div className="grid gap-4 md:grid-cols-2">
+          <label className="space-y-2">
+            <span className="text-sm font-medium">Персонаж</span>
+            <Select
+              name="characterId"
+              onChange={(event) => setSelectedCharacterId(event.target.value)}
+              value={selectedCharacterId}
+            >
+              {props.characters.map((character) => (
+                <option key={character.id} value={character.id}>
+                  {character.fullName} · паспорт {character.passportNumber}
+                </option>
+              ))}
+            </Select>
+          </label>
 
-        <label className="space-y-2 md:col-span-2">
-          <span className="text-sm font-medium">Доверитель</span>
-          <Select
-            disabled={props.trustorRegistry.length === 0}
-            name="trustorId"
-            onChange={(event) => setSelectedTrustorId(event.target.value)}
-            value={selectedTrustorId}
-          >
-            {props.trustorRegistry.length === 0 ? (
-              <option value="">На этом сервере пока нет доверителей</option>
-            ) : null}
-            {props.trustorRegistry.map((trustor) => (
-              <option key={trustor.id} value={trustor.id}>
-                {trustor.fullName} · паспорт {trustor.passportNumber}
-              </option>
-            ))}
-          </Select>
-          <FieldHint>
-            После первого сохранения сервер, персонаж и доверитель фиксируются в документе. Подписи
-            в договоре рисуются автоматически шрифтом из снимков персонажа и доверителя.
-          </FieldHint>
-        </label>
-      </div>
+          <label className="space-y-2 md:col-span-2">
+            <span className="text-sm font-medium">Доверитель</span>
+            <Select
+              disabled={props.trustorRegistry.length === 0}
+              name="trustorId"
+              onChange={(event) => setSelectedTrustorId(event.target.value)}
+              value={selectedTrustorId}
+            >
+              {props.trustorRegistry.length === 0 ? (
+                <option value="">На этом сервере пока нет доверителей</option>
+              ) : null}
+              {props.trustorRegistry.map((trustor) => (
+                <option key={trustor.id} value={trustor.id}>
+                  {trustor.fullName} · паспорт {trustor.passportNumber}
+                </option>
+              ))}
+            </Select>
+            <FieldHint>
+              После первого сохранения сервер, персонаж и доверитель фиксируются в документе. Подписи
+              в договоре рисуются автоматически шрифтом из снимков персонажа и доверителя.
+            </FieldHint>
+          </label>
+        </div>
+      </AgreementSection>
 
-      <div className="flex flex-wrap items-center gap-2 text-sm text-[var(--muted)]">
-        <StatusBadge tone="info">Сервер: {props.server.name}</StatusBadge>
-        {selectedCharacter ? (
-          <StatusBadge tone="neutral">Персонаж: {selectedCharacter.fullName}</StatusBadge>
+      <PanelCard className="space-y-4">
+        <div className="space-y-2">
+          <h3 className="text-xl font-semibold tracking-[-0.02em]">Состояние перед сохранением</h3>
+          <p className="text-sm leading-6 text-[var(--muted)]">
+            Проверьте, что выбран нужный доверитель, а у персонажа заполнен профиль и доступна подпись
+            для дальнейшей сборки страниц договора.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 text-sm text-[var(--muted)]">
+          <StatusBadge tone="info">Сервер: {props.server.name}</StatusBadge>
+          {selectedCharacter ? (
+            <StatusBadge tone="neutral">Персонаж: {selectedCharacter.fullName}</StatusBadge>
+          ) : null}
+          <StatusBadge tone={props.trustorRegistry.length > 0 ? "success" : "warning"}>
+            {props.trustorRegistry.length > 0
+              ? "доверитель: выбран существующий"
+              : "доверитель: требуется"}
+          </StatusBadge>
+          {selectedCharacter ? (
+            <StatusBadge tone={selectedCharacter.isProfileComplete ? "success" : "warning"}>
+              {selectedCharacter.isProfileComplete ? "профиль готов" : "профиль нужно проверить"}
+            </StatusBadge>
+          ) : null}
+          {selectedCharacter?.hasActiveSignature !== undefined ? (
+            <StatusBadge tone={selectedCharacter.hasActiveSignature ? "success" : "warning"}>
+              {selectedCharacter.hasActiveSignature ? "подпись загружена" : "подпись не загружена"}
+            </StatusBadge>
+          ) : null}
+        </div>
+
+        {selectedCharacter && !selectedCharacter.isProfileComplete ? (
+          <WarningNotice
+            description="Профиль персонажа заполнен не полностью. Черновик можно создать, но перед сборкой страниц договора лучше проверить обязательные данные представителя."
+            title="Проверьте профиль персонажа"
+          />
         ) : null}
-        <StatusBadge tone={props.trustorRegistry.length > 0 ? "success" : "warning"}>
-          {props.trustorRegistry.length > 0 ? "доверитель выбран" : "нужен доверитель"}
-        </StatusBadge>
-      </div>
 
-      <Button disabled={props.trustorRegistry.length === 0} type="submit">
-        Создать черновик договора
-      </Button>
+        {selectedCharacter?.hasActiveSignature === false ? (
+          <WarningNotice
+            description="Без активной подписи договор сохранится как черновик, но итоговые страницы не будут полностью готовы к проверке и скачиванию."
+            title="Подпись понадобится для сборки"
+          />
+        ) : null}
+
+        <div className="flex flex-wrap items-center gap-3">
+          <Button disabled={props.trustorRegistry.length === 0} type="submit">
+            Создать черновик договора
+          </Button>
+          <FieldHint>
+            После сохранения можно будет заполнить ручные поля договора и собрать страницы по серверному шаблону.
+          </FieldHint>
+        </div>
+      </PanelCard>
     </form>
   );
 }
@@ -269,99 +343,159 @@ export function LegalServicesAgreementEditorClient(
 
   return (
     <div className="space-y-6">
-      <EmbeddedCard className="border-[#5e82ac]/30 bg-[#24384d]/22 px-4 py-3 text-sm leading-6 text-[#b8d1eb]">
-        Основной текст договора формируется по утверждённому шаблону. Подписи персонажа и
-        доверителя подставляются автоматически по сохранённым данным документа.
-      </EmbeddedCard>
+      <PanelCard className="space-y-4">
+        <div className="space-y-2">
+          <h3 className="text-xl font-semibold tracking-[-0.02em]">Состояние договора</h3>
+          <p className="text-sm leading-6 text-[var(--muted)]">
+            Основной текст договора формируется по утверждённому шаблону. Подписи персонажа и
+            доверителя подставляются автоматически по сохранённым данным документа.
+          </p>
+        </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <label className="space-y-2 md:col-span-2">
-          <span className="text-sm font-medium">Название документа</span>
-          <Input
-            onChange={(event) =>
-              setEditorState((current) => ({ ...current, title: event.target.value }))
-            }
-            value={editorState.title}
+        <div className="flex flex-wrap items-center gap-2">
+          <StatusBadge tone={status === "published" ? "success" : status === "generated" ? "info" : "neutral"}>
+            {formatDocumentStatus(status)}
+          </StatusBadge>
+          <StatusBadge tone={isDirty ? "warning" : "success"}>
+            {isDirty ? "есть несохранённые изменения" : "изменения сохранены"}
+          </StatusBadge>
+          {isModifiedAfterGeneration ? (
+            <StatusBadge tone="warning">изменено после генерации</StatusBadge>
+          ) : (
+            <StatusBadge tone="success">результат актуален</StatusBadge>
+          )}
+          <StatusBadge tone={generatedArtifact ? "success" : "neutral"}>
+            {generatedArtifact ? "страницы готовы" : "страницы не собраны"}
+          </StatusBadge>
+        </div>
+
+        {isModifiedAfterGeneration ? (
+          <WarningNotice
+            description="После последней сборки договор менялся. Перед использованием лучше заново собрать страницы, чтобы предпросмотр и файлы совпадали с текущими ручными полями."
+            title="Результат нужно обновить"
           />
-        </label>
+        ) : null}
 
-        {legalServicesAgreementManualFieldSpecs.map((field) => (
-          <label className="space-y-2" key={field.key}>
-            <span className="text-sm font-medium">{field.label}</span>
+        {generationErrors.length > 0 ? (
+          <WarningNotice
+            description={generationErrors.join(" ")}
+            title="Сборка пока недоступна"
+          />
+        ) : null}
+      </PanelCard>
+
+      <AgreementSection
+        description="Здесь хранятся ручные поля договора. Шаблон и эталонный текст остаются прежними, вы обновляете только разрешённые значения."
+        title="Данные договора"
+      >
+        <div className="grid gap-4 md:grid-cols-2">
+          <label className="space-y-2 md:col-span-2">
+            <span className="text-sm font-medium">Название документа</span>
             <Input
               onChange={(event) =>
-                updateField(
-                  field.key as keyof LegalServicesAgreementDraftPayload["manualFields"],
-                  event.target.value,
-                )
+                setEditorState((current) => ({ ...current, title: event.target.value }))
               }
-              value={
-                editorState.payload.manualFields[
-                  field.key as keyof LegalServicesAgreementDraftPayload["manualFields"]
-                ]
-              }
+              value={editorState.title}
             />
-            <FieldHint>{field.hint}</FieldHint>
           </label>
-        ))}
-      </div>
 
-      <section className="space-y-3 rounded-3xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4">
+          {legalServicesAgreementManualFieldSpecs.map((field) => (
+            <label className="space-y-2" key={field.key}>
+              <span className="text-sm font-medium">{field.label}</span>
+              <Input
+                onChange={(event) =>
+                  updateField(
+                    field.key as keyof LegalServicesAgreementDraftPayload["manualFields"],
+                    event.target.value,
+                  )
+                }
+                value={
+                  editorState.payload.manualFields[
+                    field.key as keyof LegalServicesAgreementDraftPayload["manualFields"]
+                  ]
+                }
+              />
+              <FieldHint>{field.hint}</FieldHint>
+            </label>
+          ))}
+        </div>
+      </AgreementSection>
+
+      <AgreementSection
+        description="Доверитель уже зафиксирован внутри документа. После первого сохранения эти сведения больше не подтягиваются автоматически из внешнего реестра."
+        title="Зафиксированный доверитель"
+      >
         <div className="flex flex-wrap items-center gap-2">
-          <h3 className="text-xl font-semibold">Зафиксированный доверитель</h3>
           <Badge>{editorState.payload.trustorSnapshot.fullName}</Badge>
           <Badge>паспорт {editorState.payload.trustorSnapshot.passportNumber}</Badge>
         </div>
-        <p className="text-sm leading-6 text-[var(--muted)]">
-          Данные доверителя уже зафиксированы в документе и не меняются автоматически после
-          первого сохранения черновика.
-        </p>
-      </section>
+        <div className="grid gap-3 md:grid-cols-2">
+          <div className="rounded-2xl border border-[var(--divider)] bg-[var(--surface-subtle)] p-4">
+            <p className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">Телефон</p>
+            <p className="mt-2 text-sm leading-6 text-[var(--foreground)]">
+              {editorState.payload.trustorSnapshot.phone || "не указан"}
+            </p>
+          </div>
+          <div className="rounded-2xl border border-[var(--divider)] bg-[var(--surface-subtle)] p-4">
+            <p className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">IC email</p>
+            <p className="mt-2 text-sm leading-6 text-[var(--foreground)]">
+              {editorState.payload.trustorSnapshot.icEmail || "не указан"}
+            </p>
+          </div>
+        </div>
+      </AgreementSection>
 
-      <label className="block space-y-2">
-        <span className="text-sm font-medium">Рабочие заметки</span>
-        <Textarea
-          onChange={(event) =>
-            setEditorState((current) => ({
-              ...current,
-              payload: {
-                ...current.payload,
-                workingNotes: event.target.value,
-              },
-            }))
-          }
-          value={editorState.payload.workingNotes}
-        />
-      </label>
+      <AgreementSection
+        description="Рабочие заметки остаются внутри черновика и помогают фиксировать внутренние комментарии перед следующей сборкой."
+        title="Рабочие заметки"
+      >
+        <label className="block space-y-2">
+          <span className="text-sm font-medium">Рабочие заметки</span>
+          <Textarea
+            onChange={(event) =>
+              setEditorState((current) => ({
+                ...current,
+                payload: {
+                  ...current.payload,
+                  workingNotes: event.target.value,
+                },
+              }))
+            }
+            value={editorState.payload.workingNotes}
+          />
+        </label>
+      </AgreementSection>
 
-      <div className="flex flex-wrap items-center gap-3">
-        <Button onClick={performSave} type="button">
-          Сохранить черновик
-        </Button>
-        <Button onClick={performGenerate} type="button" variant="secondary">
-          Собрать страницы договора
-        </Button>
-        <Badge>{formatDocumentStatus(status)}</Badge>
-        {isDirty ? <Badge>есть несохранённые изменения</Badge> : null}
-        {isModifiedAfterGeneration ? <Badge>изменено после генерации</Badge> : null}
-      </div>
+      <PanelCard className="space-y-4">
+        <div className="space-y-2">
+          <h3 className="text-xl font-semibold tracking-[-0.02em]">Действия с договором</h3>
+          <p className="text-sm leading-6 text-[var(--muted)]">
+            Сначала сохраните изменения, затем при необходимости соберите обновлённые страницы договора для проверки и скачивания.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <Button onClick={performSave} type="button">
+            Сохранить черновик
+          </Button>
+          <Button onClick={performGenerate} type="button" variant="secondary">
+            Собрать страницы договора
+          </Button>
+        </div>
 
-      {saveMessage ? <p className="text-sm leading-6 text-[var(--muted)]">{saveMessage}</p> : null}
-      {generationMessage ? (
-        <p className="text-sm leading-6 text-[var(--muted)]">{generationMessage}</p>
-      ) : null}
-      {generationErrors.length > 0 ? (
-        <EmbeddedCard className="border-[#b78739]/30 bg-[#7a5822]/18 px-4 py-3 text-sm leading-6 text-[#f0d4a0]">
-          {generationErrors.map((reason) => (
-            <p key={reason}>{reason}</p>
-          ))}
-        </EmbeddedCard>
-      ) : null}
+        {saveMessage ? <p className="text-sm leading-6 text-[var(--muted)]">{saveMessage}</p> : null}
+        {generationMessage ? (
+          <p className="text-sm leading-6 text-[var(--muted)]">{generationMessage}</p>
+        ) : null}
+      </PanelCard>
 
-      <section className="space-y-3 rounded-3xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4">
+      <PanelCard className="space-y-4">
         <div className="flex flex-wrap items-center gap-2">
-          <h3 className="text-xl font-semibold">Результат генерации</h3>
-          {generatedAt ? <Badge>{new Date(generatedAt).toLocaleString("ru-RU")}</Badge> : null}
+          <h3 className="text-xl font-semibold tracking-[-0.02em]">Результат генерации</h3>
+          {generatedAt ? (
+            <StatusBadge tone="success">
+              {new Date(generatedAt).toLocaleString("ru-RU")}
+            </StatusBadge>
+          ) : null}
         </div>
         {generatedArtifact ? (
           <div className="space-y-4">
@@ -388,7 +522,7 @@ export function LegalServicesAgreementEditorClient(
             скачивания.
           </p>
         )}
-      </section>
+      </PanelCard>
     </div>
   );
 }

@@ -83,7 +83,7 @@ describe("/servers/[serverSlug]/documents/legal-services-agreements/new page", (
       nextPath: "/servers/blackberry/documents/legal-services-agreements/new",
     });
     expect(html).toContain("Новый договор на оказание юридических услуг");
-    expect(html).toContain("Черновик договора");
+    expect(html).toContain("Рабочая форма договора");
     expect(html).toContain("Nick Name");
   });
 

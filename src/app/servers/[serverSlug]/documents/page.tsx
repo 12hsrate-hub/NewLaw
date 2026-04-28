@@ -36,6 +36,7 @@ export default async function ServerDocumentsPage({ params }: ServerDocumentsPag
       <ServerDocumentsHub
         attorneyRequestDocumentCount={context.attorneyRequestDocumentCount}
         bridgeHref={buildCharactersBridgePath(context.server.code)}
+        claimsDocumentCount={context.claimsDocumentCount}
         documentEntryCapabilities={context.documentEntryCapabilities}
         legalServicesAgreementDocumentCount={context.legalServicesAgreementDocumentCount}
         ogpComplaintDocumentCount={context.ogpComplaintDocumentCount}
@@ -49,6 +50,7 @@ export default async function ServerDocumentsPage({ params }: ServerDocumentsPag
   return (
     <ServerDocumentsHub
       attorneyRequestDocumentCount={context.attorneyRequestDocumentCount}
+      claimsDocumentCount={context.claimsDocumentCount}
       documentEntryCapabilities={context.documentEntryCapabilities}
       legalServicesAgreementDocumentCount={context.legalServicesAgreementDocumentCount}
       ogpComplaintDocumentCount={context.ogpComplaintDocumentCount}

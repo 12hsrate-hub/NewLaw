@@ -86,8 +86,9 @@ describe("/servers/[serverSlug]/documents page", () => {
       serverSlug: "blackberry",
       nextPath: "/servers/blackberry/documents",
     });
+    expect(html).toContain("Документы и черновики");
     expect(html).toContain(
-      "Здесь собраны общие документы по выбранному серверу. Адвокатские сценарии и работа с доверителями открываются из отдельного адвокатского кабинета.",
+      "Создавайте, проверяйте и открывайте документы по выбранному серверу.",
     );
     expect(html).toContain("Жалобы в ОГП");
     expect(html).toContain("Иски");
@@ -150,7 +151,7 @@ describe("/servers/[serverSlug]/documents page", () => {
       }),
     );
 
-    expect(html).toContain("Документы сервера");
+    expect(html).toContain("Документы и черновики");
     expect(html).toContain("Персонаж пока не выбран");
     expect(html).toContain("Для этого действия нужен персонаж на выбранном сервере.");
     expect(html).toContain("/account/characters?server=blackberry#create-character-blackberry");

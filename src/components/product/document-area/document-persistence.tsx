@@ -36,7 +36,10 @@ import {
   OgpComplaintDraftCreateClient,
 } from "@/components/product/document-area/document-draft-editor-client";
 import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
+import { PanelCard } from "@/components/ui/panel-card";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { WarningNotice } from "@/components/ui/warning-notice";
+import { WorkspaceSurface } from "@/components/ui/workspace-surface";
 import type {
   AttorneyRequestDraftPayload,
   AttorneyRequestRenderedArtifact,
@@ -180,39 +183,105 @@ export function OgpComplaintDraftCreateEntry(props: {
 }) {
   return (
     <div className="space-y-6">
-      <Card className="space-y-3">
-        <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">
-          Новая жалоба
-        </p>
-        <h1 className="text-3xl font-semibold">Новая жалоба в ОГП</h1>
-        <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
-          Создайте черновик жалобы. После первого сохранения откроется обычный редактор документа.
-        </p>
-        <div className="flex flex-wrap items-center gap-2 text-sm leading-6 text-[var(--muted)]">
-          <Badge>Сервер: {props.server.name}</Badge>
-          <Badge>Персонаж: {props.selectedCharacter.fullName}</Badge>
-          <span>
-            До первого сохранения персонажа можно сменить. Сейчас выбран{" "}
-            {props.selectedCharacter.source === "last_used" ? "последний использованный" : "первый доступный"} персонаж.
-          </span>
-        </div>
-      </Card>
+      <WorkspaceSurface className="space-y-6">
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">
+              Жалоба в ОГП
+            </p>
+            <h1 className="text-3xl font-semibold tracking-[-0.04em]">
+              Новая жалоба в Офис Генерального прокурора
+            </h1>
+            <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
+              Заполните данные обращения, потерпевшего, объекта заявления и доказательства. Итоговый
+              BBCode будет сформирован после проверки обязательных полей.
+            </p>
+          </div>
 
-      <Card className="space-y-4">
-        <h2 className="text-2xl font-semibold">Черновик жалобы</h2>
-        <p className="text-sm leading-6 text-[var(--muted)]">
-          Заполните основные поля и сохраните черновик. После этого можно будет собрать готовый
-          текст для форума и подготовить публикацию.
-        </p>
-        <OgpComplaintDraftCreateClient
-          characters={props.characters}
-          initialPayload={buildInitialCreatePayload()}
-          initialTitle="Жалоба в ОГП"
-          selectedCharacter={props.selectedCharacter}
-          server={props.server}
-          trustorRegistry={props.trustorRegistry}
-        />
-      </Card>
+          <div className="flex flex-wrap items-center gap-2">
+            <StatusBadge tone="info">Сервер: {props.server.name}</StatusBadge>
+            <StatusBadge tone="success">Персонаж: {props.selectedCharacter.fullName}</StatusBadge>
+            <StatusBadge
+              tone={props.selectedCharacter.canUseRepresentative ? "success" : "neutral"}
+            >
+              Представитель: {props.selectedCharacter.canUseRepresentative ? "доступен" : "недоступен"}
+            </StatusBadge>
+            {props.status ? <StatusBadge tone="warning">Статус: {props.status}</StatusBadge> : null}
+          </div>
+
+          <p className="text-sm leading-6 text-[var(--muted)]">
+            До первого сохранения персонажа можно сменить. Сейчас выбран{" "}
+            {props.selectedCharacter.source === "last_used"
+              ? "последний использованный"
+              : "первый доступный"}{" "}
+            профиль. После сохранения черновика данные жалобы продолжают использовать выбранный
+            контекст сервера и персонажа.
+          </p>
+        </div>
+
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
+          <PanelCard className="space-y-4">
+            <div className="space-y-2">
+              <h2 className="text-2xl font-semibold tracking-[-0.03em]">Рабочая форма жалобы</h2>
+              <p className="text-sm leading-6 text-[var(--muted)]">
+                Заполните поля обращения и сохраните черновик. После этого можно будет проверить
+                обязательные разделы и собрать текст для форума.
+              </p>
+            </div>
+            <OgpComplaintDraftCreateClient
+              characters={props.characters}
+              initialPayload={buildInitialCreatePayload()}
+              initialTitle="Жалоба в ОГП"
+              selectedCharacter={props.selectedCharacter}
+              server={props.server}
+              trustorRegistry={props.trustorRegistry}
+            />
+          </PanelCard>
+
+          <div className="space-y-4">
+            <PanelCard className="space-y-3">
+              <p className="text-xs uppercase tracking-[0.22em] text-[var(--accent)]">Контекст</p>
+              <div className="space-y-2 text-sm leading-6 text-[var(--muted)]">
+                <p>
+                  Сервер: <span className="font-medium text-[var(--foreground)]">{props.server.name}</span>
+                </p>
+                <p>
+                  Персонаж:{" "}
+                  <span className="font-medium text-[var(--foreground)]">
+                    {props.selectedCharacter.fullName}
+                  </span>
+                </p>
+                <p>
+                  Паспорт:{" "}
+                  <span className="font-medium text-[var(--foreground)]">
+                    {props.selectedCharacter.passportNumber}
+                  </span>
+                </p>
+                <p>
+                  Источник выбора:{" "}
+                  <span className="font-medium text-[var(--foreground)]">
+                    {props.selectedCharacter.source === "last_used"
+                      ? "последний использованный"
+                      : "первый доступный"}
+                  </span>
+                </p>
+              </div>
+            </PanelCard>
+
+            {!props.selectedCharacter.isProfileComplete ? (
+              <WarningNotice
+                description="Профиль персонажа заполнен не полностью. Черновик можно создать, но итоговая сборка станет доступна только после заполнения обязательных полей профиля."
+                title="Проверьте профиль персонажа"
+              />
+            ) : null}
+
+            <WarningNotice
+              description="Данные жалобы и выбранного персонажа будут зафиксированы после сохранения черновика. Перед генерацией проверьте потерпевшего, объект заявления и доказательства."
+              title="Что важно перед сохранением"
+            />
+          </div>
+        </div>
+      </WorkspaceSurface>
     </div>
   );
 }
@@ -245,40 +314,126 @@ export function AttorneyRequestDraftCreateEntry(props: {
 }) {
   return (
     <div className="space-y-6">
-      <Card className="space-y-3">
-        <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">
-          Новый адвокатский запрос
-        </p>
-        <h1 className="text-3xl font-semibold">Новый адвокатский запрос</h1>
-        <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
-          Создайте черновик запроса. После первого сохранения сервер, персонаж и доверитель
-          фиксируются в документе.
-        </p>
-        <div className="flex flex-wrap items-center gap-2 text-sm leading-6 text-[var(--muted)]">
-          <Badge>Сервер: {props.server.name}</Badge>
-          <Badge>Персонаж: {props.selectedCharacter.fullName}</Badge>
-          <span>
-            Сейчас выбран{" "}
-            {props.selectedCharacter.source === "last_used" ? "последний использованный" : "первый доступный"} персонаж.
-          </span>
-        </div>
-      </Card>
+      <WorkspaceSurface className="space-y-6">
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">
+              Адвокатский запрос
+            </p>
+            <h1 className="text-3xl font-semibold tracking-[-0.04em]">
+              Новый адвокатский запрос
+            </h1>
+            <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
+              Заполните данные запроса, адресата, сотрудника, период событий и основание. Итоговый
+              документ будет сформирован по серверному шаблону после проверки обязательных полей.
+            </p>
+          </div>
 
-      <Card className="space-y-4">
-        <h2 className="text-2xl font-semibold">Черновик запроса</h2>
-        <p className="text-sm leading-6 text-[var(--muted)]">
-          Неполный черновик можно сохранить. После заполнения обязательных полей станет доступен
-          предпросмотр и файлы для скачивания.
-        </p>
-        <AttorneyRequestDraftCreateClient
-          characters={props.characters}
-          initialTitle="Адвокатский запрос"
-          initialTrustorId={props.initialTrustorId}
-          selectedCharacter={props.selectedCharacter}
-          server={props.server}
-          trustorRegistry={props.trustorRegistry}
-        />
-      </Card>
+          <div className="flex flex-wrap items-center gap-2">
+            <StatusBadge tone="info">Сервер: {props.server.name}</StatusBadge>
+            <StatusBadge tone="success">Персонаж: {props.selectedCharacter.fullName}</StatusBadge>
+            <StatusBadge
+              tone={props.selectedCharacter.canCreateAttorneyRequest ? "success" : "warning"}
+            >
+              Адвокатский доступ: {props.selectedCharacter.canCreateAttorneyRequest ? "есть" : "нет"}
+            </StatusBadge>
+            <StatusBadge
+              tone={props.selectedCharacter.hasActiveSignature ? "success" : "warning"}
+            >
+              Подпись: {props.selectedCharacter.hasActiveSignature ? "загружена" : "не загружена"}
+            </StatusBadge>
+            <StatusBadge
+              tone={props.selectedCharacter.isProfileComplete ? "success" : "warning"}
+            >
+              Профиль: {props.selectedCharacter.isProfileComplete ? "готов" : "нужно проверить"}
+            </StatusBadge>
+            {props.status ? <StatusBadge tone="warning">Статус: {props.status}</StatusBadge> : null}
+          </div>
+
+          <p className="text-sm leading-6 text-[var(--muted)]">
+            До первого сохранения можно сменить персонажа и доверителя. Сейчас выбран{" "}
+            {props.selectedCharacter.source === "last_used"
+              ? "последний использованный"
+              : "первый доступный"}{" "}
+            профиль. После сохранения черновика запрос продолжит использовать тот же серверный и
+            представительский контекст.
+          </p>
+        </div>
+
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
+          <PanelCard className="space-y-4">
+            <div className="space-y-2">
+              <h2 className="text-2xl font-semibold tracking-[-0.03em]">Рабочая форма запроса</h2>
+              <p className="text-sm leading-6 text-[var(--muted)]">
+                Создайте черновик и затем заполните содержательные разделы, основание, период
+                событий и итоговый текст запроса в сохранённом документе.
+              </p>
+            </div>
+            <AttorneyRequestDraftCreateClient
+              characters={props.characters}
+              initialTitle="Адвокатский запрос"
+              initialTrustorId={props.initialTrustorId}
+              selectedCharacter={props.selectedCharacter}
+              server={props.server}
+              trustorRegistry={props.trustorRegistry}
+            />
+          </PanelCard>
+
+          <div className="space-y-4">
+            <PanelCard className="space-y-3">
+              <p className="text-xs uppercase tracking-[0.22em] text-[var(--accent)]">Контекст</p>
+              <div className="space-y-2 text-sm leading-6 text-[var(--muted)]">
+                <p>
+                  Сервер: <span className="font-medium text-[var(--foreground)]">{props.server.name}</span>
+                </p>
+                <p>
+                  Персонаж:{" "}
+                  <span className="font-medium text-[var(--foreground)]">
+                    {props.selectedCharacter.fullName}
+                  </span>
+                </p>
+                <p>
+                  Паспорт:{" "}
+                  <span className="font-medium text-[var(--foreground)]">
+                    {props.selectedCharacter.passportNumber}
+                  </span>
+                </p>
+                <p>
+                  Подпись:{" "}
+                  <span className="font-medium text-[var(--foreground)]">
+                    {props.selectedCharacter.hasActiveSignature ? "доступна" : "пока не загружена"}
+                  </span>
+                </p>
+                <p>
+                  Доверители на сервере:{" "}
+                  <span className="font-medium text-[var(--foreground)]">
+                    {props.trustorRegistry.length}
+                  </span>
+                </p>
+              </div>
+            </PanelCard>
+
+            {!props.selectedCharacter.isProfileComplete ? (
+              <WarningNotice
+                description="Профиль персонажа заполнен не полностью. Черновик можно создать, но перед финальной генерацией нужно проверить обязательные поля профиля."
+                title="Проверьте профиль персонажа"
+              />
+            ) : null}
+
+            {!props.selectedCharacter.hasActiveSignature ? (
+              <WarningNotice
+                description="Без подписи запрос сохранится как черновик, но итоговые файлы не будут собраны, пока у персонажа не появится активная подпись."
+                title="Подпись понадобится для генерации"
+              />
+            ) : null}
+
+            <WarningNotice
+              description="После первого сохранения сервер, персонаж и доверитель фиксируются в документе. Перед созданием черновика проверьте выбранный контекст и представительство."
+              title="Что важно перед сохранением"
+            />
+          </div>
+        </div>
+      </WorkspaceSurface>
     </div>
   );
 }
@@ -308,39 +463,121 @@ export function LegalServicesAgreementDraftCreateEntry(props: {
 }) {
   return (
     <div className="space-y-6">
-      <Card className="space-y-3">
-        <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">
-          Новый договор
-        </p>
-        <h1 className="text-3xl font-semibold">Новый договор на оказание юридических услуг</h1>
-        <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
-          После первого сохранения сервер, персонаж и доверитель фиксируются, а дальше документ
-          редактируется уже внутри сохранённого черновика.
-        </p>
-        <div className="flex flex-wrap items-center gap-2 text-sm leading-6 text-[var(--muted)]">
-          <Badge>Сервер: {props.server.name}</Badge>
-          <Badge>Персонаж: {props.selectedCharacter.fullName}</Badge>
-          <span>
-            Сейчас выбран{" "}
-            {props.selectedCharacter.source === "last_used" ? "последний использованный" : "первый доступный"} персонаж.
-          </span>
-        </div>
-      </Card>
+      <WorkspaceSurface className="space-y-6">
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">Договор</p>
+            <h1 className="text-3xl font-semibold tracking-[-0.04em]">
+              Новый договор на оказание юридических услуг
+            </h1>
+            <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
+              Заполните данные доверителя, условия договора и сведения представителя. Итоговый
+              документ будет сформирован по серверному шаблону после проверки обязательных полей.
+            </p>
+          </div>
 
-      <Card className="space-y-4">
-        <h2 className="text-2xl font-semibold">Черновик договора</h2>
-        <p className="text-sm leading-6 text-[var(--muted)]">
-          Здесь заполняются только утверждённые ручные поля договора. Остальные данные берутся из
-          сохранённых сведений о персонаже и доверителе.
-        </p>
-        <LegalServicesAgreementDraftCreateClient
-          characters={props.characters}
-          initialTitle={getDocumentTitleForType("legal_services_agreement")}
-          selectedCharacter={props.selectedCharacter}
-          server={props.server}
-          trustorRegistry={props.trustorRegistry}
-        />
-      </Card>
+          <div className="flex flex-wrap items-center gap-2">
+            <StatusBadge tone="info">Сервер: {props.server.name}</StatusBadge>
+            <StatusBadge tone="success">Персонаж: {props.selectedCharacter.fullName}</StatusBadge>
+            <StatusBadge
+              tone={props.selectedCharacter.hasActiveSignature ? "success" : "warning"}
+            >
+              Подпись: {props.selectedCharacter.hasActiveSignature ? "загружена" : "не загружена"}
+            </StatusBadge>
+            <StatusBadge
+              tone={props.selectedCharacter.isProfileComplete ? "success" : "warning"}
+            >
+              Профиль: {props.selectedCharacter.isProfileComplete ? "готов" : "нужно проверить"}
+            </StatusBadge>
+            <StatusBadge tone={props.trustorRegistry.length > 0 ? "success" : "warning"}>
+              Доверитель: {props.trustorRegistry.length > 0 ? "выбран существующий" : "не найден"}
+            </StatusBadge>
+            {props.status ? <StatusBadge tone="warning">Статус: {props.status}</StatusBadge> : null}
+          </div>
+
+          <p className="text-sm leading-6 text-[var(--muted)]">
+            До первого сохранения можно сменить персонажа и доверителя. Сейчас выбран{" "}
+            {props.selectedCharacter.source === "last_used"
+              ? "последний использованный"
+              : "первый доступный"}{" "}
+            профиль. После сохранения черновика договор продолжит использовать тот же серверный и
+            представительский контекст.
+          </p>
+        </div>
+
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
+          <PanelCard className="space-y-4">
+            <div className="space-y-2">
+              <h2 className="text-2xl font-semibold tracking-[-0.03em]">Рабочая форма договора</h2>
+              <p className="text-sm leading-6 text-[var(--muted)]">
+                Здесь заполняются только утверждённые ручные поля договора. Остальные данные берутся
+                из сохранённых сведений о персонаже и доверителе.
+              </p>
+            </div>
+            <LegalServicesAgreementDraftCreateClient
+              characters={props.characters}
+              initialTitle={getDocumentTitleForType("legal_services_agreement")}
+              selectedCharacter={props.selectedCharacter}
+              server={props.server}
+              trustorRegistry={props.trustorRegistry}
+            />
+          </PanelCard>
+
+          <div className="space-y-4">
+            <PanelCard className="space-y-3">
+              <p className="text-xs uppercase tracking-[0.22em] text-[var(--accent)]">Контекст</p>
+              <div className="space-y-2 text-sm leading-6 text-[var(--muted)]">
+                <p>
+                  Сервер: <span className="font-medium text-[var(--foreground)]">{props.server.name}</span>
+                </p>
+                <p>
+                  Персонаж:{" "}
+                  <span className="font-medium text-[var(--foreground)]">
+                    {props.selectedCharacter.fullName}
+                  </span>
+                </p>
+                <p>
+                  Паспорт:{" "}
+                  <span className="font-medium text-[var(--foreground)]">
+                    {props.selectedCharacter.passportNumber}
+                  </span>
+                </p>
+                <p>
+                  Подпись:{" "}
+                  <span className="font-medium text-[var(--foreground)]">
+                    {props.selectedCharacter.hasActiveSignature ? "доступна" : "пока не загружена"}
+                  </span>
+                </p>
+                <p>
+                  Доверители на сервере:{" "}
+                  <span className="font-medium text-[var(--foreground)]">
+                    {props.trustorRegistry.length}
+                  </span>
+                </p>
+              </div>
+            </PanelCard>
+
+            {!props.selectedCharacter.isProfileComplete ? (
+              <WarningNotice
+                description="Профиль персонажа заполнен не полностью. Черновик можно создать, но перед сборкой договора лучше проверить обязательные поля представителя."
+                title="Проверьте профиль персонажа"
+              />
+            ) : null}
+
+            {!props.selectedCharacter.hasActiveSignature ? (
+              <WarningNotice
+                description="Без подписи договор сохранится как черновик, но итоговые страницы не будут готовы к полной проверке и скачиванию."
+                title="Подпись понадобится для сборки"
+              />
+            ) : null}
+
+            <WarningNotice
+              description="После первого сохранения сервер, персонаж и доверитель фиксируются в документе. Перед созданием черновика проверьте выбранный контекст и сохранённого доверителя."
+              title="Что важно перед сохранением"
+            />
+          </div>
+        </div>
+      </WorkspaceSurface>
     </div>
   );
 }
@@ -513,7 +750,7 @@ export function OgpComplaintPersistedEditor(props: {
       }
       main={
         <EditorMainColumn>
-          <Card className="space-y-3">
+          <WorkspaceSurface className="space-y-4">
             <div className="flex flex-wrap items-center gap-2">
               <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">
                 Редактор жалобы
@@ -528,14 +765,52 @@ export function OgpComplaintPersistedEditor(props: {
               форума и подготовить публикацию.
             </p>
             <div className="flex flex-wrap items-center gap-2 text-sm leading-6 text-[var(--muted)]">
-              <Badge>Сервер: {props.document.server.name}</Badge>
-              <Badge>Персонаж: {props.document.authorSnapshot.fullName}</Badge>
+              <StatusBadge tone="info">Сервер: {props.document.server.name}</StatusBadge>
+              <StatusBadge tone="neutral">Персонаж: {props.document.authorSnapshot.fullName}</StatusBadge>
+              <StatusBadge
+                tone={
+                  props.document.isModifiedAfterGeneration
+                    ? "warning"
+                    : props.document.generatedAt
+                      ? "success"
+                      : "neutral"
+                }
+              >
+                {props.document.isModifiedAfterGeneration
+                  ? "Документ нужно пересобрать"
+                  : props.document.generatedAt
+                    ? "BBCode собран"
+                    : "Черновик без сборки"}
+              </StatusBadge>
               <span>Паспорт: {props.document.authorSnapshot.passportNumber}</span>
             </div>
-          </Card>
+          </WorkspaceSurface>
 
-          <Card className="space-y-4">
-            <h2 className="text-2xl font-semibold">Редактор жалобы в ОГП</h2>
+          <div className="space-y-4">
+            <PanelCard className="space-y-4 p-6">
+              <div className="space-y-2">
+                <h2 className="text-2xl font-semibold">Редактор жалобы в ОГП</h2>
+                <p className="text-sm leading-6 text-[var(--muted)]">
+                  Сохранённая жалоба уже привязана к серверу, персонажу и снимку данных. Ниже можно
+                  обновить поля, пересобрать BBCode и проверить публикацию без изменения самого flow.
+                </p>
+              </div>
+
+              {props.document.isModifiedAfterGeneration ? (
+                <WarningNotice
+                  description="После последней сборки документ менялся. Перед публикацией лучше заново собрать текст для форума, чтобы публикация совпадала с текущими данными жалобы."
+                  title="Документ нужно пересобрать"
+                />
+              ) : null}
+
+              {props.document.forumLastSyncError ? (
+                <WarningNotice
+                  description="Последняя проверка публикации завершилась с ошибкой. Проверьте ссылку на форум и при необходимости обновите публикацию повторно."
+                  title="Проверьте публикацию на форуме"
+                />
+              ) : null}
+            </PanelCard>
+
             <DocumentDraftEditorClient
               authorSnapshot={{
                 canUseRepresentative: props.document.authorSnapshot.accessFlags.includes("advocate"),
@@ -571,7 +846,7 @@ export function OgpComplaintPersistedEditor(props: {
               trustorRegistry={props.document.trustorRegistry}
               updatedAt={props.document.updatedAt}
             />
-          </Card>
+          </div>
         </EditorMainColumn>
       }
     />
@@ -604,41 +879,105 @@ export function ClaimsDraftCreateEntry(props: {
 }) {
   return (
     <div className="space-y-6">
-      <Card className="space-y-3">
-        <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">Новый документ</p>
-        <h1 className="text-3xl font-semibold">Новый документ из раздела «Иски»</h1>
-        <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
-          Здесь создаётся черновик документа. После первого сохранения его вид
-          «{formatClaimSubtype(props.documentType)}» фиксируется, а дальнейшая работа продолжается
-          уже в редакторе сохранённого документа.
-        </p>
-        <div className="flex flex-wrap items-center gap-2 text-sm leading-6 text-[var(--muted)]">
-          <Badge>Сервер: {props.server.name}</Badge>
-          <Badge>Вид документа: {formatClaimSubtype(props.documentType)}</Badge>
-          <Badge>Персонаж: {props.selectedCharacter.fullName}</Badge>
-          <span>
-            До первого сохранения персонажа можно сменить. Сейчас выбран{" "}
-            {props.selectedCharacter.source === "last_used" ? "последний использованный" : "первый доступный"} персонаж.
-          </span>
-        </div>
-      </Card>
+      <WorkspaceSurface className="space-y-6">
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">Исковое заявление</p>
+            <h1 className="text-3xl font-semibold tracking-[-0.04em]">
+              {props.documentType === "rehabilitation"
+                ? "Новый документ по реабилитации"
+                : "Новое исковое заявление"}
+            </h1>
+            <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
+              Заполните данные дела, участников, обстоятельства и требования. Итоговый документ
+              будет сформирован после проверки обязательных полей.
+            </p>
+          </div>
 
-        <Card className="space-y-4">
-          <h2 className="text-2xl font-semibold">Черновик документа</h2>
+          <div className="flex flex-wrap items-center gap-2">
+            <StatusBadge tone="info">Сервер: {props.server.name}</StatusBadge>
+            <StatusBadge tone="success">Персонаж: {props.selectedCharacter.fullName}</StatusBadge>
+            <StatusBadge tone="neutral">Вид документа: {formatClaimSubtype(props.documentType)}</StatusBadge>
+            <StatusBadge
+              tone={props.selectedCharacter.canUseRepresentative ? "success" : "neutral"}
+            >
+              Представитель: {props.selectedCharacter.canUseRepresentative ? "доступен" : "недоступен"}
+            </StatusBadge>
+            {props.status ? <StatusBadge tone="warning">Статус: {props.status}</StatusBadge> : null}
+          </div>
+
           <p className="text-sm leading-6 text-[var(--muted)]">
-            Сохраните документ, чтобы продолжить работу в обычном редакторе. Публикация на форуме
-            для этого раздела не используется.
+            До первого сохранения персонажа можно сменить. Сейчас выбран{" "}
+            {props.selectedCharacter.source === "last_used"
+              ? "последний использованный"
+              : "первый доступный"}{" "}
+            профиль. После сохранения подтип документа, автор и связанные данные будут
+            зафиксированы внутри черновика.
           </p>
-          <ClaimsDraftCreateClient
-            characters={props.characters}
-          documentType={props.documentType}
-          initialPayload={buildInitialClaimsCreatePayload(props.documentType)}
-          initialTitle={getDocumentTitleForType(props.documentType)}
-          selectedCharacter={props.selectedCharacter}
-          server={props.server}
-          trustorRegistry={props.trustorRegistry}
-        />
-      </Card>
+        </div>
+
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
+          <PanelCard className="space-y-4">
+            <div className="space-y-2">
+              <h2 className="text-2xl font-semibold tracking-[-0.03em]">Рабочая форма документа</h2>
+              <p className="text-sm leading-6 text-[var(--muted)]">
+                Сохраните документ, чтобы продолжить работу в редакторе сохранённого черновика.
+                Публикация на форуме для этого раздела не используется.
+              </p>
+            </div>
+            <ClaimsDraftCreateClient
+              characters={props.characters}
+              documentType={props.documentType}
+              initialPayload={buildInitialClaimsCreatePayload(props.documentType)}
+              initialTitle={getDocumentTitleForType(props.documentType)}
+              selectedCharacter={props.selectedCharacter}
+              server={props.server}
+              trustorRegistry={props.trustorRegistry}
+            />
+          </PanelCard>
+
+          <div className="space-y-4">
+            <PanelCard className="space-y-3">
+              <p className="text-xs uppercase tracking-[0.22em] text-[var(--accent)]">Контекст</p>
+              <div className="space-y-2 text-sm leading-6 text-[var(--muted)]">
+                <p>
+                  Сервер: <span className="font-medium text-[var(--foreground)]">{props.server.name}</span>
+                </p>
+                <p>
+                  Персонаж:{" "}
+                  <span className="font-medium text-[var(--foreground)]">
+                    {props.selectedCharacter.fullName}
+                  </span>
+                </p>
+                <p>
+                  Паспорт:{" "}
+                  <span className="font-medium text-[var(--foreground)]">
+                    {props.selectedCharacter.passportNumber}
+                  </span>
+                </p>
+                <p>
+                  Подтип:{" "}
+                  <span className="font-medium text-[var(--foreground)]">
+                    {formatClaimSubtype(props.documentType)}
+                  </span>
+                </p>
+              </div>
+            </PanelCard>
+
+            {!props.selectedCharacter.isProfileComplete ? (
+              <WarningNotice
+                description="Профиль персонажа заполнен не полностью. Черновик можно создать, но перед генерацией и использованием документа лучше проверить недостающие данные профиля."
+                title="Проверьте профиль персонажа"
+              />
+            ) : null}
+
+            <WarningNotice
+              description="Данные документа, выбранного подтипа и автора будут зафиксированы после первого сохранения. Перед продолжением проверьте ответчика, требования и доказательства."
+              title="Что важно перед сохранением"
+            />
+          </div>
+        </div>
+      </WorkspaceSurface>
     </div>
   );
 }
@@ -769,7 +1108,7 @@ export function ClaimsPersistedEditor(props: {
       }
       main={
         <EditorMainColumn>
-          <Card className="space-y-3">
+          <WorkspaceSurface className="space-y-4">
             <div className="flex flex-wrap items-center gap-2">
               <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">
                 Редактор документа
@@ -783,14 +1122,45 @@ export function ClaimsPersistedEditor(props: {
               версию документа. Публикация на форуме для этого раздела не используется.
             </p>
             <div className="flex flex-wrap items-center gap-2 text-sm leading-6 text-[var(--muted)]">
-              <Badge>Сервер: {props.document.server.name}</Badge>
-              <Badge>Персонаж: {props.document.authorSnapshot.fullName}</Badge>
+              <StatusBadge tone="info">Сервер: {props.document.server.name}</StatusBadge>
+              <StatusBadge tone="neutral">Персонаж: {props.document.authorSnapshot.fullName}</StatusBadge>
+              <StatusBadge
+                tone={
+                  props.document.isModifiedAfterGeneration
+                    ? "warning"
+                    : props.document.generatedAt
+                      ? "success"
+                      : "neutral"
+                }
+              >
+                {props.document.isModifiedAfterGeneration
+                  ? "Документ нужно пересобрать"
+                  : props.document.generatedAt
+                    ? "Результат собран"
+                    : "Черновик без сборки"}
+              </StatusBadge>
               <span>Паспорт: {props.document.authorSnapshot.passportNumber}</span>
             </div>
-          </Card>
+          </WorkspaceSurface>
 
-          <Card className="space-y-4">
-            <h2 className="text-2xl font-semibold">Редактор документа</h2>
+          <div className="space-y-4">
+            <PanelCard className="space-y-4 p-6">
+              <div className="space-y-2">
+                <h2 className="text-2xl font-semibold">Редактор документа</h2>
+                <p className="text-sm leading-6 text-[var(--muted)]">
+                  Сохранённый документ уже привязан к серверу, персонажу и выбранному подтипу. Ниже
+                  можно обновить поля, пересобрать результат и проверить подготовленный предпросмотр.
+                </p>
+              </div>
+
+              {props.document.isModifiedAfterGeneration ? (
+                <WarningNotice
+                  description="После последней сборки документ менялся. Перед использованием лучше снова собрать итоговую версию, чтобы предпросмотр и сохранённый результат совпадали с текущими данными."
+                  title="Документ нужно пересобрать"
+                />
+              ) : null}
+            </PanelCard>
+
             <ClaimsDraftEditorClient
               authorSnapshot={{
                 canUseRepresentative: props.document.authorSnapshot.accessFlags.includes("advocate"),
@@ -813,7 +1183,7 @@ export function ClaimsPersistedEditor(props: {
               trustorRegistry={props.document.trustorRegistry}
               updatedAt={props.document.updatedAt}
             />
-          </Card>
+          </div>
         </EditorMainColumn>
       }
     />
@@ -984,30 +1354,77 @@ export function AttorneyRequestPersistedEditor(props: {
       }
       main={
         <EditorMainColumn>
-          <Card className="space-y-3">
+          <WorkspaceSurface className="space-y-4">
             <div className="flex flex-wrap items-center gap-2">
               <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">
                 Редактор адвокатского запроса
               </p>
-              <Badge>{formatDocumentStatus(props.document.status)}</Badge>
-              <Badge>только для владельца</Badge>
+              <StatusBadge tone="neutral">{formatDocumentStatus(props.document.status)}</StatusBadge>
+              <StatusBadge
+                tone={
+                  props.document.isModifiedAfterGeneration
+                    ? "warning"
+                    : props.document.generatedAt
+                      ? "success"
+                      : "neutral"
+                }
+              >
+                {props.document.isModifiedAfterGeneration
+                  ? "Результат нужно обновить"
+                  : props.document.generatedAt
+                    ? "Файлы собраны"
+                    : "Черновик без сборки"}
+              </StatusBadge>
+              <StatusBadge
+                tone={props.document.signatureSnapshot ? "success" : props.document.hasActiveCharacterSignature ? "info" : "warning"}
+              >
+                {props.document.signatureSnapshot
+                  ? "Подпись зафиксирована"
+                  : props.document.hasActiveCharacterSignature
+                    ? "Подпись будет зафиксирована при сборке"
+                    : "Подпись не загружена"}
+              </StatusBadge>
             </div>
-            <h1 className="text-3xl font-semibold">{props.document.title}</h1>
+            <h1 className="text-3xl font-semibold tracking-[-0.04em]">{props.document.title}</h1>
             <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
               Здесь можно сохранить черновик, проверить данные и собрать предпросмотр документа с
               файлами для скачивания. Документ привязан к доверителю и не зависит от дальнейших
               изменений его карточки.
             </p>
             <div className="flex flex-wrap items-center gap-2 text-sm leading-6 text-[var(--muted)]">
-              <Badge>Сервер: {props.document.server.name}</Badge>
-              <Badge>Персонаж: {props.document.authorSnapshot.fullName}</Badge>
-              <Badge>Доверитель: {props.document.payload.trustorSnapshot.fullName}</Badge>
+              <StatusBadge tone="info">Сервер: {props.document.server.name}</StatusBadge>
+              <StatusBadge tone="neutral">Персонаж: {props.document.authorSnapshot.fullName}</StatusBadge>
+              <StatusBadge tone="neutral">Доверитель: {props.document.payload.trustorSnapshot.fullName}</StatusBadge>
               <span>Номер запроса: {props.document.payload.requestNumberNormalized || "не указан"}</span>
             </div>
-          </Card>
+          </WorkspaceSurface>
 
-          <Card className="space-y-4">
-            <h2 className="text-2xl font-semibold">Редактор запроса</h2>
+          <div className="space-y-4">
+            <PanelCard className="space-y-4 p-6">
+              <div className="space-y-2">
+                <h2 className="text-2xl font-semibold">Редактор запроса</h2>
+                <p className="text-sm leading-6 text-[var(--muted)]">
+                  Сохранённый адвокатский запрос уже привязан к серверу, персонажу, доверителю и
+                  снимку подписи. Ниже можно обновить данные, пересобрать итоговые файлы и
+                  перепроверить предпросмотр без изменения самого шаблона.
+                </p>
+              </div>
+
+              {props.document.isModifiedAfterGeneration ? (
+                <WarningNotice
+                  description="После последней сборки документ менялся. Перед использованием лучше заново собрать результат, чтобы предпросмотр, PDF и изображения совпадали с текущими данными запроса."
+                  title="Результат нужно пересобрать"
+                />
+              ) : null}
+
+              {!props.document.signatureSnapshot && !props.document.hasActiveCharacterSignature ? (
+                <WarningNotice
+                  description="У персонажа нет активной подписи. Черновик можно редактировать и сохранять, но генерация итоговых файлов останется недоступной, пока подпись не появится."
+                  title="Подпись ещё не загружена"
+                />
+              ) : null}
+            </PanelCard>
+
             <AttorneyRequestEditorClient
               documentId={props.document.id}
               generatedArtifact={props.document.generatedArtifact}
@@ -1023,7 +1440,7 @@ export function AttorneyRequestPersistedEditor(props: {
               status={props.document.status}
               updatedAt={props.document.updatedAt}
             />
-          </Card>
+          </div>
         </EditorMainColumn>
       }
     />
@@ -1182,31 +1599,69 @@ export function LegalServicesAgreementPersistedEditor(props: {
       }
       main={
         <EditorMainColumn>
-          <Card className="space-y-3">
+          <WorkspaceSurface className="space-y-4">
             <div className="flex flex-wrap items-center gap-2">
               <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">
                 Редактор договора
               </p>
-              <Badge>{formatDocumentStatus(props.document.status)}</Badge>
-              <Badge>только для владельца</Badge>
+              <StatusBadge tone="neutral">{formatDocumentStatus(props.document.status)}</StatusBadge>
+              <StatusBadge
+                tone={
+                  props.document.isModifiedAfterGeneration
+                    ? "warning"
+                    : props.document.generatedArtifact
+                      ? "success"
+                      : "neutral"
+                }
+              >
+                {props.document.isModifiedAfterGeneration
+                  ? "Результат нужно обновить"
+                  : props.document.generatedArtifact
+                    ? "Страницы собраны"
+                    : "Черновик без сборки"}
+              </StatusBadge>
+              <StatusBadge
+                tone={props.document.generatedArtifact ? "success" : "info"}
+              >
+                {props.document.generatedArtifact
+                  ? "Подписи подставлены"
+                  : "Подписи появятся после сборки"}
+              </StatusBadge>
             </div>
-            <h1 className="text-3xl font-semibold">{props.document.title}</h1>
+            <h1 className="text-3xl font-semibold tracking-[-0.04em]">{props.document.title}</h1>
             <p className="max-w-3xl text-sm leading-6 text-[var(--muted)]">
               Здесь можно заполнить данные договора и собрать итоговые страницы для проверки и
               скачивания. Основной текст договора формируется по утверждённому шаблону.
             </p>
             <div className="flex flex-wrap items-center gap-2 text-sm leading-6 text-[var(--muted)]">
-              <Badge>Сервер: {props.document.server.name}</Badge>
-              <Badge>Персонаж: {props.document.authorSnapshot.fullName}</Badge>
-              <Badge>Доверитель: {props.document.payload.trustorSnapshot.fullName}</Badge>
+              <StatusBadge tone="info">Сервер: {props.document.server.name}</StatusBadge>
+              <StatusBadge tone="neutral">Персонаж: {props.document.authorSnapshot.fullName}</StatusBadge>
+              <StatusBadge tone="neutral">Доверитель: {props.document.payload.trustorSnapshot.fullName}</StatusBadge>
               <span>
                 Номер договора: {props.document.payload.manualFields.agreementNumber || "не указан"}
               </span>
             </div>
-          </Card>
+          </WorkspaceSurface>
 
-          <Card className="space-y-4">
-            <h2 className="text-2xl font-semibold">Редактор договора</h2>
+          <div className="space-y-4">
+            <PanelCard className="space-y-4 p-6">
+              <div className="space-y-2">
+                <h2 className="text-2xl font-semibold">Редактор договора</h2>
+                <p className="text-sm leading-6 text-[var(--muted)]">
+                  Сохранённый договор уже привязан к серверу, персонажу и доверителю. Ниже можно
+                  обновить ручные поля, пересобрать страницы и проверить итоговый предпросмотр без
+                  изменения эталонного текста и шаблона.
+                </p>
+              </div>
+
+              {props.document.isModifiedAfterGeneration ? (
+                <WarningNotice
+                  description="После последней сборки договор менялся. Перед использованием лучше заново собрать страницы, чтобы preview и PNG-файлы совпадали с текущими данными."
+                  title="Результат нужно пересобрать"
+                />
+              ) : null}
+            </PanelCard>
+
             <LegalServicesAgreementEditorClient
               documentId={props.document.id}
               generatedArtifact={props.document.generatedArtifact}
@@ -1220,7 +1675,7 @@ export function LegalServicesAgreementPersistedEditor(props: {
               status={props.document.status}
               updatedAt={props.document.updatedAt}
             />
-          </Card>
+          </div>
         </EditorMainColumn>
       }
     />

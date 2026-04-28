@@ -5,9 +5,15 @@ import Link from "next/link";
 import { AccessBlockedCard } from "@/components/product/foundation/access-blocked-card";
 import { EmptyStateCard } from "@/components/product/foundation/empty-state-card";
 import { Badge } from "@/components/ui/badge";
+import { ButtonLink } from "@/components/ui/button-link";
 import { Card } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
+import { PanelCard } from "@/components/ui/panel-card";
 import { SectionHeader } from "@/components/ui/section-header";
+import { StatCard } from "@/components/ui/stat-card";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { WarningNotice } from "@/components/ui/warning-notice";
+import { WorkspaceSurface } from "@/components/ui/workspace-surface";
 import type { DocumentAreaServerSummary } from "@/server/document-area/context";
 import type {
   DocumentEntryCapabilities,
@@ -260,6 +266,7 @@ export function ServerDocumentsHub(props: {
   } | null;
   bridgeHref?: string;
   ogpComplaintDocumentCount?: number;
+  claimsDocumentCount?: number;
   attorneyRequestDocumentCount?: number;
   documentEntryCapabilities?: DocumentEntryCapabilities;
   legalServicesAgreementDocumentCount?: number;
@@ -281,39 +288,138 @@ export function ServerDocumentsHub(props: {
     blockReasons.includes("trustor_required_temporarily") &&
     (!props.documentEntryCapabilities?.canCreateAttorneyRequest ||
       !props.documentEntryCapabilities?.canCreateLegalServicesAgreement);
+  const ogpCount = props.ogpComplaintDocumentCount ?? null;
+  const claimsCount = props.claimsDocumentCount ?? null;
+  const attorneyCount = props.attorneyRequestDocumentCount ?? null;
+  const agreementsCount = props.legalServicesAgreementDocumentCount ?? null;
+  const totalKnownDocuments = [ogpCount, claimsCount, attorneyCount, agreementsCount].reduce<number>(
+    (sum, value) => sum + (value ?? 0),
+    0,
+  );
+  const hasDocumentCounts = [ogpCount, claimsCount, attorneyCount, agreementsCount].some(
+    (value) => typeof value === "number",
+  );
+  const firstCreateAction = props.documentEntryCapabilities?.canCreateSelfComplaint
+    ? {
+        href: `/servers/${props.server.code}/documents/ogp-complaints/new`,
+        label: "Создать жалобу в ОГП",
+      }
+    : props.documentEntryCapabilities?.canCreateClaims
+      ? {
+          href: `/servers/${props.server.code}/documents/claims/new`,
+          label: "Выбрать тип иска",
+        }
+      : props.bridgeHref
+        ? {
+            href: props.bridgeHref,
+            label: "Открыть персонажей сервера",
+          }
+        : null;
 
   return (
     <div className="space-y-6">
-      <Card className="space-y-3">
-        <SectionHeader
-          description="Здесь собраны общие документы по выбранному серверу. Адвокатские сценарии и работа с доверителями открываются из отдельного адвокатского кабинета."
-          eyebrow="Документы сервера"
-          meta={
-            <div className="flex flex-wrap items-center gap-2 text-sm leading-6 text-[var(--muted)]">
-              {props.selectedCharacter ? (
-                <>
-                  <StatusBadge tone="warning">Персонаж: {props.selectedCharacter.fullName}</StatusBadge>
-                  <span>
-                    Выбор:{" "}
-                    {props.selectedCharacter.source === "last_used"
-                      ? "последний использованный"
-                      : "первый доступный"}
-                  </span>
-                </>
-              ) : (
-                <StatusBadge tone="neutral">Персонаж пока не выбран</StatusBadge>
-              )}
-              {typeof props.ogpComplaintDocumentCount === "number" ? (
-                <span>Жалоб в ОГП: {props.ogpComplaintDocumentCount}</span>
-              ) : null}
+      <WorkspaceSurface className="space-y-6 bg-[linear-gradient(145deg,rgba(194,154,84,0.12),rgba(27,34,43,0.94)_32%,rgba(20,26,32,0.98)_100%)]">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+          <div className="space-y-3">
+            <p className="text-xs uppercase tracking-[0.24em] text-[var(--accent)]">Документы</p>
+            <div className="space-y-3">
+              <h1 className="max-w-4xl text-3xl font-semibold tracking-[-0.03em] md:text-4xl xl:text-[2.8rem]">
+                Документы и черновики
+              </h1>
+              <p className="max-w-3xl text-sm leading-7 text-[var(--muted)] md:text-base">
+                Создавайте, проверяйте и открывайте документы по выбранному серверу.
+              </p>
             </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <StatusBadge tone="warning">Сервер: {props.server.name}</StatusBadge>
+            {props.selectedCharacter ? (
+              <StatusBadge tone="warning">Персонаж: {props.selectedCharacter.fullName}</StatusBadge>
+            ) : (
+              <StatusBadge tone="neutral">Персонаж пока не выбран</StatusBadge>
+            )}
+          </div>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          {hasDocumentCounts ? (
+            <>
+              {ogpCount !== null ? (
+                <StatCard
+                  helperText="Жалобы по выбранному серверу доступны из отдельного family-раздела."
+                  label="Жалобы в ОГП"
+                  tone={ogpCount > 0 ? "success" : "neutral"}
+                  value={String(ogpCount)}
+                />
+              ) : null}
+              {claimsCount !== null ? (
+                <StatCard
+                  helperText="Иски и связанные документы открываются отдельно от жалоб."
+                  label="Иски"
+                  tone={claimsCount > 0 ? "success" : "neutral"}
+                  value={String(claimsCount)}
+                />
+              ) : null}
+              {attorneyCount !== null ? (
+                <StatCard
+                  helperText="Адвокатские запросы остаются доступными через lawyer workspace и прямой family route."
+                  label="Адвокатские запросы"
+                  tone={attorneyCount > 0 ? "success" : "neutral"}
+                  value={String(attorneyCount)}
+                />
+              ) : null}
+              {agreementsCount !== null ? (
+                <StatCard
+                  helperText="Договоры считаются отдельно и не смешиваются с общими документами."
+                  label="Договоры"
+                  tone={agreementsCount > 0 ? "success" : "neutral"}
+                  value={String(agreementsCount)}
+                />
+              ) : null}
+            </>
+          ) : (
+            <PanelCard className="space-y-3 md:col-span-2 xl:col-span-4">
+              <p className="text-xs uppercase tracking-[0.22em] text-[var(--accent)]">
+                Состояние раздела
+              </p>
+              <h2 className="text-2xl font-semibold">Сводка по документам пока не собрана</h2>
+              <p className="text-sm leading-6 text-[var(--muted)]">
+                На этом экране пока доступны только существующие семейства документов и основные
+                точки входа без дополнительной серверной агрегации по жизненному циклу.
+              </p>
+            </PanelCard>
+          )}
+        </div>
+      </WorkspaceSurface>
+
+      {hasDocumentCounts && totalKnownDocuments === 0 ? (
+        <EmptyState
+          action={
+            firstCreateAction
+              ? {
+                  href: firstCreateAction.href,
+                  label: firstCreateAction.label,
+                  variant: "primary",
+                }
+              : undefined
           }
-          title={props.server.name}
+          description="Создайте первый документ, чтобы он появился в этом разделе."
+          secondaryAction={
+            !firstCreateAction && props.bridgeHref
+              ? {
+                  href: props.bridgeHref,
+                  label: "Открыть персонажей сервера",
+                  variant: "secondary",
+                }
+              : undefined
+          }
+          title="Документов пока нет"
         />
-      </Card>
+      ) : null}
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <Card className="space-y-4">
+        <PanelCard className="space-y-4 transition hover:border-[var(--button-secondary-border)] hover:bg-[var(--surface-hover)]">
           <div className="space-y-2">
             <p className="text-xs uppercase tracking-[0.22em] text-[var(--accent)]">
               Раздел документов
@@ -329,14 +435,17 @@ export function ServerDocumentsHub(props: {
               </p>
             ) : null}
           </div>
-          <div className="flex flex-wrap gap-3">
-            <FoundationLink href={`/servers/${props.server.code}/documents/ogp-complaints`}>
-              Открыть жалобы в ОГП
-            </FoundationLink>
+          <div className="flex flex-wrap items-center gap-2 text-sm leading-6 text-[var(--muted)]">
+            {ogpCount !== null ? <StatusBadge tone="info">Документов: {ogpCount}</StatusBadge> : null}
           </div>
-        </Card>
+          <div className="flex flex-wrap gap-3">
+            <ButtonLink href={`/servers/${props.server.code}/documents/ogp-complaints`} variant="secondary">
+              Открыть жалобы в ОГП
+            </ButtonLink>
+          </div>
+        </PanelCard>
 
-        <Card className="space-y-4">
+        <PanelCard className="space-y-4 transition hover:border-[var(--button-secondary-border)] hover:bg-[var(--surface-hover)]">
           <div className="space-y-2">
             <p className="text-xs uppercase tracking-[0.22em] text-[var(--accent)]">
               Раздел документов
@@ -351,18 +460,23 @@ export function ServerDocumentsHub(props: {
               </p>
             ) : null}
           </div>
-          <div className="flex flex-wrap gap-3">
-            <FoundationLink href={`/servers/${props.server.code}/documents/claims`}>
-              Открыть иски
-            </FoundationLink>
-            <FoundationLink href={`/servers/${props.server.code}/documents/claims/new`}>
-              Выбрать тип иска
-            </FoundationLink>
+          <div className="flex flex-wrap items-center gap-2 text-sm leading-6 text-[var(--muted)]">
+            {claimsCount !== null ? (
+              <StatusBadge tone="info">Документов: {claimsCount}</StatusBadge>
+            ) : null}
           </div>
-        </Card>
+          <div className="flex flex-wrap gap-3">
+            <ButtonLink href={`/servers/${props.server.code}/documents/claims`} variant="secondary">
+              Открыть иски
+            </ButtonLink>
+            <ButtonLink href={`/servers/${props.server.code}/documents/claims/new`} variant="ghost">
+              Выбрать тип иска
+            </ButtonLink>
+          </div>
+        </PanelCard>
       </div>
 
-      <Card className="space-y-4">
+      <PanelCard className="space-y-4">
         <div className="space-y-2">
           <p className="text-xs uppercase tracking-[0.22em] text-[var(--accent)]">
             Отдельный модуль
@@ -389,17 +503,18 @@ export function ServerDocumentsHub(props: {
             </p>
           ) : null}
           {showLawyerTrustorNote ? (
-            <p className="text-sm leading-6 text-[var(--muted)]">
-              В текущей версии для этого действия нужен сохранённый доверитель.
-            </p>
+            <WarningNotice
+              description="В текущей версии для этого действия нужен сохранённый доверитель."
+              title="Текущий этап совместимости"
+            />
           ) : null}
         </div>
         <div className="flex flex-wrap items-center gap-2 text-sm leading-6 text-[var(--muted)]">
-          {typeof props.attorneyRequestDocumentCount === "number" ? (
-            <span>Адвокатских запросов: {props.attorneyRequestDocumentCount}</span>
+          {attorneyCount !== null ? (
+            <StatusBadge tone="info">Адвокатских запросов: {attorneyCount}</StatusBadge>
           ) : null}
-          {typeof props.legalServicesAgreementDocumentCount === "number" ? (
-            <span>Договоров: {props.legalServicesAgreementDocumentCount}</span>
+          {agreementsCount !== null ? (
+            <StatusBadge tone="info">Договоров: {agreementsCount}</StatusBadge>
           ) : null}
         </div>
         <ul className="space-y-2 text-sm leading-6 text-[var(--muted)]">
@@ -409,33 +524,44 @@ export function ServerDocumentsHub(props: {
         </ul>
         <div className="flex flex-wrap gap-3">
           {canOpenLawyerWorkspace ? (
-            <FoundationLink href={`/servers/${props.server.code}/lawyer`}>
+            <ButtonLink href={`/servers/${props.server.code}/lawyer`} variant="secondary">
               Открыть адвокатский кабинет
-            </FoundationLink>
+            </ButtonLink>
           ) : props.bridgeHref ? (
-            <FoundationLink href={props.bridgeHref}>Открыть персонажей сервера</FoundationLink>
+            <ButtonLink href={props.bridgeHref} variant="secondary">
+              Открыть персонажей сервера
+            </ButtonLink>
           ) : null}
         </div>
-      </Card>
+      </PanelCard>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <Card className="space-y-4">
-          <SectionHeader
-            description="Прямые маршруты для адвокатских запросов и договоров продолжают работать. Основной вход для этих сценариев теперь собран в отдельном адвокатском кабинете."
-            eyebrow="Дополнительные входы"
-            title="Прямые маршруты сохраняются"
-          />
+        <PanelCard className="space-y-4">
+          <div className="space-y-2">
+            <p className="text-xs uppercase tracking-[0.22em] text-[var(--accent)]">
+              Дополнительные входы
+            </p>
+            <h2 className="text-2xl font-semibold">Прямые маршруты сохраняются</h2>
+            <p className="text-sm leading-6 text-[var(--muted)]">
+              Прямые маршруты для адвокатских запросов и договоров продолжают работать. Основной
+              вход для этих сценариев теперь собран в отдельном адвокатском кабинете.
+            </p>
+          </div>
           <div className="flex flex-wrap gap-3">
-            <FoundationLink href={`/servers/${props.server.code}/documents/attorney-requests`}>
+            <ButtonLink
+              href={`/servers/${props.server.code}/documents/attorney-requests`}
+              variant="secondary"
+            >
               Открыть адвокатские запросы
-            </FoundationLink>
-            <FoundationLink
+            </ButtonLink>
+            <ButtonLink
               href={`/servers/${props.server.code}/documents/legal-services-agreements`}
+              variant="secondary"
             >
               Открыть договоры
-            </FoundationLink>
+            </ButtonLink>
           </div>
-        </Card>
+        </PanelCard>
       </div>
     </div>
   );

@@ -4,11 +4,12 @@ import { useMemo, useState, type ReactNode } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { EmbeddedCard } from "@/components/ui/embedded-card";
 import { Input } from "@/components/ui/input";
+import { PanelCard } from "@/components/ui/panel-card";
 import { Select } from "@/components/ui/select";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Textarea } from "@/components/ui/textarea";
+import { WarningNotice } from "@/components/ui/warning-notice";
 import {
   attorneyRequestAddresseePresetKeys,
   attorneyRequestAddresseePresets,
@@ -112,6 +113,26 @@ function FieldHint(props: { children: ReactNode }) {
   return <p className="text-xs leading-5 text-[var(--muted)]">{props.children}</p>;
 }
 
+function AttorneyRequestSection(props: {
+  title: string;
+  description: string;
+  badge?: string;
+  children: ReactNode;
+}) {
+  return (
+    <PanelCard className="space-y-4">
+      <div className="space-y-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <h3 className="text-xl font-semibold tracking-[-0.02em]">{props.title}</h3>
+          {props.badge ? <Badge>{props.badge}</Badge> : null}
+        </div>
+        <p className="text-sm leading-6 text-[var(--muted)]">{props.description}</p>
+      </div>
+      {props.children}
+    </PanelCard>
+  );
+}
+
 export function AttorneyRequestDraftCreateClient(props: AttorneyRequestCreateClientProps) {
   const [selectedCharacterId, setSelectedCharacterId] = useState(props.selectedCharacter.id);
   const [selectedTrustorId, setSelectedTrustorId] = useState(
@@ -127,7 +148,11 @@ export function AttorneyRequestDraftCreateClient(props: AttorneyRequestCreateCli
       <input name="serverSlug" type="hidden" value={props.server.code} />
       <input name="payloadJson" type="hidden" value={buildCreatePayloadJson()} />
 
-      <div className="grid gap-4 md:grid-cols-2">
+      <AttorneyRequestSection
+        badge="черновик"
+        description="Укажите рабочее название, по которому документ будет отображаться в списке сохранённых запросов."
+        title="Данные запроса"
+      >
         <label className="space-y-2">
           <span className="text-sm font-medium">Название черновика</span>
           <Input
@@ -136,79 +161,101 @@ export function AttorneyRequestDraftCreateClient(props: AttorneyRequestCreateCli
             value={title}
           />
         </label>
+      </AttorneyRequestSection>
 
-        <label className="space-y-2">
-          <span className="text-sm font-medium">Персонаж-адвокат</span>
-          <Select
-            name="characterId"
-            onChange={(event) => setSelectedCharacterId(event.target.value)}
-            value={selectedCharacterId}
-          >
-            {props.characters.map((character) => (
-              <option key={character.id} value={character.id}>
-                {character.fullName} · паспорт {character.passportNumber}
-              </option>
-            ))}
-          </Select>
-          <FieldHint>
-            Создать адвокатский запрос может только персонаж с ролью «адвокат».
-          </FieldHint>
-        </label>
-
-        <label className="space-y-2 md:col-span-2">
-          <span className="text-sm font-medium">Доверитель</span>
-          <Select
-            disabled={props.trustorRegistry.length === 0}
-            name="trustorId"
-            onChange={(event) => setSelectedTrustorId(event.target.value)}
-            value={selectedTrustorId}
-          >
-            {props.trustorRegistry.length === 0 ? (
-              <option value="">На этом сервере пока нет доверителей</option>
-            ) : null}
-            {props.trustorRegistry.map((trustor) => (
-              <option key={trustor.id} value={trustor.id}>
-                {trustor.fullName} · паспорт {trustor.passportNumber}
-              </option>
-            ))}
-          </Select>
-          <FieldHint>
-            Доверитель фиксируется при первом сохранении. Позже сменить сервер, персонажа или
-            доверителя в этом документе нельзя.
-          </FieldHint>
-        </label>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2 text-sm text-[var(--muted)]">
-        <StatusBadge tone="info">Сервер: {props.server.name}</StatusBadge>
-        {selectedCharacter ? (
-          <StatusBadge tone={selectedCharacter.canCreateAttorneyRequest ? "success" : "warning"}>
-            {selectedCharacter.canCreateAttorneyRequest ? "роль адвоката есть" : "нет роли адвоката"}
-          </StatusBadge>
-        ) : null}
-        <StatusBadge tone={props.trustorRegistry.length > 0 ? "success" : "warning"}>
-          {props.trustorRegistry.length > 0 ? "доверитель выбран" : "нужен доверитель"}
-        </StatusBadge>
-        {selectedCharacter ? (
-          <StatusBadge tone={selectedCharacter.hasActiveSignature ? "success" : "warning"}>
-            {selectedCharacter.hasActiveSignature ? "подпись загружена" : "подпись не загружена"}
-          </StatusBadge>
-        ) : null}
-      </div>
-
-      {selectedCharacter && !selectedCharacter.hasActiveSignature ? (
-        <EmbeddedCard className="border-[#b78739]/30 bg-[#7a5822]/18 px-4 py-3 text-sm leading-6 text-[#f0d4a0]">
-          У выбранного персонажа не загружена подпись. Черновик можно создать, но финальная
-          генерация документа будет недоступна.
-        </EmbeddedCard>
-      ) : null}
-
-      <Button
-        disabled={!selectedCharacter?.canCreateAttorneyRequest || props.trustorRegistry.length === 0}
-        type="submit"
+      <AttorneyRequestSection
+        description="Выберите персонажа с адвокатским доступом и доверителя. После первого сохранения этот контекст закрепляется за документом."
+        title="Адвокат и доверитель"
       >
-        Создать черновик адвокатского запроса
-      </Button>
+        <div className="grid gap-4 md:grid-cols-2">
+          <label className="space-y-2">
+            <span className="text-sm font-medium">Персонаж-адвокат</span>
+            <Select
+              name="characterId"
+              onChange={(event) => setSelectedCharacterId(event.target.value)}
+              value={selectedCharacterId}
+            >
+              {props.characters.map((character) => (
+                <option key={character.id} value={character.id}>
+                  {character.fullName} · паспорт {character.passportNumber}
+                </option>
+              ))}
+            </Select>
+            <FieldHint>
+              Создать адвокатский запрос может только персонаж с ролью «адвокат».
+            </FieldHint>
+          </label>
+
+          <label className="space-y-2 md:col-span-2">
+            <span className="text-sm font-medium">Доверитель</span>
+            <Select
+              disabled={props.trustorRegistry.length === 0}
+              name="trustorId"
+              onChange={(event) => setSelectedTrustorId(event.target.value)}
+              value={selectedTrustorId}
+            >
+              {props.trustorRegistry.length === 0 ? (
+                <option value="">На этом сервере пока нет доверителей</option>
+              ) : null}
+              {props.trustorRegistry.map((trustor) => (
+                <option key={trustor.id} value={trustor.id}>
+                  {trustor.fullName} · паспорт {trustor.passportNumber}
+                </option>
+              ))}
+            </Select>
+            <FieldHint>
+              Доверитель фиксируется при первом сохранении. Позже сменить сервер, персонажа или
+              доверителя в этом документе нельзя.
+            </FieldHint>
+          </label>
+        </div>
+      </AttorneyRequestSection>
+
+      <PanelCard className="space-y-4">
+        <div className="space-y-2">
+          <h3 className="text-xl font-semibold tracking-[-0.02em]">Состояние перед сохранением</h3>
+          <p className="text-sm leading-6 text-[var(--muted)]">
+            Проверьте, что у выбранного персонажа есть адвокатский доступ, а на сервере доступен
+            хотя бы один доверитель.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 text-sm text-[var(--muted)]">
+          <StatusBadge tone="info">Сервер: {props.server.name}</StatusBadge>
+          {selectedCharacter ? (
+            <StatusBadge tone={selectedCharacter.canCreateAttorneyRequest ? "success" : "warning"}>
+              {selectedCharacter.canCreateAttorneyRequest ? "роль адвоката есть" : "нет роли адвоката"}
+            </StatusBadge>
+          ) : null}
+          <StatusBadge tone={props.trustorRegistry.length > 0 ? "success" : "warning"}>
+            {props.trustorRegistry.length > 0 ? "доверитель выбран" : "нужен доверитель"}
+          </StatusBadge>
+          {selectedCharacter ? (
+            <StatusBadge tone={selectedCharacter.hasActiveSignature ? "success" : "warning"}>
+              {selectedCharacter.hasActiveSignature ? "подпись загружена" : "подпись не загружена"}
+            </StatusBadge>
+          ) : null}
+        </div>
+
+        {selectedCharacter && !selectedCharacter.hasActiveSignature ? (
+          <WarningNotice
+            description="У выбранного персонажа не загружена подпись. Черновик можно создать, но финальная генерация документа будет недоступна."
+            title="Подпись ещё не загружена"
+          />
+        ) : null}
+
+        <div className="flex flex-wrap items-center gap-3">
+          <Button
+            disabled={!selectedCharacter?.canCreateAttorneyRequest || props.trustorRegistry.length === 0}
+            type="submit"
+          >
+            Создать черновик адвокатского запроса
+          </Button>
+          <FieldHint>
+            После сохранения можно будет заполнить разделы запроса, проверить шаблон и собрать файлы.
+          </FieldHint>
+        </div>
+      </PanelCard>
     </form>
   );
 }
@@ -294,107 +341,175 @@ export function AttorneyRequestEditorClient(props: AttorneyRequestEditorClientPr
   return (
     <div className="space-y-6">
       {!props.hasSignatureSnapshot && !props.hasActiveCharacterSignature ? (
-        <EmbeddedCard className="border-[#b78739]/30 bg-[#7a5822]/18 px-4 py-3 text-sm leading-6 text-[#f0d4a0]">
-          У выбранного персонажа не загружена подпись. Черновик можно редактировать и сохранять,
-          но финальная генерация документа будет недоступна.
-        </EmbeddedCard>
+        <WarningNotice
+          description="У выбранного персонажа не загружена подпись. Черновик можно редактировать и сохранять, но финальная генерация документа будет недоступна."
+          title="Подпись ещё не загружена"
+        />
       ) : null}
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <label className="space-y-2 md:col-span-2">
-          <span className="text-sm font-medium">Название документа</span>
-          <Input
-            onChange={(event) =>
-              setEditorState((current) => ({ ...current, title: event.target.value }))
-            }
-            value={editorState.title}
+      <PanelCard className="space-y-4">
+        <div className="space-y-2">
+          <h3 className="text-xl font-semibold tracking-[-0.02em]">Состояние документа</h3>
+          <p className="text-sm leading-6 text-[var(--muted)]">
+            Проверьте, синхронизированы ли правки с последней сборкой, и только после этого
+            переходите к обновлению предпросмотра и скачиванию файлов.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <StatusBadge tone={status === "published" ? "success" : status === "generated" ? "info" : "neutral"}>
+            {formatDocumentStatus(status)}
+          </StatusBadge>
+          <StatusBadge tone={isDirty ? "warning" : "success"}>
+            {isDirty ? "есть несохранённые изменения" : "изменения сохранены"}
+          </StatusBadge>
+          {isModifiedAfterGeneration ? (
+            <StatusBadge tone="warning">изменено после генерации</StatusBadge>
+          ) : (
+            <StatusBadge tone="success">результат актуален</StatusBadge>
+          )}
+          <StatusBadge tone={generatedArtifact ? "success" : "neutral"}>
+            {generatedArtifact ? "файлы готовы" : "файлы не собраны"}
+          </StatusBadge>
+        </div>
+
+        {isModifiedAfterGeneration ? (
+          <WarningNotice
+            description="После последней сборки данные запроса менялись. Перед использованием лучше заново собрать документ, чтобы предпросмотр и файлы совпадали с текущими полями."
+            title="Результат нужно обновить"
           />
-        </label>
+        ) : null}
+      </PanelCard>
 
-        <label className="space-y-2">
-          <span className="text-sm font-medium">Номер запроса</span>
-          <Input
-            onChange={(event) => updatePayload({ requestNumberRawInput: event.target.value })}
-            placeholder="2112 или BAR-2112"
-            value={editorState.payload.requestNumberRawInput}
-          />
-          <FieldHint>
-            После сохранения номер будет приведён к формату вроде BAR-2112.
-            Сейчас сохранённое значение: {editorState.payload.requestNumberNormalized || "ещё не рассчитано"}.
-          </FieldHint>
-        </label>
+      <AttorneyRequestSection
+        description="Рабочее название и номер запроса помогают быстро найти документ в списке и проверить, как он будет сохранён после обновления."
+        title="Данные запроса"
+      >
+        <div className="grid gap-4 md:grid-cols-2">
+          <label className="space-y-2 md:col-span-2">
+            <span className="text-sm font-medium">Название документа</span>
+            <Input
+              onChange={(event) =>
+                setEditorState((current) => ({ ...current, title: event.target.value }))
+              }
+              value={editorState.title}
+            />
+          </label>
 
-        <label className="space-y-2">
-          <span className="text-sm font-medium">Номер договора</span>
-          <Input
-            onChange={(event) => updatePayload({ contractNumber: event.target.value })}
-            value={editorState.payload.contractNumber}
-          />
-        </label>
+          <label className="space-y-2">
+            <span className="text-sm font-medium">Номер запроса</span>
+            <Input
+              onChange={(event) => updatePayload({ requestNumberRawInput: event.target.value })}
+              placeholder="2112 или BAR-2112"
+              value={editorState.payload.requestNumberRawInput}
+            />
+            <FieldHint>
+              После сохранения номер будет приведён к формату вроде BAR-2112. Сейчас сохранённое
+              значение: {editorState.payload.requestNumberNormalized || "ещё не рассчитано"}.
+            </FieldHint>
+          </label>
 
-        <label className="space-y-2">
-          <span className="text-sm font-medium">Кому адресуется запрос</span>
-          <Select
-            onChange={(event) =>
-              updatePayload({
-                addresseePreset: event.target.value
-                  ? (event.target.value as AttorneyRequestDraftPayload["addresseePreset"])
-                  : null,
-              })
-            }
-            value={editorState.payload.addresseePreset ?? ""}
-          >
-            <option value="">Выберите адресата</option>
-            {attorneyRequestAddresseePresetKeys.map((key) => (
-              <option key={key} value={key}>
-                {attorneyRequestAddresseePresets[key].label}
-              </option>
-            ))}
-          </Select>
-        </label>
+          <label className="space-y-2">
+            <span className="text-sm font-medium">Номер договора</span>
+            <Input
+              onChange={(event) => updatePayload({ contractNumber: event.target.value })}
+              value={editorState.payload.contractNumber}
+            />
+          </label>
+        </div>
+      </AttorneyRequestSection>
 
-        <label className="space-y-2">
-          <span className="text-sm font-medium">Сотрудник / нашивка</span>
-          <Input
-            onChange={(event) => updatePayload({ targetOfficerInput: event.target.value })}
-            value={editorState.payload.targetOfficerInput}
-          />
-        </label>
-
-        <label className="space-y-2">
-          <span className="text-sm font-medium">Дата запрашиваемой информации</span>
-          <Input
-            onChange={(event) => updatePayload({ requestDate: event.target.value })}
-            type="date"
-            value={editorState.payload.requestDate}
-          />
-        </label>
-
+      <AttorneyRequestSection
+        description="Укажите адресата и сотрудника, по которому направляется запрос. Эти данные используются в итоговом шаблоне без изменения самого render-flow."
+        title="Адресат и сотрудник"
+      >
         <div className="grid gap-4 md:grid-cols-2">
           <label className="space-y-2">
-            <span className="text-sm font-medium">Время с</span>
-            <Input
-              onChange={(event) => updatePayload({ timeFrom: event.target.value })}
-              type="time"
-              value={editorState.payload.timeFrom}
-            />
+            <span className="text-sm font-medium">Кому адресуется запрос</span>
+            <Select
+              onChange={(event) =>
+                updatePayload({
+                  addresseePreset: event.target.value
+                    ? (event.target.value as AttorneyRequestDraftPayload["addresseePreset"])
+                    : null,
+                })
+              }
+              value={editorState.payload.addresseePreset ?? ""}
+            >
+              <option value="">Выберите адресата</option>
+              {attorneyRequestAddresseePresetKeys.map((key) => (
+                <option key={key} value={key}>
+                  {attorneyRequestAddresseePresets[key].label}
+                </option>
+              ))}
+            </Select>
           </label>
-          <label className="space-y-2">
-            <span className="text-sm font-medium">Время по</span>
-            <Input
-              onChange={(event) => updatePayload({ timeTo: event.target.value })}
-              type="time"
-              value={editorState.payload.timeTo}
-            />
-          </label>
-        </div>
-      </div>
 
-      <section className="space-y-3 rounded-3xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <h3 className="text-xl font-semibold">Раздел 1</h3>
-          <Badge>предзаполнен, можно редактировать</Badge>
+          <label className="space-y-2">
+            <span className="text-sm font-medium">Сотрудник / нашивка</span>
+            <Input
+              onChange={(event) => updatePayload({ targetOfficerInput: event.target.value })}
+              value={editorState.payload.targetOfficerInput}
+            />
+          </label>
         </div>
+      </AttorneyRequestSection>
+
+      <AttorneyRequestSection
+        badge="автоматически"
+        description="Дата документа, период событий и срок ответа остаются в том же server-side расчёте. Здесь вы только управляете исходными полями для этого расчёта."
+        title="Дата и период событий"
+      >
+        <div className="grid gap-4 md:grid-cols-2">
+          <label className="space-y-2">
+            <span className="text-sm font-medium">Дата запрашиваемой информации</span>
+            <Input
+              onChange={(event) => updatePayload({ requestDate: event.target.value })}
+              type="date"
+              value={editorState.payload.requestDate}
+            />
+          </label>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <label className="space-y-2">
+              <span className="text-sm font-medium">Время с</span>
+              <Input
+                onChange={(event) => updatePayload({ timeFrom: event.target.value })}
+                type="time"
+                value={editorState.payload.timeFrom}
+              />
+            </label>
+            <label className="space-y-2">
+              <span className="text-sm font-medium">Время по</span>
+              <Input
+                onChange={(event) => updatePayload({ timeTo: event.target.value })}
+                type="time"
+                value={editorState.payload.timeTo}
+              />
+            </label>
+          </div>
+        </div>
+
+        <div className="grid gap-3 md:grid-cols-2">
+          <div className="rounded-2xl border border-[var(--divider)] bg-[var(--surface-subtle)] p-4">
+            <p className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">Срок ответа</p>
+            <p className="mt-2 text-sm leading-6 text-[var(--foreground)]">
+              {editorState.payload.responseDueAtMsk || "появится после сохранения"}
+            </p>
+          </div>
+          <div className="rounded-2xl border border-[var(--divider)] bg-[var(--surface-subtle)] p-4">
+            <p className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">Адресат</p>
+            <p className="mt-2 text-sm leading-6 text-[var(--foreground)]">
+              {formatPresetLabel(editorState.payload.addresseePreset)}
+            </p>
+          </div>
+        </div>
+      </AttorneyRequestSection>
+
+      <AttorneyRequestSection
+        badge="предзаполнен"
+        description="Первая часть шаблона заполняется автоматически, но при необходимости её можно уточнить перед сборкой итогового документа."
+        title="Содержание запроса"
+      >
         {editorState.payload.section1Items.map((item, index) => (
           <label className="block space-y-2" key={item.id}>
             <span className="text-sm font-medium">Пункт {index + 1}</span>
@@ -404,70 +519,76 @@ export function AttorneyRequestEditorClient(props: AttorneyRequestEditorClientPr
             />
           </label>
         ))}
-      </section>
+      </AttorneyRequestSection>
 
-      <section className="space-y-3 rounded-3xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <h3 className="text-xl font-semibold">Раздел 2</h3>
-          <Badge>автоматически</Badge>
-        </div>
-        <p className="text-sm leading-6 text-[var(--muted)]">
-          Срок ответа рассчитывается приложением: {editorState.payload.responseDueAtMsk || "появится после сохранения"}.
-        </p>
-      </section>
-
-      <section className="space-y-3 rounded-3xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <h3 className="text-xl font-semibold">Раздел 3</h3>
-          <Badge>предзаполнен, можно редактировать</Badge>
-        </div>
+      <AttorneyRequestSection
+        badge="предзаполнен"
+        description="Финальный текст запроса можно уточнить, не меняя сам шаблон рендера. Выбранный адресат остаётся видимым для быстрой проверки."
+        title="Основание и итоговый текст"
+      >
         <Textarea
           onChange={(event) => updatePayload({ section3Text: event.target.value })}
           value={editorState.payload.section3Text}
         />
         <FieldHint>Выбранный адресат: {formatPresetLabel(editorState.payload.addresseePreset)}.</FieldHint>
-      </section>
+      </AttorneyRequestSection>
 
-      <section className="space-y-3 rounded-3xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <h3 className="text-xl font-semibold">Раздел 4</h3>
-          <Badge>автоматически</Badge>
-        </div>
+      <AttorneyRequestSection
+        badge="автоматически"
+        description="Заключительный блок, дата и подпись формируются из сохранённого снимка персонажа и не требуют ручного редактирования."
+        title="Подпись и данные адвоката"
+      >
         <p className="text-sm leading-6 text-[var(--muted)]">
           Заключительный блок, дата и подпись формируются из сохранённого снимка персонажа.
         </p>
-      </section>
+      </AttorneyRequestSection>
 
-      <label className="block space-y-2">
-        <span className="text-sm font-medium">Рабочие заметки</span>
-        <Textarea
-          onChange={(event) => updatePayload({ workingNotes: event.target.value })}
-          value={editorState.payload.workingNotes}
-        />
-      </label>
+      <AttorneyRequestSection
+        description="Рабочие заметки остаются внутри черновика и помогают зафиксировать внутренние пометки перед следующей сборкой."
+        title="Рабочие заметки"
+      >
+        <label className="block space-y-2">
+          <span className="text-sm font-medium">Рабочие заметки</span>
+          <Textarea
+            onChange={(event) => updatePayload({ workingNotes: event.target.value })}
+            value={editorState.payload.workingNotes}
+          />
+        </label>
+      </AttorneyRequestSection>
 
-      <div className="flex flex-wrap items-center gap-3">
-        <Button onClick={performSave} type="button">
-          Сохранить черновик
-        </Button>
-        <Button onClick={performGenerate} type="button" variant="secondary">
-          Собрать документ и файлы
-        </Button>
-        <Badge>{formatDocumentStatus(status)}</Badge>
-        {isDirty ? <Badge>есть несохранённые изменения</Badge> : null}
-        {isModifiedAfterGeneration ? <Badge>изменено после генерации</Badge> : null}
-      </div>
-
-      {saveMessage ? <p className="text-sm leading-6 text-[var(--muted)]">{saveMessage}</p> : null}
-      {generationMessage ? (
-        <p className="text-sm leading-6 text-[var(--muted)]">{generationMessage}</p>
-      ) : null}
-
-      <section className="space-y-3 rounded-3xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <h3 className="text-xl font-semibold">Результат генерации</h3>
-          {generatedAt ? <Badge>{new Date(generatedAt).toLocaleString("ru-RU")}</Badge> : null}
+      <PanelCard className="space-y-4">
+        <div className="space-y-2">
+          <h3 className="text-xl font-semibold tracking-[-0.02em]">Действия с документом</h3>
+          <p className="text-sm leading-6 text-[var(--muted)]">
+            Сначала сохраните изменения, затем при необходимости соберите обновлённый предпросмотр и
+            файлы для скачивания.
+          </p>
         </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <Button onClick={performSave} type="button">
+            Сохранить черновик
+          </Button>
+          <Button onClick={performGenerate} type="button" variant="secondary">
+            Собрать документ и файлы
+          </Button>
+        </div>
+
+        {saveMessage ? <p className="text-sm leading-6 text-[var(--muted)]">{saveMessage}</p> : null}
+        {generationMessage ? (
+          <p className="text-sm leading-6 text-[var(--muted)]">{generationMessage}</p>
+        ) : null}
+      </PanelCard>
+
+      <PanelCard className="space-y-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <h3 className="text-xl font-semibold tracking-[-0.02em]">Результат генерации</h3>
+          {generatedAt ? (
+            <StatusBadge tone="success">
+              {new Date(generatedAt).toLocaleString("ru-RU")}
+            </StatusBadge>
+          ) : null}
+        </div>
+
         {generatedArtifact ? (
           <div className="space-y-3">
             <div
@@ -504,7 +625,7 @@ export function AttorneyRequestEditorClient(props: AttorneyRequestEditorClientPr
             заполнить обязательные поля.
           </p>
         )}
-      </section>
+      </PanelCard>
     </div>
   );
 }

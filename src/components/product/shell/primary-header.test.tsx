@@ -48,7 +48,10 @@ describe("primary header", () => {
       />,
     );
 
-    expect(html).toContain("Lawyer5RP");
+    expect(html).toContain("Lawyer");
+    expect(html).toContain(">5<");
+    expect(html).toContain("RP");
+    expect(html).toContain("<svg");
     expect(html).toContain('href="/"');
     expect(html).toContain('href="/assistant"');
     expect(html).toContain('href="/servers"');
@@ -99,7 +102,7 @@ describe("primary header", () => {
       />,
     );
 
-    expect(html).toContain("Вы вошли как");
+    expect(html).toContain("Аккаунт");
     expect(html).toContain("admin");
     expect(html).toContain("Blackberry");
     expect(html).toContain(">Сервер<");

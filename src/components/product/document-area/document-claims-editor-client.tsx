@@ -25,6 +25,7 @@ import {
   areStatesEqual,
   createEditorState,
   createGenerationState,
+  formatSubtypeLabel,
   formatGroundedSupportSummary,
   type ClaimsDraftCreateClientProps,
   type ClaimsDraftEditorClientProps,
@@ -33,7 +34,10 @@ import {
   type ClaimsRewriteSuggestionState,
 } from "@/components/product/document-area/document-claims-editor-shared";
 import { Button } from "@/components/ui/button";
+import { PanelCard } from "@/components/ui/panel-card";
 import { Select } from "@/components/ui/select";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { WarningNotice } from "@/components/ui/warning-notice";
 import {
   createClaimDraftAction,
   generateClaimsStructuredCheckpointAction,
@@ -82,28 +86,43 @@ export function ClaimsDraftCreateClient(props: ClaimsDraftCreateClientProps) {
       <input name="title" type="hidden" value={editorState.title} />
       <input name="payloadJson" type="hidden" value={JSON.stringify(editorState.payload)} />
 
-      <div className="space-y-2">
-        <label className="text-sm font-medium text-[var(--foreground)]" htmlFor="create-claim-character-id">
-          Персонаж для первого сохранения
-        </label>
-        <Select
-          id="create-claim-character-id"
-          onChange={(event) => {
-            setSelectedCharacterId(event.target.value);
-          }}
-          value={selectedCharacterId}
-        >
-          {props.characters.map((character) => (
-            <option key={character.id} value={character.id}>
-              {character.fullName} ({character.passportNumber})
-            </option>
-          ))}
-        </Select>
-        <ClaimsFieldHint>
-          До первого сохранения персонажа можно сменить. После этого вид документа и данные
-          автора фиксируются в черновике.
-        </ClaimsFieldHint>
-      </div>
+      <PanelCard className="space-y-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <StatusBadge tone="info">Сервер: {props.server.name}</StatusBadge>
+          <StatusBadge tone="success">Персонаж: {selectedCharacter.fullName}</StatusBadge>
+          <StatusBadge tone="neutral">Подтип: {formatSubtypeLabel(props.documentType)}</StatusBadge>
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-[var(--foreground)]" htmlFor="create-claim-character-id">
+            Персонаж для первого сохранения
+          </label>
+          <Select
+            id="create-claim-character-id"
+            onChange={(event) => {
+              setSelectedCharacterId(event.target.value);
+            }}
+            value={selectedCharacterId}
+          >
+            {props.characters.map((character) => (
+              <option key={character.id} value={character.id}>
+                {character.fullName} ({character.passportNumber})
+              </option>
+            ))}
+          </Select>
+          <ClaimsFieldHint>
+            До первого сохранения персонажа можно сменить. После этого вид документа и данные
+            автора фиксируются в черновике.
+          </ClaimsFieldHint>
+        </div>
+
+        {!selectedCharacter.isProfileComplete ? (
+          <WarningNotice
+            description="Профиль выбранного персонажа заполнен не полностью. Черновик можно создать, но перед генерацией документа лучше проверить недостающие данные."
+            title="Проверьте профиль персонажа"
+          />
+        ) : null}
+      </PanelCard>
 
       <ClaimsFormFields
         characterLabel={`${selectedCharacter.fullName} (${selectedCharacter.passportNumber})`}
@@ -117,9 +136,15 @@ export function ClaimsDraftCreateClient(props: ClaimsDraftCreateClientProps) {
         trustorRegistry={props.trustorRegistry}
       />
 
-      <div className="flex flex-wrap gap-3">
-        <Button type="submit">Создать черновик</Button>
-      </div>
+      <PanelCard className="space-y-3">
+        <div className="flex flex-wrap gap-3">
+          <Button type="submit">Создать черновик</Button>
+        </div>
+        <ClaimsFieldHint>
+          После первого сохранения откроется редактор сохранённого документа, где можно будет
+          обновлять черновик и собирать итоговую версию.
+        </ClaimsFieldHint>
+      </PanelCard>
     </form>
   );
 }

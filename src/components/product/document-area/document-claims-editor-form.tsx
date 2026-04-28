@@ -11,11 +11,13 @@ import {
   formatSubtypeLabel,
   type ClaimsEditorState,
 } from "@/components/product/document-area/document-claims-editor-shared";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PanelCard } from "@/components/ui/panel-card";
 import { Select } from "@/components/ui/select";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { Textarea } from "@/components/ui/textarea";
+import { WarningNotice } from "@/components/ui/warning-notice";
 import {
   applyTrustorRegistryPrefill,
   type TrustorRegistryPrefillOption,
@@ -29,6 +31,22 @@ import type { ClaimsDocumentRewriteSectionKey } from "@/schemas/document-ai";
 
 export function ClaimsFieldHint(props: { children: string }) {
   return <p className="text-xs leading-5 text-[var(--muted)]">{props.children}</p>;
+}
+
+function ClaimsSection(props: {
+  title: string;
+  description: string;
+  children: ReactNode;
+}) {
+  return (
+    <PanelCard className="space-y-4">
+      <div className="space-y-1">
+        <h3 className="text-lg font-semibold">{props.title}</h3>
+        <ClaimsFieldHint>{props.description}</ClaimsFieldHint>
+      </div>
+      {props.children}
+    </PanelCard>
+  );
 }
 
 function EvidenceGroupsEditor(props: {
@@ -110,7 +128,7 @@ function EvidenceGroupsEditor(props: {
                     type="button"
                     variant="secondary"
                   >
-                    Удалить row
+                    Удалить ссылку
                   </Button>
                 </div>
 
@@ -256,126 +274,156 @@ export function ClaimsFormFields(props: {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center gap-2">
-        <Badge>{props.mode === "create" ? "Новый черновик" : "Сохранённый документ"}</Badge>
-        <Badge>Вид документа: {formatSubtypeLabel(props.documentType)}</Badge>
-        <Badge>Способ подачи: {filingModeLabel(payload.filingMode)}</Badge>
-        {props.draftStatusLabel ? <Badge>Статус: {props.draftStatusLabel}</Badge> : null}
-      </div>
+      <PanelCard className="space-y-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <StatusBadge tone="info">
+            {props.mode === "create" ? "Новый черновик" : "Сохранённый документ"}
+          </StatusBadge>
+          <StatusBadge tone="neutral">Вид документа: {formatSubtypeLabel(props.documentType)}</StatusBadge>
+          <StatusBadge tone="neutral">Способ подачи: {filingModeLabel(payload.filingMode)}</StatusBadge>
+          {props.draftStatusLabel ? <StatusBadge tone="neutral">Статус: {props.draftStatusLabel}</StatusBadge> : null}
+          {props.updatedAtLabel ? (
+            <StatusBadge tone="neutral">Последнее сохранение: {props.updatedAtLabel}</StatusBadge>
+          ) : null}
+        </div>
 
-      <div className="rounded-3xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4 text-sm leading-6 text-[var(--muted)]">
-        <p>Сервер и персонаж уже показаны явно. Персонаж: {props.characterLabel}.</p>
+        <p className="text-sm leading-6 text-[var(--muted)]">
+          Персонаж для этого документа: {props.characterLabel}.
+          {props.routeStatus ? ` Состояние экрана: ${props.routeStatus}.` : ""}
+        </p>
+
         {!props.profileComplete ? (
-          <p className="mt-2 text-[var(--accent)]">
-            Профиль персонажа заполнен не полностью. Черновик можно продолжать, но перед использованием документа лучше проверить недостающие данные.
-          </p>
-        ) : null}
-        {!props.representativeAllowed ? (
-          <p className="mt-2">У этого персонажа нет доступа для подачи через представителя, поэтому жалоба доступна только от своего имени.</p>
-        ) : null}
-        <p className="mt-2">После первого сохранения вид документа и данные автора фиксируются для этого черновика.</p>
-        {props.updatedAtLabel ? <p className="mt-2">Последнее сохранение: {props.updatedAtLabel}</p> : null}
-      </div>
-
-      <div className="space-y-2">
-        <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`${props.mode}-claim-title`}>
-          Название документа
-        </label>
-        <Input
-          id={`${props.mode}-claim-title`}
-          maxLength={160}
-          onChange={(event) => {
-            props.onStateChange({
-              ...props.state,
-              title: event.target.value,
-            });
-          }}
-          value={props.state.title}
-        />
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2">
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`${props.mode}-claim-filing-mode`}>
-            Способ подачи
-          </label>
-          <Select
-            id={`${props.mode}-claim-filing-mode`}
-            onChange={(event) => {
-              const nextFilingMode = event.target.value as ClaimsDraftPayload["filingMode"];
-              props.onStateChange({
-                ...props.state,
-                payload: {
-                  ...payload,
-                  filingMode: nextFilingMode,
-                  trustorSnapshot:
-                    nextFilingMode === "representative"
-                      ? (payload.trustorSnapshot ?? buildEmptyTrustorSnapshot())
-                      : null,
-                },
-              });
-            }}
-            value={payload.filingMode}
-          >
-            <option value="self">От своего имени</option>
-            <option disabled={!props.representativeAllowed} value="representative">
-              Через представителя
-            </option>
-          </Select>
-          <ClaimsFieldHint>Подача через представителя доступна только персонажу с нужным доступом.</ClaimsFieldHint>
-        </div>
-
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`${props.mode}-claim-respondent-name`}>
-            Ответчик или орган
-          </label>
-          <Input
-            id={`${props.mode}-claim-respondent-name`}
-            maxLength={160}
-            onChange={(event) => {
-              props.onStateChange({
-                ...props.state,
-                payload: {
-                  ...payload,
-                  respondentName: event.target.value,
-                },
-              });
-            }}
-            placeholder="Наименование ответчика или органа"
-            value={payload.respondentName}
+          <WarningNotice
+            description="Профиль персонажа заполнен не полностью. Черновик можно продолжать, но перед генерацией и использованием документа лучше проверить недостающие данные."
+            title="Проверьте профиль персонажа"
           />
-        </div>
-      </div>
+        ) : null}
 
-      <div className="space-y-2">
-        <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`${props.mode}-claim-subject`}>
-          Предмет требования
-        </label>
-        <Input
-          id={`${props.mode}-claim-subject`}
-          maxLength={240}
-          onChange={(event) => {
-            props.onStateChange({
-              ...props.state,
-              payload: {
-                ...payload,
-                claimSubject: event.target.value,
-              },
-            });
-          }}
-          placeholder="О чём именно требование или предмет спора"
-          value={payload.claimSubject}
+        {!props.representativeAllowed ? (
+          <WarningNotice
+            description="У этого персонажа нет доступа для подачи через представителя, поэтому документ можно оформить только от своего имени."
+            title="Представительский режим недоступен"
+          />
+        ) : null}
+
+        <WarningNotice
+          description="После первого сохранения вид документа и данные автора фиксируются для этого черновика. Перед продолжением проверьте выбранный подтип, ответчика и основные требования."
+          title="Что важно перед сохранением"
         />
-      </div>
+      </PanelCard>
 
-      {props.documentType === "rehabilitation" ? (
-        <div className="space-y-4 rounded-3xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4">
-          <div className="space-y-1">
-            <h3 className="text-lg font-semibold">Поля для реабилитации</h3>
+      <ClaimsSection
+        description="Укажите рабочее название документа и способ подачи. Эти данные используются при первом сохранении черновика."
+        title="Данные документа"
+      >
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`${props.mode}-claim-title`}>
+              Название документа
+            </label>
+            <Input
+              id={`${props.mode}-claim-title`}
+              maxLength={160}
+              onChange={(event) => {
+                props.onStateChange({
+                  ...props.state,
+                  title: event.target.value,
+                });
+              }}
+              value={props.state.title}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`${props.mode}-claim-filing-mode`}>
+              Способ подачи
+            </label>
+            <Select
+              id={`${props.mode}-claim-filing-mode`}
+              onChange={(event) => {
+                const nextFilingMode = event.target.value as ClaimsDraftPayload["filingMode"];
+                props.onStateChange({
+                  ...props.state,
+                  payload: {
+                    ...payload,
+                    filingMode: nextFilingMode,
+                    trustorSnapshot:
+                      nextFilingMode === "representative"
+                        ? (payload.trustorSnapshot ?? buildEmptyTrustorSnapshot())
+                        : null,
+                  },
+                });
+              }}
+              value={payload.filingMode}
+            >
+              <option value="self">От своего имени</option>
+              <option disabled={!props.representativeAllowed} value="representative">
+                Через представителя
+              </option>
+            </Select>
             <ClaimsFieldHint>
-              Эти поля относятся только к документу о реабилитации и после первого сохранения не меняются на другой вид документа.
+              Подача через представителя доступна только персонажу с нужным доступом.
             </ClaimsFieldHint>
           </div>
+        </div>
+      </ClaimsSection>
+
+      <ClaimsSection
+        description="Укажите ответчика или орган и кратко сформулируйте предмет спора или обращения."
+        title="Ответчик и предмет спора"
+      >
+        <div className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`${props.mode}-claim-respondent-name`}>
+                Ответчик или орган
+              </label>
+              <Input
+                id={`${props.mode}-claim-respondent-name`}
+                maxLength={160}
+                onChange={(event) => {
+                  props.onStateChange({
+                    ...props.state,
+                    payload: {
+                      ...payload,
+                      respondentName: event.target.value,
+                    },
+                  });
+                }}
+                placeholder="Наименование ответчика или органа"
+                value={payload.respondentName}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`${props.mode}-claim-subject`}>
+                Предмет требования
+              </label>
+              <Input
+                id={`${props.mode}-claim-subject`}
+                maxLength={240}
+                onChange={(event) => {
+                  props.onStateChange({
+                    ...props.state,
+                    payload: {
+                      ...payload,
+                      claimSubject: event.target.value,
+                    },
+                  });
+                }}
+                placeholder="О чём именно требование или предмет спора"
+                value={payload.claimSubject}
+              />
+            </div>
+          </div>
+        </div>
+      </ClaimsSection>
+
+      {props.documentType === "rehabilitation" ? (
+        <ClaimsSection
+          description="Эти поля относятся только к документу о реабилитации и после первого сохранения не переключаются на другой вид."
+          title="Данные по реабилитации"
+        >
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`${props.mode}-rehabilitation-case-reference`}>
@@ -448,15 +496,12 @@ export function ClaimsFormFields(props: {
                 })
               : null}
           </div>
-        </div>
+        </ClaimsSection>
       ) : (
-        <div className="space-y-4 rounded-3xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4">
-          <div className="space-y-1">
-            <h3 className="text-lg font-semibold">Поля для искового заявления</h3>
-            <ClaimsFieldHint>
-              Эти поля относятся только к исковому заявлению и не смешиваются с реабилитацией.
-            </ClaimsFieldHint>
-          </div>
+        <ClaimsSection
+          description="Эти поля относятся только к исковому заявлению и не смешиваются с документами по реабилитации."
+          title="Поля искового заявления"
+        >
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`${props.mode}-lawsuit-court-name`}>
@@ -546,91 +591,97 @@ export function ClaimsFormFields(props: {
                 : null}
             </div>
           </div>
-        </div>
+        </ClaimsSection>
       )}
 
-      <div className="space-y-2">
-        <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`${props.mode}-claim-factual-background`}>
-          Фактические обстоятельства
-        </label>
-        <Textarea
-          id={`${props.mode}-claim-factual-background`}
-          onChange={(event) => {
-            props.onStateChange({
-              ...props.state,
-              payload: {
-                ...payload,
-                factualBackground: event.target.value,
-              },
-            });
-          }}
-          placeholder="Фактические обстоятельства и хронология"
-          value={payload.factualBackground}
-        />
-        {props.renderRewriteControls?.({
-          sectionKey: "factual_background",
-          sectionLabel: "Фактические обстоятельства",
-        })}
-      </div>
+      <ClaimsSection
+        description="Опишите хронологию и фактические обстоятельства дела так, чтобы по ним можно было собрать итоговый документ."
+        title="Обстоятельства дела"
+      >
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`${props.mode}-claim-factual-background`}>
+            Фактические обстоятельства
+          </label>
+          <Textarea
+            id={`${props.mode}-claim-factual-background`}
+            onChange={(event) => {
+              props.onStateChange({
+                ...props.state,
+                payload: {
+                  ...payload,
+                  factualBackground: event.target.value,
+                },
+              });
+            }}
+            placeholder="Фактические обстоятельства и хронология"
+            value={payload.factualBackground}
+          />
+          {props.renderRewriteControls?.({
+            sectionKey: "factual_background",
+            sectionLabel: "Фактические обстоятельства",
+          })}
+        </div>
+      </ClaimsSection>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`${props.mode}-claim-legal-basis-summary`}>
-            Правовые основания
-          </label>
-          <Textarea
-            id={`${props.mode}-claim-legal-basis-summary`}
-            onChange={(event) => {
-              props.onStateChange({
-                ...props.state,
-                payload: {
-                  ...payload,
-                  legalBasisSummary: event.target.value,
-                },
-              });
-            }}
-            placeholder="Ключевые правовые основания и аргументы"
-            value={payload.legalBasisSummary}
-          />
-          {props.renderRewriteControls?.({
-            sectionKey: "legal_basis_summary",
-            sectionLabel: "Правовые основания",
-          })}
+      <ClaimsSection
+        description="Соберите правовые основания и требования в одном месте, чтобы их было проще проверить перед генерацией."
+        title="Правовая позиция и требования"
+      >
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`${props.mode}-claim-legal-basis-summary`}>
+              Правовые основания
+            </label>
+            <Textarea
+              id={`${props.mode}-claim-legal-basis-summary`}
+              onChange={(event) => {
+                props.onStateChange({
+                  ...props.state,
+                  payload: {
+                    ...payload,
+                    legalBasisSummary: event.target.value,
+                  },
+                });
+              }}
+              placeholder="Ключевые правовые основания и аргументы"
+              value={payload.legalBasisSummary}
+            />
+            {props.renderRewriteControls?.({
+              sectionKey: "legal_basis_summary",
+              sectionLabel: "Правовые основания",
+            })}
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`${props.mode}-claim-requested-relief`}>
+              Требования заявителя
+            </label>
+            <Textarea
+              id={`${props.mode}-claim-requested-relief`}
+              onChange={(event) => {
+                props.onStateChange({
+                  ...props.state,
+                  payload: {
+                    ...payload,
+                    requestedRelief: event.target.value,
+                  },
+                });
+              }}
+              placeholder="Что именно просит заявитель"
+              value={payload.requestedRelief}
+            />
+            {props.renderRewriteControls?.({
+              sectionKey: "requested_relief",
+              sectionLabel: "Требования заявителя",
+            })}
+          </div>
         </div>
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`${props.mode}-claim-requested-relief`}>
-            Требования заявителя
-          </label>
-          <Textarea
-            id={`${props.mode}-claim-requested-relief`}
-            onChange={(event) => {
-              props.onStateChange({
-                ...props.state,
-                payload: {
-                  ...payload,
-                  requestedRelief: event.target.value,
-                },
-              });
-            }}
-            placeholder="Что именно просит заявитель"
-            value={payload.requestedRelief}
-          />
-          {props.renderRewriteControls?.({
-            sectionKey: "requested_relief",
-            sectionLabel: "Требования заявителя",
-          })}
-        </div>
-      </div>
+      </ClaimsSection>
 
       {payload.filingMode === "representative" ? (
-        <div className="space-y-4 rounded-3xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4">
-          <div className="space-y-1">
-            <h3 className="text-lg font-semibold">Данные доверителя</h3>
-            <ClaimsFieldHint>
-              Данные доверителя сохраняются внутри документа. Список доверителей используется только для быстрого заполнения и не меняет уже сохранённый черновик автоматически.
-            </ClaimsFieldHint>
-          </div>
-
+        <ClaimsSection
+          description="Данные доверителя сохраняются внутри документа. Список доверителей используется только для быстрого заполнения."
+          title="Данные доверителя"
+        >
           <DocumentTrustorRegistryPrefill
             items={props.trustorRegistry}
             onApply={(trustor) => {
@@ -693,7 +744,6 @@ export function ClaimsFormFields(props: {
               />
             </div>
           </div>
-
           <div className="space-y-2">
             <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`${props.mode}-claim-trustor-note`}>
               Примечание по доверителю
@@ -716,16 +766,13 @@ export function ClaimsFormFields(props: {
               value={payload.trustorSnapshot?.note ?? ""}
             />
           </div>
-        </div>
+        </ClaimsSection>
       ) : null}
 
-      <div className="space-y-4 rounded-3xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4">
-        <div className="space-y-1">
-            <h3 className="text-lg font-semibold">Доказательства и ссылки</h3>
-            <ClaimsFieldHint>
-            Здесь можно собрать ссылки на документы, материалы и публикации, которые пригодятся при подготовке текста.
-            </ClaimsFieldHint>
-        </div>
+      <ClaimsSection
+        description="Здесь можно собрать ссылки на документы, материалы и публикации, которые пригодятся при подготовке текста."
+        title="Доказательства и ссылки"
+      >
         <EvidenceGroupsEditor
           evidenceGroups={payload.evidenceGroups}
           onChange={(groups) => {
@@ -738,27 +785,32 @@ export function ClaimsFormFields(props: {
             });
           }}
         />
-      </div>
+      </ClaimsSection>
 
-      <div className="space-y-2">
-        <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`${props.mode}-claim-working-notes`}>
-          Рабочие заметки
-        </label>
-        <Textarea
-          id={`${props.mode}-claim-working-notes`}
-          onChange={(event) => {
-            props.onStateChange({
-              ...props.state,
-              payload: {
-                ...payload,
-                workingNotes: event.target.value,
-              },
-            });
-          }}
-          placeholder="Внутренние рабочие заметки по документу"
-          value={payload.workingNotes}
-        />
-      </div>
+      <ClaimsSection
+        description="Рабочие заметки не попадают в итоговый документ и помогают зафиксировать внутренние комментарии по делу."
+        title="Рабочие заметки"
+      >
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={`${props.mode}-claim-working-notes`}>
+            Рабочие заметки
+          </label>
+          <Textarea
+            id={`${props.mode}-claim-working-notes`}
+            onChange={(event) => {
+              props.onStateChange({
+                ...props.state,
+                payload: {
+                  ...payload,
+                  workingNotes: event.target.value,
+                },
+              });
+            }}
+            placeholder="Внутренние рабочие заметки по документу"
+            value={payload.workingNotes}
+          />
+        </div>
+      </ClaimsSection>
     </div>
   );
 }

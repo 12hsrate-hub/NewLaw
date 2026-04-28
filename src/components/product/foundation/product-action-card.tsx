@@ -1,5 +1,4 @@
-import Link from "next/link";
-
+import { ButtonLink } from "@/components/ui/button-link";
 import { EmbeddedCard } from "@/components/ui/embedded-card";
 import { cn } from "@/utils/cn";
 
@@ -7,22 +6,6 @@ type ProductAction = {
   href: string;
   label: string;
 };
-
-function ActionLink(props: ProductAction & { primary?: boolean }) {
-  return (
-    <Link
-      className={cn(
-        "inline-flex items-center justify-center rounded-2xl border px-4 py-2.5 text-sm font-medium transition",
-        props.primary
-          ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--foreground)] hover:bg-[var(--accent-soft-strong)]"
-          : "border-[var(--border)] bg-[var(--surface-subtle)] text-[var(--foreground)] hover:bg-[var(--surface-hover)]",
-      )}
-      href={props.href}
-    >
-      {props.label}
-    </Link>
-  );
-}
 
 export function ProductActionCard(props: {
   eyebrow?: string;
@@ -48,9 +31,13 @@ export function ProductActionCard(props: {
         ) : null}
       </div>
       <div className="flex flex-wrap gap-3">
-        <ActionLink href={props.primaryAction.href} label={props.primaryAction.label} primary />
+        <ButtonLink href={props.primaryAction.href} variant="primary">
+          {props.primaryAction.label}
+        </ButtonLink>
         {props.secondaryAction ? (
-          <ActionLink href={props.secondaryAction.href} label={props.secondaryAction.label} />
+          <ButtonLink href={props.secondaryAction.href} variant="secondary">
+            {props.secondaryAction.label}
+          </ButtonLink>
         ) : null}
       </div>
     </EmbeddedCard>

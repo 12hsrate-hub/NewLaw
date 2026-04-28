@@ -78,7 +78,9 @@ describe("account layout", () => {
     );
 
     expect(html).toContain("Навигация аккаунта");
-    expect(html).toContain("Lawyer5RP");
+    expect(html).toContain("Lawyer");
+    expect(html).toContain(">5<");
+    expect(html).toContain("RP");
     expect(html).toContain('data-variant="wide"');
     expect(html).toContain("Аккаунт");
     expect(html).toContain("Здесь находятся настройки аккаунта, безопасность, доступы и служебные обзорные разделы.");

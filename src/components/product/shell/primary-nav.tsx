@@ -17,7 +17,7 @@ function isActive(currentPath: string, href: string) {
 }
 
 const baseLinkClass =
-  "inline-flex items-center justify-center rounded-2xl border px-4 py-2 text-sm font-medium transition";
+  "inline-flex items-center justify-center rounded-2xl border px-4 py-2 text-sm font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus-ring)]";
 
 export function PrimaryNav({
   currentPath,
@@ -32,7 +32,10 @@ export function PrimaryNav({
   ];
 
   return (
-    <nav aria-label="Основная навигация" className="flex flex-wrap gap-3 border-t border-[var(--border)] pt-4">
+    <nav
+      aria-label="Основная навигация"
+      className="flex flex-wrap gap-2.5 border-t border-[var(--divider)] pt-4"
+    >
       {items.map((item) => {
         const active = isActive(currentPath, item.href);
 
@@ -42,8 +45,8 @@ export function PrimaryNav({
             className={cn(
               baseLinkClass,
               active
-                ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--foreground)]"
-                : "border-[var(--border)] bg-[var(--surface-subtle)] text-[var(--foreground)] hover:bg-[var(--surface-hover)]",
+                ? "border-[var(--button-primary-border)] bg-[var(--accent-soft-strong)] text-[var(--foreground)]"
+                : "border-[var(--button-secondary-border)] bg-[var(--button-secondary-bg)] text-[var(--button-secondary-fg)] hover:bg-[var(--button-secondary-hover)]",
             )}
             href={item.href}
           >
@@ -57,8 +60,8 @@ export function PrimaryNav({
           className={cn(
             baseLinkClass,
             isActive(currentPath, documentsHref)
-              ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--foreground)]"
-              : "border-[var(--border)] bg-[var(--surface-subtle)] text-[var(--foreground)] hover:bg-[var(--surface-hover)]",
+              ? "border-[var(--button-primary-border)] bg-[var(--accent-soft-strong)] text-[var(--foreground)]"
+              : "border-[var(--button-secondary-border)] bg-[var(--button-secondary-bg)] text-[var(--button-secondary-fg)] hover:bg-[var(--button-secondary-hover)]",
           )}
           href={documentsHref}
         >
@@ -71,8 +74,8 @@ export function PrimaryNav({
           className={cn(
             baseLinkClass,
             isActive(currentPath, lawyerWorkspaceHref)
-              ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--foreground)]"
-              : "border-[var(--border)] bg-[var(--surface-subtle)] text-[var(--foreground)] hover:bg-[var(--surface-hover)]",
+              ? "border-[var(--button-primary-border)] bg-[var(--accent-soft-strong)] text-[var(--foreground)]"
+              : "border-[var(--button-secondary-border)] bg-[var(--button-secondary-bg)] text-[var(--button-secondary-fg)] hover:bg-[var(--button-secondary-hover)]",
           )}
           href={lawyerWorkspaceHref}
         >

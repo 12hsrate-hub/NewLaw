@@ -43,7 +43,9 @@ describe("assistant layout", () => {
     expect(getPrimaryShellContext).toHaveBeenCalledWith({
       currentPath: "/assistant",
     });
-    expect(html).toContain("Lawyer5RP");
+    expect(html).toContain("Lawyer");
+    expect(html).toContain(">5<");
+    expect(html).toContain("RP");
     expect(html).toContain('href="/assistant"');
     expect(html).toContain("Assistant child");
   });

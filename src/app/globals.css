@@ -19,6 +19,30 @@
   --surface-hover: rgba(255, 255, 255, 0.92);
   --shadow-soft: 0 24px 80px rgba(23, 33, 43, 0.12);
   --info: #45698d;
+  --button-primary-bg: #8d4f31;
+  --button-primary-border: #8d4f31;
+  --button-primary-fg: #fff7f0;
+  --button-primary-hover: #7c452d;
+  --button-secondary-bg: rgba(255, 255, 255, 0.72);
+  --button-secondary-border: rgba(23, 33, 43, 0.12);
+  --button-secondary-fg: #17212b;
+  --button-secondary-hover: rgba(255, 255, 255, 0.92);
+  --button-danger-bg: #9e4b45;
+  --button-danger-border: #9e4b45;
+  --button-danger-fg: #fff4f3;
+  --button-danger-hover: #8b3f3a;
+  --status-success-bg: rgba(74, 138, 104, 0.15);
+  --status-success-border: rgba(74, 138, 104, 0.3);
+  --status-success-fg: #2f6948;
+  --status-warning-bg: rgba(183, 135, 57, 0.16);
+  --status-warning-border: rgba(183, 135, 57, 0.3);
+  --status-warning-fg: #8d6324;
+  --status-danger-bg: rgba(158, 75, 69, 0.14);
+  --status-danger-border: rgba(158, 75, 69, 0.3);
+  --status-danger-fg: #8b3f3a;
+  --focus-ring: #8d4f31;
+  --selected-row: rgba(141, 79, 49, 0.12);
+  --divider: rgba(23, 33, 43, 0.16);
 }
 
 .theme-workspace {
@@ -41,6 +65,30 @@
   --surface-hover: rgba(41, 49, 61, 0.98);
   --shadow-soft: 0 18px 42px rgba(0, 0, 0, 0.24);
   --info: #8cb0d4;
+  --button-primary-bg: #c29a54;
+  --button-primary-border: #c29a54;
+  --button-primary-fg: #16120d;
+  --button-primary-hover: #d6ae63;
+  --button-secondary-bg: rgba(34, 42, 53, 0.92);
+  --button-secondary-border: rgba(236, 230, 221, 0.1);
+  --button-secondary-fg: #ece6dd;
+  --button-secondary-hover: rgba(41, 49, 61, 0.98);
+  --button-danger-bg: #9f5b55;
+  --button-danger-border: #b66f67;
+  --button-danger-fg: #fff2ef;
+  --button-danger-hover: #b66f67;
+  --status-success-bg: rgba(74, 138, 104, 0.15);
+  --status-success-border: rgba(74, 138, 104, 0.3);
+  --status-success-fg: #9ed8b3;
+  --status-warning-bg: rgba(183, 135, 57, 0.16);
+  --status-warning-border: rgba(183, 135, 57, 0.3);
+  --status-warning-fg: #f0d4a0;
+  --status-danger-bg: rgba(159, 91, 85, 0.16);
+  --status-danger-border: rgba(182, 111, 103, 0.32);
+  --status-danger-fg: #f7c3bd;
+  --focus-ring: #d6ae63;
+  --selected-row: rgba(194, 154, 84, 0.18);
+  --divider: rgba(236, 230, 221, 0.14);
 }
 
 * {

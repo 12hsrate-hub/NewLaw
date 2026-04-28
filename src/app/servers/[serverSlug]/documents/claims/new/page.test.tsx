@@ -75,7 +75,8 @@ describe("/servers/[serverSlug]/documents/claims/new page", () => {
       serverSlug: "blackberry",
       nextPath: "/servers/blackberry/documents/claims/new",
     });
-    expect(html).toContain("Черновик документа");
+    expect(html).toContain("Новый документ по реабилитации");
+    expect(html).toContain("Рабочая форма документа");
     expect(html).toContain("Вид документа: Реабилитация");
     expect(html).toContain("Создать черновик");
     expect(html).toContain("После этого вид документа и данные автора фиксируются в черновике.");

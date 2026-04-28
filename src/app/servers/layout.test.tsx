@@ -66,7 +66,9 @@ describe("servers layout", () => {
     expect(getPrimaryShellContext).toHaveBeenCalledWith({
       currentPath: "/servers",
     });
-    expect(html).toContain("Lawyer5RP");
+    expect(html).toContain("Lawyer");
+    expect(html).toContain(">5<");
+    expect(html).toContain("RP");
     expect(html).toContain('href="/servers/blackberry/documents"');
     expect(html).toContain('href="/servers/blackberry/lawyer"');
     expect(html).toContain(">Переключить<");

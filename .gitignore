@@ -23,6 +23,7 @@ pnpm-debug.log*
 # tests
 playwright-report/
 test-results/
+playwright/.auth/
 
 # misc
 .DS_Store

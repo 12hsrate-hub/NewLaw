@@ -68,8 +68,9 @@ describe("/servers/[serverSlug]/documents/ogp-complaints/new page", () => {
       }),
     );
 
-    expect(html).toContain("После первого сохранения откроется обычный редактор документа");
-    expect(html).toContain("Сейчас выбран первый доступный персонаж");
+    expect(html).toContain("Новая жалоба в Офис Генерального прокурора");
+    expect(html).toContain("Заполните данные обращения, потерпевшего, объекта заявления и доказательства");
+    expect(html).toContain("Сейчас выбран первый доступный профиль");
     expect(html).toContain("Подача: от своего имени");
     expect(html).toContain("Доказательства");
     expect(html).toContain("Создать черновик жалобы");
